@@ -37,11 +37,18 @@ The runner requires:
 - Python 3.11 or later and Git.
 - A runner service owned by `neuron`, with Docker access.
 - The custom runner label `theos-rpi`, in addition to `self-hosted`, `linux`, and `ARM64`.
-- A private configuration file at `/home/neuron/theos-deploy/.env`.
+- A private configuration file at `/home/neuron/theos-deploy/.env.pi`, with `.env` linking to it.
 
 Set the repository variable `THEOS_DEPLOY_DIR` to use another deployment directory.
 Keep this directory outside the runner checkout.
 Use the normal [deployment configuration](DEPLOYMENT.md#configure-the-application).
+The local `.env.pi` is ignored by Git and has mode `0600`.
+Its Pi copy also has mode `0600`. The local development `.env` remains separate.
+The configured browser user and administrator are `Parth`.
+Gmail uses `https://mytheos.parth-shastri.com/oauth/gmail/callback`.
+Google Health uses `https://mytheos.parth-shastri.com/oauth/health/callback`.
+These are the existing commented HTTPS callbacks from the local configuration.
+Register those exact callback URIs with the corresponding Google OAuth clients.
 Application credentials remain on the Pi, outside Git.
 The workflow uses its temporary GitHub token to pull the private GHCR image.
 
