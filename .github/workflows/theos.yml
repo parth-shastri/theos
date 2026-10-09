@@ -1,35 +1,78 @@
-name: Theos acceptance
+name: Theos CI
 on:
   push:
+    branches: ['**']
   pull_request:
+  workflow_call:
 permissions:
   contents: read
 jobs:
-  tests:
+  quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          version: "0.9.26"
-          python-version: "3.13"
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Check every owned browser JavaScript file
+        run: |
+          for file in src/theos/transports/browser/static/*.js; do
+            node --check "$file"
+          done
+      - name: Install workflow and secret scanners
+        run: bash scripts/install_ci_tools.sh
+      - name: Validate GitHub Actions workflows and installer
+        run: |
+          .ci-tools/actionlint
+          bash -n scripts/install_ci_tools.sh
+          shellcheck scripts/install_ci_tools.sh
+      - name: Scan Git history for secrets
+        run: .ci-tools/gitleaks git --redact --no-banner
+  tests:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.26'
+          python-version: ${{ matrix.python }}
+          enable-cache: true
       - run: uv sync --locked --extra server --extra terminal
       - run: uv run --no-sync ruff check src/theos tests/app
       - run: uv run --no-sync ruff format --check src/theos tests/app
       - run: uv run --no-sync pytest -q
       - run: uv build
-      - name: Check installed wheel outside the source tree
+      - name: Check installed wheel and lightweight remote client
         run: |
+          wheel=$(find "$PWD/dist" -name '*.whl' -print -quit)
           uv venv /tmp/package-check
-          uv pip install --python /tmp/package-check/bin/python "$(find dist -name '*.whl' -print -quit)[terminal]"
+          uv pip install --python /tmp/package-check/bin/python "${wheel}[terminal]"
+          uv venv /tmp/client-check
+          uv pip install --python /tmp/client-check/bin/python "${wheel}[client]"
           cd /tmp
           /tmp/package-check/bin/python -c 'import theos, harness, renderer; from importlib.resources import files; assert (files("theos") / "transports/browser/static/index.html").is_file()'
           /tmp/package-check/bin/theos --help
+          /tmp/client-check/bin/theos --help
+          /tmp/client-check/bin/python -c 'from importlib.util import find_spec; assert find_spec("fastapi") is None; assert find_spec("openai") is None'
       - run: cp .env.minimal .env
       - run: docker compose config --quiet
       - run: docker compose -f compose.yaml -f compose.dev.yaml config --quiet
   container:
+    name: Container ${{ matrix.architecture }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: ubuntu-latest
@@ -37,19 +80,24 @@ jobs:
           - runner: ubuntu-24.04-arm
             architecture: arm64
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           platforms: linux/${{ matrix.architecture }}
           load: true
           tags: theos:test
+          cache-from: type=gha,scope=${{ matrix.architecture }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.architecture }}
       - name: Run container acceptance and measure resources
         run: |
           docker run -d --name theos-smoke -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 theos:test
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
             sleep 2
           done
@@ -57,10 +105,29 @@ jobs:
           docker stats --no-stream --format '{{json .}}' theos-smoke > resources-${{ matrix.architecture }}.json
           test "$(docker exec theos-smoke id -u)" = 10001
           docker restart theos-smoke
-          sleep 3
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
+            sleep 2
+          done
           python3 scripts/theos_smoke.py --check-restart
           docker stop theos-smoke
-      - uses: actions/upload-artifact@v4
+      - name: Container failure output
+        if: failure()
+        run: docker logs theos-smoke || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: resources-${{ matrix.architecture }}
           path: resources-${{ matrix.architecture }}.json
+  passed:
+    name: CI passed
+    if: always()
+    needs: [quality, tests, container]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every check to pass
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          TESTS: ${{ needs.tests.result }}
+          CONTAINER: ${{ needs.container.result }}
+        run: test "$QUALITY" = success && test "$TESTS" = success && test "$CONTAINER" = success
