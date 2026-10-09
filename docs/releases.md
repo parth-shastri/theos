@@ -49,11 +49,13 @@ Gmail uses `https://theos.parth-shastri.com/oauth/gmail/callback`.
 Google Health uses `https://theos.parth-shastri.com/oauth/health/callback`.
 These HTTPS callbacks use the selected Pi hostname.
 Register those exact callback URIs with the corresponding Google OAuth clients.
-The active Cloudflare tunnel routes `theos.parth-shastri.com` paths matching `^/oauth/.*` to `http://localhost:8080`.
+The active Cloudflare tunnel routes all paths on `theos.parth-shastri.com` to `http://localhost:8080`.
 The proxied CNAME points to `4584e314-7c3f-448a-8118-7b6e324ebe3c.cfargotunnel.com`.
 Both public callback routes returned the expected missing-state validation response.
 The operator updated the Google redirect list; full Google consent and account linking remain untested.
-The current tunnel publishes only OAuth paths. Use localhost or an SSH forward for the Pi browser and API.
+Open `https://theos.parth-shastri.com/` for the full Pi browser app. Protected API routes require a valid browser token.
+Public HTTPS checks passed for the homepage and its assets, health endpoints, authenticated owner APIs, and rejection of anonymous API requests.
+A real model turn completed through the public SSE stream, and its conversation history was saved.
 The existing Vercel frontend remains at `mytheos.parth-shastri.com`.
 Application credentials remain on the Pi, outside Git.
 The workflow uses its temporary GitHub token to pull the private GHCR image.
