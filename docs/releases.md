@@ -14,7 +14,7 @@ Checks cover:
 - Syntax checks for every owned browser JavaScript file.
 - Package builds, wheel assets, and the lightweight client installation.
 - Production and development Compose configuration.
-- Linux containers on amd64, arm64, 386, ARMv7, PPC64LE, s390x, and RISC-V64.
+- Linux containers on amd64, arm64, 386, ARMv7, and PPC64LE. An explicit extended run adds s390x and RISC-V64.
   Each image runs readiness, authenticated chat, restart recovery, native-library, non-root, and CPU word-size checks.
 - Workflow validation with actionlint and Git-history secret scanning with Gitleaks.
 
@@ -33,14 +33,23 @@ Live services still need the separate [acceptance checks](runtime/acceptance.md#
 | `linux/386` | 32-bit x86 | Emulated |
 | `linux/arm/v7` | 32-bit ARMv7 | Emulated |
 | `linux/ppc64le` | IBM POWER, little endian | Emulated |
-| `linux/s390x` | IBM Z | Emulated |
-| `linux/riscv64` | 64-bit RISC-V | Emulated |
+| `linux/s390x` | IBM Z | Extended, emulated |
+| `linux/riscv64` | 64-bit RISC-V | Extended, emulated |
 
 The image uses the multi-platform Python 3.13 Debian Trixie base.
 On targets without matching dependency wheels, the builder installs C and Rust build tools.
 Those tools stay in the builder stage. The runtime includes the shared libraries needed by source-built Pillow.
 Emulated checks verify behavior; they do not establish performance or memory requirements on real hardware.
-The `CI passed` gate requires every architecture to pass. Source builds can make a cold CI run slower.
+The `CI passed` gate requires every selected architecture to pass. Source builds can make a cold CI run slower.
+Routine pushes, pull requests, and Pi releases check the first five targets.
+IBM Z and RISC-V are extended checks because their source builds are much slower under emulation.
+Run all seven from the Actions page with the extended-architectures option, or use:
+
+```sh
+gh workflow run theos.yml --ref main -f extended_architectures=true
+```
+
+Extended targets need a successful extended run before they can be claimed as validated for a release.
 
 Build on the destination Linux host with the normal Compose procedure; Docker selects that host's architecture.
 For a cross-build, use Buildx with the platform from this table, for example:

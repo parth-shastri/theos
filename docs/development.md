@@ -66,8 +66,8 @@ uv build
 
 The default pytest selection excludes tests marked `live`.
 The [acceptance guide](runtime/acceptance.md) lists live checks and recorded results.
-The [workflow](../.github/workflows/theos.yml) checks Python 3.12 and 3.13, all owned browser JavaScript, wheel imports, the lightweight client, Compose, and containers on seven Linux architectures.
-AMD64 and ARM64 run natively; 386, ARMv7, PPC64LE, s390x, and RISC-V64 run under QEMU.
+The [workflow](../.github/workflows/theos.yml) checks Python 3.12 and 3.13, all owned browser JavaScript, wheel imports, the lightweight client, Compose, and containers on five Linux architectures. An explicit extended run adds IBM Z and RISC-V.
+AMD64 and ARM64 run natively; 386, ARMv7, and PPC64LE run under QEMU, as do the two extended targets.
 Each container exercises native libraries, CPU word size, authenticated chat, and restart persistence.
 It also validates workflows and scans Git history for secrets.
 Read [Git and releases](releases.md) for branch and tagging procedures.

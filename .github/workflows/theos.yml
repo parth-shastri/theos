@@ -3,7 +3,17 @@ on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
+    inputs:
+      extended_architectures:
+        description: Also check IBM Z and RISC-V under emulation
+        type: boolean
+        default: true
   workflow_call:
+    inputs:
+      extended_architectures:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -73,45 +83,19 @@ jobs:
     name: Container ${{ matrix.architecture }}
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 7
       matrix:
-        include:
-          - runner: ubuntu-latest
-            architecture: amd64
-            platform: linux/amd64
-            emulated: false
-          - runner: ubuntu-24.04-arm
-            architecture: arm64
-            platform: linux/arm64
-            emulated: false
-          - runner: ubuntu-latest
-            architecture: '386'
-            platform: linux/386
-            emulated: true
-          - runner: ubuntu-latest
-            architecture: armv7
-            platform: linux/arm/v7
-            emulated: true
-          - runner: ubuntu-latest
-            architecture: ppc64le
-            platform: linux/ppc64le
-            emulated: true
-          - runner: ubuntu-latest
-            architecture: s390x
-            platform: linux/s390x
-            emulated: true
-          - runner: ubuntu-latest
-            architecture: riscv64
-            platform: linux/riscv64
-            emulated: true
-    runs-on: ${{ matrix.runner }}
+        architecture: ${{ fromJSON(inputs.extended_architectures && '["amd64", "arm64", "386", "armv7", "ppc64le", "s390x", "riscv64"]' || '["amd64", "arm64", "386", "armv7", "ppc64le"]') }}
+    runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    env:
+      TEST_PLATFORM: ${{ fromJSON('{"amd64":"linux/amd64","arm64":"linux/arm64","386":"linux/386","armv7":"linux/arm/v7","ppc64le":"linux/ppc64le","s390x":"linux/s390x","riscv64":"linux/riscv64"}')[matrix.architecture] }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Install emulators for the additional architectures
-        if: matrix.emulated
+        if: matrix.architecture != 'amd64' && matrix.architecture != 'arm64'
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         with:
           platforms: all
@@ -119,14 +103,13 @@ jobs:
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          platforms: ${{ matrix.platform }}
+          platforms: ${{ env.TEST_PLATFORM }}
           load: true
           tags: theos:test
           cache-from: type=gha,scope=${{ matrix.architecture }}
           cache-to: type=gha,mode=max,scope=${{ matrix.architecture }}
       - name: Run container acceptance and measure resources
         env:
-          TEST_PLATFORM: ${{ matrix.platform }}
           EXPECTED_BITS: ${{ (matrix.architecture == '386' || matrix.architecture == 'armv7') && '32' || '64' }}
           EXPECTED_ARCH: ${{ matrix.architecture == 'armv7' && 'arm' || matrix.architecture }}
         run: |
