@@ -14,7 +14,8 @@ Checks cover:
 - Syntax checks for every owned browser JavaScript file.
 - Package builds, wheel assets, and the lightweight client installation.
 - Production and development Compose configuration.
-- Native Linux amd64 and arm64 container chat, restart recovery, and non-root execution.
+- Linux containers on amd64, arm64, 386, ARMv7, PPC64LE, s390x, and RISC-V64.
+  Each image runs readiness, authenticated chat, restart recovery, native-library, non-root, and CPU word-size checks.
 - Workflow validation with actionlint and Git-history secret scanning with Gitleaks.
 
 The `CI passed` check succeeds only when every check succeeds.
@@ -22,6 +23,38 @@ The current GitHub account cannot enforce branch protection on this private repo
 Until protection is available, review this check before merging or tagging.
 Workflow actions are pinned to commit hashes.
 Live services still need the separate [acceptance checks](runtime/acceptance.md#live-service-checks).
+
+## Architecture coverage
+
+| Docker platform | CPU family | CI execution |
+| --- | --- | --- |
+| `linux/amd64` | 64-bit x86, including Intel and AMD | Native |
+| `linux/arm64` | 64-bit ARM, including the Pi deployment | Native |
+| `linux/386` | 32-bit x86 | Emulated |
+| `linux/arm/v7` | 32-bit ARMv7 | Emulated |
+| `linux/ppc64le` | IBM POWER, little endian | Emulated |
+| `linux/s390x` | IBM Z | Emulated |
+| `linux/riscv64` | 64-bit RISC-V | Emulated |
+
+The image uses the multi-platform Python 3.13 Debian Trixie base.
+On targets without matching dependency wheels, the builder installs C and Rust build tools.
+Those tools stay in the builder stage. The runtime includes the shared libraries needed by source-built Pillow.
+Emulated checks verify behavior; they do not establish performance or memory requirements on real hardware.
+The `CI passed` gate requires every architecture to pass. Source builds can make a cold CI run slower.
+
+Build on the destination Linux host with the normal Compose procedure; Docker selects that host's architecture.
+For a cross-build, use Buildx with the platform from this table, for example:
+
+```sh
+docker buildx build --platform linux/386 --load --tag theos:local .
+```
+
+Cross-builds need QEMU emulation when the build host cannot execute the target binaries.
+The tagged Raspberry Pi pipeline currently publishes an ARM64 image.
+Use a source build for other architectures.
+Docker Desktop can run Linux containers on compatible Windows and macOS machines.
+Native server execution on Windows is not supported because the process lock uses `fcntl`.
+Other CPU families and native operating systems require separate validation.
 
 ## Raspberry Pi setup
 

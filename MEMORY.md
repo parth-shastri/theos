@@ -193,7 +193,7 @@ Preserve historical paths in provenance manifests.
 The private GitHub repository is `parth-shastri/theos`.
 Use `main` for development and `rpi` for Raspberry Pi releases.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
-CI covers Python 3.12 and 3.13, browser syntax, packages, both native container architectures, workflow validation, and secret scanning.
+CI covers Python 3.12 and 3.13, browser syntax, packages, native amd64 and arm64 containers plus emulated 386, ARMv7, PPC64LE, s390x, and RISC-V64 containers, workflow validation, and secret scanning.
 The release workflow publishes a tested arm64 image and deploys its digest with a Pi runner labeled `theos-rpi`.
 Activation uses a separate restored data volume. Failure restores the previous image and original volume.
 The Pi SSH alias is `neuralbox-pi`; the default deployment directory is `/home/neuron/theos-deploy`.
