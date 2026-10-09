@@ -45,11 +45,16 @@ Use the normal [deployment configuration](DEPLOYMENT.md#configure-the-applicatio
 The local `.env.pi` is ignored by Git and has mode `0600`.
 Its Pi copy also has mode `0600`. The local development `.env` remains separate.
 The configured browser user and administrator are `owner`.
-Gmail uses `https://mytheos.parth-shastri.com/oauth/gmail/callback`.
-Google Health uses `https://mytheos.parth-shastri.com/oauth/health/callback`.
-These are the existing commented HTTPS callbacks from the local configuration.
+Gmail uses `https://theos.parth-shastri.com/oauth/gmail/callback`.
+Google Health uses `https://theos.parth-shastri.com/oauth/health/callback`.
+These HTTPS callbacks use the selected Pi hostname.
 Register those exact callback URIs with the corresponding Google OAuth clients.
-The existing Pi Cloudflare service currently lacks `/etc/cloudflared/token`; restore its tunnel credential before relying on public OAuth callbacks.
+The active Cloudflare tunnel routes `theos.parth-shastri.com` paths matching `^/oauth/.*` to `http://localhost:8080`.
+The proxied CNAME points to `4584e314-7c3f-448a-8118-7b6e324ebe3c.cfargotunnel.com`.
+Both public callback routes returned the expected missing-state validation response.
+The operator updated the Google redirect list; full Google consent and account linking remain untested.
+The current tunnel publishes only OAuth paths. Use localhost or an SSH forward for the Pi browser and API.
+The existing Vercel frontend remains at `mytheos.parth-shastri.com`.
 Application credentials remain on the Pi, outside Git.
 The workflow uses its temporary GitHub token to pull the private GHCR image.
 

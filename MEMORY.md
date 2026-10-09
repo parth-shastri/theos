@@ -200,7 +200,7 @@ The Pi SSH alias is `neuralbox-pi`; the default deployment directory is `/home/n
 The Pi is online on 64-bit Debian 13 with Python 3.13.
 The repository runner is installed as a `neuron` system service. Docker access and Compose are configured.
 The operator authorized deriving a private `.env.pi` from the existing local `.env`.
-The Pi user and administrator are `owner`. Gmail and Google Health use the existing commented HTTPS callbacks at `mytheos.parth-shastri.com`.
+The Pi user and administrator are `owner`. Gmail and Google Health use HTTPS callbacks at `theos.parth-shastri.com`.
 Keep local `.env` unchanged. Store `.env.pi` with mode `0600`, outside Git and outside the runner checkout.
 On the Pi, the deployment `.env` is a symlink to `.env.pi`.
 GitHub rejected branch protection for the private repository because the account requires an upgrade.
@@ -210,5 +210,5 @@ CI passed on `main` and `rpi` with Python 3.12 and 3.13, native amd64 and arm64 
 Release `rpi-v0.1.0` is deployed and healthy on the Pi.
 The running container uses `owner` and the HTTPS Google callbacks. Readiness and browser-token authentication passed.
 The GHCR image denies anonymous pulls. The first registry upload failed with `unknown blob`; retrying publication succeeded before any deployment change.
-The existing Cloudflare tunnel service cannot start because `/etc/cloudflared/token` is missing. Public OAuth routing remains unverified and requires the tunnel credential.
+The Cloudflare tunnel is active and routes `theos.parth-shastri.com` paths matching `^/oauth/.*` to `http://localhost:8080`. Its proxied CNAME targets tunnel `4584e314-7c3f-448a-8118-7b6e324ebe3c`. Both public Google callbacks returned the expected missing-state validation response. The operator updated the Google redirect list. Full Google consent and account linking remain untested. The existing `mytheos.parth-shastri.com` frontend uses its original Vercel CNAME. The Pi browser and API remain reachable locally or over an SSH forward; the current tunnel publishes only OAuth paths.
 See [Git and releases](docs/releases.md).
