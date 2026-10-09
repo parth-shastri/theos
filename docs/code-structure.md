@@ -28,6 +28,7 @@ All source paths below start at `src/theos`.
 | Storage | SQLite transactions, migrations, restart recovery, and application message display metadata | `storage/database.py`, `storage/messages.py`, `storage/migrations/` |
 | Telegram | Poll updates, authenticate senders, onboard users, handle commands and media | `transports/telegram/` |
 | Browser | Serve chat, owner-scoped activity, administrator usage aggregates, uploads, and streamed replies | `transports/browser/app.py`, `transports/browser/activity.py`, `transports/browser/static/` |
+| Browser enrollment | Confirm Telegram-owned browser sign-in, issue hashed credentials, and revoke generated access | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py` |
 | Terminal | Run `theos` as a deployed workspace client or standalone runtime, with a generic renderer | `transports/terminal/cli.py`, `remote.py`, `routes.py`, `wire.py`, `session.py`, `app.py`, `screens.py` |
 | Operations | Redact logs and make consistent backups | `operations/logging.py`, `backup.py` |
 
@@ -81,7 +82,9 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 It reports configuration status without exposing credentials.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser user's existing account access.
-Browser IDs cannot overlap reserved Telegram and terminal namespaces.
+Configured browser IDs cannot overlap reserved Telegram and terminal namespaces.
+Generated browser credentials reuse the verified Telegram owner's private records and account access.
+Telegram and browser conversation threads remain separate.
 
 `services/personal.py` and `services/information.py` only collect related tools.
 They contain no database rules or external requests.
@@ -113,7 +116,9 @@ Health jobs inspect named remote records before another write.
 The Telegram polling loop has three numbered steps: receive, save, and dispatch.
 It saves updates and the polling offset in one transaction.
 An interrupted reply does not cause another model turn.
-`transports/telegram/onboarding.py` reserves user slots and saves the initial name and timezone before normal routing.
+`transports/telegram/onboarding.py` reserves user slots and asks for a preferred name and timezone before normal routing.
+Owner-scoped preferences retain the chosen name across restarts and conversation resets.
+`runtime/engine.py` supplies the saved display name to the model on each turn.
 `storage/telegram_access.py` checks SQL authorization and removes access-code arguments before inbox storage.
 Commands, account tool registration, and OAuth callbacks use the same private account access check.
 SQLite counts unique senders, including incomplete setup, against a maximum of 50 Telegram users.

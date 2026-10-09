@@ -88,7 +88,9 @@ Source: [connection routes](../src/theos/transports/browser/connections.py), [ac
 ## Preferences
 
 SQLite. The timezone uses the Python zoneinfo database.
-Telegram `/start` saves the initial display name from Telegram and asks for a timezone before normal chat.
+Telegram `/start` asks for a preferred name and timezone before normal chat.
+The saved display name enters owner-scoped model context on each turn.
+`/skip` accepts the saved or Telegram name, then the saved default timezone in the next step.
 The transport uses SQLite enrollment records to enforce a maximum of 50 Telegram users.
 An optional `AGENT_TELEGRAM_ACCESS_CODE` protects registration and later access through SQL authorization records.
 The transport uses Python hashlib and hmac to verify codes and store fingerprints.
@@ -97,6 +99,17 @@ This setup uses no model tool or additional service dependency.
 
 Source: [service tools](../src/theos/services/preferences/tools.py).
 See [Telegram onboarding](telegram-setup.md#user-onboarding-and-limit) for the transport flow.
+
+Telegram-confirmed browser access uses existing FastAPI, HTTPX, SQLite, hashlib, and secrets dependencies.
+`AGENT_WEB_URL` supplies the validated deployment origin.
+Private Telegram approval binds a single-use invitation to a browser cookie before credential issuance.
+SQLite stores only credential hashes. Session cookies are HttpOnly and SameSite Strict, with Secure enabled on HTTPS.
+Cookie mutations require a custom same-origin request header and reject foreign origins.
+Personal access tokens retain the existing bearer-token login interface.
+This flow adds no model tool and makes no encryption decision.
+
+Source: [credential storage](../src/theos/storage/browser_access.py), [browser sign-in](../src/theos/transports/browser/auth.py), and [Telegram web access](../src/theos/transports/telegram/web_access.py).
+The cookie controls follow [OWASP session guidance](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
 
 | Callable | Action |
 | --- | --- |

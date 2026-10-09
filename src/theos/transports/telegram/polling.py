@@ -12,7 +12,7 @@ from theos.services.errors import ServiceError
 from theos.services.zepto.auth import prepare_telegram_update as prepare_zepto_update
 from theos.storage.telegram_access import prepare_update as prepare_access_update
 
-from . import client, commands, media, onboarding, rendering
+from . import client, commands, media, onboarding, rendering, web_access
 
 logger = logging.getLogger("theos")
 
@@ -128,6 +128,8 @@ class Telegram:
         )
         async with self.chat_locks.setdefault((owner, address), asyncio.Lock()):
             if await onboarding.handle(self, message, owner, channel, chat, topic, callback):
+                return
+            if await web_access.handle(self, message, owner, channel, chat, topic, callback):
                 return
             if sensitive_return:
                 if callback or channel != "telegram-private":

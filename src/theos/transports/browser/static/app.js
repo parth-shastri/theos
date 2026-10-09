@@ -1076,7 +1076,8 @@ function toolActivity(call, status, content = null, argumentsValue = null) {
 }
 
 async function api(path, options = {}) {
-  const headers = { Authorization: `Bearer ${token}`, ...options.headers };
+  const headers = { "X-Theos-Request": "1", ...options.headers };
+  if (token) headers.Authorization = `Bearer ${token}`;
   if (options.body && !(options.body instanceof FormData))
     headers["Content-Type"] = "application/json";
   const response = await fetch(path, { ...options, headers });
@@ -1629,10 +1630,11 @@ async function login() {
     : !me.voice.transcription
       ? "Transcription service is not configured"
       : "Microphone recording requires HTTPS or localhost and a supported browser";
-  sessionStorage.setItem("theos-token", token);
+  if (token) sessionStorage.setItem("theos-token", token);
   $("login").hidden = true;
   $("workspace").hidden = false;
-  $("identity").textContent = me.id;
+  $("identity").textContent = me.display_name || me.id;
+  $("identity").title = me.id;
   $("dashboard-button").hidden = !me.admin;
   $("model").replaceChildren();
   for (const model of me.models) {
@@ -1665,11 +1667,16 @@ $("login-form").onsubmit = async (event) => {
     $("login-error").textContent = error.message;
   }
 };
-$("sign-out").onclick = () => {
+$("sign-out").onclick = async () => {
   stopRecording(true);
   releaseAudio();
-  sessionStorage.removeItem("theos-token");
-  location.reload();
+  try {
+    await json("/api/auth/logout", { method: "POST" });
+    sessionStorage.removeItem("theos-token");
+    location.reload();
+  } catch (error) {
+    showError(error);
+  }
 };
 $("new-session").onclick = () => newSession().catch(showError);
 $("composer").onsubmit = async (event) => {
@@ -2219,10 +2226,98 @@ $("connections-button").onclick = async () => {
 };
 $("refresh-connections").onclick = () => connectionAction(async () => {});
 $("back-connections").onclick = () => showView("chat-view");
-if (token)
-  login().catch((error) => {
-    $("login-error").textContent = error.message;
+let signinTimer;
+function signinError(error) {
+  clearTimeout(signinTimer);
+  $("web-signin-status").textContent = error.message;
+  $("web-signin-status").className = "error";
+}
+async function pollSignin() {
+  const status = await json("/api/onboarding/status");
+  $("web-signin-code").textContent = status.code;
+  if (status.state === "approved") {
+    const access = await json("/api/onboarding/complete", { method: "POST" });
+    token = "";
+    sessionStorage.removeItem("theos-token");
+    sessionStorage.removeItem("theos-pending-signin");
+    $("web-signin-title").textContent = "Your account is ready";
+    $("web-signin-instructions").textContent =
+      "Save your personal access token, then open your workspace.";
+    $("web-signin-code").hidden = true;
+    $("web-signin-status").textContent = "Telegram confirmed this browser.";
+    $("web-access-token").value = access.token;
+    $("web-token-save").hidden = false;
+    $("cancel-web-signin").hidden = true;
+  } else if (status.state === "pending") {
+    signinTimer = setTimeout(() => pollSignin().catch(signinError), 2000);
+  } else {
+    throw new Error(
+      "This sign-in was denied or already used. Send /web in Telegram for a new link.",
+    );
+  }
+}
+async function beginSignin(invite) {
+  $("login-form").hidden = true;
+  $("web-signin").hidden = false;
+  const result = await json("/api/onboarding/start", {
+    method: "POST",
+    body: JSON.stringify({ invite }),
   });
+  $("web-signin-code").textContent = result.code;
+  sessionStorage.setItem("theos-pending-signin", "1");
+  $("web-signin-status").textContent =
+    `Waiting for your confirmation in Telegram. Confirm before ${new Date(result.expires * 1000).toLocaleTimeString()}.`;
+  await pollSignin();
+}
+$("copy-web-token").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($("web-access-token").value);
+    $("copy-web-token").textContent = "Copied";
+  } catch (_) {
+    $("web-access-token").type = "text";
+    $("web-access-token").select();
+    $("copy-web-token").textContent = "Select and copy the token";
+  }
+};
+$("finish-web-signin").onclick = async () => {
+  $("finish-web-signin").disabled = true;
+  try {
+    await login();
+    $("web-access-token").value = "";
+  } catch (error) {
+    signinError(error);
+    $("finish-web-signin").disabled = false;
+  }
+};
+$("cancel-web-signin").onclick = async () => {
+  clearTimeout(signinTimer);
+  try {
+    await json("/api/onboarding/cancel", { method: "POST" });
+    sessionStorage.removeItem("theos-pending-signin");
+    location.reload();
+  } catch (error) {
+    signinError(error);
+  }
+};
+const signinInvite = new URLSearchParams(location.hash.slice(1)).get("onboard");
+window.addEventListener("hashchange", () => {
+  if (new URLSearchParams(location.hash.slice(1)).has("onboard"))
+    location.reload();
+});
+if (signinInvite) {
+  history.replaceState(null, "", location.pathname + location.search);
+  beginSignin(signinInvite).catch(signinError);
+} else if (sessionStorage.getItem("theos-pending-signin")) {
+  $("login-form").hidden = true;
+  $("web-signin").hidden = false;
+  $("web-signin-status").textContent =
+    "Waiting for your confirmation in Telegram.";
+  pollSignin().catch(signinError);
+} else {
+  login().catch((error) => {
+    if (token) $("login-error").textContent = error.message;
+  });
+}
 
 function brandSource() {
   return document.documentElement.dataset.theme === "light"

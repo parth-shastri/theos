@@ -24,9 +24,12 @@ AGENT_TELEGRAM_ACCESS_CODE=replace-with-your-deployment-password
 AGENT_TELEGRAM_USERS=[]
 AGENT_TELEGRAM_MAX_USERS=50
 AGENT_TELEGRAM_CHATS=[]
+AGENT_WEB_URL=https://theos.example.com
 ```
 
 A nonempty token enables polling.
+`AGENT_WEB_URL` supplies the HTTPS origin for browser sign-in links.
+Make that address reachable before onboarding users. An empty value disables automatic web links.
 An empty sender allowlist lets users register without manual ID configuration.
 When an access code exists, users send `/start <access-code>` in a private chat.
 Without an access code, `/start` permits public registration within the user limit.
@@ -58,13 +61,29 @@ BotFather privacy settings also affect which group messages Telegram delivers to
 
 1. Send `/start` in a private chat with the bot.
    If prompted, send `/start <access-code>` with the deployment password.
-2. Send your timezone, such as `Asia/Kolkata` or `UTC`.
-3. Send a short message after the setup confirmation.
+2. Send the name you want Theos to use.
+3. Send your timezone, such as `Asia/Kolkata` or `UTC`.
+4. Send a short message after the setup confirmation.
 
-The bot saves the Telegram name as the initial display name.
-Send `/skip` during setup to use the default timezone saved at registration.
+The bot asks, "What should I call you?"
+It saves your answer as your private display name and supplies it to the model on each turn.
+Names can contain up to 200 characters. The bot removes extra whitespace.
+During the name step, `/skip` accepts your saved name or Telegram name when available.
+Without a saved name, the bot asks for a name before it continues.
+During the timezone step, `/skip` accepts the default timezone saved at registration.
 The bot validates the timezone before it enables commands, media, and model turns.
 You can ask the assistant to change your display name or timezone later.
+Conversation resets retain your display name.
+
+Telegram enrollment does not grant administrator access.
+The deployment operator configures their administrator account through `AGENT_USERS` and `AGENT_ADMINS`.
+The first enrolled Telegram user receives ordinary access, like later users.
+After setup, **Open Theos** opens the browser confirmation flow when `AGENT_WEB_URL` is configured.
+Confirm the matching code in your private Telegram chat before the browser receives access.
+Save the personal token shown in the browser for future sign-in.
+Send `/web` for another link or `/web revoke` to end all generated browser access.
+See [browser access](browser.md#open-the-web-ui-from-telegram) for expiry, token rotation, and sign-out behavior.
+Encryption setup is deferred. This flow does not encrypt personal content.
 
 The default limit is 50 unique Telegram users per database.
 `AGENT_TELEGRAM_MAX_USERS` accepts limits from 1 to 50.
@@ -90,7 +109,7 @@ If existing users exceed the configured limit, the bot preserves them and refuse
    ```
 
 3. Send `/start` from a private account that meets the access settings.
-4. Complete timezone setup.
+4. Complete preferred-name and timezone setup.
 5. Send a short message.
 6. Check the configured assistant name and model response.
 
@@ -102,7 +121,9 @@ The [acceptance checklist](runtime/acceptance.md) distinguishes mock workflows f
 | Command | Action |
 | --- | --- |
 | `/start [access-code]` | Authorize, register, resume incomplete setup, or show the greeting after setup |
-| `/skip` | Use the saved default timezone during setup |
+| `/skip` | Accept the saved name or default timezone for the current setup step |
+| `/web` | Open a private browser sign-in link after enrollment |
+| `/web revoke` | Revoke all generated browser tokens and device sessions without deleting personal data |
 | `/help` | Show the greeting and command summary after setup |
 | `/new`, `/reset` | Reset conversation history and pending approvals |
 | `/resume` | Continue an interrupted turn or a turn that reached its call limit |

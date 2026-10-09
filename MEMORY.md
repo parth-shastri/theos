@@ -24,8 +24,9 @@ Updated: 2026-10-10.
 | Browser style | Controls and visual style from ocr-checker |
 | Browser usage and tools | Owner and conversation USD estimates. Administrator totals and cost breakdowns include all transports. Missing prices stay visible. Collapsed reasoning summaries and tool calls. Searchable conversation tool registry with approval labels |
 | Usage view access | Every browser user has personal Activity & usage through their token. Administrators have a separate Admin dashboard for all users and transports. Personal charts always use the authenticated owner, including administrator tokens. Administrator responses exclude conversation titles and message content |
-| Enrollment roles | The deployment operator uses an explicitly configured administrator account in `AGENT_USERS` and `AGENT_ADMINS`. First registration never grants administrator access. New Telegram enrollments receive ordinary access. Telegram-to-browser linking and automatic browser credential issuance remain planned |
-| User-owned encryption requirement | Planned: collect a public encryption key during onboarding and encrypt personal content before persistence. Database access alone must not reveal content. Keep content-free usage counters available for personal and administrator views. Public-key onboarding, encrypted storage, and a user-controlled decryption flow are not implemented. Hosted processing can expose plaintext to the running server |
+| Enrollment roles | The deployment operator uses an explicitly configured administrator account in `AGENT_USERS` and `AGENT_ADMINS`. First registration never grants administrator access. New Telegram enrollments receive ordinary access. With `AGENT_WEB_URL` configured, completed users receive a browser link and confirm a matching code in Telegram. Generated browser credentials reuse their stable Telegram owner and never grant administrator access |
+| Browser enrollment credentials | SQLite stores hashes of single-use 10-minute invitations, browser pairing secrets, personal tokens, and seven-day device sessions. Confirmed sign-in issues an HttpOnly, SameSite Strict session cookie and shows a personal token once. New sign-in replaces the saved token while retaining other device sessions. `/web revoke` removes all generated browser access without deleting personal data. Preserve configured browser IDs and do not merge accounts by name |
+| User-owned encryption requirement | Deferred: the user requested completion of onboarding without choosing an encryption mechanism. Private content storage, password wrapping, and automatic key access remain proposals. Current personal content is not encrypted. Keep the existing encrypted service credentials and content-free usage views. Hosted processing can expose plaintext to the running server |
 | Encrypted history continuity | Restore saved history automatically while a decryption grant is active. The user requested transparent access across turns. Password-based key wrapping and automatic key-service access remain proposals. Losing a runtime grant must not erase encrypted history. See `docs/architecture/theos-encryption-proposal.excalidraw` for the proposed boundary |
 | Browser model controls | Keep the current model selector. OpenRouter exposes the six requested aliases plus the existing default. Preserve explicit operator allowlists. Save supported generation parameters in SQLite migration 006. Model-specific cost rates can override shared rates |
 | Browser settings and command panels | Move model and reasoning into the header Settings dialog with generation and voice controls. Save changes together and discard canceled drafts. Use a sidebar icon beside the logo to toggle conversations. Show interactive help and usage dialogs. Keep usage access through `/usage`, without a sidebar Usage button. Keep generation controls in Settings, without `/generation`. Offer supported options for argument commands. List only `/reasoning`, with `/thinking` retained as a compatibility alias |
@@ -42,7 +43,7 @@ Updated: 2026-10-10.
 | Deployment | One application worker and scheduler per SQLite database |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
-| Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing browser IDs. Reject Telegram and terminal namespaces. No automatic cross-transport linking |
+| Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials use the enrolled Telegram owner's private account access. No automatic merging of existing browser and Telegram accounts |
 | Browser connection mentions | Show local provider logos for accounts and use-case SVG icons for all workspace services in Connections and `@` suggestions. Complete mentions at the composer caret with current account status and configured workspace services. Preserve draft text. Send mentions as ordinary user text without changing access or approval policy |
 | Zepto account linking | Browser and private Telegram users authorize their own accounts through MCP OAuth. Theos encrypts credentials in SQLite. Use the localhost return handoff by default, with an optional public HTTPS callback |
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
@@ -88,7 +89,8 @@ Connected clients read shared browser conversations from the deployment using th
 The server owns the only runtime, database connection, and scheduler for that deployment.
 It sends display-only events without provider state or harness run results.
 Client disconnection does not cancel server work. Reconnect and inspect saved history before another request.
-The terminal never adopts Telegram account identity or grants its account tools.
+Standalone terminal accounts never adopt Telegram identity or account tools.
+Connected clients use the authenticated browser owner, including Telegram-confirmed browser credentials.
 
 Ordinary chat continues during optional memory outages.
 Consolidation requires explicit per-user opt-in through the approved memory automation tool.
@@ -112,8 +114,11 @@ Approvals, chat state, and sandbox references belong to the conversation.
 Browser approval cards clear when the server accepts either decision.
 Disable decision buttons during submission and refresh saved approvals after stream failures.
 Reuse tool rows by call ID so resumed actions replace stale waiting states.
-Browser IDs cannot use the `telegram:`, `telegram-group:`, or `terminal:` prefixes.
-Existing browser IDs remain stable. There is no automatic browser and Telegram account linking.
+Configured browser IDs cannot use the `telegram:`, `telegram-group:`, or `terminal:` prefixes.
+Existing browser IDs remain stable.
+Telegram-confirmed browser credentials reuse the enrolled sender's `telegram:<id>` owner.
+The browser and Telegram share personal records and usage while retaining separate conversation threads.
+Existing configured browser accounts do not merge with Telegram accounts automatically.
 An empty Telegram sender allowlist permits registration through the bot within the user limit.
 When configured, the deployment access code is required through `/start <access-code>`.
 Without an access code, registration is public.

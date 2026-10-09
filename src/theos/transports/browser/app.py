@@ -27,9 +27,12 @@ from theos.runtime.model_catalog import (
 from theos.runtime.scheduler import Scheduler
 from theos.runtime.usage import usage_summary
 from theos.services.errors import ServiceError
+from theos.services.preferences.tools import preferences
 from theos.settings import Settings
+from theos.storage import browser_access
 from theos.storage.database import Database
 from theos.transports.browser.activity import activity_summary
+from theos.transports.browser.auth import SESSION_COOKIE, register_auth, same_origin
 from theos.transports.telegram.polling import Telegram
 
 
@@ -144,6 +147,15 @@ def create_app(settings=None, runtime=None):
         for user, secret in settings.users.items():
             if hmac.compare_digest(token.encode(), secret.get_secret_value().encode()):
                 owner = user
+        db = request.app.state.runtime.db
+        if not owner and token:
+            owner = browser_access.credential_owner(settings, db, token, "token")
+        if not authorization and request.cookies.get(SESSION_COOKIE):
+            owner = browser_access.credential_owner(
+                settings, db, request.cookies[SESSION_COOKIE], "session"
+            )
+            if request.method not in {"GET", "HEAD", "OPTIONS"}:
+                same_origin(request, settings)
         if not owner:
             raise HTTPException(401, "Supply your private browser token.")
         request.app.state.runtime.db.ensure_user(owner)
@@ -157,6 +169,7 @@ def create_app(settings=None, runtime=None):
     def current(request):
         return request.app.state.runtime
 
+    register_auth(app, settings, current)
     from .connections import register_connections
 
     register_connections(app, settings, current, identity)
@@ -209,9 +222,12 @@ def create_app(settings=None, runtime=None):
         return await ready(request)
 
     @app.get("/api/me")
-    async def me(owner=Depends(identity)):
+    async def me(request: Request, owner=Depends(identity)):
         return {
             "id": owner,
+            "display_name": preferences(current(request).db, owner, settings.timezone).get(
+                "display_name", ""
+            ),
             "admin": owner in settings.admins,
             "models": model_choices(settings),
             "generation_capabilities": {

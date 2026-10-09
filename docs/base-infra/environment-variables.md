@@ -38,14 +38,18 @@ A process restart alone does not replace container environment values.
 | `AGENT_NAME` | `Theos` | Assistant identity, browser labels, and Telegram greeting |
 | `AGENT_USERS` | `{}` | Browser user IDs mapped to unique tokens |
 | `AGENT_ADMINS` | `[]` | Browser user IDs with dashboard and log access |
+| `AGENT_WEB_URL` | Empty | HTTPS deployment origin for Telegram-confirmed browser sign-in links |
 | `AGENT_TIMEZONE` | `UTC` | Default timezone for personal records and reminders |
 
 Names contain 1 to 100 characters after trimming surrounding whitespace.
 The assistant name does not change the Telegram bot username or the package name.
 Browser tokens need at least 32 characters.
 Every administrator needs an entry in `AGENT_USERS`.
-Browser IDs cannot start with `telegram:`, `telegram-group:`, or `terminal:`.
+Configured browser IDs cannot start with `telegram:`, `telegram-group:`, or `terminal:`.
 Keep browser IDs stable when rotating tokens.
+Generated Telegram browser credentials use the enrolled sender's existing owner without editing `AGENT_USERS`.
+`AGENT_WEB_URL` must be an HTTPS origin without a path, query, credentials, or fragment.
+HTTP is allowed only for localhost development.
 
 ```dotenv
 AGENT_NAME=Aster

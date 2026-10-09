@@ -107,6 +107,7 @@ class Settings(ClientSettings):
     # Each credential maps to one identity. Never accept an owner from request data.
     users: dict[str, SecretStr] = Field(default_factory=dict)
     admins: set[str] = Field(default_factory=set)
+    web_url: str = ""
     provider: Literal["gemini", "openrouter", "openai", "anthropic", "llama", "fake"] = (
         DEFAULT_PROVIDER
     )
@@ -152,6 +153,22 @@ class Settings(ClientSettings):
     @model_validator(mode="after")
     def validate_configuration(self):
         ZoneInfo(self.timezone)
+        self.web_url = self.web_url.strip().rstrip("/")
+        if self.web_url:
+            web = urlsplit(self.web_url)
+            if (
+                not web.hostname
+                or web.username
+                or web.password
+                or web.path
+                or web.query
+                or web.fragment
+                or not (
+                    web.scheme == "https"
+                    or (web.scheme == "http" and web.hostname in {"localhost", "127.0.0.1"})
+                )
+            ):
+                raise ValueError("Use an HTTPS origin for AGENT_WEB_URL, except on localhost.")
         from theos.storage.account_access import RESERVED_PREFIXES
 
         if any(not owner.strip() or owner.startswith(RESERVED_PREFIXES) for owner in self.users):
