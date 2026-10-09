@@ -1,0 +1,154 @@
+name: Raspberry Pi release
+on:
+  push:
+    tags: ['rpi-v*']
+permissions:
+  contents: read
+concurrency:
+  group: theos-rpi-release
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a versioned tag at the current rpi branch tip
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/check_release.py "$RELEASE_TAG"
+  ci:
+    needs: verify
+    uses: ./.github/workflows/theos.yml
+  publish:
+    needs: ci
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      revision: ${{ steps.revision.outputs.revision }}
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      IMAGE_TAG: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Recheck rpi and record the commit
+        id: revision
+        run: |
+          revision=$(python3 scripts/check_release.py "$RELEASE_TAG")
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: ${{ env.IMAGE_TAG }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.revision.outputs.revision }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          cache-from: type=gha,scope=arm64
+      - name: Test the exact image that will be published
+        run: |
+          docker run -d --name theos-smoke -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 "$IMAGE_TAG"
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
+            sleep 2
+          done
+          python3 scripts/theos_smoke.py
+          docker restart theos-smoke
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
+            sleep 2
+          done
+          python3 scripts/theos_smoke.py --check-restart
+          docker stop theos-smoke
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish and capture the immutable digest
+        id: image
+        run: |
+          docker push "$IMAGE_TAG"
+          image=$(docker image inspect "$IMAGE_TAG" --format '{{index .RepoDigests 0}}')
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+  deploy:
+    needs: publish
+    runs-on: [self-hosted, linux, ARM64, theos-rpi]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      THEOS_DEPLOY_DIR: ${{ vars.THEOS_DEPLOY_DIR || '/home/neuron/theos-deploy' }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_IMAGE: ${{ needs.publish.outputs.image }}
+      RELEASE_REVISION: ${{ needs.publish.outputs.revision }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require the same rpi revision before changing the deployment
+        run: test "$(python3 scripts/check_release.py "$RELEASE_TAG")" = "$RELEASE_REVISION"
+      - name: Use temporary registry authentication
+        run: echo "DOCKER_CONFIG=$RUNNER_TEMP/theos-docker" >> "$GITHUB_ENV"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Activate release with automatic image and data rollback
+        run: |
+          python3 scripts/deploy_rpi.py --image "$RELEASE_IMAGE" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --deploy-dir "$THEOS_DEPLOY_DIR"
+      - name: Report deployment or rollback
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = Path(os.environ['THEOS_DEPLOY_DIR']) / 'deployment-result.json'
+          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as summary:
+              summary.write(f"## Raspberry Pi: {os.environ['RELEASE_TAG']}\n\n")
+              if report.exists():
+                  result = json.loads(report.read_text())
+                  summary.write(f"Deployment result: **{result['status']}**\n\n")
+                  current = result.get('current') or {}
+                  summary.write(f"Active release: `{current.get('tag', 'none confirmed')}`\n\n")
+                  summary.write(f"Backup: `{result.get('backup') or 'not created'}`\n")
+              else:
+                  summary.write('Deployment did not create a result. Check the failed step.\n')
+          PY
+      - name: Remove temporary registry authentication
+        if: always()
+        run: |
+          if test -n "${DOCKER_CONFIG:-}"; then rm -rf "$DOCKER_CONFIG"; fi
+  release:
+    needs: [publish, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_IMAGE: ${{ needs.publish.outputs.image }}
+    steps:
+      - name: Record the successful deployment as a GitHub release
+        run: |
+          printf 'Deployed to neuralbox-pi.\n\nImage: %s\n' "$RELEASE_IMAGE" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "$RELEASE_TAG" --verify-tag --title "Theos $RELEASE_TAG" --generate-notes --notes-file "$RUNNER_TEMP/release-notes.md"

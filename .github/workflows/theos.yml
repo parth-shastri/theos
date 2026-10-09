@@ -50,8 +50,8 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --locked --extra server --extra terminal
-      - run: uv run --no-sync ruff check src/theos tests/app
-      - run: uv run --no-sync ruff format --check src/theos tests/app
+      - run: uv run --no-sync ruff check src/theos tests/app scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
+      - run: uv run --no-sync ruff format --check src/theos tests/app scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
       - run: uv run --no-sync pytest -q
       - run: uv build
       - name: Check installed wheel and lightweight remote client
