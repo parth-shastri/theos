@@ -199,7 +199,7 @@ The Pi SSH alias is `neuralbox-pi`; the default deployment directory is `/home/n
 The Pi is online on 64-bit Debian 13 with Python 3.13.
 The repository runner is installed as a `neuron` system service. Docker access and Compose are configured.
 The operator authorized deriving a private `.env.pi` from the existing local `.env`.
-The Pi user and administrator are `Parth`. Gmail and Google Health use the existing commented HTTPS callbacks at `mytheos.parth-shastri.com`.
+The Pi user and administrator are `owner`. Gmail and Google Health use the existing commented HTTPS callbacks at `mytheos.parth-shastri.com`.
 Keep local `.env` unchanged. Store `.env.pi` with mode `0600`, outside Git and outside the runner checkout.
 On the Pi, the deployment `.env` is a symlink to `.env.pi`.
 GitHub rejected branch protection for the private repository because the account requires an upgrade.

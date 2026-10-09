@@ -44,7 +44,7 @@ Keep this directory outside the runner checkout.
 Use the normal [deployment configuration](DEPLOYMENT.md#configure-the-application).
 The local `.env.pi` is ignored by Git and has mode `0600`.
 Its Pi copy also has mode `0600`. The local development `.env` remains separate.
-The configured browser user and administrator are `Parth`.
+The configured browser user and administrator are `owner`.
 Gmail uses `https://mytheos.parth-shastri.com/oauth/gmail/callback`.
 Google Health uses `https://mytheos.parth-shastri.com/oauth/health/callback`.
 These are the existing commented HTTPS callbacks from the local configuration.
