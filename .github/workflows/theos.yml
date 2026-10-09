@@ -85,7 +85,7 @@ jobs:
             platform: linux/arm64
             emulated: false
           - runner: ubuntu-latest
-            architecture: 386
+            architecture: '386'
             platform: linux/386
             emulated: true
           - runner: ubuntu-latest
@@ -127,6 +127,7 @@ jobs:
       - name: Run container acceptance and measure resources
         env:
           TEST_PLATFORM: ${{ matrix.platform }}
+          EXPECTED_BITS: ${{ (matrix.architecture == '386' || matrix.architecture == 'armv7') && '32' || '64' }}
           EXPECTED_ARCH: ${{ matrix.architecture == 'armv7' && 'arm' || matrix.architecture }}
         run: |
           test "$(docker image inspect theos:test --format '{{.Architecture}}')" = "$EXPECTED_ARCH"
@@ -139,6 +140,7 @@ jobs:
           python3 scripts/theos_smoke.py
           docker stats --no-stream --format '{{json .}}' theos-smoke > resources-${{ matrix.architecture }}.json
           test "$(docker exec theos-smoke id -u)" = 10001
+          test "$(docker exec theos-smoke python -c 'import struct; print(struct.calcsize("P") * 8)')" = "$EXPECTED_BITS"
           docker restart theos-smoke
           for _ in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi

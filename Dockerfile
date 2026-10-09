@@ -5,7 +5,7 @@ ARG TARGETVARIANT
 # Less common targets build native dependencies when PyPI has no matching wheel.
 RUN if [ "$TARGETARCH" != amd64 ] && [ "$TARGETARCH" != arm64 ]; then \
       apt-get update && apt-get install -y --no-install-recommends \
-        build-essential cargo libssl-dev libffi-dev libjpeg62-turbo-dev zlib1g-dev \
+        build-essential cargo pkg-config libssl-dev libffi-dev libjpeg62-turbo-dev zlib1g-dev \
       && rm -rf /var/lib/apt/lists/*; \
     fi
 WORKDIR /app
