@@ -162,8 +162,8 @@ Keep the previous volume until the restored installation passes these checks.
 6. Check `/ready`, a browser conversation, and a Telegram conversation.
 
 Migrations run during database startup.
-The repository workflow runs acceptance checks but does not deploy a production service.
-An upgrade requires an operator action.
+Source upgrades use the operator procedure above.
+The [Raspberry Pi release workflow](releases.md) deploys matching `rpi-v*` tags from `rpi` and restores the previous image and data volume if activation fails.
 
 ## Rollback
 

@@ -17,6 +17,7 @@ Set `AGENT_NAME` to choose the assistant name.
 | Host or connect memory services | [Memory guide](memory.md) |
 | Host or connect speech services | [Speech hosting](speech-hosting.md) |
 | Maintain an installation | [Operations](operations.md) |
+| Release to the Raspberry Pi | [Git and releases](releases.md) |
 | Diagnose a failure | [Troubleshooting](troubleshooting.md) |
 | Change the code | [Development](development.md) |
 | Find a guide | [Documentation map](documentation-map.md) |

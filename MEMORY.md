@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-09.
+Updated: 2026-10-10.
 
 ## Confirmed decisions
 
@@ -186,3 +186,19 @@ Preserve historical paths in provenance manifests.
 - [Tool catalog](docs/tool-catalog.md)
 - [Starter provenance](docs/starter-provenance.json)
 - [Application provenance](docs/application-migration.json)
+
+## Git and Raspberry Pi releases
+
+The private GitHub repository is `parth-shastri/theos`.
+Use `main` for development and `rpi` for Raspberry Pi releases.
+Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
+CI covers Python 3.12 and 3.13, browser syntax, packages, both native container architectures, workflow validation, and secret scanning.
+The release workflow publishes a tested arm64 image and deploys its digest with a Pi runner labeled `theos-rpi`.
+Activation uses a separate restored data volume. Failure restores the previous image and original volume.
+The Pi SSH alias is `neuralbox-pi`; the default deployment directory is `/home/neuron/theos-deploy`.
+The Pi is online on 64-bit Debian 13 with Python 3.13.
+The repository runner is installed as a `neuron` system service. Docker access and Compose are configured.
+The operator authorized using the existing local `.env`; its private copy is stored outside the runner checkout.
+GitHub rejected branch protection for the private repository because the account requires an upgrade.
+Live deployment and rollback verification are still in progress.
+See [Git and releases](docs/releases.md).

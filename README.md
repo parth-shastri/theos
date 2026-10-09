@@ -60,6 +60,7 @@ The [code guide](docs/code-structure.md) uses that runtime diagram to navigate t
 | [Operations](docs/operations.md) | Backups, restore, upgrades, and recovery |
 | [Troubleshooting](docs/troubleshooting.md) | Failure symptoms and corrective actions |
 | [Development](docs/development.md) | Local commands, checks, and service changes |
+| [Git and releases](docs/releases.md) | CI, Raspberry Pi tags, deployment, and rollback |
 | [Code structure](docs/code-structure.md) | Service areas, turn loop, approvals, and recovery |
 | [Tool catalog](docs/tool-catalog.md) | Implemented callables and their service dependencies |
 | [Acceptance](docs/runtime/acceptance.md) | Automated coverage and pending live checks |

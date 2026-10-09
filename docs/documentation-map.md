@@ -34,6 +34,7 @@ Configuration defaults come from the current application source and Compose file
 | Guide | Contents |
 | --- | --- |
 | [Operations](operations.md) | Status, backups, restore, upgrades, and recovery |
+| [Git and releases](releases.md) | CI, Raspberry Pi tags, activation, and rollback |
 | [Troubleshooting](troubleshooting.md) | Symptoms, causes, and corrective actions |
 | [Observability](base-infra/observability.md) | Local logs, tool traces, usage, and retention |
 | [Compose workflow](base-infra/docker-compose-workflow.md) | Network, volume, resource, and lifecycle settings |

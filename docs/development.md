@@ -66,7 +66,9 @@ uv build
 
 The default pytest selection excludes tests marked `live`.
 The [acceptance guide](runtime/acceptance.md) lists live checks and recorded results.
-The [workflow](../.github/workflows/theos.yml) also checks wheel imports, Compose, and containers on amd64 and arm64.
+The [workflow](../.github/workflows/theos.yml) checks Python 3.12 and 3.13, all owned browser JavaScript, wheel imports, the lightweight client, Compose, and native containers on amd64 and arm64.
+It also validates workflows and scans Git history for secrets.
+Read [Git and releases](releases.md) for branch and tagging procedures.
 The container checks use the fake provider and disposable state.
 
 ## Add or change a tool
