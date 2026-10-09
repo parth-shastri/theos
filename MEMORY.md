@@ -18,12 +18,13 @@ Updated: 2026-10-10.
 | Terminal deployment controls | Offer `/settings`, `/model`, `/reasoning`, `/usage`, and `/continue` in connected mode. Show supported command options and native settings and usage dialogs. Keep `/thinking` for trace visibility. Preserve approval batches, delegate scope, images, titles, and steering through server endpoints. Closing the client leaves server work running |
 | Terminal configuration | Current `.env`, editable codebase `.env`, then `~/.config/theos/.env`. Explicit `--config` takes precedence |
 | Terminal storage | Default `~/.theos`. Resolve configured relative data paths from the configuration directory |
-| Telegram onboarding | Private `/start` saves the Telegram name and asks for a valid timezone before normal chat |
+| Telegram onboarding | Private `/start` asks what to call the user, then asks for a valid timezone. Save the chosen name in owner-scoped preferences and include it in model context. `/skip` accepts the saved name when available. Preserve existing completed profiles and pending timezone setup |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
 | Telegram enrollment limit | 50 unique senders per database, including incomplete setup. Operators can lower the limit |
 | Browser style | Controls and visual style from ocr-checker |
 | Browser usage and tools | Owner and conversation USD estimates. Administrator totals and cost breakdowns include all transports. Missing prices stay visible. Collapsed reasoning summaries and tool calls. Searchable conversation tool registry with approval labels |
 | Usage view access | Every browser user has personal Activity & usage through their token. Administrators have a separate Admin dashboard for all users and transports. Personal charts always use the authenticated owner, including administrator tokens. Administrator responses exclude conversation titles and message content |
+| Enrollment roles | The deployment operator uses an explicitly configured administrator account in `AGENT_USERS` and `AGENT_ADMINS`. First registration never grants administrator access. New Telegram enrollments receive ordinary access. Telegram-to-browser linking and automatic browser credential issuance remain planned |
 | User-owned encryption requirement | Planned: collect a public encryption key during onboarding and encrypt personal content before persistence. Database access alone must not reveal content. Keep content-free usage counters available for personal and administrator views. Public-key onboarding, encrypted storage, and a user-controlled decryption flow are not implemented. Hosted processing can expose plaintext to the running server |
 | Encrypted history continuity | Restore saved history automatically while a decryption grant is active. The user requested transparent access across turns. Password-based key wrapping and automatic key-service access remain proposals. Losing a runtime grant must not erase encrypted history. See `docs/architecture/theos-encryption-proposal.excalidraw` for the proposed boundary |
 | Browser model controls | Keep the current model selector. OpenRouter exposes the six requested aliases plus the existing default. Preserve explicit operator allowlists. Save supported generation parameters in SQLite migration 006. Model-specific cost rates can override shared rates |
@@ -206,5 +207,8 @@ GitHub rejected branch protection for the private repository because the account
 The disposable Docker rehearsal passed first installation, replacement, intentional readiness failure, and automatic rollback on the Pi.
 Both the original and restored SQLite records survived.
 CI passed on `main` and `rpi` with Python 3.12 and 3.13, native amd64 and arm64 containers, workflow validation, browser checks, and secret scanning.
-The first tagged production deployment is still in progress.
+Release `rpi-v0.1.0` is deployed and healthy on the Pi.
+The running container uses `owner` and the HTTPS Google callbacks. Readiness and browser-token authentication passed.
+The GHCR image denies anonymous pulls. The first registry upload failed with `unknown blob`; retrying publication succeeded before any deployment change.
+The existing Cloudflare tunnel service cannot start because `/etc/cloudflared/token` is missing. Public OAuth routing remains unverified and requires the tunnel credential.
 See [Git and releases](docs/releases.md).

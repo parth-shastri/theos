@@ -49,6 +49,7 @@ Gmail uses `https://mytheos.parth-shastri.com/oauth/gmail/callback`.
 Google Health uses `https://mytheos.parth-shastri.com/oauth/health/callback`.
 These are the existing commented HTTPS callbacks from the local configuration.
 Register those exact callback URIs with the corresponding Google OAuth clients.
+The existing Pi Cloudflare service currently lacks `/etc/cloudflared/token`; restore its tunnel credential before relying on public OAuth callbacks.
 Application credentials remain on the Pi, outside Git.
 The workflow uses its temporary GitHub token to pull the private GHCR image.
 

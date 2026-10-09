@@ -18,7 +18,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Streaming, tool progress, approvals, bounded concurrent turns | `runtime/` | `test_runtime.py`, `test_interfaces.py` |
 | Compaction and bounded research delegates | Existing harness, `runtime/` | Existing compaction tests, `test_integrations.py` |
 | Telegram private chats, allowlists, groups, topics, commands | `transports/telegram/` | `test_interfaces.py` |
-| Telegram `/start` onboarding, access code, name, timezone, 50-user cap, restart recovery | `transports/telegram/onboarding.py`, `storage/telegram_access.py`, SQLite migrations 003 and 004 | `test_telegram_onboarding.py` |
+| Telegram `/start` onboarding, access code, preferred name, timezone, 50-user cap, restart recovery | `transports/telegram/onboarding.py`, `storage/telegram_access.py`, SQLite migrations 003, 004, and 008 | `test_telegram_onboarding.py` |
 | Photos, image documents, albums, voice, uploads, file delivery | `transports/telegram/`, `services/files/`, `services/voice/` | `test_interfaces.py`, `test_integrations.py`, `test_regressions.py` |
 | Browser chat, sessions, settings, approvals, private dashboard | `transports/browser/` | Browser API workflows and manual browser checks |
 | Installed terminal command, persistent sessions, images, steering, approvals, scheduled notices, and shutdown | `transports/terminal/`, owned renderer | `test_terminal.py`, existing `test_tui.py`, installed wheel UI turn |
@@ -56,6 +56,19 @@ The application loads skill resources from an operator-controlled directory.
 It does not bundle the upstream ADK skill registry.
 
 ## Current verification
+
+The 2026-10-10 Git and release setup passed 655 deterministic tests with three live tests excluded on both Python 3.12 and 3.13.
+GitHub CI passed browser syntax, workflow and shell validation, secret scanning, package and lightweight client checks, Compose validation, and native amd64 and arm64 container acceptance.
+The Raspberry Pi runner is installed on 64-bit Debian 13.
+A disposable Docker rehearsal passed initial installation, replacement, deliberate readiness failure, and automatic rollback.
+The original and restored SQLite records survived.
+Release `rpi-v0.1.0` is healthy on the Pi with the configured model provider, browser user and administrator `owner`, and HTTPS Google callback URLs.
+Readiness and browser-token authentication passed. No live model turn or Google account consent was performed.
+The private GHCR image denies anonymous pulls.
+The first registry upload failed with `unknown blob`; publication succeeded on retry before the deployment changed.
+The existing Cloudflare service cannot start without `/etc/cloudflared/token`, so public OAuth routing is not verified.
+These deployment checks do not establish real workload capacity or complete the remaining live-service checks.
+
 
 The 2026-10-07 usage update adds separate personal and administrator views.
 `test_dashboard_activity.py` checks owner-scoped charts, token-only authentication, cross-transport administrator totals, and content exclusion.
@@ -299,7 +312,7 @@ Mocks do not count as live results.
 | Gmail | Connect, read a thread, download an attachment, draft, approve, and send to a test recipient | Pending |
 | Google Health | Connect, import all available data types, export/edit/delete a meal, recover an interrupted export | Pending |
 | Zepto | Connect through browser or private Telegram OAuth, inspect account access, reject an order, inspect a payment confirmation | Browser sign-in and order-history access confirmed on 2026-10-06. Live search returned `Store not selected`. Delivery-store setup, successful search, and order/payment approval checks remain pending |
-| Raspberry Pi | Run the arm64 image on the target device and measure real workload limits | Pending |
+| Raspberry Pi | Run the arm64 image on the target device and measure real workload limits | Deployment and rollback verified on 2026-10-10. Real workload limits remain pending |
 
 Use disposable records and an operator-approved recipient for Gmail send tests.
 A real Zepto order or payment needs separate authorization for its exact contents and price.
