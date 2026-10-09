@@ -1,0 +1,28 @@
+{
+  "copied_on": "2026-10-06",
+  "assets": [
+    {
+      "path": "src/theos/transports/browser/static/brand.png",
+      "source": "../mini-theos/design-lab/public/assets/theos-icon.png",
+      "sha256": "a6d35e0953fa098f3d54cffaced02f336e3c4a000208e92d2b88201332f56a96",
+      "purpose": "Browser login and header logo"
+    },
+    {
+      "path": "src/theos/transports/browser/static/brand-light.png",
+      "source": "../mini-theos/app/ios/Runner/Assets.xcassets/AppIcon-Daylight.appiconset/Icon-App-1024x1024@1x.png",
+      "sha256": "69160579158bdab5aeaad7bd36f7e8fb8010534c34dd4f24704acf3b9911ab67",
+      "purpose": "Light-mode browser login, header, and empty conversation logo"
+    }
+  ],
+  "adaptations": [
+    {
+      "path": "src/theos/transports/browser/static/style.css",
+      "source": "../mini-theos/design-lab/app/globals.css",
+      "selectors": [
+        ".thinking-orb",
+        "@keyframes orb-breathe"
+      ],
+      "purpose": "Companion glow for active browser thinking, with reduced-motion support"
+    }
+  ]
+}

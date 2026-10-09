@@ -1,0 +1,350 @@
+{
+  "copied_at": "2026-10-03",
+  "source_root": "/Users/nightowl/my_projects/agents-intro",
+  "source_branch": "harness-building-blocks",
+  "source_head": "1c49925915e7fb6c283a156cb70f05dec4e92d06",
+  "snapshot": "current working tree, including modified and untracked source",
+  "destination_layout": "src packages, root examples and existing tests",
+  "files": [
+    {
+      "source": "harness/__init__.py",
+      "destination": "src/harness/__init__.py",
+      "sha256": "4db600d545c462b3d81b9d478b0d43eefb54b029b5f4124ef1e599fab7ccbbf9"
+    },
+    {
+      "source": "harness/agent.py",
+      "destination": "src/harness/agent.py",
+      "sha256": "2263fde7d7745810192ce51c92b0750568de9073c2f10cc21651d09d34f8c97d"
+    },
+    {
+      "source": "harness/compaction.py",
+      "destination": "src/harness/compaction.py",
+      "sha256": "e454e61f6cb25177fe8fa84b755233b0f5be100660cc8f87148ded56a9e4cfaa"
+    },
+    {
+      "source": "harness/context.py",
+      "destination": "src/harness/context.py",
+      "sha256": "c884b5a84da2333cb0e43d5d3c8aebe47b5f660091a1224b761c426c8d84648d"
+    },
+    {
+      "source": "harness/debug.py",
+      "destination": "src/harness/debug.py",
+      "sha256": "e307d100b9252610e0b7c74ebc43492324bec01681808687d626315345cb51b8"
+    },
+    {
+      "source": "harness/events.py",
+      "destination": "src/harness/events.py",
+      "sha256": "4aa528652d85f7144b67e8a9b3ef8f4c785ebdc71c55d445a38810f95b9ba749"
+    },
+    {
+      "source": "harness/hooks.py",
+      "destination": "src/harness/hooks.py",
+      "sha256": "a32ef4bc91eb2294b5915e95aaa3e371da468aec1bfed3f4cb8d67cbcd1e526d"
+    },
+    {
+      "source": "harness/inbox.py",
+      "destination": "src/harness/inbox.py",
+      "sha256": "a909dc2cdfa3eda1b38cac5d453ec41796fc93800f53014a92aa4f13305104c7"
+    },
+    {
+      "source": "harness/limits.py",
+      "destination": "src/harness/limits.py",
+      "sha256": "65c8aade3cbe7bfa1c3ec79e661b08c88f40b987148a130e76c30591eeee8321"
+    },
+    {
+      "source": "harness/loop.py",
+      "destination": "src/harness/loop.py",
+      "sha256": "38815aedc2934335b4a13fb56fd79d02fbfcfa082b89ca2245f1475fa37f6432"
+    },
+    {
+      "source": "harness/model.py",
+      "destination": "src/harness/model.py",
+      "sha256": "0c79a14ac35c297fb32f4b35f3cc56fd44c35ecd984a2a80aa9b1b0a7b6afd10"
+    },
+    {
+      "source": "harness/providers/__init__.py",
+      "destination": "src/harness/providers/__init__.py",
+      "sha256": "80f30d634bc65bc7420c8af4cc2ba524f72d521e2757898921753da3cf7f2014"
+    },
+    {
+      "source": "harness/providers/anthropic.py",
+      "destination": "src/harness/providers/anthropic.py",
+      "sha256": "29bbae476f4b111d08edc39037c667b3038e0f4422178e9a3cf85e4aa0be64ea"
+    },
+    {
+      "source": "harness/providers/gemini.py",
+      "destination": "src/harness/providers/gemini.py",
+      "sha256": "9189a83cc82517f3f10fa5d3e60dd6cae33f6d8464fd08f5b81c5b2c8be1501a"
+    },
+    {
+      "source": "harness/providers/llama.py",
+      "destination": "src/harness/providers/llama.py",
+      "sha256": "531d8813adcd20af50fb6627fe837fb1c6856cdf5a1f4067f6bc2ff6c1029bf4"
+    },
+    {
+      "source": "harness/providers/openai.py",
+      "destination": "src/harness/providers/openai.py",
+      "sha256": "065f56f30ed05830963c143c7c3286a23dc2f393d42acf90cd929cfecffeeb13"
+    },
+    {
+      "source": "harness/store.py",
+      "destination": "src/harness/store.py",
+      "sha256": "42e95ae83dbe4fd5d8f3621ee7ebb18c150b5488834898c92b8b7e70c827d23d"
+    },
+    {
+      "source": "harness/testing.py",
+      "destination": "src/harness/testing.py",
+      "sha256": "d4d70cdc4efebe50799eb629a8d36fec7d7a33c641684f8cffb42857abfc08c3"
+    },
+    {
+      "source": "harness/titles.py",
+      "destination": "src/harness/titles.py",
+      "sha256": "26969c952211f0fe1c90bde37e62d49cc8f8ce660e308969219840707d47b2c2"
+    },
+    {
+      "source": "harness/tools.py",
+      "destination": "src/harness/tools.py",
+      "sha256": "b3cc0cb7bc0fb88896b3005465b71bb79e486ada28c6ca48351e02bd9c0edfc9"
+    },
+    {
+      "source": "harness/types.py",
+      "destination": "src/harness/types.py",
+      "sha256": "8e0293f36351b70d63ddac1ca8bcbc386965db62fc4099132ac8eb54bd429718"
+    },
+    {
+      "source": "renderer/README.md",
+      "destination": "src/renderer/README.md",
+      "sha256": "94027fdcb129f6744faa2477466daa6f3968d8e4435b07b6c818d4884070e5f8"
+    },
+    {
+      "source": "renderer/__init__.py",
+      "destination": "src/renderer/__init__.py",
+      "sha256": "bd85f6d3f1018d6effddb32d5e67fe8bc0cc5d9558e9e76c233059007eb1751b"
+    },
+    {
+      "source": "renderer/adapters.py",
+      "destination": "src/renderer/adapters.py",
+      "sha256": "4152b4490ac39549f4c001b5e7cf5f3375a6e38db67864787afc7acbe203563b"
+    },
+    {
+      "source": "renderer/cli.py",
+      "destination": "src/renderer/cli.py",
+      "sha256": "f100e00b97b9b7bab07f656a6e93555107ff37c48b0600888a17af5b272c50ab"
+    },
+    {
+      "source": "renderer/clipboard.py",
+      "destination": "src/renderer/clipboard.py",
+      "sha256": "9fbacef3fd5c1ded391899716f3f7d8898a3c2b93f34965e43586f84d04533ce"
+    },
+    {
+      "source": "renderer/core.py",
+      "destination": "src/renderer/core.py",
+      "sha256": "886f5b801e27d350504a92e785f78b90f8a76f08251e26b85fcbbed83a3a87c6"
+    },
+    {
+      "source": "renderer/events.py",
+      "destination": "src/renderer/events.py",
+      "sha256": "da07b06b1fb24284b087d7918d628990a0ce35c626e1dd4df920a7654a23fbfb"
+    },
+    {
+      "source": "renderer/interactive.py",
+      "destination": "src/renderer/interactive.py",
+      "sha256": "d2b6e23e9ecec6fa0ae42555fa461c306c0bb9149ca6597663905378a4c083d9"
+    },
+    {
+      "source": "renderer/terminal.py",
+      "destination": "src/renderer/terminal.py",
+      "sha256": "17072decb6b56f3998fb642def9272ea833c4fe132294e45b8484390fd33d3d7"
+    },
+    {
+      "source": "renderer/tui.py",
+      "destination": "src/renderer/tui.py",
+      "sha256": "f1e8339cb11eeeb9756064114e328406dbf045b74ab1dc464da67164e570090c"
+    },
+    {
+      "source": "config/__init__.py",
+      "destination": "src/config/__init__.py",
+      "sha256": "1cfa0317264ea24254b4fa0aa5bb64abe619e3b2a6d22f35cb8d72afab2a675e"
+    },
+    {
+      "source": "config/logging/__init__.py",
+      "destination": "src/config/logging/__init__.py",
+      "sha256": "4e5120edf82703b647040ab007552d83eae2420b1075e1e08a7348efbe6b6a65"
+    },
+    {
+      "source": "config/logging/logger.py",
+      "destination": "src/config/logging/logger.py",
+      "sha256": "3a801af5e1d3a2844947aa66240f82931e0673db6ceeacaa73ed3289fc440daa"
+    },
+    {
+      "source": "tests/conftest.py",
+      "destination": "tests/conftest.py",
+      "sha256": "a5a138e7c37eb07102486225a03921d2490293514d7bb3809cb2465a73730f58"
+    },
+    {
+      "source": "tests/providers/test_anthropic.py",
+      "destination": "tests/providers/test_anthropic.py",
+      "sha256": "647a0308b2fe604d2b986bf946cf686594de534798e90265833c7a8e9d5d47ce"
+    },
+    {
+      "source": "tests/providers/test_gemini.py",
+      "destination": "tests/providers/test_gemini.py",
+      "sha256": "e3b04855b2a200d17c8c17ab380fbc14a54d0b96f7d458a36ff8c7868e31d868"
+    },
+    {
+      "source": "tests/providers/test_live.py",
+      "destination": "tests/providers/test_live.py",
+      "sha256": "3f6eb9fcc2db775a4700d1ede0db2c943de82b958cec173be8f0d9382e38856f"
+    },
+    {
+      "source": "tests/providers/test_openai.py",
+      "destination": "tests/providers/test_openai.py",
+      "sha256": "d07819a57891d66e3770171f7d3dd6f4e29e9d3017911caf58a6650a19b642f6"
+    },
+    {
+      "source": "tests/providers/test_replay.py",
+      "destination": "tests/providers/test_replay.py",
+      "sha256": "25927b9e2b0582deacb3e9e37fc87c822b03930692dd6a03b866163055140375"
+    },
+    {
+      "source": "tests/test_agent.py",
+      "destination": "tests/test_agent.py",
+      "sha256": "07a2df72ac9528d98eb569aca3d9d76dd572f5c86a234630af473f709bb5ee16"
+    },
+    {
+      "source": "tests/test_clipboard.py",
+      "destination": "tests/test_clipboard.py",
+      "sha256": "0515d6784a27ce9f56d31521424833d79e7534f0f4cf52ff4e18b86a20334813"
+    },
+    {
+      "source": "tests/test_compaction.py",
+      "destination": "tests/test_compaction.py",
+      "sha256": "046a4d5a7340e7b2d28c91f985572abc448bceeed3b4ab2ba5353e93e56d9cc3"
+    },
+    {
+      "source": "tests/test_context.py",
+      "destination": "tests/test_context.py",
+      "sha256": "6bfa91af20e5dc8d89a7fa81e33634d41eb679fb4e0e63439743e1eb786e432e"
+    },
+    {
+      "source": "tests/test_event_scope.py",
+      "destination": "tests/test_event_scope.py",
+      "sha256": "c56534cbe28ecffe644a1235fc60df26795280fdaf3fe692d933ec50cfbff78f"
+    },
+    {
+      "source": "tests/test_events.py",
+      "destination": "tests/test_events.py",
+      "sha256": "3308c73b96dbe34d431bb64811fd218a51942563c69b12b32b11227ea765cbf4"
+    },
+    {
+      "source": "tests/test_harness_debug_logging.py",
+      "destination": "tests/test_harness_debug_logging.py",
+      "sha256": "875b113d12ba20f60029d5bce5e4146a3209c6f07a10589513dc212e7a107ccc"
+    },
+    {
+      "source": "tests/test_hooks.py",
+      "destination": "tests/test_hooks.py",
+      "sha256": "3b3c11d3962244b89c5128fdb363893499d749fafb21017cd985750a1b18ca3a"
+    },
+    {
+      "source": "tests/test_inbox.py",
+      "destination": "tests/test_inbox.py",
+      "sha256": "3e673d1f7c81ff67b055e0583f0849e4aa1c791bc9313d90257e3fc5ff50f848"
+    },
+    {
+      "source": "tests/test_logging.py",
+      "destination": "tests/test_logging.py",
+      "sha256": "984200b72c072a80e57e907492378cbe49be1b14dba2a9fa61c4ddf75881de01"
+    },
+    {
+      "source": "tests/test_loop.py",
+      "destination": "tests/test_loop.py",
+      "sha256": "0eae3c15a19a856cbe9a56cc604a6b005d61f4ca5d8c4074e8f0eadbb56ecb4c"
+    },
+    {
+      "source": "tests/test_model.py",
+      "destination": "tests/test_model.py",
+      "sha256": "6a6e235add97de5d325595ca2b8692629daf673ba26ad87e6289579e8079c648"
+    },
+    {
+      "source": "tests/test_package.py",
+      "destination": "tests/test_package.py",
+      "sha256": "dda0f3c0ceed6faf0b89763e87d5a550529cdb6951671f6a663de940e6f8bedb"
+    },
+    {
+      "source": "tests/test_renderer_adapters.py",
+      "destination": "tests/test_renderer_adapters.py",
+      "sha256": "d075af1df7b50925755883750e0ea49fb6dc9b3da844cde27c3d6d2f9beb4d4d"
+    },
+    {
+      "source": "tests/test_session_state.py",
+      "destination": "tests/test_session_state.py",
+      "sha256": "dfa54af218112cf506cb46c943befa7d5602b95e4b7a9d1d1d2b3156dc002189"
+    },
+    {
+      "source": "tests/test_store.py",
+      "destination": "tests/test_store.py",
+      "sha256": "4e063cf0a4b04a6b9f6b07f520a5d8b5ff8aa3163b364c3060df7157632365b1"
+    },
+    {
+      "source": "tests/test_terminal_renderer.py",
+      "destination": "tests/test_terminal_renderer.py",
+      "sha256": "c034526c4c668d782b5db6e442dd061722f452c91e662d4012fb6a9400a305a6"
+    },
+    {
+      "source": "tests/test_titles.py",
+      "destination": "tests/test_titles.py",
+      "sha256": "dcdd6ba89d23b8181e6887f0aa1899f658b33f0dbc3d7af2230670030dc6b819"
+    },
+    {
+      "source": "tests/test_tools.py",
+      "destination": "tests/test_tools.py",
+      "sha256": "7d454ff3025eed532f668af212f2efeb58c732eed7a81a2813ce9d4b43dff84d"
+    },
+    {
+      "source": "tests/test_tui.py",
+      "destination": "tests/test_tui.py",
+      "sha256": "1fcc61a22665ef73b321350d8fb2b615a2997e0436c6e937082ea5d6547ca357"
+    },
+    {
+      "source": "tests/test_types.py",
+      "destination": "tests/test_types.py",
+      "sha256": "5bd6abf1013ef7937904da73b36cd532ddd7f15a7b05d55fb6a232de98de2621"
+    },
+    {
+      "source": "examples/_common.py",
+      "destination": "examples/_common.py",
+      "sha256": "0f409fea9373f3470fb1f5a2810bef5b1f364865317aa3d197d7b1e4f38f6cef"
+    },
+    {
+      "source": "examples/extract_document.py",
+      "destination": "examples/extract_document.py",
+      "sha256": "0705343736be22c0cca665f57b479ce9dba2625e2d9193ecc1bf946838d2053e"
+    },
+    {
+      "source": "examples/hooks_and_deps.py",
+      "destination": "examples/hooks_and_deps.py",
+      "sha256": "8b5829c29f272b274ddd60f65932c182e55b3367c7fdae5e9abc3ae833629dd1"
+    },
+    {
+      "source": "examples/research_pair.py",
+      "destination": "examples/research_pair.py",
+      "sha256": "bf9877d5167eccaf3f3ab9d4e013814c68b2b8ed326017989480f6452f572a4e"
+    },
+    {
+      "source": "examples/support_agent.py",
+      "destination": "examples/support_agent.py",
+      "sha256": "01b6be1fe77b0cb0c2f483f518e72b9165ccc48c31536c85b13c4abce083eaba"
+    },
+    {
+      "source": "examples/widgets_frontend.py",
+      "destination": "examples/widgets_frontend.py",
+      "sha256": "cb165bdef3bd988b9e54c415769849d7c12943f07bd41da3d9f37f8f37f7d0a5"
+    },
+    {
+      "source": "apis/mocked_apis.py",
+      "destination": "apis/mocked_apis.py",
+      "sha256": "fd91ac9d5dec20587689cd68d312c748e523e0556560862c21ade31ce2bf6c91"
+    }
+  ]
+}

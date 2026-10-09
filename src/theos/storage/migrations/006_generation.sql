@@ -1,0 +1,1 @@
+ALTER TABLE sessions ADD COLUMN generation TEXT NOT NULL DEFAULT '{}';

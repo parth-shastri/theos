@@ -1,0 +1,27 @@
+{
+  "retrieved": "2026-10-06",
+  "notice": "Provider marks remain the property of their respective owners. These files identify existing integrations. This manifest does not grant a trademark license.",
+  "assets": [
+    {
+      "provider": "Gmail",
+      "path": "src/theos/transports/browser/static/providers/gmail.svg",
+      "source_page": "https://workspace.google.com/products/gmail/",
+      "source_asset": "https://www.gstatic.com/images/branding/productlogos/gmail_2026/v2/web/192px.svg",
+      "sha256": "0a242131424b796a26247a8edd41d66fa294da6d177897526a19b7e81aedfdb8"
+    },
+    {
+      "provider": "Google Health (Google G favicon)",
+      "path": "src/theos/transports/browser/static/providers/health.png",
+      "source_page": "https://health.google/",
+      "source_asset": "https://www.gstatic.com/marketing-cms/assets/images/15/8d/b5f770d74c39b01a3da119f3d9d2/gradient-high-quality.png=s180",
+      "sha256": "0f63e9de66a9136de0e0d207459735fcc027f1c9d7f3f17f16f514af450dff4a"
+    },
+    {
+      "provider": "Zepto",
+      "path": "src/theos/transports/browser/static/providers/zepto.png",
+      "source_page": "https://github.com/zeptonow",
+      "source_asset": "https://avatars.githubusercontent.com/u/84562117?s=128&v=4",
+      "sha256": "9eb99015feb70bb6337cad27ff3d820bd8ccc7d5044209c6870d0eaa6abc8fe6"
+    }
+  ]
+}

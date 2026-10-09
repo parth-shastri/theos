@@ -1,0 +1,66 @@
+name: Theos acceptance
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.26"
+          python-version: "3.13"
+      - run: uv sync --locked --extra server --extra terminal
+      - run: uv run --no-sync ruff check src/theos tests/app
+      - run: uv run --no-sync ruff format --check src/theos tests/app
+      - run: uv run --no-sync pytest -q
+      - run: uv build
+      - name: Check installed wheel outside the source tree
+        run: |
+          uv venv /tmp/package-check
+          uv pip install --python /tmp/package-check/bin/python "$(find dist -name '*.whl' -print -quit)[terminal]"
+          cd /tmp
+          /tmp/package-check/bin/python -c 'import theos, harness, renderer; from importlib.resources import files; assert (files("theos") / "transports/browser/static/index.html").is_file()'
+          /tmp/package-check/bin/theos --help
+      - run: cp .env.minimal .env
+      - run: docker compose config --quiet
+      - run: docker compose -f compose.yaml -f compose.dev.yaml config --quiet
+  container:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            architecture: amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/${{ matrix.architecture }}
+          load: true
+          tags: theos:test
+      - name: Run container acceptance and measure resources
+        run: |
+          docker run -d --name theos-smoke -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 theos:test
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
+            sleep 2
+          done
+          python3 scripts/theos_smoke.py
+          docker stats --no-stream --format '{{json .}}' theos-smoke > resources-${{ matrix.architecture }}.json
+          test "$(docker exec theos-smoke id -u)" = 10001
+          docker restart theos-smoke
+          sleep 3
+          python3 scripts/theos_smoke.py --check-restart
+          docker stop theos-smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: resources-${{ matrix.architecture }}
+          path: resources-${{ matrix.architecture }}.json

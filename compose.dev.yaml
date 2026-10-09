@@ -1,0 +1,10 @@
+services:
+  theos:
+    volumes:
+      - ./src/theos:/app/src/theos:ro
+      - ./src/harness:/app/src/harness:ro
+      - ./src/renderer:/app/src/renderer:ro
+      - ./src/config:/app/src/config:ro
+    environment:
+      PYTHONPATH: /app/src
+    command: [python, -m, theos.server]

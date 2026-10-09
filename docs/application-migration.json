@@ -1,0 +1,360 @@
+{
+  "moved_at": "2026-10-04",
+  "source": "/Users/nightowl/my_projects/agents-intro",
+  "destination": "/Users/nightowl/my_projects/theos",
+  "harness": "Destination harness, renderer, and config already match the source. No library source was overwritten.",
+  "files": [
+    {
+      "source": "assistant/BLACKI-LICENSE",
+      "destination": "src/theos/UPSTREAM-LICENSE",
+      "source_sha256": "f218f0088b7869fb013df53694b4090b2941fd9fb982ebf2037e1a1fc712fa46",
+      "destination_sha256": "f218f0088b7869fb013df53694b4090b2941fd9fb982ebf2037e1a1fc712fa46"
+    },
+    {
+      "source": "assistant/zepto.py",
+      "destination": "src/theos/zepto.py",
+      "source_sha256": "fa2d14042584a2e6b99dc8dca97c5826fe0dc3e6c15b69633a0dd75a5c250546",
+      "destination_sha256": "9864a569f288b8cf373873004c00d18df010974fae94b96d6745a0fcaa49b552"
+    },
+    {
+      "source": "assistant/logging.py",
+      "destination": "src/theos/logging.py",
+      "source_sha256": "2f8a8cc299ab43ef5701041693e77272e244eadf846f2046ebc98ba1b66b0c32",
+      "destination_sha256": "155e92e7cb4f4fca315854de71dc567cea896d85f917f2e306da28fa9f6c973e"
+    },
+    {
+      "source": "assistant/migrations/002_delivery.sql",
+      "destination": "src/theos/migrations/002_delivery.sql",
+      "source_sha256": "f3657002a9bdb706eac6b15f0007873a81a047be6320b2432f0e745e95e94485",
+      "destination_sha256": "f3657002a9bdb706eac6b15f0007873a81a047be6320b2432f0e745e95e94485"
+    },
+    {
+      "source": "assistant/migrations/001_initial.sql",
+      "destination": "src/theos/migrations/001_initial.sql",
+      "source_sha256": "825bc7729062e99660c773a47bfd71598d7d05560bdc1e660882e2aecb405d9f",
+      "destination_sha256": "825bc7729062e99660c773a47bfd71598d7d05560bdc1e660882e2aecb405d9f"
+    },
+    {
+      "source": "assistant/files.py",
+      "destination": "src/theos/files.py",
+      "source_sha256": "17b4f328b383d95b06a8001671cbf18381ab2805b460c45653e9dd4038c2f0ea",
+      "destination_sha256": "1b39f2e7f99de3b0b37b8b8ceb563705f481383721a7405472b7e8fb31d940b0"
+    },
+    {
+      "source": "assistant/health_records.py",
+      "destination": "src/theos/health_records.py",
+      "source_sha256": "b168b48e8e45c8638dfc3ecc5a2520a1d6c48a4b60bade221a92b792532a60e1",
+      "destination_sha256": "5988b91ce9768f5f863c2c88a7419db782a3a76fe0c0908b6d4850e4b5ad68fa"
+    },
+    {
+      "source": "assistant/backup.py",
+      "destination": "src/theos/backup.py",
+      "source_sha256": "c587dcc3f4f6077ec95214356f7338e807de5974c6048329719dd5fce22bb887",
+      "destination_sha256": "c587dcc3f4f6077ec95214356f7338e807de5974c6048329719dd5fce22bb887"
+    },
+    {
+      "source": "assistant/server.py",
+      "destination": "src/theos/server.py",
+      "source_sha256": "c0fca79c5558cb5fa40cf11686106b66f20cf6d21cd51d0ee51a044836c3c734",
+      "destination_sha256": "5b724140464fb4b6534802b99f5b22602a6147d0014e94d18f629e842aa956f6"
+    },
+    {
+      "source": "assistant/config.py",
+      "destination": "src/theos/settings.py",
+      "source_sha256": "e55c18eb3e376f63f500af755dab2eece512c14f879c4a9cf18281e98bdbaa36",
+      "destination_sha256": "e19669ec7436ca933b964cf65652ca269275c90a69f235929dd02cf7c56cb0ff"
+    },
+    {
+      "source": "assistant/information.py",
+      "destination": "src/theos/information.py",
+      "source_sha256": "d940349a29c1408bef2177e0535b35b57dd39f59efff6af5144d33f04780ccd4",
+      "destination_sha256": "8e10b677305c0fde1cbdf1569bbffd8579e4d97807ae3c054bf49543291d0150"
+    },
+    {
+      "source": "assistant/models.py",
+      "destination": "src/theos/models.py",
+      "source_sha256": "94655e59aa48bb41c9317c373ccef4aeaf07bdbcd2c3e1d173c3a94a1d9bbe72",
+      "destination_sha256": "cd62525c24a99d5db5752351610de7c1a5c0b34016baa017acbf20426e7cb155"
+    },
+    {
+      "source": "assistant/memory.py",
+      "destination": "src/theos/memory.py",
+      "source_sha256": "18bb495868b6577eef71be121b9817a8df4c0b1ec170eb1a42b875761ec40558",
+      "destination_sha256": "18bb495868b6577eef71be121b9817a8df4c0b1ec170eb1a42b875761ec40558"
+    },
+    {
+      "source": "assistant/OCR-CHECKER-LICENSE",
+      "destination": "src/theos/OCR-CHECKER-LICENSE",
+      "source_sha256": "630951593616d3869eda6cb99020b068c1a22675fa16b6c607cf7d2f769d97e6",
+      "destination_sha256": "630951593616d3869eda6cb99020b068c1a22675fa16b6c607cf7d2f769d97e6"
+    },
+    {
+      "source": "assistant/health.py",
+      "destination": "src/theos/health.py",
+      "source_sha256": "ea2087b4a29f65c20092dd4d5743e1d155e5a0f4a816d8586ef5aef27bdba9d6",
+      "destination_sha256": "332b63a251836e60c300a64c6ef6c4ffdd2225704acd23c8c086db4215a9e971"
+    },
+    {
+      "source": "assistant/custom_tables.py",
+      "destination": "src/theos/custom_tables.py",
+      "source_sha256": "40fc77ce8313932366ccf59fdfbde512f76fb4947df7ae348287d0ae559fedb0",
+      "destination_sha256": "40fc77ce8313932366ccf59fdfbde512f76fb4947df7ae348287d0ae559fedb0"
+    },
+    {
+      "source": "assistant/telegram.py",
+      "destination": "src/theos/telegram.py",
+      "source_sha256": "aa0ed8fe0eb81a4089f2140036af3874578b83d89ef845b8646dd1add8d7fa76",
+      "destination_sha256": "815a2a1bb055d87712d221e886bf334f75f970919a34c4976e73c909958e12cc"
+    },
+    {
+      "source": "assistant/database.py",
+      "destination": "src/theos/database.py",
+      "source_sha256": "1db8d18b7b61179fe815fadd15a2a9f03472ac6b9e02162085d8e9294f1c9064",
+      "destination_sha256": "8c6ce1c965454c339dcf15d72c4b550a3f9f4069b7b9f683b8ca8bd2a8372622"
+    },
+    {
+      "source": "assistant/runtime.py",
+      "destination": "src/theos/runtime.py",
+      "source_sha256": "679b3c97158ff32f0f34f85cdbfd91e8cb72914b448c7452873f5d78f780c4f6",
+      "destination_sha256": "5f1c9d5aaea8ad4ba9248ac2eac43d4044e198e0232274ec6f674a6eb15aea9b"
+    },
+    {
+      "source": "assistant/sandbox.py",
+      "destination": "src/theos/sandbox.py",
+      "source_sha256": "7d1836eb22746c69985b1cc954f137cbb54aee311dda8564e79077c4e896637f",
+      "destination_sha256": "2921b52900eeb87549d6e8784eda6a49681909aed7cbc3e4376f7bca9bdea4c5"
+    },
+    {
+      "source": "assistant/gmail.py",
+      "destination": "src/theos/gmail.py",
+      "source_sha256": "9a15b0fa8e010f78b903a6a5a8cffceaa89e0f5ef820a37e37aa0e1c1f0eaf96",
+      "destination_sha256": "60480b45c8aaa5da36d3a194b70952ea2c5caff94e7efd6a4437746e41aeb6e8"
+    },
+    {
+      "source": "assistant/static/SPACE-GROTESK-LICENSE",
+      "destination": "src/theos/static/SPACE-GROTESK-LICENSE",
+      "source_sha256": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943",
+      "destination_sha256": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943"
+    },
+    {
+      "source": "assistant/static/index.html",
+      "destination": "src/theos/static/index.html",
+      "source_sha256": "5e2f5ddcb6682cdc2d8009ab0f8b429a2f918a840c0561a6652e78af27d52f34",
+      "destination_sha256": "bbb4c28cd0d94cf8cb00fcf3d4e06433967091f3f98abc553a0d6c681f5af9be"
+    },
+    {
+      "source": "assistant/static/space-grotesk-latin.woff2",
+      "destination": "src/theos/static/space-grotesk-latin.woff2",
+      "source_sha256": "0640890476fc1198ab4de571fb658de443c4d85b66466ec09534a8737ab1ce9d",
+      "destination_sha256": "0640890476fc1198ab4de571fb658de443c4d85b66466ec09534a8737ab1ce9d"
+    },
+    {
+      "source": "assistant/static/brand.svg",
+      "destination": "src/theos/static/brand.svg",
+      "source_sha256": "629342717ded0ed41b106b72fa84da7c7e037318eb0fbaca4cb8d2ff7dd236bb",
+      "destination_sha256": "629342717ded0ed41b106b72fa84da7c7e037318eb0fbaca4cb8d2ff7dd236bb"
+    },
+    {
+      "source": "assistant/static/style.css",
+      "destination": "src/theos/static/style.css",
+      "source_sha256": "5d84becbaf1d4fb3b200cfd14716fe6b8887338b898eeeccf540144037071a2b",
+      "destination_sha256": "5d84becbaf1d4fb3b200cfd14716fe6b8887338b898eeeccf540144037071a2b"
+    },
+    {
+      "source": "assistant/static/app.js",
+      "destination": "src/theos/static/app.js",
+      "source_sha256": "9f1192a3d35e112e75ab44cc41f7be57b0ac27fe4c8907fb55f88a32d50fe243",
+      "destination_sha256": "fa1594a03ec1b873e373696b56eb1602bf2f78670120c7991854f4c3317f3d48"
+    },
+    {
+      "source": "assistant/health_normalize.py",
+      "destination": "src/theos/health_normalize.py",
+      "source_sha256": "fa4593fe0a88c1e498571270f473eb517d5818e6fbbf26478ba497161453b361",
+      "destination_sha256": "f9003a886b00478096bb93ed879ba074eaffcaa6e3c9dfc53a133763d8e2c8ad"
+    },
+    {
+      "source": "assistant/scheduler.py",
+      "destination": "src/theos/scheduler.py",
+      "source_sha256": "04b24ecfda10ae8118a3c2382177babea0ff329404cce4abae44ea7b71b8ca1b",
+      "destination_sha256": "2814dc7ea94d619e5dc5311b7af8fa6604bcf236fd9ce1156dabf74cb4a19ac4"
+    },
+    {
+      "source": "assistant/personal.py",
+      "destination": "src/theos/personal.py",
+      "source_sha256": "b79e07359994c08756e52277fa1b4f2377c8e77741b8cb6f23eae855be1aad26",
+      "destination_sha256": "b79e07359994c08756e52277fa1b4f2377c8e77741b8cb6f23eae855be1aad26"
+    },
+    {
+      "source": "assistant/oauth.py",
+      "destination": "src/theos/oauth.py",
+      "source_sha256": "746aee27d5e897d398fced2251bd11696b0bb850e3b6463a07e214182eb6609e",
+      "destination_sha256": "57e1616f4d7ce514d742c0407b7b44f4ae6156a42b1ea2021228afa3cd579693"
+    },
+    {
+      "source": "tests/assistant_acceptance/test_oauth_gmail_health.py",
+      "destination": "tests/app/test_oauth_gmail_health.py",
+      "source_sha256": "5b1b4d6239ec9cbdbc488b69abaad8615a9886ac8fd0e08b67785e2ba4b237da",
+      "destination_sha256": "fb1d5d92eac4671233e7fae10936ad6383a8e84eb22b4e276edab90a655209d8"
+    },
+    {
+      "source": "tests/assistant_acceptance/conftest.py",
+      "destination": "tests/app/conftest.py",
+      "source_sha256": "57405d2e2f1078c9ec4713786ede0f1be2ef669fcaf847ce2033e8ef130dac2a",
+      "destination_sha256": "dba25c32a63958206ed9545974fca4f12ea24df671bd8ad862d2173378ddcacb"
+    },
+    {
+      "source": "tests/assistant_acceptance/test_personal_memory.py",
+      "destination": "tests/app/test_personal_memory.py",
+      "source_sha256": "7db41f84172734bfdb0f926ac9e79b1ebec3819421f39de77b558ed87563f2c8",
+      "destination_sha256": "2869b566b919616c24c17b68dfaa803f4f78ce2ac8e72dad10ca9d4e79962a33"
+    },
+    {
+      "source": "tests/assistant_acceptance/test_integrations.py",
+      "destination": "tests/app/test_integrations.py",
+      "source_sha256": "f2ebdd1252ba0045472a8b8d862dcfdb334416bda70379f7d52644c0fafccb39",
+      "destination_sha256": "c2e84e96b31ef3d7633f7b595df6adb44c49cc02f3fae58e6ba1058c485bc0e3"
+    },
+    {
+      "source": "tests/assistant_acceptance/test_runtime.py",
+      "destination": "tests/app/test_runtime.py",
+      "source_sha256": "dd42e5046ebadb48a422a6b5f6d27a41db881c3382c59913cf8fb1ccf7fa76dd",
+      "destination_sha256": "73731df7275e3d9757487039413723311eb16f7bafa4abe87497514cd6ee431b"
+    },
+    {
+      "source": "tests/assistant_acceptance/__init__.py",
+      "destination": "tests/app/__init__.py",
+      "source_sha256": "cb35ac94a0d7967eae5b8f59c245e653f0ca75f6c3264854bfd3e964af9d339f",
+      "destination_sha256": "cb35ac94a0d7967eae5b8f59c245e653f0ca75f6c3264854bfd3e964af9d339f"
+    },
+    {
+      "source": "tests/assistant_acceptance/test_interfaces.py",
+      "destination": "tests/app/test_interfaces.py",
+      "source_sha256": "b16766cd3f58e668e819e674a951803a548214541b1b3c3a2308a1ca9b327f76",
+      "destination_sha256": "7fbdbb30f5fbbb0e3c4e4d609f3d0902cda35d263a9fdce73652930ee4627fa0"
+    },
+    {
+      "source": "tests/assistant_acceptance/test_regressions.py",
+      "destination": "tests/app/test_regressions.py",
+      "source_sha256": "f5dde538959b964465fbeb4cfd721a9b6e62fc70fd0cb47b2fd449ab9d8f466c",
+      "destination_sha256": "2472aefd9baf9feab9e213c522129249b3d57caa5e6ad74a50c792cd01047d81"
+    },
+    {
+      "source": "docs/assistant/notices.md",
+      "destination": "docs/runtime/notices.md",
+      "source_sha256": "9e65d5da17e6bbd01167e4f0eda51bcd910b2b0495c9447340eee0ddd724038c",
+      "destination_sha256": "a97a738cb243f795d3efabccd369c678725b78b85e1ff4b73ac86e243d399851"
+    },
+    {
+      "source": "docs/assistant/README.md",
+      "destination": "docs/runtime/README.md",
+      "source_sha256": "ba5b1da79864a82d90175464a8971840e434157a2bfdaf1935477aead712be4e",
+      "destination_sha256": "63d284ba69ebb8a71cce5775e286c19ab63dfd097653d445b8caf5ca1b87a5c6"
+    },
+    {
+      "source": "docs/assistant/deployment.md",
+      "destination": "docs/runtime/deployment.md",
+      "source_sha256": "0b43033c6f191c0f717e0c0755096ffe6afa97e7c7b6d5fc4d33cec710bd0037",
+      "destination_sha256": "790ebc15bba10ffe62f6fc99b8510790e2bd3334e4dd36d16cb2947e1c90bdf3"
+    },
+    {
+      "source": "docs/assistant/services.md",
+      "destination": "docs/runtime/services.md",
+      "source_sha256": "274f2c481888769ebf999042c2712257d74ddfeb46eb868220b64965a1afe9a2",
+      "destination_sha256": "d50c60fc229df044883d982e7119f0a694d48e7ba92ba57d2d04da25d203cd50"
+    },
+    {
+      "source": "docs/assistant/acceptance.md",
+      "destination": "docs/runtime/acceptance.md",
+      "source_sha256": "0c64a78d5dec1ebd9ef17f9f46ad5e94b70c9334d0cde4bb36237b82c42db2c6",
+      "destination_sha256": "2b18bca8b375118e7a80aee03754434691a248e1bea952a31724dacb76825ee9"
+    },
+    {
+      "source": "scripts/assistant_smoke.py",
+      "destination": "scripts/theos_smoke.py",
+      "source_sha256": "f5ec936579a2c5a9fec0dc5698dbe551a22d4101c93f90501cc2cd465f93c380",
+      "destination_sha256": "f5ec936579a2c5a9fec0dc5698dbe551a22d4101c93f90501cc2cd465f93c380"
+    },
+    {
+      "source": ".github/workflows/assistant.yml",
+      "destination": ".github/workflows/theos.yml",
+      "source_sha256": "825b931c7b5cf7db8a0543d88dfc046e1afd43beb54df2b5fa56563b4b9854d1",
+      "destination_sha256": "90f4bed0a0e8ef2b6dfb81b1e7d96507722fb79a4c71d05245fc335af0c4d207"
+    },
+    {
+      "source": "Dockerfile",
+      "destination": "Dockerfile",
+      "source_sha256": "0696a15797f4cb9a7264c59491870a6665225cad99b19b547658d42389414596",
+      "destination_sha256": "b0b45c22f8320bebc00b2d67a8edc78e1f3563ca9cc626ded4fbe7ab0770c64b"
+    },
+    {
+      "source": "compose.yaml",
+      "destination": "compose.yaml",
+      "source_sha256": "8c9f7d0b3684d56cc8226a2cb8f3b7708e514357b24f4d15d9d77203cf71c005",
+      "destination_sha256": "49f97656f50c6d123601b343e69f2974c9d991aeba5a3948b8049c2fddc79785"
+    },
+    {
+      "source": "compose.dev.yaml",
+      "destination": "compose.dev.yaml",
+      "source_sha256": "3c0cc4869941f9186c86f87cd883c3b71d00ee2ef1e995ce6f9d30cd4d22ea7d",
+      "destination_sha256": "122f2db0e04c95107a796832d538983676e75e8d84520aa139fa122edf52ecd2"
+    },
+    {
+      "source": ".dockerignore",
+      "destination": ".dockerignore",
+      "source_sha256": "58b9cbb1a53c6349e86132025cc4f80f6163b6db05d501ca009c5c2d4fbed63d",
+      "destination_sha256": "370adb113dd31632f6d5cb6b9025f657509a2b2e3485a30e855ef9c0b1fcf2ac"
+    },
+    {
+      "source": ".env.minimal",
+      "destination": ".env.minimal",
+      "source_sha256": "8e9bfe44fd3f6e66e2dd32a23a687c0908ab520d09c3a62c293134dc71dd6f87",
+      "destination_sha256": "462de66c1c13a7c4832f7f14cab44bfc962d403abd398b14deb430580c824eab"
+    },
+    {
+      "source": ".env.full.example",
+      "destination": ".env.full.example",
+      "source_sha256": "9fce52ccf73544f21798f22313d292cd1bde5747afd0f8bc01bd4c4f7a728fc4",
+      "destination_sha256": "5bbad378eaa2f6adcf312a3c946300f08ae2cd8790824c979b7625ebf225b80b"
+    },
+    {
+      "source": "tests/test_agent.py",
+      "destination": "tests/test_agent.py",
+      "source_sha256": "d64c31f2f533443218916b2c2d0bae23fe65c5060dbe2b7cc28bc25ed9f1f80d",
+      "action": "sync harness assertions",
+      "destination_sha256": "d64c31f2f533443218916b2c2d0bae23fe65c5060dbe2b7cc28bc25ed9f1f80d"
+    },
+    {
+      "source": "tests/test_types.py",
+      "destination": "tests/test_types.py",
+      "source_sha256": "0dc2676a5a89d6875e09165f7553dd91a637ac884255a6d0a1b0455546bdf7af",
+      "action": "sync harness assertions",
+      "destination_sha256": "0dc2676a5a89d6875e09165f7553dd91a637ac884255a6d0a1b0455546bdf7af"
+    },
+    {
+      "source": "tests/providers/test_anthropic.py",
+      "destination": "tests/providers/test_anthropic.py",
+      "source_sha256": "cf589cdb102af86185135cd3637a103b20e9050496deb8e9c5e6da91e4858d4b",
+      "action": "sync harness assertions",
+      "destination_sha256": "cf589cdb102af86185135cd3637a103b20e9050496deb8e9c5e6da91e4858d4b"
+    },
+    {
+      "source": "tests/providers/test_openai.py",
+      "destination": "tests/providers/test_openai.py",
+      "source_sha256": "d389cf6db934605807655643e7681d5e84a08719e9ea706286e10b950ef3296a",
+      "action": "sync harness assertions",
+      "destination_sha256": "167353c222bb8c93b64744345a1c8bfa2b91f66dc67cc9947a162b89a995a684"
+    },
+    {
+      "source": "tests/providers/test_gemini.py",
+      "destination": "tests/providers/test_gemini.py",
+      "source_sha256": "5a82a5eff6b04ab6a2a95531cbd1ee9b6ba67b308b76739d49c25eacdc234b09",
+      "action": "sync harness assertions",
+      "destination_sha256": "5a82a5eff6b04ab6a2a95531cbd1ee9b6ba67b308b76739d49c25eacdc234b09"
+    }
+  ],
+  "adjustments": [
+    "Merged the runtime into src/theos and retained model constants in config.py.",
+    "Updated environment names, deployment names, imports, browser branding, and documentation.",
+    "Updated OpenAI fixture fields for the destination SDK."
+  ]
+}
