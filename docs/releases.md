@@ -56,6 +56,8 @@ The operator updated the Google redirect list; full Google consent and account l
 Open `https://theos.parth-shastri.com/` for the full Pi browser app. Protected API routes require a valid browser token.
 Public HTTPS checks passed for the homepage and its assets, health endpoints, authenticated owner APIs, and rejection of anonymous API requests.
 A real model turn completed through the public SSE stream, and its conversation history was saved.
+The operator Mac also loaded the browser workspace, signed in as `owner`, and received `BROWSER_OK` from a browser-submitted real model turn after refreshing Tailscale's stale DNS state.
+The original Tailscale DNS preference was restored.
 The existing Vercel frontend remains at `mytheos.parth-shastri.com`.
 Application credentials remain on the Pi, outside Git.
 The workflow uses its temporary GitHub token to pull the private GHCR image.
