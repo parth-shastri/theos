@@ -13,6 +13,11 @@ Read [docs/code-structure.md](docs/code-structure.md) for service boundaries and
 - Keep the reference assistant's name and repository URL out of project artifacts and responses.
 - Keep generic harness behavior separate from assistant services and transport code.
 - Record new project decisions in `MEMORY.md`.
+- Start each change on a topic branch from `dev`, including fixes, features, chores, and documentation.
+- Never use the `codex/` branch prefix. Use `fix/`, `feature/`, `chore/`, or `docs/` as appropriate.
+- Merge topic branches into `dev` through a PR.
+- Promote `dev` to `main` or `rpi` through a PR. Publish Pi releases from `rpi`.
+- Do not commit changes directly to `dev`, `main`, or `rpi`.
 - Preserve source attribution and the starter provenance manifest.
 - Follow `/Users/nightowl/WRITING.md` for long Markdown changes when that file exists.
 - Do not claim that a planned component is implemented.

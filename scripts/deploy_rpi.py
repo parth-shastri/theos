@@ -85,6 +85,20 @@ class Deployer:
             time.sleep(2)
         raise DeploymentError("Application readiness did not pass before the deadline.")
 
+    def telegram_ready(self, release, *, preflight=False):
+        # A one-off checker starts no worker and never opens the application database.
+        command = ("run", "--rm", "--no-deps", "-T") if preflight else ("exec", "-T")
+        try:
+            output = self.compose(
+                release, *command, "theos", "python", "-m", "theos.operations.telegram_check"
+            )
+        except DeploymentError:
+            raise DeploymentError(
+                "Telegram connection check failed. Verify the bot token, outbound HTTPS, and webhook configuration."
+            ) from None
+        if output:
+            print(output)
+
     def restore_previous(self, candidate, previous):
         self.compose(candidate, "stop", "theos")
         if previous:
@@ -182,6 +196,7 @@ class Deployer:
             raise DeploymentError("An unmanaged Theos service exists. Adopt it before deployment.")
         if previous and previous["image"] == image and previous["revision"] == revision:
             self.healthy(previous)
+            self.telegram_ready(previous)
             result = dict(status="already_deployed", current=previous)
             write_json(self.result_path, result)
             return result
@@ -221,6 +236,8 @@ class Deployer:
                 "-c",
                 'import os; os.chown("/data",10001,10001)',
             )
+            # Reject invalid Telegram settings before stopping the current worker.
+            self.telegram_ready(candidate, preflight=True)
             write_json(self.pending_path, dict(candidate=candidate, previous=previous))
             changing = True
             if previous:
@@ -228,6 +245,7 @@ class Deployer:
                 result["backup"] = self.snapshot(previous, candidate)
             self.compose(candidate, "up", "--no-build", "--pull", "never", "-d", "theos")
             self.healthy(candidate)
+            self.telegram_ready(candidate)
             write_json(self.current_path, candidate)
             changing = False
             self.pending_path.unlink()

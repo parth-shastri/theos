@@ -196,7 +196,12 @@ Preserve historical paths in provenance manifests.
 ## Git and Raspberry Pi releases
 
 The private GitHub repository is `parth-shastri/theos`.
-Use `main` for development and `rpi` for Raspberry Pi releases.
+Start every change on a topic branch from `dev`, including fixes, features, chores, and documentation.
+The operator prohibits the `codex/` branch prefix in every repository going forward.
+Use descriptive names such as `fix/<name>`, `feature/<name>`, `chore/<name>`, or `docs/<name>`.
+Merge the topic branch into `dev` through a PR.
+Promote `dev` through a PR to either `main` or `rpi`. Publish Raspberry Pi releases from `rpi`.
+Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
 CI covers Python 3.12 and 3.13, browser syntax, packages, workflow validation, secret scanning, and containers on amd64, arm64, 386, ARMv7, and PPC64LE.
 An explicit extended run also checks s390x and RISC-V64. AMD64 and ARM64 run natively; other targets use QEMU.
@@ -209,6 +214,14 @@ The operator authorized deriving a private `.env.pi` from the existing local `.e
 The Pi user and administrator are `owner`. Gmail and Google Health use HTTPS callbacks at `theos.parth-shastri.com`.
 Keep local `.env` unchanged. Store `.env.pi` with mode `0600`, outside Git and outside the runner checkout.
 On the Pi, the deployment `.env` is a symlink to `.env.pi`.
+The Pi release checks Telegram with read-only `getMe` and `getWebhookInfo` requests before stopping the worker and after activation.
+Invalid credentials, network failures, malformed responses, and active webhooks fail the check. An empty bot token skips it.
+Branch and pull-request CI use mocked responses. Production Telegram credentials remain in the private Pi environment outside the runner checkout.
+The check does not read updates or send messages. It does not prove reply delivery or detect another polling process.
+On 2026-10-10, the prior token returned HTTP 401. The operator replaced it in local `.env.pi`.
+Only that token was synchronized to the Pi. Container recreation applied it.
+Live authentication and polling-configuration checks passed for `@mytheos_bot`.
+The connection-check code needs a new tagged release before it becomes part of the deployed image.
 GitHub rejected branch protection for the private repository because the account requires an upgrade.
 The disposable Docker rehearsal passed first installation, replacement, intentional readiness failure, and automatic rollback on the Pi.
 Both the original and restored SQLite records survived.
