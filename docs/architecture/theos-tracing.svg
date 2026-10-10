@@ -54,7 +54,7 @@
 <polyline points="939.2468935367496,559.4690092573155 945,570 950.7531064632504,559.4690092573155" fill="none" stroke="#53657b" stroke-width="2"/>
 <rect x="740" y="570" width="410" height="100" rx="8" fill="#e3f3f1" stroke="#53657b" stroke-width="2"/>
 <text x="795.0" y="611.95" fill="#263447" font-size="23">Badger / seven-day expiry</text>
-<text x="764.5" y="640.7" fill="#263447" font-size="23">Disk quota requires host setup</text>
+<text x="761.0" y="640.7" fill="#263447" font-size="23">Retains traces across restarts</text>
 <rect x="650" y="745" width="500" height="105" rx="8" fill="#fff3d9" stroke="#53657b" stroke-width="2"/>
 <text x="735.5" y="776.05" fill="#263447" font-size="22">Jaeger: 512 MB container limit</text>
 <text x="719.5" y="803.55" fill="#263447" font-size="22">Memory guard + bounded batches</text>

@@ -86,7 +86,7 @@ def main():
         570,
         410,
         100,
-        "Badger / seven-day expiry\nDisk quota requires host setup",
+        "Badger / seven-day expiry\nRetains traces across restarts",
         TEAL,
         23,
     )

@@ -68,9 +68,9 @@ Jaeger `2.22.0` displayed a 12-span fake-model turn with two overlapping researc
 Its Badger volume retained the complete trace across a container restart.
 These checks used disposable SQLite data and made no model API requests.
 Jaeger accepted another 12-span turn with the memory limiter and 300 MiB Go memory target enabled.
-A second container accepted a turn with a 1 GB capacity limit on its temporary filesystem.
-The quota overlay replaces the named volume and refuses a missing host path.
-Linux ext4 provisioning, persistence, and quota exhaustion remain deployment checks.
+The local Theos and Jaeger Compose services started with separate persistent data volumes.
+Theos readiness returned HTTP 200. Jaeger displayed the scripted 12-span example waterfall.
+The local browser instance uses the configured OpenRouter model with Telegram polling disabled.
 
 The full suite passed 744 tests, with three live tests excluded.
 Application lint, formatting, lock validation, Compose configuration, and package builds passed.

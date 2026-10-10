@@ -1683,11 +1683,11 @@
       "locked": false,
       "type": "text",
       "id": "badger-line-1",
-      "x": 764.5,
+      "x": 761.0,
       "y": 620.0,
-      "width": 361.0,
+      "width": 368.0,
       "height": 28.75,
-      "text": "Disk quota requires host setup",
+      "text": "Retains traces across restarts",
       "fontSize": 23,
       "fontFamily": 1,
       "textAlign": "left",
@@ -1696,7 +1696,7 @@
       "lineHeight": 1.25,
       "strokeColor": "#263447",
       "containerId": null,
-      "originalText": "Disk quota requires host setup"
+      "originalText": "Retains traces across restarts"
     },
     {
       "angle": 0,

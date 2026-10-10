@@ -115,8 +115,8 @@ ssh -L 16686:127.0.0.1:16686 your-host
 
 Use both Compose files for later lifecycle commands.
 The `jaeger-data` volume is separate from application data and application backups.
-The default named volume has no disk quota. Seven-day expiry does not impose a fixed storage limit.
-Use the quota overlay below for a deployment with the selected 1 GB storage budget.
+The named volume has no hard disk limit. Badger expires spans after seven days.
+Background maintenance reclaims expired data. Monitor volume growth separately.
 
 ## Export to another backend
 
@@ -184,7 +184,7 @@ The estimate does not represent an invoice or separate cached-token pricing.
 | Export queue | 2,048 spans, batches of 256 | SDK discards queued spans on overflow rather than growing without a limit |
 | Jaeger spans | Seven-day expiry | Badger TTL and background maintenance |
 | Jaeger memory | 512 MiB container limit, 300 MiB Go memory target | A limiter refuses ingestion above its 320 MiB soft heap threshold. Batches contain at most 256 spans |
-| Jaeger storage | 1 GB filesystem capacity | Linux quota overlay and host provisioning below |
+| Jaeger storage | Persistent named volume with no hard size cap | Seven-day span expiry and background maintenance |
 | SQLite events, usage, and conversation state | Keep existing records | No automatic deletion in this change |
 
 These policies keep logs on disk and bound the queue in memory.
@@ -193,43 +193,6 @@ An idle process removes expired backups when logging resumes.
 Monitor SQLite growth separately. Retained database pages do not imply that all rows reside in process memory.
 The backup command excludes application logs.
 Archive required diagnostic evidence separately before a restore or cleanup.
-
-### Apply the 1 GB trace storage quota
-
-The Linux helper creates a dedicated ext4 filesystem inside a 1,000,000,000-byte image.
-Filesystem metadata reduces the space available for spans.
-A systemd mount retains the capacity limit across host restarts.
-The helper refuses existing paths and never formats an existing trace store.
-It requires Linux, systemd, and `mkfs.ext4`. It does not provision storage on macOS.
-
-1. Provision a new trace filesystem on the Linux deployment host.
-
-   ```sh
-   sudo sh scripts/provision_trace_storage.sh
-   ```
-
-2. Add the storage path to the deployment environment.
-
-   ```dotenv
-   JAEGER_STORAGE_PATH=/var/lib/theos/jaeger
-   ```
-
-3. Start the stack with all three Compose files.
-
-   ```sh
-   docker compose -f compose.yaml -f compose.tracing.yaml -f compose.tracing.quota.yaml up --build -d
-   ```
-
-Use those three files for subsequent lifecycle commands.
-The overlay replaces Jaeger's named volume with the quota-backed host directory.
-It refuses to create a missing host path.
-The mount directory permits writes only by UID 10001, which the pinned Jaeger image uses.
-
-This hard quota protects the host disk. It does not trigger oldest-first eviction before seven-day expiry.
-When storage fills, Badger can fail writes or restart. Remote spans can be lost while Theos continues serving turns.
-Lower the sampling ratio or shorten `ttl.spans` in `config/jaeger.yaml` if the seven-day volume exceeds the budget.
-Do not delete database files while Jaeger runs.
-The host filesystem provision and exhaustion check remain deployment acceptance steps.
 
 ## Planned operations framework
 

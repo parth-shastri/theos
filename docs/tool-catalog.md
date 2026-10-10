@@ -364,8 +364,6 @@ The server uses `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`
 It exports content-free turn, model, tool, delegate, and title spans through OTLP/HTTP protobuf.
 The runtime owns its tracer provider and background batch processor.
 The optional `compose.tracing.yaml` runs Jaeger `2.22.0` with seven-day Badger storage in a separate volume.
-The optional quota overlay uses a 1 GB host filesystem instead of that volume.
-Its provisioning helper requires Linux, systemd, `truncate`, and `mkfs.ext4`.
 Jaeger uses a 512 MiB container limit, a Go memory target, and the Collector memory limiter.
 Jaeger supplies the waterfall viewer. It is an operations dependency, not an assistant tool.
 See [observability](base-infra/observability.md) for setup and trace contents.
