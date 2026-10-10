@@ -36,7 +36,7 @@ Configuration defaults come from the current application source and Compose file
 | [Operations](operations.md) | Status, backups, restore, upgrades, and recovery |
 | [Git and releases](releases.md) | CI, Raspberry Pi tags, activation, and rollback |
 | [Troubleshooting](troubleshooting.md) | Symptoms, causes, and corrective actions |
-| [Observability](base-infra/observability.md) | Local logs, tool traces, usage, and retention |
+| [Observability](base-infra/observability.md) | Local logs, OTel turn traces, Jaeger waterfalls, usage, and retention |
 | [Compose workflow](base-infra/docker-compose-workflow.md) | Network, volume, resource, and lifecycle settings |
 | [Docker image](base-infra/dockerfile-strategy.md) | Build stages, dependencies, runtime user, and image contents |
 | [Acceptance](runtime/acceptance.md) | Recorded results and live service checks |

@@ -43,6 +43,7 @@ async def test_run_forwards_every_field_to_run_stream(fake_model, monkeypatch):
     hooks = Hooks()
     inbox = Inbox()
     budget = Budget(max_model_calls=3)
+    compaction_budget = Budget(max_model_calls=2)
     support = Agent(
         model=model,
         tools=[lookup],
@@ -51,7 +52,8 @@ async def test_run_forwards_every_field_to_run_stream(fake_model, monkeypatch):
         max_context_tokens=500,
     )
     history = [UserMessage("Where is my order?")]
-    result = await support.run(history, deps="ada", inbox=inbox, budget=budget)
+    result = await support.run(history, deps="ada", inbox=inbox, budget=budget,
+                               compaction_budget=compaction_budget)
     assert result.status == "completed"
     assert captured["positional"] == (model, [lookup], history)
     assert captured == {
@@ -61,6 +63,7 @@ async def test_run_forwards_every_field_to_run_stream(fake_model, monkeypatch):
         "instructions": "You are a support agent.",
         "inbox": inbox,
         "budget": budget,
+        "compaction_budget": compaction_budget,
         "max_context_tokens": 500,
         "estimate_tokens": default_estimate,
         "context_window": None,

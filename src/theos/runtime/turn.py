@@ -16,6 +16,7 @@ class Turn:
     task: asyncio.Task | None = None
     raw_events: bool = False
     inbox: Inbox = field(default_factory=Inbox)
+    delegate_results: dict[str, dict[str, dict]] = field(default_factory=dict)
 
     def emit(self, value):
         """Queue display progress without blocking the active tool."""
