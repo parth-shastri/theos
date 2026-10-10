@@ -58,6 +58,17 @@ It does not bundle the upstream ADK skill registry.
 
 ## Current verification
 
+The 2026-10-10 OpenRouter retention update enforces `provider.zdr=true` in the application adapter.
+Standalone requests passed automatic ZDR routing for all seven configured chat models.
+Of 81 explicit provider routes, 76 returned HTTP 200 and five returned HTTP 429.
+A forced non-ZDR OpenAI route returned HTTP 404 because it did not match the retention policy.
+The [ZDR verification record](openrouter-zdr.md) lists providers, failures, request settings, and limits.
+
+Five new deterministic checks cover streamed and buffered SDK payloads, preserved request options, disabled-ZDR overrides, and unavailable routes.
+The full suite passed 718 tests after synchronization with `dev`, with three live tests excluded.
+Application lint and formatting checks passed.
+These text probes do not complete the remaining tool, image, reasoning, or transport acceptance checks.
+
 The Telegram reply formatter converts Markdown into explicit message entities with UTF-16 offsets.
 Regression tests cover emphasis, links, literal HTML, code blocks, tables, emoji, message splitting, and incomplete streamed markup.
 They also check complete Unicode approval previews and removal of obsolete reply chunks.

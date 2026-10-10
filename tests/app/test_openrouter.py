@@ -1,14 +1,103 @@
 """OpenRouter summaries, signed block replay, and provider-reported cost."""
 
+import copy
+import json
 from types import SimpleNamespace
 
+import httpx
 import pytest
+from openai import APIStatusError, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 
 from harness import UserMessage
 from harness.events import GenerationComplete, ReasoningDelta
 from harness.types import ModelRequest
 from theos.runtime.openrouter import OpenRouterChatModel
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("custom_options", [False, True])
+async def test_openrouter_sends_zdr_without_changing_request_options(streaming, custom_options):
+    options = {}
+    if custom_options:
+        options = {
+            "max_tokens": 512,
+            "extra_body": {
+                "reasoning": {"effort": "low"},
+                "top_k": 25,
+                "provider": {"zdr": False, "only": ["azure"], "allow_fallbacks": False},
+            },
+        }
+    original = copy.deepcopy(options)
+    calls = []
+
+    def respond(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        response = {
+            "id": "chat-zdr",
+            "created": 1,
+            "model": body["model"],
+            "object": "chat.completion.chunk" if streaming else "chat.completion",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "delta" if streaming else "message": {"role": "assistant", "content": "OK"},
+                }
+            ],
+        }
+        if streaming:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text="data: " + json.dumps(response) + "\n\ndata: [DONE]\n\n",
+            )
+        return httpx.Response(200, json=response)
+
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = OpenRouterChatModel(
+            client, "openai/gpt-6-luna", api="chat_completions", stream=streaming
+        )
+        reply = await model.generate(ModelRequest([UserMessage("Reply OK")], options=options))
+    assert reply.text == "OK"
+    assert len(calls) == 1
+    assert calls[0]["provider"]["zdr"] is True
+    if custom_options:
+        assert calls[0]["provider"] == {
+            "zdr": True,
+            "only": ["azure"],
+            "allow_fallbacks": False,
+        }
+        assert calls[0]["reasoning"] == {"effort": "low"}
+        assert calls[0]["top_k"] == 25
+        assert calls[0]["max_tokens"] == 512
+    assert options == original
+
+
+async def test_openrouter_unavailable_zdr_route_does_not_retry_without_policy():
+    calls = []
+
+    def respond(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(404, json={"error": {"message": "No eligible ZDR endpoint"}})
+
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = OpenRouterChatModel(client, "openai/gpt-6-luna", api="chat_completions")
+        with pytest.raises(APIStatusError):
+            await model.generate(ModelRequest([UserMessage("Reply OK")]))
+    assert len(calls) == 1
+    assert calls[0]["provider"] == {"zdr": True}
 
 
 async def test_openrouter_stream_preserves_reasoning_tools_and_cost(runtime):
