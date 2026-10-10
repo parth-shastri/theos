@@ -14,6 +14,18 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
+## Telegram release check
+
+`python -m theos.operations.telegram_check` uses HTTPX and the Python standard library.
+The optional `--env-file` argument uses python-dotenv, already installed through Pydantic Settings.
+The check calls Telegram's read-only `getMe` and `getWebhookInfo` methods with ten-second request timeouts.
+It checks bot authentication and rejects active webhooks that prevent polling.
+It sends no messages, reads no updates, and prints no credentials or remote error bodies.
+The Pi release runs the check before stopping the worker and after activating the candidate.
+An empty bot token disables the check. This operation adds no model tool or package dependency.
+
+Source: [connection check](../src/theos/operations/telegram_check.py) and [release activation](../scripts/deploy_rpi.py).
+
 ## Terminal transport
 
 The installed `theos` command uses the owned renderer, Rich, and Textual.

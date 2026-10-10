@@ -81,6 +81,13 @@ Telegram-confirmed browser access is implemented. Encrypted personal storage rem
 The 2026-10-10 Git and release setup passed 655 deterministic tests with three live tests excluded on both Python 3.12 and 3.13.
 GitHub CI passed browser syntax, workflow and shell validation, secret scanning, package and lightweight client checks, Compose validation, and native amd64 and arm64 container acceptance.
 The Raspberry Pi runner is installed on 64-bit Debian 13.
+The 2026-10-10 Telegram recovery replaced an unauthorized bot token and recreated the deployed container.
+Live `getMe` and `getWebhookInfo` checks passed for `@mytheos_bot`, with no active webhook.
+The local release changes add Telegram checks before worker replacement and after activation.
+Focused tests cover safe errors, disabled bots, webhook conflicts, preservation before shutdown, and rollback after activation.
+All 693 deterministic tests passed, with three live tests excluded. Application lint, formatting, and patch whitespace checks passed.
+The new checker also passed live execution in a disposable Compose container and inside the active Pi container.
+These changes require a new tagged release. End-to-end Telegram reply delivery remains unverified.
 A disposable Docker rehearsal passed initial installation, replacement, deliberate readiness failure, and automatic rollback.
 The original and restored SQLite records survived.
 Release `rpi-v0.1.0` is healthy on the Pi with the configured model provider, browser user and administrator `owner`, and HTTPS Google callback URLs.

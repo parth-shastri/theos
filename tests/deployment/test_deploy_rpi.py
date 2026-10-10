@@ -148,3 +148,47 @@ def test_failed_first_install_stops_candidate(deployment):
 def test_rejects_mutable_image_reference(deployment):
     with pytest.raises(DeploymentError, match="immutable"):
         deployment[0].deploy("ghcr.io/parth-shastri/theos:latest", "rpi-v0.1.0", REVISION)
+
+
+def test_failed_telegram_preflight_never_stops_previous_service(deployment):
+    deployer, calls = deployment
+    previous = previous_release(deployer)
+
+    def rejected(release, *, preflight=False):
+        assert preflight
+        raise DeploymentError("Telegram rejected the token")
+
+    deployer.telegram_ready = rejected
+    with pytest.raises(DeploymentError, match="status=failed"):
+        deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
+    assert json.loads(deployer.current_path.read_text()) == previous
+    assert not any("stop" in call for call in calls)
+    assert not deployer.pending_path.exists()
+
+
+def test_failed_active_telegram_check_rolls_back(deployment):
+    deployer, calls = deployment
+    previous = previous_release(deployer)
+
+    def rejected(release, *, preflight=False):
+        if not preflight:
+            raise DeploymentError("Telegram connection failed after activation")
+
+    deployer.telegram_ready = rejected
+    with pytest.raises(DeploymentError, match="status=rolled_back"):
+        deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
+    assert json.loads(deployer.current_path.read_text()) == previous
+    assert ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos") in calls
+    assert not deployer.pending_path.exists()
+
+
+def test_telegram_checks_use_candidate_environment_and_active_container(deployment):
+    deployer, calls = deployment
+    previous_release(deployer)
+    result = deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
+    volume = result["current"]["volume"]
+    checker = ("theos", "python", "-m", "theos.operations.telegram_check")
+    preflight = (volume, "run", "--rm", "--no-deps", "-T", *checker)
+    active = (volume, "exec", "-T", *checker)
+    assert calls.index(preflight) < calls.index(("previous-volume", "stop", "theos"))
+    assert calls.index(("healthy", volume)) < calls.index(active)

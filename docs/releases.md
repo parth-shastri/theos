@@ -1,7 +1,13 @@
 # Git, CI, and Raspberry Pi releases
 
 The private repository is `parth-shastri/theos`.
-`main` holds normal development. `rpi` holds the version selected for the Raspberry Pi.
+`dev` holds integrated development. `main` holds promoted changes. `rpi` holds the version selected for the Raspberry Pi.
+Start every fix, feature, chore, or documentation change on a topic branch from `dev`.
+Use branch names such as `fix/<name>`, `feature/<name>`, `chore/<name>`, or `docs/<name>`.
+Never use the `codex/` branch prefix.
+Merge the topic branch into `dev` through a PR.
+Promote `dev` through a PR to either `main` or `rpi`.
+Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
 ## Continuous integration
@@ -69,10 +75,11 @@ This prevents a first release from silently replacing unrelated state.
 
 ## Publish a release
 
-1. Merge the intended code into `rpi` and wait for `CI passed`.
-2. Set the package version in `pyproject.toml` and update `uv.lock` with `uv lock` when required.
-3. Commit and push that version on `rpi`.
-4. Fetch the current branch and tags.
+1. Prepare the intended code and package version on a topic branch from `dev`.
+2. Update `uv.lock` with `uv lock` when required.
+3. Merge the topic branch into `dev` through a PR after `CI passed`.
+4. Merge `dev` into `rpi` through a PR after `CI passed`.
+5. Fetch the current branch and tags.
 
    ```sh
    git fetch origin --tags
@@ -80,7 +87,7 @@ This prevents a first release from silently replacing unrelated state.
    git pull --ff-only origin rpi
    ```
 
-5. Create an annotated tag with the matching package version.
+6. Create an annotated tag with the matching package version.
 
    ```sh
    git tag -a rpi-v0.1.0 -m "Theos 0.1.0 for Raspberry Pi"
@@ -106,11 +113,13 @@ Ordinary pushes to `rpi` run CI but do not deploy.
 2. Build an arm64 image and test that exact image before publishing it to GHCR.
 3. Pull its immutable digest on the Pi while the previous service remains available.
 4. Validate Compose and prepare a separate candidate data volume.
-5. Stop the previous worker and create a consistent backup with its previous image.
-6. Restore that backup into the candidate volume using the old code.
-7. Start the candidate image. New migrations affect only the candidate volume.
-8. Wait for Docker health checks against `/ready`.
-9. Save the active release manifest and create a GitHub release after success.
+5. Check Telegram authentication and polling configuration with the candidate image and private Pi environment.
+6. Stop the previous worker and create a consistent backup with its previous image.
+7. Restore that backup into the candidate volume using the old code.
+8. Start the candidate image. New migrations affect only the candidate volume.
+9. Wait for Docker health checks against `/ready`.
+10. Repeat the Telegram check inside the active container.
+11. Save the active release manifest and create a GitHub release after success.
 
 A build, test, or image-pull failure leaves the previous service running.
 A failure after the previous worker stops restarts its saved image with its original volume.
@@ -121,6 +130,14 @@ A journal lets the next invocation recover an interrupted activation.
 An upgrade has downtime while the database is backed up and the candidate starts.
 The pipeline keeps one application worker and scheduler active at a time.
 Readiness checks the application and database; it does not prove live model or Telegram access.
+The separate Telegram check calls `getMe` and `getWebhookInfo` with bounded HTTPS timeouts.
+It rejects invalid credentials, network failures, invalid responses, and active webhooks that prevent polling.
+It sends no messages, reads no updates, and changes no webhook settings.
+An empty bot token disables Telegram and skips its connection check.
+A failed preflight keeps the previous worker active. A failed check after activation causes rollback.
+Branch and pull-request CI cover these checks with mocked responses and need no production credentials.
+The live check runs only during tagged deployment on the Pi, using the environment outside the runner checkout.
+This check does not prove reply delivery, model access, or the absence of another polling process.
 External actions and new records created during a failed activation are not undone by rollback.
 Keep failed candidate volumes for inspection before removing them.
 

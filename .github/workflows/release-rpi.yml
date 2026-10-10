@@ -110,7 +110,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Activate release with automatic image and data rollback
+      - name: Check Telegram and activate release with automatic rollback
         run: |
           python3 scripts/deploy_rpi.py --image "$RELEASE_IMAGE" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --deploy-dir "$THEOS_DEPLOY_DIR"
       - name: Report deployment or rollback
