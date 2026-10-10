@@ -1672,7 +1672,8 @@ tr:last-child td {
 .login-wrap {
   display: grid;
   place-items: center;
-  min-height: 100svh;
+  height: 100svh;
+  overflow: auto;
   padding: 24px;
   background: var(--canvas);
 }
@@ -1714,6 +1715,23 @@ tr:last-child td {
 .login-card small {
   font-size: 10px;
   color: var(--text-muted);
+}
+.signin-code {
+  display: block;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em;
+  text-align: center;
+}
+#web-token-save small {
+  display: block;
+  margin: 12px 0;
 }
 .sidebar-collapsed {
   grid-template-columns: 0 minmax(0, 1fr);

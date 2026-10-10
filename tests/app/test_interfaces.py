@@ -127,6 +127,7 @@ def telegram_message(text="Hello", user=123, chat=123, kind="private", topic=Non
 
 async def onboard(telegram, user=123):
     await telegram.handle([telegram_message("/start", user=user, chat=user)])
+    await telegram.handle([telegram_message("Test user", user=user, chat=user)])
     await telegram.handle([telegram_message("/skip", user=user, chat=user)])
 
 

@@ -21,6 +21,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Telegram `/start` onboarding, access code, preferred name, timezone, 50-user cap, restart recovery | `transports/telegram/onboarding.py`, `storage/telegram_access.py`, SQLite migrations 003, 004, and 008 | `test_telegram_onboarding.py` |
 | Photos, image documents, albums, voice, uploads, file delivery | `transports/telegram/`, `services/files/`, `services/voice/` | `test_interfaces.py`, `test_integrations.py`, `test_regressions.py` |
 | Browser chat, sessions, settings, approvals, private dashboard | `transports/browser/` | Browser API workflows and manual browser checks |
+| Telegram-confirmed browser enrollment, hashed tokens, device sessions, expiry, revocation, and ordinary user roles | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py`, migration 009 | `test_browser_onboarding.py` |
 | Installed terminal command, persistent sessions, images, steering, approvals, scheduled notices, and shutdown | `transports/terminal/`, owned renderer | `test_terminal.py`, existing `test_tui.py`, installed wheel UI turn |
 | Connected terminal, shared browser conversations, settings, usage, approvals, and server-owned turns | `transports/terminal/remote.py`, `routes.py`, `wire.py`, `screens.py` | `test_terminal_remote.py`, client-only wheel and real HTTP disconnect checks |
 | Memory save, search, list, read, update, delete | `services/memory/` | Ownership and service failures in `test_personal_memory.py` |
@@ -57,9 +58,36 @@ It does not bundle the upstream ADK skill registry.
 
 ## Current verification
 
+The 2026-10-10 browser enrollment update completes Telegram-confirmed UI access without an encryption decision.
+Completed users receive a single-use link when `AGENT_WEB_URL` is configured.
+Tests cover browser binding, Telegram ownership, ordinary roles, expiry, denial, replay, revocation, credential rotation, and restart persistence.
+They also check owner-scoped usage, private connections, connected terminal access, and preservation of the configured administrator account.
+The full suite passed 676 tests, with three live tests excluded.
+Ruff lint, Python formatting, JavaScript syntax, package builds, and changed documentation links passed.
+The built wheel includes migrations 008 and 009 and the browser access modules.
+Disposable browser previews confirmed code display, reload recovery, token presentation, chat, personal usage, and sign-out.
+The confirmation and token screens fit at 320 pixels without horizontal overflow.
+These checks use fake models and mocked Telegram calls. Live Telegram delivery and public HTTPS routing remain unverified.
+Encryption onboarding and encrypted personal storage remain deferred.
+
+The 2026-10-10 onboarding update asks for a preferred name before timezone setup.
+Tests cover invalid names, Unicode, skip behavior, owner isolation, model context, resets, and restarts.
+Migration 008 preserves completed profiles, pending timezone setup, and access-code authorization.
+The full suite passed 662 tests, with three live tests excluded.
+Application Ruff lint and formatting checks for the changed Python files passed.
+These checks use fake models and mocked Telegram calls. Live Telegram delivery remains pending.
+Telegram-confirmed browser access is implemented. Encrypted personal storage remains deferred.
+
 The 2026-10-10 Git and release setup passed 655 deterministic tests with three live tests excluded on both Python 3.12 and 3.13.
 GitHub CI passed browser syntax, workflow and shell validation, secret scanning, package and lightweight client checks, Compose validation, and native amd64 and arm64 container acceptance.
 The Raspberry Pi runner is installed on 64-bit Debian 13.
+The 2026-10-10 Telegram recovery replaced an unauthorized bot token and recreated the deployed container.
+Live `getMe` and `getWebhookInfo` checks passed for `@mytheos_bot`, with no active webhook.
+The local release changes add Telegram checks before worker replacement and after activation.
+Focused tests cover safe errors, disabled bots, webhook conflicts, preservation before shutdown, and rollback after activation.
+All 693 deterministic tests passed, with three live tests excluded. Application lint, formatting, and patch whitespace checks passed.
+The new checker also passed live execution in a disposable Compose container and inside the active Pi container.
+These changes require a new tagged release. End-to-end Telegram reply delivery remains unverified.
 A disposable Docker rehearsal passed initial installation, replacement, deliberate readiness failure, and automatic rollback.
 The original and restored SQLite records survived.
 Release `rpi-v0.1.0` is healthy on the Pi with the configured model provider, browser user and administrator `owner`, and HTTPS Google callback URLs.

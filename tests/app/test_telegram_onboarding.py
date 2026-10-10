@@ -3,6 +3,7 @@
 import asyncio
 import json
 import sqlite3
+from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -10,6 +11,8 @@ import httpx
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from harness import AssistantMessage, SystemMessage
+from harness.testing import FakeModel
 from theos.runtime import Runtime
 from theos.settings import Settings
 from theos.storage.database import Database
@@ -46,6 +49,10 @@ async def test_onboarding_saves_profile_validates_timezone_and_keeps_history(run
         runtime.db.record("telegram:123", "preferences", "settings")["display_name"]
         == "Ada Lovelace"
     )
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
+    assert "What should I call you?" in sent(bot)[-1]
+    await message(bot, "  Ada   L.  ")
+    assert runtime.db.record("telegram:123", "preferences", "settings")["display_name"] == "Ada L."
     await message(bot, "Invalid/Timezone")
     assert any("not valid" in text for text in sent(bot))
     assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "timezone"
@@ -94,7 +101,69 @@ async def test_setup_blocks_commands_media_and_callbacks_without_claiming_extra_
     runtime.settings.timezone = "Asia/Kolkata"
     # A restart or settings change must not alter the default saved at registration.
     await message(bot, "/skip")
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "timezone"
+    assert runtime.db.record("telegram:123", "preferences", "settings")["display_name"] == (
+        "Ada Lovelace"
+    )
+    await message(bot, "/skip")
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "ready"
     assert runtime.db.record("telegram:123", "preferences", "settings")["timezone"] == "UTC"
+
+
+@pytest.mark.parametrize("name", ["", "   ", "x" * 201, "/help"])
+async def test_invalid_names_keep_setup_pending_without_model_work(runtime, name):
+    bot = bot_for(runtime)
+    await message(bot, "/start")
+    await message(bot, name)
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
+    assert "What should I call you?" in sent(bot)[-1]
+    assert not runtime.db.rows("SELECT * FROM sessions")
+    assert not runtime.db.rows("SELECT * FROM usage")
+    assert not bot.media.called
+
+
+async def test_name_skip_requires_a_saved_name_and_accepts_unicode(runtime):
+    bot = bot_for(runtime)
+    await bot.handle([telegram_message("/start")])
+    assert "Send /skip" not in sent(bot)[-1]
+    await message(bot, "/skip")
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
+    name = "李" * 200
+    await message(bot, name)
+    assert runtime.db.record("telegram:123", "preferences", "settings")["display_name"] == name
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "timezone"
+
+
+async def test_preferred_names_reach_only_their_owner_and_survive_reset(runtime):
+    models = []
+
+    @asynccontextmanager
+    async def factory(*args):
+        model = FakeModel([AssistantMessage("Hello.")])
+        models.append(model)
+        yield model
+
+    runtime.models = factory
+    bot = bot_for(runtime)
+    for user, name in ((123, "Countess Ada"), (456, "Grace")):
+        await message(bot, "/start", user)
+        await message(bot, name, user)
+        await message(bot, "/skip", user)
+        await message(bot, "Hello", user)
+    await message(bot, "/reset")
+    await message(bot, "Hello again")
+    for model, own_name, other_name in (
+        (models[0], "Countess Ada", "Grace"),
+        (models[1], "Grace", "Countess Ada"),
+        (models[2], "Countess Ada", "Grace"),
+    ):
+        context = "\n".join(
+            m.content for m in model.requests[0].messages if isinstance(m, SystemMessage)
+        )
+        assert own_name in context
+        assert other_name not in context
+    assert runtime.settings.admins == {"alice"}
+    assert not runtime.db.rows("SELECT * FROM sessions WHERE owner='alice'")
 
 
 async def test_fifty_slots_include_pending_users_and_survive_concurrent_starts(runtime):
@@ -112,6 +181,7 @@ async def test_fifty_slots_include_pending_users_and_survive_concurrent_starts(r
     assert sum("Registration is full" in text for text in sent(bot)) == 5
     assert not runtime.db.one("SELECT * FROM users WHERE id='telegram:51'")
     await message(bot, "/start", 1)
+    await message(bot, "/skip", 1)
     await message(bot, "/skip", 1)
     await message(bot, "Hello", 1)
     await message(bot, "/start", 1)
@@ -141,6 +211,7 @@ async def test_allowlist_identity_and_group_enrollment_boundaries(runtime):
     await bot.handle([telegram_message(chat=-100, kind="supergroup")])
     assert not runtime.db.rows("SELECT * FROM sessions")
     await message(bot, "/skip")
+    await message(bot, "/skip")
     for topic in (10, 11):
         await bot.handle([telegram_message(chat=-100, kind="supergroup", topic=topic)])
     assert len(runtime.db.rows("SELECT * FROM telegram_enrollments")) == 1
@@ -156,6 +227,7 @@ async def test_completed_enrollment_grants_private_account_tools(runtime):
     runtime.settings.health.client_id = "configured"
     await message(bot, "/start")
     await message(bot, "/skip")
+    await message(bot, "/skip")
     session = bot.session("telegram:123", "telegram-private", "123:0")
     names = [tool.name for tool in await runtime.tools(session)]
     assert "gmail_connect" in names
@@ -169,7 +241,7 @@ async def test_completed_enrollment_grants_private_account_tools(runtime):
 
 async def test_pending_setup_and_capacity_survive_restart(settings, scripted_models):
     settings.telegram_max_users = 1
-    for run in range(2):
+    for run in range(3):
         db = Database(settings.data_dir)
         async with httpx.AsyncClient() as http:
             runtime = Runtime(settings, db, http, scripted_models)
@@ -180,11 +252,18 @@ async def test_pending_setup_and_capacity_survive_restart(settings, scripted_mod
                 else:
                     await message(bot, "/start", 456)
                     assert "Registration is full" in sent(bot)[-1]
+                    if run == 1:
+                        assert db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
+                        await message(bot, "Countess Ada")
+                        assert db.one("SELECT state FROM telegram_enrollments")["state"] == (
+                            "timezone"
+                        )
+                        continue
                     await message(bot, "Asia/Kolkata")
                     assert db.one("SELECT state FROM telegram_enrollments")["state"] == "ready"
                     assert (
                         db.record("telegram:123", "preferences", "settings")["display_name"]
-                        == "Ada Lovelace"
+                        == "Countess Ada"
                     )
             finally:
                 await runtime.close()
@@ -222,6 +301,43 @@ def test_migration_counts_existing_private_users_once(settings):
         db.close()
 
 
+def test_name_migration_preserves_existing_setup_profiles_and_authorization(settings):
+    settings.data_dir.mkdir(exist_ok=True)
+    connection = sqlite3.connect(settings.data_dir / "theos.sqlite3")
+    migrations = Path(__file__).parents[2] / "src/theos/storage/migrations"
+    for path in sorted(migrations.glob("*.sql")):
+        if int(path.name.split("_", 1)[0]) <= 7:
+            connection.executescript(path.read_text())
+    connection.execute("PRAGMA user_version=7")
+    for user, state in ((123, "timezone"), (456, "ready")):
+        owner = f"telegram:{user}"
+        connection.execute("INSERT INTO users VALUES (?,0)", (owner,))
+        connection.execute(
+            "INSERT INTO telegram_enrollments VALUES (?,?,?,0)", (user, owner, state)
+        )
+        connection.execute("INSERT INTO telegram_access VALUES (?,'fingerprint',0)", (owner,))
+        connection.execute(
+            "INSERT INTO records VALUES (?,'preferences','settings',?,0)",
+            (owner, json.dumps({"display_name": f"Chosen {user}", "timezone": "UTC"})),
+        )
+    connection.commit()
+    connection.close()
+    db = Database(settings.data_dir)
+    try:
+        assert db.one("SELECT state FROM telegram_enrollments WHERE user_id=123")["state"] == (
+            "timezone"
+        )
+        assert (
+            db.one("SELECT state FROM telegram_enrollments WHERE user_id=456")["state"] == "ready"
+        )
+        assert db.record("telegram:456", "preferences", "settings")["display_name"] == "Chosen 456"
+        assert len(db.rows("SELECT * FROM telegram_access")) == 2
+        db.ensure_user("telegram:789")
+        db.execute("INSERT INTO telegram_enrollments VALUES (789,'telegram:789','name',0)")
+    finally:
+        db.close()
+
+
 @pytest.mark.parametrize("limit", [0, 51])
 def test_enrollment_limit_cannot_exceed_fifty(limit):
     with pytest.raises(ValidationError):
@@ -246,9 +362,10 @@ async def test_access_code_blocks_invalid_starts_before_enrollment_and_model_wor
     assert not bot.media.called
     assert all("access code" in text for text in sent(bot))
     await message(bot, "/start@theos_bot test-access-code", message_id=44)
-    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "timezone"
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
     assert runtime.db.one("SELECT owner FROM telegram_access")["owner"] == "telegram:123"
     assert any(call.args[0] == "deleteMessage" for call in bot.api.call_args_list)
+    await message(bot, "/skip")
     await message(bot, "/skip")
     await message(bot, "Hello")
     session = runtime.db.one("SELECT * FROM sessions")
@@ -281,6 +398,7 @@ async def test_code_is_removed_from_durable_inbox_and_valid_start_survives_resta
                         db.one("SELECT payload FROM telegram_updates WHERE id=901")["payload"]
                     )
                     await bot.process([payload])
+                    await message(bot, "Ada")
                     await message(bot, "/skip")
                 else:
                     await message(bot, "Hello")
@@ -297,6 +415,7 @@ async def test_code_rotation_requires_reauthorization_without_losing_profile(run
     runtime.settings.telegram_access_code = SecretStr("old-code")
     bot = bot_for(runtime)
     await message(bot, "/start old-code")
+    await message(bot, "Ada")
     await message(bot, "Asia/Kolkata")
     assert account_access(runtime.settings, runtime.db, "telegram:123")
     runtime.settings.telegram_access_code = SecretStr("new-code")
@@ -326,6 +445,9 @@ async def test_code_enrollment_grants_oauth_without_allowlist_and_callback_reche
     runtime.oauth = OAuth(runtime.settings, runtime.db, runtime.http)
     bot = bot_for(runtime)
     await message(bot, "/start account-code")
+    with pytest.raises(PermissionError):
+        runtime.oauth.start("telegram:123", "gmail")
+    await message(bot, "/skip")
     with pytest.raises(PermissionError):
         runtime.oauth.start("telegram:123", "gmail")
     await message(bot, "/skip")

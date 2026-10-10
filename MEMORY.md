@@ -24,8 +24,9 @@ Updated: 2026-10-10.
 | Browser style | Controls and visual style from ocr-checker |
 | Browser usage and tools | Owner and conversation USD estimates. Administrator totals and cost breakdowns include all transports. Missing prices stay visible. Collapsed reasoning summaries and tool calls. Searchable conversation tool registry with approval labels |
 | Usage view access | Every browser user has personal Activity & usage through their token. Administrators have a separate Admin dashboard for all users and transports. Personal charts always use the authenticated owner, including administrator tokens. Administrator responses exclude conversation titles and message content |
-| Enrollment roles | The deployment operator uses an explicitly configured administrator account in `AGENT_USERS` and `AGENT_ADMINS`. First registration never grants administrator access. New Telegram enrollments receive ordinary access. Telegram-to-browser linking and automatic browser credential issuance remain planned |
-| User-owned encryption requirement | Planned: collect a public encryption key during onboarding and encrypt personal content before persistence. Database access alone must not reveal content. Keep content-free usage counters available for personal and administrator views. Public-key onboarding, encrypted storage, and a user-controlled decryption flow are not implemented. Hosted processing can expose plaintext to the running server |
+| Enrollment roles | The deployment operator uses an explicitly configured administrator account in `AGENT_USERS` and `AGENT_ADMINS`. First registration never grants administrator access. New Telegram enrollments receive ordinary access. With `AGENT_WEB_URL` configured, completed users receive a browser link and confirm a matching code in Telegram. Generated browser credentials reuse their stable Telegram owner and never grant administrator access |
+| Browser enrollment credentials | SQLite stores hashes of single-use 10-minute invitations, browser pairing secrets, personal tokens, and seven-day device sessions. Confirmed sign-in issues an HttpOnly, SameSite Strict session cookie and shows a personal token once. New sign-in replaces the saved token while retaining other device sessions. `/web revoke` removes all generated browser access without deleting personal data. Preserve configured browser IDs and do not merge accounts by name |
+| User-owned encryption requirement | Deferred: the user requested completion of onboarding without choosing an encryption mechanism. Private content storage, password wrapping, and automatic key access remain proposals. Current personal content is not encrypted. Keep the existing encrypted service credentials and content-free usage views. Hosted processing can expose plaintext to the running server |
 | Encrypted history continuity | Restore saved history automatically while a decryption grant is active. The user requested transparent access across turns. Password-based key wrapping and automatic key-service access remain proposals. Losing a runtime grant must not erase encrypted history. See `docs/architecture/theos-encryption-proposal.excalidraw` for the proposed boundary |
 | Browser model controls | Keep the current model selector. OpenRouter exposes the six requested aliases plus the existing default. Preserve explicit operator allowlists. Save supported generation parameters in SQLite migration 006. Model-specific cost rates can override shared rates |
 | Browser settings and command panels | Move model and reasoning into the header Settings dialog with generation and voice controls. Save changes together and discard canceled drafts. Use a sidebar icon beside the logo to toggle conversations. Show interactive help and usage dialogs. Keep usage access through `/usage`, without a sidebar Usage button. Keep generation controls in Settings, without `/generation`. Offer supported options for argument commands. List only `/reasoning`, with `/thinking` retained as a compatibility alias |
@@ -42,7 +43,7 @@ Updated: 2026-10-10.
 | Deployment | One application worker and scheduler per SQLite database |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
-| Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing browser IDs. Reject Telegram and terminal namespaces. No automatic cross-transport linking |
+| Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials use the enrolled Telegram owner's private account access. No automatic merging of existing browser and Telegram accounts |
 | Browser connection mentions | Show local provider logos for accounts and use-case SVG icons for all workspace services in Connections and `@` suggestions. Complete mentions at the composer caret with current account status and configured workspace services. Preserve draft text. Send mentions as ordinary user text without changing access or approval policy |
 | Zepto account linking | Browser and private Telegram users authorize their own accounts through MCP OAuth. Theos encrypts credentials in SQLite. Use the localhost return handoff by default, with an optional public HTTPS callback |
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
@@ -88,7 +89,8 @@ Connected clients read shared browser conversations from the deployment using th
 The server owns the only runtime, database connection, and scheduler for that deployment.
 It sends display-only events without provider state or harness run results.
 Client disconnection does not cancel server work. Reconnect and inspect saved history before another request.
-The terminal never adopts Telegram account identity or grants its account tools.
+Standalone terminal accounts never adopt Telegram identity or account tools.
+Connected clients use the authenticated browser owner, including Telegram-confirmed browser credentials.
 
 Ordinary chat continues during optional memory outages.
 Consolidation requires explicit per-user opt-in through the approved memory automation tool.
@@ -112,8 +114,11 @@ Approvals, chat state, and sandbox references belong to the conversation.
 Browser approval cards clear when the server accepts either decision.
 Disable decision buttons during submission and refresh saved approvals after stream failures.
 Reuse tool rows by call ID so resumed actions replace stale waiting states.
-Browser IDs cannot use the `telegram:`, `telegram-group:`, or `terminal:` prefixes.
-Existing browser IDs remain stable. There is no automatic browser and Telegram account linking.
+Configured browser IDs cannot use the `telegram:`, `telegram-group:`, or `terminal:` prefixes.
+Existing browser IDs remain stable.
+Telegram-confirmed browser credentials reuse the enrolled sender's `telegram:<id>` owner.
+The browser and Telegram share personal records and usage while retaining separate conversation threads.
+Existing configured browser accounts do not merge with Telegram accounts automatically.
 An empty Telegram sender allowlist permits registration through the bot within the user limit.
 When configured, the deployment access code is required through `/start <access-code>`.
 Without an access code, registration is public.
@@ -191,7 +196,18 @@ Preserve historical paths in provenance manifests.
 ## Git and Raspberry Pi releases
 
 The private GitHub repository is `parth-shastri/theos`.
-Use `main` for development and `rpi` for Raspberry Pi releases.
+Start normal changes on a topic branch from `dev`, including fixes, features, chores, and documentation.
+On 2026-10-10, the operator approved an exception for urgent Pi release fixes while `dev` contains unfinished changes.
+Start these hotfixes on a `fix/<name>` branch from `rpi` and merge them into `rpi` through a PR.
+Validate the hotfix and publish a new patch release from `rpi`.
+Cherry-pick the fix onto a separate topic branch from `dev`, adapt it when necessary, and merge through a PR.
+The operator prohibits the `codex/` branch prefix in every repository going forward.
+Use descriptive names such as `fix/<name>`, `feature/<name>`, `chore/<name>`, or `docs/<name>`.
+Merge normal topic branches into `dev` through a PR.
+Promote `dev` through a separate PR for each destination when ready: `main`, `rpi`, or both.
+Promotions are independent. Every change does not require both promotion PRs.
+Publish Raspberry Pi releases from `rpi`.
+Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
 CI covers Python 3.12 and 3.13, browser syntax, packages, workflow validation, secret scanning, and containers on amd64, arm64, 386, ARMv7, and PPC64LE.
 An explicit extended run also checks s390x and RISC-V64. AMD64 and ARM64 run natively; other targets use QEMU.
@@ -204,6 +220,14 @@ The operator authorized deriving a private `.env.pi` from the existing local `.e
 The Pi user and administrator are `owner`. Gmail and Google Health use HTTPS callbacks at `theos.parth-shastri.com`.
 Keep local `.env` unchanged. Store `.env.pi` with mode `0600`, outside Git and outside the runner checkout.
 On the Pi, the deployment `.env` is a symlink to `.env.pi`.
+The Pi release checks Telegram with read-only `getMe` and `getWebhookInfo` requests before stopping the worker and after activation.
+Invalid credentials, network failures, malformed responses, and active webhooks fail the check. An empty bot token skips it.
+Branch and pull-request CI use mocked responses. Production Telegram credentials remain in the private Pi environment outside the runner checkout.
+The check does not read updates or send messages. It does not prove reply delivery or detect another polling process.
+On 2026-10-10, the prior token returned HTTP 401. The operator replaced it in local `.env.pi`.
+Only that token was synchronized to the Pi. Container recreation applied it.
+Live authentication and polling-configuration checks passed for `@mytheos_bot`.
+The connection-check code needs a new tagged release before it becomes part of the deployed image.
 GitHub rejected branch protection for the private repository because the account requires an upgrade.
 The disposable Docker rehearsal passed first installation, replacement, intentional readiness failure, and automatic rollback on the Pi.
 Both the original and restored SQLite records survived.

@@ -86,6 +86,16 @@ Changing the code requires existing users to authorize again.
 A registration-full response means the database has reached `AGENT_TELEGRAM_MAX_USERS`.
 Incomplete setup and existing private users count toward that limit.
 A configured token does not prove that Telegram accepts it.
+Check the token and polling configuration without sending messages or reading updates:
+
+```sh
+python -m theos.operations.telegram_check --env-file .env.pi
+```
+
+HTTP 401 means Telegram rejected the configured token.
+Get the current token from BotFather and replace `AGENT_TELEGRAM_TOKEN` in the private environment file.
+Recreate the container to apply environment changes. A container restart retains its old environment.
+The tagged Pi release also checks this connection before replacing the worker and after activation.
 The transport uses polling and has no webhook setup path.
 After a delivery failure, inspect saved conversation state before sending the same action again.
 
