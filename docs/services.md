@@ -26,6 +26,12 @@ Set `AGENT_MODEL` to a model ID accepted by that provider.
 
 OpenRouter uses its [Chat Completions API](https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request).
 The application sends reasoning effort through OpenRouter's `reasoning` field.
+The application also sends `provider.zdr=true` on every OpenRouter request.
+This includes chat, delegated research, context compaction, and conversation titles.
+OpenRouter restricts these requests to endpoints with a Zero Data Retention (ZDR) policy.
+A request fails if no eligible endpoint is available. The application does not disable ZDR after failure.
+This restriction does not control external Mem0, transcription, speech, or tool services.
+See [OpenRouter's ZDR policy](https://openrouter.ai/docs/guides/features/zdr) for scope and caching rules.
 OpenAI, Anthropic, and llama-server retain their existing harness adapters.
 Provider-specific reasoning options require support from the selected model.
 Use `default` when a model rejects an explicit reasoning option.
