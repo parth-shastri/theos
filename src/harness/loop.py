@@ -163,6 +163,7 @@ async def _build_request(
     context_window: int | None,
     reserved_output_tokens: int,
     compaction: CompactionConfig | None,
+    compaction_budget: Budget | None,
 ) -> AsyncIterator[RunEvent | ModelRequest]:
     """Build a request that fits the model window, including tools and reply room."""
 
@@ -213,7 +214,9 @@ async def _build_request(
             allowance = selected_tokens - over - 64
             async with aclosing(compact_context(
                 history=history, memory=ctx.memory, config=compaction, model=model,
-                budget=ctx.budget, count=count, count_request=count_request,
+                budget=compaction_budget if compaction_budget is not None else ctx.budget,
+                reserved_model_calls=0 if compaction_budget is not None else 1,
+                count=count, count_request=count_request,
                 max_tokens=allowance, context_window=context_window,
             )) as events:
                 async for event in events:
@@ -260,6 +263,7 @@ async def run_turn_stream(
     instructions: Instructions | None = None,
     inbox: Inbox | None = None,
     budget: Budget | None = None,
+    compaction_budget: Budget | None = None,
     max_context_tokens: int | None = None,
     estimate_tokens: EstimateTokens = default_estimate,
     context_window: int | None = None,
@@ -343,6 +347,7 @@ async def run_turn_stream(
             context_window=context_window,
             reserved_output_tokens=reserved_output_tokens,
             compaction=compaction,
+            compaction_budget=compaction_budget,
         )) as events:
             async for event in events:
                 if isinstance(event, ModelRequest):
@@ -419,6 +424,7 @@ async def run_turn(
     instructions: Instructions | None = None,
     inbox: Inbox | None = None,
     budget: Budget | None = None,
+    compaction_budget: Budget | None = None,
     max_context_tokens: int | None = None,
     estimate_tokens: EstimateTokens = default_estimate,
     context_window: int | None = None,
@@ -437,6 +443,7 @@ async def run_turn(
         instructions=instructions,
         inbox=inbox,
         budget=budget,
+        compaction_budget=compaction_budget,
         max_context_tokens=max_context_tokens,
         estimate_tokens=estimate_tokens,
         context_window=context_window,

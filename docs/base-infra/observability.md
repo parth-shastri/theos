@@ -80,6 +80,9 @@ Old SQLite events do not become OTel traces.
 Each turn starts a new root trace, including approval continuation and scheduled turns.
 Every span includes the existing `gen_ai.conversation.id` and its `theos.turn.id`.
 The root also includes transport, scheduled state, and final status.
+Root attributes `theos.budget.total`, `theos.budget.research`, `theos.budget.compaction`, and `theos.budget.recovery` each have `.limit` and `.used` values.
+They show reserved allowances and consumed calls, including title generation and failed provider attempts.
+Delegate spans include `theos.delegate.model_calls.limit` for the configured local cap.
 Use `gen_ai.conversation.id` in Jaeger's **Attributes** filter to find turns from one conversation.
 
 OpenTelemetry defines a conversation identifier, but it does not require one trace for an entire conversation.

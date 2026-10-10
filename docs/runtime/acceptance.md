@@ -108,6 +108,22 @@ Jaeger displayed the overlapping delegate branches and their inherited agent nam
 A separate deterministic budget-limit fixture exported five spans, including a tool-free final request beneath the recovery span.
 Its root recorded `partial` status and its answer preserved the known finding.
 
+The 2026-10-11 budget update separates compaction from research within the configured total ceiling.
+Defaults allocate nine research calls, two compaction calls, and one recovery call within twelve total calls.
+The delegate cap is configurable and defaults to four calls. Delegates retain the existing 85-second deadline.
+Title generation consumes a research slot. Each completed compaction request records its own usage row.
+Root spans expose limits and consumed calls for research, compaction, recovery, and the total.
+Twenty-two additional checks cover allocation, small ceilings, environment settings, concurrent spending, and configurable delegate caps.
+They also cover successful compaction, failed compaction without memory changes, recovery, title limits, and budget trace attributes.
+The full suite passed 786 tests, with three live tests excluded.
+All existing parent, delegate, compaction, title, and recovery instruction strings remain unchanged.
+The same realistic travel query completed in 106 seconds with 19 spans and seven model calls.
+The parent used three calls. The Mumbai itinerary and Bengaluru itinerary delegates each used two calls.
+The run used two weather calls and six search calls. Both delegates completed, and the final answer ended normally.
+The root recorded seven research calls, zero compaction calls, and zero recovery calls under the twelve-call ceiling.
+This run did not require compaction. Forced-context checks exercised separate compaction allowances and their exhaustion path.
+Jaeger displayed both named delegate branches. The demo retained its existing 4,096-token output limit.
+
 The full suite passed 744 tests, with three live tests excluded.
 Application lint, formatting, lock validation, Compose configuration, and package builds passed.
 Real model and deployed transport acceptance remain separate checks.

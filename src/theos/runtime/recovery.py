@@ -202,7 +202,6 @@ async def finish(
 ):
     """Try one bounded answer with no tools, then use a deterministic partial answer."""
     settle_calls(runtime, turn, history)
-    budget.max_model_calls = runtime.settings.max_model_calls
     answer = (
         history[-1]
         if reason == "delegate_partial" and isinstance(history[-1], AssistantMessage)

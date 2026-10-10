@@ -60,6 +60,7 @@ def assert_partial(runtime, row, events, finding="7 AM"):
 
 async def test_budget_reserves_one_tool_free_answer_with_unchanged_instructions(runtime):
     runtime.settings.max_model_calls = 3
+    runtime.settings.max_compaction_calls = 0
     count = await install_read(runtime)
     research = FakeModel([read_call("one"), read_call("two")])
     final = FakeModel([AssistantMessage("The park opens at 7 AM.", usage={"output_tokens": 9})])
@@ -312,10 +313,13 @@ async def test_output_limit_returns_explicit_partial_answer(runtime):
 
 
 @pytest.mark.parametrize("max_calls", [6, 12])
+@pytest.mark.parametrize("delegate_calls", [2, 4, 6])
 async def test_delegate_iterations_are_enforced_and_parent_can_answer(
-    runtime, monkeypatch, max_calls
+    runtime, monkeypatch, max_calls, delegate_calls
 ):
     runtime.settings.max_model_calls = max_calls
+    runtime.settings.max_compaction_calls = 0
+    runtime.settings.delegate_max_model_calls = delegate_calls
 
     @tool
     async def read_reference():
@@ -341,10 +345,10 @@ async def test_delegate_iterations_are_enforced_and_parent_can_answer(
         runtime, row, await collect(runtime.start("alice", row["id"], "Compare the opening times."))
     )
     assert len(parent.requests) == 2
-    assert all(len(child.requests) <= 4 for child in children)
+    assert all(len(child.requests) <= delegate_calls for child in children)
     assert sum(len(m.requests) for m in [parent, *children]) <= max_calls - 1
-    if max_calls == 12:
-        assert all(len(child.requests) == 4 for child in children)
+    if max_calls >= 2 * delegate_calls + 3:
+        assert all(len(child.requests) == delegate_calls for child in children)
 
 
 def test_saved_findings_keep_both_delegate_answers_within_total_bound():

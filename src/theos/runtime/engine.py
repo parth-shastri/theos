@@ -11,7 +11,7 @@ import httpx
 
 from harness import (
     Agent,
-    Budget,
+    ContextCompaction,
     ToolResultMessage,
     UserMessage,
 )
@@ -24,6 +24,7 @@ from theos.services.preferences.tools import preferences
 from theos.storage.messages import stamp_message
 
 from . import approvals, checkpoints, hooks, recovery, titles, tools
+from .budgets import TurnBudget
 from .events import publish_event
 from .text import WRITING_RULES, reply_text
 from .turn import Turn
@@ -223,7 +224,8 @@ class Runtime:
         started = time.monotonic()
         deadline = started + self.settings.turn_timeout
         final_seconds = min(recovery.FINAL_SECONDS, self.settings.turn_timeout / 3)
-        budget = Budget(max(1, self.settings.max_model_calls - 1))
+        allowances = TurnBudget(self.settings)
+        budget = allowances.research
         instructions = ""
         reason = None
         # 1. Restore saved results so a restart does not repeat completed or uncertain actions.
@@ -313,11 +315,17 @@ class Runtime:
                         events = agent.run_stream(
                             history,
                             budget=budget,
+                            compaction_budget=allowances.compaction,
                             memory=memory,
                             inbox=turn.inbox,
                         )
                         async with aclosing(events):
                             async for event in events:
+                                if (
+                                    isinstance(event, ContextCompaction)
+                                    and event.status == "progress"
+                                ):
+                                    self.record_usage(session, event.usage)
                                 # Deliver progress separately from the durable hooks.
                                 status = publish_event(self, turn, event, status)
                         if status == "budget_exhausted":
@@ -337,7 +345,9 @@ class Runtime:
                             and not scheduled
                             and time.monotonic() - started < self.settings.turn_timeout - 9
                         ):
-                            await titles.update_title(self, turn, session, model, history)
+                            await titles.update_title(
+                                self, turn, session, model, history, budget=budget
+                            )
             except Exception as error:
                 reason = recovery.failure_reason(error)
                 logger.warning(
@@ -356,7 +366,7 @@ class Runtime:
                     history,
                     memory,
                     history_offset,
-                    budget,
+                    allowances.recovery,
                     instructions,
                     reason,
                     deadline,
@@ -381,7 +391,7 @@ class Runtime:
                 )
                 else status
             )
-            self.tracing.finish_turn(run_status)
+            self.tracing.finish_turn(run_status, allowances.attributes())
             updated_runs = self.db.execute(
                 "UPDATE scheduled_runs SET status=?, finished=? WHERE session=? "
                 "AND status IN ('running','waiting_for_approval','budget_exhausted') RETURNING task_id",

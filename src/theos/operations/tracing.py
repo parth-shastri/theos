@@ -184,12 +184,14 @@ class Tracing:
             root=True,
         )
 
-    def finish_turn(self, status):
+    def finish_turn(self, status, budget_attributes=None):
         if self.tracer is not None:
             from opentelemetry.trace import get_current_span
 
             span = get_current_span()
             span.set_attribute("theos.turn.status", status)
+            if budget_attributes:
+                span.set_attributes(budget_attributes)
             if status in {"failed", "interrupted", "uncertain"}:
                 self.failed(span, status)
 

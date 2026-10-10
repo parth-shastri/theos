@@ -64,6 +64,13 @@ async def test_turn_models_and_tool_are_siblings(runtime, scripted_models, expor
     output = await spans(runtime, exporter)
     root = next(s for s in output if s.parent is None)
     assert root.attributes["theos.turn.status"] == "completed"
+    assert root.attributes["theos.budget.total.limit"] == 12
+    assert root.attributes["theos.budget.total.used"] == 2
+    assert root.attributes["theos.budget.research.limit"] == 9
+    assert root.attributes["theos.budget.research.used"] == 2
+    assert root.attributes["theos.budget.compaction.limit"] == 2
+    assert root.attributes["theos.budget.compaction.used"] == 0
+    assert root.attributes["theos.budget.recovery.used"] == 0
     assert root.attributes["gen_ai.conversation.id"] == row["id"]
     children = [s for s in output if s.parent is not None]
     assert len(children) == 3
@@ -321,6 +328,9 @@ async def test_budget_recovery_exports_partial_status_and_final_model_parent(
     root = next(s for s in output if s.parent is None)
     assert root.attributes["theos.turn.status"] == "partial"
     final = next(s for s in output if s.name == "finalize partial answer")
+    assert root.attributes["theos.budget.total.used"] == 2
+    assert root.attributes["theos.budget.research.used"] == 1
+    assert root.attributes["theos.budget.recovery.used"] == 1
     assert final.attributes["theos.recovery.reason"] == "budget_limit"
     assert final.attributes["theos.recovery.mode"] == "model"
     final_model = next(s for s in output if s.parent and s.parent.span_id == final.context.span_id)

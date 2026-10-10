@@ -38,8 +38,8 @@ DELEGATE_SECONDS = 85
 class DelegateBudget(Budget):
     """Bound each delegate while retaining one parent call in the shared research budget."""
 
-    def __init__(self, shared):
-        super().__init__(max_model_calls=4)
+    def __init__(self, shared, maximum=4):
+        super().__init__(max_model_calls=maximum)
         self.shared = shared
 
     def spend(self):
@@ -110,7 +110,9 @@ async def build_tools(runtime, session):
         ]
         if len({name.casefold() for name in names}) != len(names):
             raise ValueError("Use a distinct name for each delegate.")
-        shared_budget = ctx.budget or Budget(max(1, runtime.settings.max_model_calls - 1))
+        from .budgets import TurnBudget
+
+        shared_budget = ctx.budget or TurnBudget(runtime.settings).research
 
         async def research(assignment, index):
             name = names[index - 1]
@@ -121,6 +123,7 @@ async def build_tools(runtime, session):
                     "gen_ai.operation.name": "invoke_agent",
                     "gen_ai.agent.name": name,
                     "theos.delegate.index": index,
+                    "theos.delegate.model_calls.limit": runtime.settings.delegate_max_model_calls,
                 },
             ) as span:
                 runtime.tracing.content(
@@ -218,7 +221,9 @@ async def build_tools(runtime, session):
                     async with aclosing(
                         agent.run_stream(
                             history,
-                            budget=DelegateBudget(shared_budget),
+                            budget=DelegateBudget(
+                                shared_budget, runtime.settings.delegate_max_model_calls
+                            ),
                         )
                     ) as stream:
                         async for event in stream:

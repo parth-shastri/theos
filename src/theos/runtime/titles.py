@@ -13,7 +13,7 @@ from .text import WRITING_RULES, reply_text
 logger = logging.getLogger("theos")
 
 
-async def update_title(runtime, turn, session, model, history):
+async def update_title(runtime, turn, session, model, history, *, budget=None):
     """Name the opening exchange and refine once after three user messages."""
     if not runtime.settings.auto_titles or session["channel"] != "browser":
         return
@@ -23,6 +23,8 @@ async def update_title(runtime, turn, session, model, history):
     user_count = sum(isinstance(message, UserMessage) for message in history)
     attempts = current["title_attempts"]
     if user_count < (1 if attempts == 0 else 3) or attempts >= 2:
+        return
+    if budget is not None and not budget.spend():
         return
     # Count attempts even on provider failure, so naming never creates unbounded calls.
     runtime.db.execute(
