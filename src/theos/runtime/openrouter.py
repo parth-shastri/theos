@@ -37,12 +37,16 @@ def merge_reasoning(blocks, fragments):
 
 
 class OpenRouterChatModel(OpenAIChatModel):
-    """Retain reasoning and reported costs while using the owned OpenAI protocol."""
+    """Enforce ZDR and retain reasoning and reported costs on the OpenAI protocol."""
 
     provider = "openrouter"
 
     def _encode_chat(self, request):
         payload = super()._encode_chat(request)
+        # Apply the retention policy after request options, including internal calls.
+        extra = dict(payload.get("extra_body") or {})
+        extra["provider"] = {**(extra.get("provider") or {}), "zdr": True}
+        payload["extra_body"] = extra
         for message, wire in zip(request.messages, payload["messages"], strict=True):
             if not isinstance(message, AssistantMessage):
                 continue
