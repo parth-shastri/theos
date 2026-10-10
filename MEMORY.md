@@ -236,6 +236,9 @@ The disposable Docker rehearsal passed first installation, replacement, intentio
 Both the original and restored SQLite records survived.
 CI passed on `main` and `rpi` with Python 3.12 and 3.13, native amd64 and arm64 containers, workflow validation, browser checks, and secret scanning.
 Release `rpi-v0.1.0` is deployed and healthy on the Pi.
+On 2026-10-10, the operator requested promotion of `dev` to `rpi` and deployment through a new release tag.
+Prepare package version `0.1.1` and tag `rpi-v0.1.1` for the onboarding and Telegram connection checks.
+Deployment remains unconfirmed until the release workflow succeeds and the Pi manifest records the new release.
 The running container uses `owner` and the HTTPS Google callbacks. Readiness and browser-token authentication passed.
 The GHCR image denies anonymous pulls. The first registry upload failed with `unknown blob`; retrying publication succeeded before any deployment change.
 The Cloudflare tunnel routes all paths on `theos.parth-shastri.com` to `http://localhost:8080`. Its proxied CNAME targets tunnel `4584e314-7c3f-448a-8118-7b6e324ebe3c`. Public HTTPS checks passed for the homepage and its assets, health endpoints, authenticated owner APIs, rejection of anonymous API requests, and both Google callback routes. A real model turn completed through the public SSE stream, and its conversation history was saved. The operator updated the Google redirect list. Full Google consent and account linking remain untested. The existing `mytheos.parth-shastri.com` frontend uses its original Vercel CNAME. On the operator Mac, Tailscale's internal DNS lookup retained a stale nonexistent-domain response despite correct public DNS answers. Refreshing `accept-dns` off and back to its original enabled setting restored normal macOS resolution. The Theos browser workspace then loaded, owner sign-in succeeded, and a browser-submitted real model turn returned `BROWSER_OK` in Brave.
