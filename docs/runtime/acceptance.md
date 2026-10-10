@@ -58,6 +58,12 @@ It does not bundle the upstream ADK skill registry.
 
 ## Current verification
 
+The Telegram reply formatter converts Markdown into explicit message entities with UTF-16 offsets.
+Regression tests cover emphasis, links, literal HTML, code blocks, tables, emoji, message splitting, and incomplete streamed markup.
+They also check complete Unicode approval previews and removal of obsolete reply chunks.
+Shared output checks cover browser, Telegram, and terminal streams, saved replies, reasoning summaries, and generated titles.
+These checks use fake models and mocked Telegram calls. Live formatting acceptance remains pending.
+
 The 2026-10-10 browser enrollment update completes Telegram-confirmed UI access without an encryption decision.
 Completed users receive a single-use link when `AGENT_WEB_URL` is configured.
 Tests cover browser binding, Telegram ownership, ordinary roles, expiry, denial, replay, revocation, credential rotation, and restart persistence.

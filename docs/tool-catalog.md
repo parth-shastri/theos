@@ -14,6 +14,17 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
+## Telegram reply formatting
+
+Telegram reply formatting uses `markdown-it-py` 4.x from the `server` extra.
+The renderer converts Markdown into text and explicit Telegram message entities.
+It uses UTF-16 offsets and splits long replies while retaining formatting.
+Raw HTML remains literal text. Only HTTP, HTTPS, mail, and Telegram links become link entities.
+Commands and approval previews bypass Markdown conversion.
+This renderer adds no model tool.
+
+Source: [Telegram formatter](../src/theos/transports/telegram/formatting.py).
+
 ## Telegram release check
 
 `python -m theos.operations.telegram_check` uses HTTPX and the Python standard library.
