@@ -291,13 +291,42 @@ async def test_model_failure_has_sanitized_error_and_closed_root(
 ):
     scripted_models.responses.append([RuntimeError("secret credential payload")])
     result = await collect(runtime.start("alice", session(runtime)["id"], "secret input"))
-    assert result[-1]["status"] == "failed"
+    assert result[-1]["status"] == "partial"
+    assert not any(event["type"] == "error" for event in result)
     output = await spans(runtime, exporter)
-    assert len(output) == 2
-    assert all(s.status.status_code == StatusCode.ERROR for s in output)
+    assert len(output) == 3
+    assert next(s for s in output if s.parent is None).attributes["theos.turn.status"] == "partial"
     assert all(s.end_time is not None and not s.events for s in output)
     assert "secret" not in repr([dict(s.attributes) for s in output])
-    assert next(s for s in output if s.parent).attributes["error.type"] == "RuntimeError"
+    failed = next(s for s in output if s.attributes.get("error.type") == "RuntimeError")
+    assert failed.status.status_code == StatusCode.ERROR
+    final = next(s for s in output if s.name == "finalize partial answer")
+    assert final.attributes["theos.recovery.reason"] == "provider_error"
+    assert final.attributes["theos.recovery.mode"] == "saved_findings"
+
+
+async def test_budget_recovery_exports_partial_status_and_final_model_parent(
+    runtime, scripted_models, exporter
+):
+    runtime.settings.max_model_calls = 2
+    scripted_models.responses.extend(
+        [
+            [AssistantMessage(tool_calls=[ToolCall("read", "get_preferences", {})])],
+            [AssistantMessage("The preferences were read. More research remains incomplete.")],
+        ]
+    )
+    result = await collect(runtime.start("alice", session(runtime)["id"], "Check my preferences."))
+    assert result[-1]["status"] == "partial"
+    output = await spans(runtime, exporter)
+    root = next(s for s in output if s.parent is None)
+    assert root.attributes["theos.turn.status"] == "partial"
+    final = next(s for s in output if s.name == "finalize partial answer")
+    assert final.attributes["theos.recovery.reason"] == "budget_limit"
+    assert final.attributes["theos.recovery.mode"] == "model"
+    final_model = next(s for s in output if s.parent and s.parent.span_id == final.context.span_id)
+    assert final_model.name == "chat fake-1"
+    assert final_model.attributes["gen_ai.agent.name"] == "Theos"
+    assert all(s.context.trace_id == root.context.trace_id for s in output)
 
 
 async def test_cancellation_closes_running_model_and_turn(runtime, exporter):

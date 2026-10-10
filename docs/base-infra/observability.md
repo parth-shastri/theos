@@ -29,7 +29,9 @@ docker compose exec theos python -c   'from pathlib import Path; print(Path("/da
 | Event | Meaning |
 | --- | --- |
 | `started` | Application workers entered their lifespan |
-| `turn_failed` | A model turn raised an exception |
+| `turn_incomplete` | A turn reached a limit or raised an exception before its final answer |
+| `delegate_incomplete` | One delegate stopped and returned available findings |
+| `final_answer_unavailable` | The bounded final request failed, so the runtime returned saved findings |
 | `integration_unavailable` | Optional integration discovery failed |
 | `telegram_update_failed` | An accepted Telegram update failed |
 | `notification_failed` | Reminder delivery failed or has an uncertain outcome |
@@ -96,6 +98,14 @@ Each delegate owns its model calls and read-only tool calls.
 Parallel delegates appear as separate branches with overlapping timings.
 Model spans also cover context summaries. Title generation has a separate `generate_title` span.
 Approval requests and policy denials create tool spans without executing the tool.
+
+Limit recovery adds a `finalize partial answer` span with `theos.recovery.reason` and `theos.recovery.mode`.
+The mode identifies a final model request, an existing answer, or saved findings.
+Any final model request appears beneath this span and has no tools.
+The turn records `partial` status. An uncertain external action retains `uncertain` trace status and requires review.
+Partial delegates expose their status and recovery reason. Completed sibling findings remain available to the parent.
+Model-visible tool copies have character limits separate from the OTel capture limits below.
+The runtime retains full durable tool results and does not repeat tools during recovery.
 
 ![Tracing and span ownership](../architecture/theos-tracing.png)
 

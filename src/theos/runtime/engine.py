@@ -23,7 +23,7 @@ from theos.services.memory.client import MemoryClient
 from theos.services.preferences.tools import preferences
 from theos.storage.messages import stamp_message
 
-from . import approvals, checkpoints, hooks, titles, tools
+from . import approvals, checkpoints, hooks, recovery, titles, tools
 from .events import publish_event
 from .text import WRITING_RULES, reply_text
 from .turn import Turn
@@ -207,17 +207,33 @@ class Runtime:
             await self._run(turn, session, message, scheduled=scheduled)
 
     async def _run(self, turn, session, message, *, scheduled=False):
+        # Recovery retains the same conversation lock and application concurrency slot.
+        try:
+            async with self.lock(turn.session_id), self.semaphore:
+                await self._run_reserved(turn, session, message, scheduled=scheduled)
+        except asyncio.CancelledError:
+            if self.active.pop(turn.session_id, None) is not None:
+                self.tracing.finish_turn("interrupted")
+                turn.emit({"type": "done", "status": "interrupted"})
+            raise
+
+    async def _run_reserved(self, turn, session, message, *, scheduled=False):
         """Run one reserved turn and save its final state."""
         status = "failed"
         started = time.monotonic()
+        deadline = started + self.settings.turn_timeout
+        final_seconds = min(recovery.FINAL_SECONDS, self.settings.turn_timeout / 3)
+        budget = Budget(max(1, self.settings.max_model_calls - 1))
+        instructions = ""
+        reason = None
         # 1. Restore saved results so a restart does not repeat completed or uncertain actions.
         history = self.recover_history(turn.owner, turn.session_id)
         history_offset = len(history)
         memory = ContextMemory.from_dict(json.loads(session["memory"]))
         source_text = message.content if message and not scheduled else ""
         try:
-            # 2. Serialize this conversation and respect the application concurrency limit.
-            async with self.lock(turn.session_id), self.semaphore:
+            try:
+                # 2. Accept input only after acquiring the conversation and concurrency locks.
                 if message:
                     if not history and session["title_auto"]:
                         title = (
@@ -229,7 +245,7 @@ class Runtime:
                     history.append(message)
                 # 3. Save the accepted message before a provider can start external work.
                 self.db.save_history(turn.owner, turn.session_id, history, status="running")
-                async with asyncio.timeout(self.settings.turn_timeout):
+                async with asyncio.timeout(self.settings.turn_timeout - final_seconds):
                     async with self.models(
                         self.settings, session["model"], session["reasoning"]
                     ) as model:
@@ -296,7 +312,7 @@ class Runtime:
                         # 4. Run the harness. Hooks save model calls, approvals, and tool results.
                         events = agent.run_stream(
                             history,
-                            budget=Budget(self.settings.max_model_calls),
+                            budget=budget,
                             memory=memory,
                             inbox=turn.inbox,
                         )
@@ -304,28 +320,50 @@ class Runtime:
                             async for event in events:
                                 # Deliver progress separately from the durable hooks.
                                 status = publish_event(self, turn, event, status)
+                        if status == "budget_exhausted":
+                            reason = "budget_limit"
+                        elif status == "completed" and history[-1].stop_reason == "length":
+                            reason = "output_limit"
+                        elif status == "completed" and any(
+                            result["status"] != "completed"
+                            for group in turn.delegate_results.values()
+                            for result in group.values()
+                        ):
+                            reason = "delegate_partial"
                         if (
-                            status == "completed"
+                            reason is None
+                            and status == "completed"
                             and message
                             and not scheduled
                             and time.monotonic() - started < self.settings.turn_timeout - 9
                         ):
                             await titles.update_title(self, turn, session, model, history)
+            except Exception as error:
+                reason = recovery.failure_reason(error)
+                logger.warning(
+                    "turn_incomplete",
+                    extra={
+                        "error_type": type(error).__name__,
+                        "reason": reason,
+                        "session_id": turn.session_id,
+                    },
+                )
+            if reason:
+                status = await recovery.finish(
+                    self,
+                    turn,
+                    session,
+                    history,
+                    memory,
+                    history_offset,
+                    budget,
+                    instructions,
+                    reason,
+                    deadline,
+                )
         except asyncio.CancelledError:
             status = "interrupted"
             raise
-        except Exception as error:
-            # Task isolation keeps a failed provider turn from ending the polling or HTTP server.
-            logger.error(
-                "turn_failed",
-                extra={"error_type": type(error).__name__, "session_id": turn.session_id},
-            )
-            turn.emit(
-                {
-                    "type": "error",
-                    "message": "The turn failed. Check the model and integration settings, then retry. External actions may need review.",
-                }
-            )
         finally:
             # 5. Save the final state before releasing the conversation for another turn.
             history.extend(turn.inbox.drain())
@@ -349,7 +387,7 @@ class Runtime:
                 "AND status IN ('running','waiting_for_approval','budget_exhausted') RETURNING task_id",
                 (run_status, time.time(), turn.session_id),
             ).fetchall()
-            if run_status in {"failed", "interrupted", "budget_exhausted", "uncertain"}:
+            if run_status in {"failed", "interrupted", "budget_exhausted", "uncertain", "partial"}:
                 for run in updated_runs:
                     self.db.execute(
                         "UPDATE scheduled_tasks SET status='paused' "

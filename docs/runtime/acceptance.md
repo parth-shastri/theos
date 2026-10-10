@@ -47,6 +47,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Per-owner Zepto OAuth, encrypted credentials, Telegram return handoff, tools, and approvals | `services/zepto/`, `transports/telegram/`, `runtime/` | `test_zepto.py` covers encrypted restart storage, owner and state binding, inbox redaction, and chat isolation. Regression tests cover schemas and approvals |
 | Redacted logs, traces, token usage, cost estimates | `operations/logging.py`, `runtime/`, `server.py` | Accounting, dashboard access, and log redaction tests |
 | OTel turn waterfalls and OTLP/HTTP export | `operations/tracing.py`, runtime model and tool boundaries | `test_tracing.py`, Jaeger ingestion and restart checks |
+| Partial answers after runtime limits | `runtime/recovery.py`, delegate boundaries | `test_recovery.py`, terminal, schedule, and tracing checks |
 | Migrations, restart recovery, one scheduler, health endpoints | `storage/database.py`, `runtime/scheduler.py`, `server.py` | Database reopen, process lock, and restart tests |
 | Consistent backup and restore | `backup.py` | Database and file restoration in `test_integrations.py` |
 | Locked image, non-root runtime, both architectures | `Dockerfile`, Compose files | Container chat, restart, UID, and resource checks |
@@ -92,6 +93,20 @@ That run completed in 64 seconds with 19 spans, nine model calls, two weather ca
 The final answer covered both itineraries and a recommendation, with a normal `stop` finish reason.
 Jaeger displayed the named branches. All content stayed within capture limits, with eight spans marked for truncation.
 The final answer was captured in full. The 33 tracing and integration checks, Ruff checks, and local Docker build passed.
+
+Runtime recovery now reserves one model call and up to 15 seconds within the turn deadline for a final answer.
+The recovery request uses unchanged instructions and no tools. Failed recovery returns bounded saved findings with explicit uncertainty.
+Sixteen deterministic checks cover turn and delegate timeouts, shared and delegate budgets, context sizing, recovery failures, output truncation, and explicit cancellation.
+They also check full durable results, bounded model-visible copies, completed sibling findings, conversation continuation, and uncertain writes without repetition.
+Tracing checks confirm the `partial` root status and the final model beneath a `finalize partial answer` span.
+Terminal checks verify visible partial replies. Schedule checks verify that incomplete runs pause their schedule.
+The full suite passed 764 tests, with three live tests excluded. Ruff checks, package builds, and the local Docker build passed.
+The unchanged realistic travel query completed again with both named delegates, ten model calls, and 25 spans over 109 seconds.
+It returned both itineraries and a recommendation with a normal `stop` finish reason.
+The isolated demo retained its existing 4,096-token output limit. Deployment defaults remain unchanged.
+Jaeger displayed the overlapping delegate branches and their inherited agent names.
+A separate deterministic budget-limit fixture exported five spans, including a tool-free final request beneath the recovery span.
+Its root recorded `partial` status and its answer preserved the known finding.
 
 The full suite passed 744 tests, with three live tests excluded.
 Application lint, formatting, lock validation, Compose configuration, and package builds passed.

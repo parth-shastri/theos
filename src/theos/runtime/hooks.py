@@ -12,6 +12,7 @@ from theos.runtime.models import session_options
 from theos.storage.messages import stamp_message
 
 from .approvals import check_approval
+from .recovery import bound_tool_results
 from .text import reply_text
 
 
@@ -31,6 +32,7 @@ def build_hooks(runtime, session):
             ctx.history.append(image)
             request.messages.append(image)
         request.options.update(session_options(runtime.settings, session))
+        bound_tool_results(request, runtime.settings.context_tokens * 2)
         started = time.monotonic()
         created_at = time.time()
         return request
