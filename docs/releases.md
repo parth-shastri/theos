@@ -2,11 +2,14 @@
 
 The private repository is `parth-shastri/theos`.
 `dev` holds integrated development. `main` holds promoted changes. `rpi` holds the version selected for the Raspberry Pi.
-Start every fix, feature, chore, or documentation change on a topic branch from `dev`.
+Start normal fixes, features, chores, and documentation changes on a topic branch from `dev`.
+For an urgent Pi release fix, use the [hotfix procedure](#publish-an-urgent-pi-hotfix).
 Use branch names such as `fix/<name>`, `feature/<name>`, `chore/<name>`, or `docs/<name>`.
 Never use the `codex/` branch prefix.
-Merge the topic branch into `dev` through a PR.
-Promote `dev` through a PR to either `main` or `rpi`.
+Merge normal topic branches into `dev` through a PR.
+Promote `dev` through a separate PR for each destination when ready: `main`, `rpi`, or both.
+Promotions are independent. Every change does not require both promotion PRs.
+`main` does not need to precede `rpi` in the release process.
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
@@ -146,6 +149,27 @@ It rejects a tag for another revision or an older `rpi` commit.
 The workflow rechecks the branch before publishing and before deployment.
 Avoid advancing `rpi` while its release is running.
 Ordinary pushes to `rpi` run CI but do not deploy.
+
+## Publish an urgent Pi hotfix
+
+Use this procedure when `rpi` needs an urgent fix and `dev` contains changes that are not ready for release.
+
+1. Create a `fix/<name>` topic branch from the current remote `rpi` commit.
+2. Implement the urgent fix.
+3. Set a new patch version for the Pi release.
+4. Update `uv.lock` with `uv lock` when required.
+5. Validate the fix with the relevant tests and Pi acceptance checks.
+6. Merge the hotfix branch into `rpi` through a PR after `CI passed`.
+7. Publish a new release tag for the current remote `rpi` commit, as described in [Publish a release](#publish-a-release).
+8. Create a separate topic branch from the current remote `dev` commit.
+9. Cherry-pick the fix commits onto that branch.
+10. Adapt the fix if development code differs.
+11. Validate the fix on `dev`.
+12. Merge the branch into `dev` through a separate PR after `CI passed`.
+
+Keep the hotfix limited to the urgent issue. Do not merge unfinished `dev` changes into `rpi` for this release.
+The next normal promotion to `main` includes the fix from `dev`.
+The hotfix uses the same release gate and deployment checks as a normal Pi release.
 
 ## Activation and rollback
 

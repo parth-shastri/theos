@@ -196,11 +196,17 @@ Preserve historical paths in provenance manifests.
 ## Git and Raspberry Pi releases
 
 The private GitHub repository is `parth-shastri/theos`.
-Start every change on a topic branch from `dev`, including fixes, features, chores, and documentation.
+Start normal changes on a topic branch from `dev`, including fixes, features, chores, and documentation.
+On 2026-10-10, the operator approved an exception for urgent Pi release fixes while `dev` contains unfinished changes.
+Start these hotfixes on a `fix/<name>` branch from `rpi` and merge them into `rpi` through a PR.
+Validate the hotfix and publish a new patch release from `rpi`.
+Cherry-pick the fix onto a separate topic branch from `dev`, adapt it when necessary, and merge through a PR.
 The operator prohibits the `codex/` branch prefix in every repository going forward.
 Use descriptive names such as `fix/<name>`, `feature/<name>`, `chore/<name>`, or `docs/<name>`.
-Merge the topic branch into `dev` through a PR.
-Promote `dev` through a PR to either `main` or `rpi`. Publish Raspberry Pi releases from `rpi`.
+Merge normal topic branches into `dev` through a PR.
+Promote `dev` through a separate PR for each destination when ready: `main`, `rpi`, or both.
+Promotions are independent. Every change does not require both promotion PRs.
+Publish Raspberry Pi releases from `rpi`.
 Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
 CI covers Python 3.12 and 3.13, browser syntax, packages, workflow validation, secret scanning, and containers on amd64, arm64, 386, ARMv7, and PPC64LE.
