@@ -14,6 +14,17 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
+## CI coverage selection
+
+`scripts/ci_policy.py` uses Git and the Python standard library to select container architectures.
+It reads the GitHub event file and writes the matrix to `GITHUB_OUTPUT`.
+Dev runs check build and deployment changes. Main runs check five architectures. Pi runs check ARM64.
+Manual extended runs add IBM Z and RISC-V.
+Missing Git comparison history retains ARM64 checks. The tagged release tests its image in a separate job.
+This script adds no package dependency or model tool.
+
+Source: [CI policy](../scripts/ci_policy.py) and [workflow](../.github/workflows/theos.yml).
+
 ## Telegram reply formatting
 
 Telegram reply formatting uses `markdown-it-py` 4.x from the `server` extra.

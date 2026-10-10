@@ -203,7 +203,15 @@ Preserve historical paths in provenance manifests.
 
 ## Git and Raspberry Pi releases
 
-The private GitHub repository is `parth-shastri/theos`.
+The public GitHub repository is `parth-shastri/theos`.
+On 2026-10-10, the operator made the repository public to avoid the private-repository Actions minutes quota.
+GitHub now permits branch protection for this repository without an account upgrade.
+On 2026-10-11, the operator required branch protection on `dev`, `main`, and `rpi`.
+The operator then replaced the three branch protection rules with one active [repository ruleset](https://github.com/parth-shastri/theos/rules/24850327).
+The `Integration branches: PR and CI` ruleset targets only these three branches and has no bypass actors.
+Each branch requires a PR and the `CI passed` check from GitHub Actions, including for administrators.
+Force pushes and branch deletion are blocked. Reviewer approvals remain optional, and merge commits remain allowed.
+Branches need not be current with the destination before merge. Destination PR CI still validates the proposed merge.
 Start normal changes on a topic branch from `dev`, including fixes, features, chores, and documentation.
 On 2026-10-10, the operator approved an exception for urgent Pi release fixes while `dev` contains unfinished changes.
 Start these hotfixes on a `fix/<name>` branch from `rpi` and merge them into `rpi` through a PR.
@@ -220,7 +228,15 @@ The operator requested history synchronization through a topic branch from `dev`
 Publish Raspberry Pi releases from `rpi`.
 Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
-CI covers Python 3.12 and 3.13, browser syntax, packages, workflow validation, secret scanning, and containers on amd64, arm64, 386, ARMv7, and PPC64LE.
+CI covers Python 3.12 and 3.13, browser syntax, packages, Compose, workflow validation, and secret scanning.
+On 2026-10-10, the operator requested lower CI usage through destination-specific container coverage.
+Run CI on PRs into `dev`, `main`, and `rpi`, and pushes to those integration branches.
+Topic pushes do not start duplicate runs. New development pushes and PR updates cancel superseded runs.
+Dev checks ARM64 only when build or deployment files change. Missing comparison history retains ARM64 coverage.
+Main checks amd64, arm64, 386, ARMv7, and PPC64LE before promotion and after merge.
+Rpi checks native ARM64. Tagged releases retain application CI and test the exact ARM64 image before publishing it.
+The release does not repeat the general container matrix. Deployment verification and rollback remain required.
+The final CI gate accepts skipped container jobs only when the policy explicitly selects no architectures.
 An explicit extended run also checks s390x and RISC-V64. AMD64 and ARM64 run natively; other targets use QEMU.
 The release workflow publishes a tested arm64 image and deploys its digest with a Pi runner labeled `theos-rpi`.
 Activation uses a separate restored data volume. Failure restores the previous image and original volume.
@@ -239,7 +255,7 @@ On 2026-10-10, the prior token returned HTTP 401. The operator replaced it in lo
 Only that token was synchronized to the Pi. Container recreation applied it.
 Live authentication and polling-configuration checks passed for `@mytheos_bot`.
 Release `rpi-v0.1.1` includes the deployed Telegram connection checks and browser onboarding.
-GitHub rejected branch protection for the private repository because the account requires an upgrade.
+GitHub initially rejected branch protection while the repository was private because the account required an upgrade.
 The disposable Docker rehearsal passed first installation, replacement, intentional readiness failure, and automatic rollback on the Pi.
 Both the original and restored SQLite records survived.
 CI passed on `main` and `rpi` with Python 3.12 and 3.13, native amd64 and arm64 containers, workflow validation, browser checks, and secret scanning.

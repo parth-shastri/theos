@@ -1,6 +1,6 @@
 # Git, CI, and Raspberry Pi releases
 
-The private repository is `parth-shastri/theos`.
+The public repository is `parth-shastri/theos`.
 `dev` holds integrated development. `main` holds promoted changes. `rpi` holds the version selected for the Raspberry Pi.
 Start normal fixes, features, chores, and documentation changes on a topic branch from `dev`.
 For an urgent Pi release fix, use the [hotfix procedure](#publish-an-urgent-pi-hotfix).
@@ -17,21 +17,44 @@ The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
 ## Continuous integration
 
-[Theos CI](../.github/workflows/theos.yml) runs on branch pushes and pull requests.
-The release workflow runs the same checks against the tagged commit.
-Checks cover:
+[Theos CI](../.github/workflows/theos.yml) runs on pushes to `dev`, `main`, and `rpi`, and PRs into those branches.
+Topic branches run CI through their PR. A topic push does not start a second run.
+Every run retains these application checks:
 
 - Python 3.12 and 3.13, locked dependencies, lint, formatting, and deterministic tests.
 - Syntax checks for every owned browser JavaScript file.
 - Package builds, wheel assets, and the lightweight client installation.
 - Production and development Compose configuration.
-- Linux containers on amd64, arm64, 386, ARMv7, and PPC64LE. An explicit extended run adds s390x and RISC-V64.
-  Each image runs readiness, authenticated chat, restart recovery, native-library, non-root, and CPU word-size checks.
 - Workflow validation with actionlint and Git-history secret scanning with Gitleaks.
 
-The `CI passed` check succeeds only when every check succeeds.
-The current GitHub account cannot enforce branch protection on this private repository; GitHub requires an account upgrade for that feature.
-Until protection is available, review this check before merging or tagging.
+Container coverage depends on the destination:
+
+| Event | Container coverage |
+| --- | --- |
+| PR into `dev`, or push to `dev` | ARM64 when build or deployment files change. Otherwise, no container build |
+| PR into `main`, or push to `main` | amd64, arm64, 386, ARMv7, and PPC64LE |
+| PR into `rpi`, or push to `rpi` | Native ARM64 |
+| Pi release tag | The release job tests the exact ARM64 image before publication |
+| Manual run | Five standard targets, or all seven with the extended option |
+
+The [CI policy](../scripts/ci_policy.py) checks Dockerfiles, `.dockerignore`, Compose files, dependency files, workflows, and deployment scripts and tests.
+PR comparisons use their merge base. Push comparisons include every commit in the push.
+File deletions and renames retain build coverage. Missing history also selects ARM64.
+Application changes on `dev` can expose container failures later, during promotion to `main` or `rpi`.
+Review the destination PR's container checks before merging it.
+
+Development pushes and updated PRs cancel superseded runs. Main pushes, Pi pushes, and tagged releases retain active runs.
+Each selected image runs readiness, authenticated chat, restart recovery, native-library, non-root, and CPU word-size checks.
+The `CI passed` check requires successful application checks and every selected container check.
+It accepts a skipped container job only when the policy explicitly selects no container architectures.
+Tagged releases retain application checks and require separate image acceptance before publication and deployment.
+One active [repository ruleset](https://github.com/parth-shastri/theos/rules/24850327) targets `dev`, `main`, and `rpi`.
+The `Integration branches: PR and CI` ruleset requires a PR and `CI passed` from GitHub Actions.
+It has no bypass actors. The old branch protection rules were removed after the ruleset was verified.
+These requirements apply to administrators. Force pushes and branch deletion are blocked.
+Reviewer approvals remain optional. Merge commits remain allowed for promotions and history synchronization.
+Branches need not be current with the destination before merge. Destination PR CI validates the proposed merge.
+Review `CI passed` before creating a release tag.
 Workflow actions are pinned to commit hashes.
 Live services still need the separate [acceptance checks](runtime/acceptance.md#live-service-checks).
 
@@ -52,7 +75,7 @@ On targets without matching dependency wheels, the builder installs C and Rust b
 Those tools stay in the builder stage. The runtime includes the shared libraries needed by source-built Pillow.
 Emulated checks verify behavior; they do not establish performance or memory requirements on real hardware.
 The `CI passed` gate requires every selected architecture to pass. Source builds can make a cold CI run slower.
-Routine pushes, pull requests, and Pi releases check the first five targets.
+Main promotions check the first five targets before merge. Pi promotions check ARM64.
 IBM Z and RISC-V are extended checks because their source builds are much slower under emulation.
 Run all seven from the Actions page with the extended-architectures option, or use:
 
@@ -177,7 +200,7 @@ The hotfix uses the same release gate and deployment checks as a normal Pi relea
 
 [The release workflow](../.github/workflows/release-rpi.yml) performs these steps:
 
-1. Validate the tag and run all CI checks.
+1. Validate the tag and run application CI checks.
 2. Build an arm64 image and test that exact image before publishing it to GHCR.
 3. Pull its immutable digest on the Pi while the previous service remains available.
 4. Validate Compose and prepare a separate candidate data volume.
