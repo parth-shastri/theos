@@ -151,6 +151,15 @@ A reset keeps personal records and files.
 Google account commands work only in private chats.
 Disconnect commands run directly without a separate approval button.
 
+## Reply formatting
+
+Assistant replies use Telegram formatting for emphasis, links, and code.
+Headings become bold text. Lists and tables become readable text rows.
+Long replies split into messages while keeping formatting and emoji intact.
+The renderer reparses partial Markdown as a reply streams.
+Commands and approval reviews remain literal text.
+The assistant avoids em dashes across transports, including saved replies and generated titles.
+
 ## Media and voice
 
 Photos, documents, audio files, and voice notes enter the private file catalog.

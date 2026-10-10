@@ -12,6 +12,7 @@ from theos.runtime.models import session_options
 from theos.storage.messages import stamp_message
 
 from .approvals import check_approval
+from .text import reply_text
 
 
 def build_hooks(runtime, session):
@@ -35,6 +36,10 @@ def build_hooks(runtime, session):
         return request
 
     async def after_model(message, ctx):
+        if message.text is not None:
+            message.text = reply_text(message.text)
+        if message.reasoning is not None:
+            message.reasoning = reply_text(message.reasoning)
         stamp_message(
             message,
             created_at=created_at,

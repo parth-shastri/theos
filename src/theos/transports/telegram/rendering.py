@@ -3,33 +3,47 @@
 import json
 import time
 
+from .formatting import format_reply
+
 
 async def render(bot, turn, chat, topic):
     """Display streamed text, progress, approvals, and generated files."""
     sent = await bot.send(chat, "Thinking…", topic)
-    message_id, text, last_edit = sent["message_id"], "", 0.0
-    displayed = "Thinking…"
+    text, last_edit = "", 0.0
+    messages = [(sent["message_id"], {"text": "Thinking…", "entities": []})]
 
     async def edit(value):
-        nonlocal displayed
-        # Telegram rejects identical edits. Compare with the last confirmed display text.
-        if value != displayed:
-            await bot.api(
-                "editMessageText", {"chat_id": chat, "message_id": message_id, "text": value}
-            )
-            displayed = value
+        parts = format_reply(value)
+        # Reparse the whole reply so split fences and partial links recover on later deltas.
+        for index, part in enumerate(parts):
+            if index < len(messages):
+                message_id, displayed = messages[index]
+                if part != displayed:
+                    await bot.api(
+                        "editMessageText",
+                        {"chat_id": chat, "message_id": message_id, **part},
+                    )
+                    messages[index] = (message_id, part)
+            else:
+                sent = await bot.api(
+                    "sendMessage",
+                    {
+                        "chat_id": chat,
+                        **part,
+                        **({"message_thread_id": topic} if topic else {}),
+                    },
+                )
+                messages.append((sent["message_id"], part))
+        # Closing Markdown can shorten the visible text and remove a trailing chunk.
+        while len(messages) > len(parts):
+            message_id, _ = messages[-1]
+            await bot.api("deleteMessage", {"chat_id": chat, "message_id": message_id})
+            messages.pop()
 
     async for event in turn.events():
         kind = event["type"]
         if kind == "text":
             text += event["text"]
-            # One provider delta can span several messages. Split until every chunk fits.
-            while len(text) > 3900:
-                await edit(text[:3900])
-                text = text[3900:]
-                displayed = text[:3900] or "…"
-                sent = await bot.send(chat, displayed, topic)
-                message_id = sent["message_id"]
             if time.monotonic() - last_edit >= 1:
                 await edit(text or "…")
                 last_edit = time.monotonic()
@@ -80,4 +94,4 @@ async def render(bot, turn, chat, topic):
                 "waiting_for_approval": "Waiting for your approval.",
                 "budget_exhausted": "This turn reached its model-call limit. Send /resume to continue.",
             }.get(event["status"], "The turn ended.")
-            await edit(final[:4000])
+            await edit(final)
