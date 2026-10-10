@@ -81,6 +81,18 @@ Its GenAI panel rendered the delegate task and answer. All captured fields staye
 The exported child spans retained their agent names. Legacy task strings and content-disabled tracing remain covered by tests.
 This local result does not complete the pending Telegram, image, reasoning-control, or Pi workload checks.
 
+A realistic travel query asked for weather, relaxed itineraries, rainy-day alternatives, and a Mumbai versus Bengaluru recommendation.
+The query did not mention tools, delegation, or agent names.
+Theos chose two concurrent agents named `Mumbai itinerary` and `Bengaluru itinerary` from the task scope.
+Initial runs exposed the research timeout, a context-limit failure after extra searches, and an answer cut short by its output limit.
+Runtime instructions now guide focused delegation, task-based names, concise research, limited verification, and explicit uncertainty.
+These search limits are model guidance. The enforced shared call budget and 90-second tool timeout remain unchanged.
+The final test conversation used a 4,096-token output limit. This does not change deployment defaults.
+That run completed in 64 seconds with 19 spans, nine model calls, two weather calls, four search calls, and two successful delegates.
+The final answer covered both itineraries and a recommendation, with a normal `stop` finish reason.
+Jaeger displayed the named branches. All content stayed within capture limits, with eight spans marked for truncation.
+The final answer was captured in full. The 33 tracing and integration checks, Ruff checks, and local Docker build passed.
+
 The full suite passed 744 tests, with three live tests excluded.
 Application lint, formatting, lock validation, Compose configuration, and package builds passed.
 Real model and deployed transport acceptance remain separate checks.

@@ -355,6 +355,11 @@ Calls run in order. Failed or canceled calls do not replay automatically.
 
 `delegate_tasks` runs up to three research tasks with the parent's model-call budget.
 Each assignment can supply a descriptive `name` and a `task`. Results and OTel spans include that name.
+Theos chooses names from task scope. Users do not need to request delegation or name agents.
+The runtime instructions prefer concurrent delegation for substantial independent research and direct execution for simple lookups.
+Delegate instructions limit research to two focused search calls with three results each, then request findings and unverified facts.
+These search limits are model instructions. The existing shared model-call budget and 90-second execution timeout remain enforced limits.
+After delegation, parent instructions permit two focused verification searches and require an answer with remaining uncertainty.
 Legacy string assignments remain supported.
 Delegates receive search, weather, and skill tools only.
 They cannot create more delegates or change account data.
