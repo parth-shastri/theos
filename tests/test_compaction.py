@@ -125,6 +125,35 @@ async def test_shared_model_budget_bounds_compaction():
 
 
 @pytest.mark.asyncio
+async def test_separate_compaction_budget_preserves_the_research_call():
+    summary = 'Keep the Hindi preference and the unfinished comparison.'
+    model = FakeModel([AssistantMessage(text=summary), AssistantMessage(text=summary),
+                       AssistantMessage(text='Here is the comparison.')])
+    research, compact = Budget(1), Budget(2)
+    agent = Agent(model, context_window=2000, reserved_output_tokens=256, compaction=CONFIG)
+    result = await agent.run(transcript(), budget=research, compaction_budget=compact)
+    assert result.status == 'completed'
+    assert research.used == 1 and compact.used == 2
+    assert len(model.requests) == 3
+    assert model.requests[:2][0].messages[0].content == CONFIG.prompt
+    assert result.message.text == 'Here is the comparison.'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('allowance', [0, 1])
+async def test_separate_compaction_exhaustion_keeps_memory_and_research(allowance):
+    model = FakeModel([AssistantMessage(text='Keep the unfinished comparison.')])
+    research, compact, memory = Budget(1), Budget(allowance), ContextMemory()
+    agent = Agent(model, context_window=2000, reserved_output_tokens=256, compaction=CONFIG)
+    with pytest.raises(HarnessError):
+        await agent.run(transcript(), budget=research, compaction_budget=compact, memory=memory)
+    assert research.used == 0
+    assert compact.used == allowance
+    assert len(model.requests) == allowance
+    assert memory == ContextMemory()
+
+
+@pytest.mark.asyncio
 async def test_research_reduces_completed_exchanges_inside_one_turn_and_pins_brief():
     history = [UserMessage('Compare versions 2 and 3. Preserve conflicts and source dates.')]
     for i in range(4):

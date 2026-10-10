@@ -65,6 +65,18 @@ async def test_failed_title_keeps_completed_reply(runtime, scripted_models):
     assert runtime.db.load_history("alice", session["id"])[-1].text == "A useful answer"
 
 
+async def test_title_cannot_spend_reserved_compaction_or_recovery_calls(runtime, scripted_models):
+    runtime.settings.auto_titles = True
+    runtime.settings.max_model_calls = 4
+    runtime.settings.max_compaction_calls = 2
+    session = runtime.db.create_session("alice", "test-model", "default")
+    scripted_models.responses.append([AssistantMessage("A useful answer")])
+    events = await collect(runtime.start("alice", session["id"], "Plan a trip"))
+    assert events[-1]["status"] == "completed"
+    assert not any(event["type"] == "title" for event in events)
+    assert runtime.db.session("alice", session["id"])["title_attempts"] == 0
+
+
 async def test_title_request_is_bounded_tool_free_and_owner_scoped(runtime):
     runtime.settings.auto_titles = True
     session = runtime.db.create_session("alice", "gpt-5.6-luna", "high")

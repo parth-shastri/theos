@@ -69,7 +69,7 @@ Failed evaluations return to diagnosis and another evaluation cycle.
 
 | Framework stage | Current implementation | Remaining framework work |
 | --- | --- | --- |
-| Trace | Runtime events in SQLite and structured application logs | Complete session traces and remote exporters |
+| Trace | SQLite events, structured logs, and optional OTel turn spans through OTLP/HTTP | Durable remote replay and session-wide aggregation |
 | Evaluate | Deterministic harness and application acceptance tests | Simulation and model-based scoring |
 | Observe | Health endpoints, usage records, and the private dashboard | Broader production metrics and latency analysis |
 | Diagnose | Operator inspection of logs, traces, jobs, and conversations | Automated feedback into evaluations |
@@ -77,7 +77,8 @@ Failed evaluations return to diagnosis and another evaluation cycle.
 | Release | Manual image build, deployment, and rollback procedures | Automated release feedback across prompts, tools, retrieval, and models |
 
 The diagram includes Langfuse, LangSmith, and custom exporters as design options.
-The application does not configure those integrations or a remote OpenTelemetry exporter.
+The application implements a backend-neutral OTLP/HTTP exporter and an optional Jaeger waterfall viewer.
+It does not configure Langfuse or LangSmith integrations.
 A passing mock test does not establish live service success.
 Read [observability](base-infra/observability.md), [operations](operations.md), and the [acceptance checklist](runtime/acceptance.md) for current behavior.
 

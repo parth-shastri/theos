@@ -46,6 +46,8 @@ Test files are in [`tests/app`](../../tests/app).
 | Nutrition export, backfill, edits, deletion, retries | `services/health/`, `services/meals/` | Durable export reconciliation and cancellation tests |
 | Per-owner Zepto OAuth, encrypted credentials, Telegram return handoff, tools, and approvals | `services/zepto/`, `transports/telegram/`, `runtime/` | `test_zepto.py` covers encrypted restart storage, owner and state binding, inbox redaction, and chat isolation. Regression tests cover schemas and approvals |
 | Redacted logs, traces, token usage, cost estimates | `operations/logging.py`, `runtime/`, `server.py` | Accounting, dashboard access, and log redaction tests |
+| OTel turn waterfalls and OTLP/HTTP export | `operations/tracing.py`, runtime model and tool boundaries | `test_tracing.py`, Jaeger ingestion and restart checks |
+| Partial answers after runtime limits | `runtime/recovery.py`, delegate boundaries | `test_recovery.py`, terminal, schedule, and tracing checks |
 | Migrations, restart recovery, one scheduler, health endpoints | `storage/database.py`, `runtime/scheduler.py`, `server.py` | Database reopen, process lock, and restart tests |
 | Consistent backup and restore | `backup.py` | Database and file restoration in `test_integrations.py` |
 | Locked image, non-root runtime, both architectures | `Dockerfile`, Compose files | Container chat, restart, UID, and resource checks |
@@ -57,6 +59,83 @@ The application loads skill resources from an operator-controlled directory.
 It does not bundle the upstream ADK skill registry.
 
 ## Current verification
+
+Release 0.1.5 raises the default total to 30 calls with proportional allowances.
+The allocation is 23 research calls, five compaction calls, and two recovery calls, with ten calls per delegate.
+Recovery can use its second tool-free attempt within the existing 15-second deadline.
+The final local suite passed 837 tests, with three live tests excluded, after integration with the current CI policy.
+Lint, formatting, lock validation, and package builds passed for version 0.1.5.
+The version and all release documentation changes are included in the tracing PR.
+Jaeger access remains private to operators, without built-in passwords or per-user trace isolation.
+
+
+The 2026-10-10 tracing update adds optional, content-free OTel spans and OTLP/HTTP protobuf export.
+Twenty-one deterministic checks cover model and tool ownership, parallel delegates, title and compaction calls, errors, cancellation, approvals, sampling, redaction, and shutdown.
+Concurrent turns and later turns share conversation identifiers without sharing trace identifiers.
+Five log checks cover size rotation, age rotation, expired backups, quiet processes, and cleanup failures.
+A local HTTP receiver verified the protobuf payload, trace hierarchy, endpoint, and authentication headers.
+Jaeger `2.22.0` displayed a 12-span fake-model turn with two overlapping research delegates.
+Its Badger volume retained the complete trace across a container restart.
+These checks used disposable SQLite data and made no model API requests.
+Jaeger accepted another 12-span turn with the memory limiter and 300 MiB Go memory target enabled.
+The local Theos and Jaeger Compose services started with separate persistent data volumes.
+Theos readiness returned HTTP 200. Jaeger displayed the scripted 12-span example waterfall.
+The local browser instance uses the configured OpenRouter model with Telegram polling disabled.
+
+The bounded content update adds three checks for named delegates, task capture, message and tool links, byte limits, Unicode, cycles, and structured credential masking.
+The full suite passed 747 tests, with three live tests excluded. Ruff checks, formatting, package builds, and the local Docker build passed.
+A real OpenRouter `gpt-6-luna` turn compared three-day Open-Meteo forecasts for Pune, Mumbai, and Bengaluru.
+The parent called `get_weather` for Pune. Two named agents fetched Mumbai and Bengaluru forecasts concurrently and returned separate summaries.
+Jaeger displayed the 14-span waterfall in 28 seconds, with seven model calls and three successful weather tool calls.
+Its GenAI panel rendered the delegate task and answer. All captured fields stayed within their byte limits without truncation.
+The exported child spans retained their agent names. Legacy task strings and content-disabled tracing remain covered by tests.
+This local result does not complete the pending Telegram, image, reasoning-control, or Pi workload checks.
+
+A realistic travel query asked for weather, relaxed itineraries, rainy-day alternatives, and a Mumbai versus Bengaluru recommendation.
+The query did not mention tools, delegation, or agent names.
+Theos chose two concurrent agents named `Mumbai itinerary` and `Bengaluru itinerary` from the task scope.
+Initial runs exposed the research timeout, a context-limit failure after extra searches, and an answer cut short by its output limit.
+Runtime instructions now guide focused delegation, task-based names, concise research, limited verification, and explicit uncertainty.
+These search limits are model guidance. The enforced shared call budget and 90-second tool timeout remain unchanged.
+The final test conversation used a 4,096-token output limit. This does not change deployment defaults.
+That run completed in 64 seconds with 19 spans, nine model calls, two weather calls, four search calls, and two successful delegates.
+The final answer covered both itineraries and a recommendation, with a normal `stop` finish reason.
+Jaeger displayed the named branches. All content stayed within capture limits, with eight spans marked for truncation.
+The final answer was captured in full. The 33 tracing and integration checks, Ruff checks, and local Docker build passed.
+
+Runtime recovery now reserves one model call and up to 15 seconds within the turn deadline for a final answer.
+The recovery request uses unchanged instructions and no tools. Failed recovery returns bounded saved findings with explicit uncertainty.
+Sixteen deterministic checks cover turn and delegate timeouts, shared and delegate budgets, context sizing, recovery failures, output truncation, and explicit cancellation.
+They also check full durable results, bounded model-visible copies, completed sibling findings, conversation continuation, and uncertain writes without repetition.
+Tracing checks confirm the `partial` root status and the final model beneath a `finalize partial answer` span.
+Terminal checks verify visible partial replies. Schedule checks verify that incomplete runs pause their schedule.
+The full suite passed 764 tests, with three live tests excluded. Ruff checks, package builds, and the local Docker build passed.
+The unchanged realistic travel query completed again with both named delegates, ten model calls, and 25 spans over 109 seconds.
+It returned both itineraries and a recommendation with a normal `stop` finish reason.
+The isolated demo retained its existing 4,096-token output limit. Deployment defaults remain unchanged.
+Jaeger displayed the overlapping delegate branches and their inherited agent names.
+A separate deterministic budget-limit fixture exported five spans, including a tool-free final request beneath the recovery span.
+Its root recorded `partial` status and its answer preserved the known finding.
+
+The 2026-10-11 budget update separates compaction from research within the configured total ceiling.
+Defaults allocate nine research calls, two compaction calls, and one recovery call within twelve total calls.
+The delegate cap is configurable and defaults to four calls. Delegates retain the existing 85-second deadline.
+Title generation consumes a research slot. Each completed compaction request records its own usage row.
+Root spans expose limits and consumed calls for research, compaction, recovery, and the total.
+Twenty-two additional checks cover allocation, small ceilings, environment settings, concurrent spending, and configurable delegate caps.
+They also cover successful compaction, failed compaction without memory changes, recovery, title limits, and budget trace attributes.
+The full suite passed 786 tests, with three live tests excluded.
+All existing parent, delegate, compaction, title, and recovery instruction strings remain unchanged.
+The same realistic travel query completed in 106 seconds with 19 spans and seven model calls.
+The parent used three calls. The Mumbai itinerary and Bengaluru itinerary delegates each used two calls.
+The run used two weather calls and six search calls. Both delegates completed, and the final answer ended normally.
+The root recorded seven research calls, zero compaction calls, and zero recovery calls under the twelve-call ceiling.
+This run did not require compaction. Forced-context checks exercised separate compaction allowances and their exhaustion path.
+Jaeger displayed both named delegate branches. The demo retained its existing 4,096-token output limit.
+
+The full suite passed 744 tests, with three live tests excluded.
+Application lint, formatting, lock validation, Compose configuration, and package builds passed.
+Real model and deployed transport acceptance remain separate checks.
 
 The 2026-10-10 CI usage update selects container coverage by destination and build-file changes.
 All 49 policy checks passed on Python 3.12 and 3.13.

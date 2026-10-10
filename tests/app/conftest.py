@@ -19,6 +19,10 @@ def settings(tmp_path):
         data_dir=tmp_path,
         provider="fake",
         auto_titles=False,
+        max_model_calls=12,
+        max_compaction_calls=2,
+        max_recovery_calls=1,
+        delegate_max_model_calls=4,
         users={"alice": "a" * 32, "bob": "b" * 32},
         admins={"alice"},
     )

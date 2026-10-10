@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "theos"
-version = "0.1.4"
+version = "0.1.5"
 description = "Theos personal assistant with an owned Python agent harness"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,6 +13,8 @@ dependencies = ["pydantic>=2.11.7"]
 
 [project.optional-dependencies]
 server = [
+    "opentelemetry-sdk>=1.45,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.45,<2",
     "markdown-it-py>=4,<5",
     "google-genai>=2.14,<3",
     "jsonschema>=4.23,<5",
@@ -49,7 +51,7 @@ design = ["pillow>=11.0"]
 packages = ["src/theos", "src/harness", "src/renderer", "src/config"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "scripts", "docs", "README.md", "MEMORY.md", "AGENTS.md", "LICENSE", "pyproject.toml", "uv.lock", "Dockerfile", "compose.yaml", "compose.dev.yaml", ".dockerignore", ".env.minimal", ".env.full.example", ".env.client.example"]
+include = ["src", "tests", "scripts", "docs", "config/jaeger.yaml", "README.md", "MEMORY.md", "AGENTS.md", "LICENSE", "pyproject.toml", "uv.lock", "Dockerfile", "compose.yaml", "compose.dev.yaml", "compose.tracing.yaml", ".dockerignore", ".env.minimal", ".env.full.example", ".env.client.example"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

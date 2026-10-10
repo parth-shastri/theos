@@ -391,7 +391,7 @@ async def test_scheduled_budget_or_uncertain_action_pauses_schedule(
     scheduler = Scheduler(runtime)
     scheduler.scheduled.tick(time.time())
     await drain(scheduler)
-    expected = "uncertain" if unknown else "budget_exhausted"
+    expected = "uncertain" if unknown else "partial"
     assert runtime.db.one("SELECT status FROM scheduled_runs")["status"] == expected
     assert runtime.db.one("SELECT status FROM scheduled_tasks")["status"] == "paused"
     scheduler.scheduled.tick(time.time() + 86400)
