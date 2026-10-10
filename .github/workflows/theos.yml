@@ -1,8 +1,9 @@
 name: Theos CI
 on:
   push:
-    branches: ['**']
+    branches: [dev, main, rpi]
   pull_request:
+    branches: [dev, main, rpi]
   workflow_dispatch:
     inputs:
       extended_architectures:
@@ -11,20 +12,32 @@ on:
         default: true
   workflow_call:
     inputs:
-      extended_architectures:
+      release_image:
+        description: The Pi release tests its published image in a separate job
         type: boolean
         default: false
 permissions:
   contents: read
+concurrency:
+  group: theos-ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/dev') }}
 jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      architectures: ${{ steps.policy.outputs.architectures }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Select container coverage
+        id: policy
+        env:
+          CI_EXTENDED_ARCHITECTURES: ${{ inputs.extended_architectures }}
+          CI_RELEASE_IMAGE: ${{ inputs.release_image }}
+        run: python3 scripts/ci_policy.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
@@ -60,8 +73,8 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --locked --extra server --extra terminal
-      - run: uv run --no-sync ruff check src/theos tests/app scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
-      - run: uv run --no-sync ruff format --check src/theos tests/app scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
+      - run: uv run --no-sync ruff check src/theos tests/app scripts/ci_policy.py scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
+      - run: uv run --no-sync ruff format --check src/theos tests/app scripts/ci_policy.py scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
       - run: uv run --no-sync pytest -q
       - run: uv build
       - name: Check installed wheel and lightweight remote client
@@ -81,11 +94,13 @@ jobs:
       - run: docker compose -f compose.yaml -f compose.dev.yaml config --quiet
   container:
     name: Container ${{ matrix.architecture }}
+    needs: quality
+    if: needs.quality.outputs.architectures != '[]'
     strategy:
       fail-fast: false
       max-parallel: 7
       matrix:
-        architecture: ${{ fromJSON(inputs.extended_architectures && '["amd64", "arm64", "386", "armv7", "ppc64le", "s390x", "riscv64"]' || '["amd64", "arm64", "386", "armv7", "ppc64le"]') }}
+        architecture: ${{ fromJSON(needs.quality.outputs.architectures || '["arm64"]') }}
     runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     env:
       TEST_PLATFORM: ${{ fromJSON('{"amd64":"linux/amd64","arm64":"linux/arm64","386":"linux/386","armv7":"linux/arm/v7","ppc64le":"linux/ppc64le","s390x":"linux/s390x","riscv64":"linux/riscv64"}')[matrix.architecture] }}
@@ -150,4 +165,13 @@ jobs:
           QUALITY: ${{ needs.quality.result }}
           TESTS: ${{ needs.tests.result }}
           CONTAINER: ${{ needs.container.result }}
-        run: test "$QUALITY" = success && test "$TESTS" = success && test "$CONTAINER" = success
+          ARCHITECTURES: ${{ needs.quality.outputs.architectures }}
+        run: |
+          test "$QUALITY" = success
+          test "$TESTS" = success
+          test -n "$ARCHITECTURES"
+          if test "$ARCHITECTURES" = '[]'; then
+            test "$CONTAINER" = skipped
+          else
+            test "$CONTAINER" = success
+          fi

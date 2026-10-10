@@ -23,6 +23,8 @@ jobs:
   ci:
     needs: verify
     uses: ./.github/workflows/theos.yml
+    with:
+      release_image: true
   publish:
     needs: ci
     runs-on: ubuntu-24.04-arm
@@ -60,11 +62,15 @@ jobs:
           cache-from: type=gha,scope=arm64
       - name: Test the exact image that will be published
         run: |
+          test "$(docker image inspect "$IMAGE_TAG" --format '{{.Architecture}}')" = arm64
           docker run -d --name theos-smoke -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 "$IMAGE_TAG"
           for _ in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
             sleep 2
           done
+          docker exec theos-smoke python -c 'from PIL import Image; from cryptography.fernet import Fernet; import sqlite3; Image.new("RGB", (2, 2)).save("/tmp/portability.png"); key = Fernet.generate_key(); cipher = Fernet(key); assert cipher.decrypt(cipher.encrypt(b"portable")) == b"portable"; assert sqlite3.connect(":memory:").execute("select 1").fetchone()[0] == 1'
+          test "$(docker exec theos-smoke id -u)" = 10001
+          test "$(docker exec theos-smoke python -c 'import struct; print(struct.calcsize("P") * 8)')" = 64
           python3 scripts/theos_smoke.py
           docker restart theos-smoke
           for _ in $(seq 1 30); do
