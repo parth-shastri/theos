@@ -1,6 +1,6 @@
 # Git, CI, and Raspberry Pi releases
 
-The private repository is `parth-shastri/theos`.
+The public repository is `parth-shastri/theos`.
 `dev` holds integrated development. `main` holds promoted changes. `rpi` holds the version selected for the Raspberry Pi.
 Start normal fixes, features, chores, and documentation changes on a topic branch from `dev`.
 For an urgent Pi release fix, use the [hotfix procedure](#publish-an-urgent-pi-hotfix).
@@ -48,8 +48,8 @@ Each selected image runs readiness, authenticated chat, restart recovery, native
 The `CI passed` check requires successful application checks and every selected container check.
 It accepts a skipped container job only when the policy explicitly selects no container architectures.
 Tagged releases retain application checks and require separate image acceptance before publication and deployment.
-The current GitHub account cannot enforce branch protection on this private repository; GitHub requires an account upgrade for that feature.
-Until protection is available, review this check before merging or tagging.
+GitHub supports branch protection for this public repository.
+Require `CI passed` when branch protection is configured. Review this check before merging or tagging.
 Workflow actions are pinned to commit hashes.
 Live services still need the separate [acceptance checks](runtime/acceptance.md#live-service-checks).
 
