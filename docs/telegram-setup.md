@@ -79,6 +79,8 @@ Telegram enrollment does not grant administrator access.
 The deployment operator configures their administrator account through `AGENT_USERS` and `AGENT_ADMINS`.
 The first enrolled Telegram user receives ordinary access, like later users.
 After setup, **Open Theos** opens the browser confirmation flow when `AGENT_WEB_URL` is configured.
+The setup confirmation points users to Connections in the web UI to add connectors, or to `/help` for more information.
+Without a configured web URL, it points users to `/help` for capabilities and account connections.
 Confirm the matching code in your private Telegram chat before the browser receives access.
 Save the personal token shown in the browser for future sign-in.
 Send `/web` for another link or `/web revoke` to end all generated browser access.
