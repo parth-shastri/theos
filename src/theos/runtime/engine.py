@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import time
-from contextlib import aclosing
+from contextlib import aclosing, asynccontextmanager
 from datetime import UTC, datetime
 
 import httpx
@@ -16,6 +16,7 @@ from harness import (
     UserMessage,
 )
 from harness.compaction import CompactionConfig, ContextMemory
+from theos.operations.tracing import Tracing
 from theos.runtime.models import model_client
 from theos.services.files.catalog import Files
 from theos.services.memory.client import MemoryClient
@@ -38,7 +39,14 @@ class Runtime:
         self.settings = settings
         self.db = db
         self.http = http or httpx.AsyncClient(timeout=30, follow_redirects=False)
-        self.models = models
+        self.tracing = Tracing(settings.tracing)
+
+        @asynccontextmanager
+        async def traced_models(settings, model_id, reasoning):
+            async with models(settings, model_id, reasoning) as model:
+                yield self.tracing.model(model)
+
+        self.models = traced_models
         self.memory = MemoryClient(settings.memory, self.http)
         from theos.services.memory.automation import MemoryAutomation
 
@@ -175,7 +183,7 @@ class Runtime:
 
     def journal_tool(self, original, session):
         """Record a tool attempt before its external effects can start."""
-        return checkpoints.journal_tool(self, original, session)
+        return self.tracing.tool(checkpoints.journal_tool(self, original, session))
 
     async def approval_preview(self, session, name, arguments):
         """Read the exact action contents that the user must approve."""
@@ -194,6 +202,11 @@ class Runtime:
         return checkpoints.recover_history(self, owner, session_id)
 
     async def run(self, turn, session, message, *, scheduled=False):
+        """Trace one turn independently of the transport and other active turns."""
+        with self.tracing.turn(session, scheduled, self.settings.name):
+            await self._run(turn, session, message, scheduled=scheduled)
+
+    async def _run(self, turn, session, message, *, scheduled=False):
         """Run one reserved turn and save its final state."""
         status = "failed"
         started = time.monotonic()
@@ -318,6 +331,7 @@ class Runtime:
                 )
                 else status
             )
+            self.tracing.finish_turn(run_status)
             updated_runs = self.db.execute(
                 "UPDATE scheduled_runs SET status=?, finished=? WHERE session=? "
                 "AND status IN ('running','waiting_for_approval','budget_exhausted') RETURNING task_id",
@@ -343,3 +357,4 @@ class Runtime:
         await self.zepto.close()
         await self.sandboxes.close()
         await self.http.aclose()
+        await self.tracing.close()

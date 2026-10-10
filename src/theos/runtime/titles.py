@@ -69,8 +69,9 @@ async def update_title(runtime, turn, session, model, history):
         options=options,
     )
     try:
-        async with asyncio.timeout(8):
-            response = await model.generate(request)
+        with runtime.tracing.span("generate_title"):
+            async with asyncio.timeout(8):
+                response = await model.generate(request)
         if response.usage:
             runtime.record_usage(session, response.usage)
         title = reply_text(response.text).strip().strip('"\u201c\u201d').strip()

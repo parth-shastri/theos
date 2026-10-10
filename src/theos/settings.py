@@ -85,6 +85,28 @@ class ModelCosts(BaseModel):
     output: float = Field(ge=0)
 
 
+class TracingSettings(BaseModel):
+    """Optional OTLP/HTTP trace export, without conversation content."""
+
+    enabled: bool = False
+    endpoint: str = "http://127.0.0.1:4318/v1/traces"
+    headers: dict[str, SecretStr] = Field(default_factory=dict)
+    service_name: str = "theos"
+    sample_ratio: float = Field(default=1, ge=0, le=1)
+    timeout: float = Field(default=5, gt=0, le=30)
+
+    @model_validator(mode="after")
+    def valid_endpoint(self):
+        uri = urlsplit(self.endpoint)
+        if uri.scheme not in {"http", "https"} or not uri.hostname or uri.username or uri.password:
+            raise ValueError(
+                "Use an HTTP or HTTPS trace endpoint. Put credentials in tracing headers."
+            )
+        if not self.service_name.strip():
+            raise ValueError("Set a nonempty tracing service name.")
+        return self
+
+
 class ClientSettings(BaseSettings):
     """Read remote credentials without validating deployment service configuration."""
 
@@ -102,6 +124,7 @@ class Settings(ClientSettings):
         "Theos"
     )
     data_dir: Path = Path(".theos")
+    tracing: TracingSettings = Field(default_factory=TracingSettings)
     host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
     # Each credential maps to one identity. Never accept an owner from request data.

@@ -1,0 +1,28 @@
+# Add this file to compose.yaml to enable the local trace waterfall.
+services:
+  theos:
+    environment:
+      AGENT_TRACING__ENABLED: "true"
+      AGENT_TRACING__ENDPOINT: http://jaeger:4318/v1/traces
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    command: ["--config", "/etc/jaeger/tracing.yaml"]
+    volumes:
+      - ./config/jaeger.yaml:/etc/jaeger/tracing.yaml:ro
+      - jaeger-data:/tmp
+    ports:
+      - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686"
+      - "127.0.0.1:${JAEGER_OTLP_PORT:-4318}:4318"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+volumes:
+  jaeger-data:

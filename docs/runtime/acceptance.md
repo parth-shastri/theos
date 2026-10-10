@@ -46,6 +46,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Nutrition export, backfill, edits, deletion, retries | `services/health/`, `services/meals/` | Durable export reconciliation and cancellation tests |
 | Per-owner Zepto OAuth, encrypted credentials, Telegram return handoff, tools, and approvals | `services/zepto/`, `transports/telegram/`, `runtime/` | `test_zepto.py` covers encrypted restart storage, owner and state binding, inbox redaction, and chat isolation. Regression tests cover schemas and approvals |
 | Redacted logs, traces, token usage, cost estimates | `operations/logging.py`, `runtime/`, `server.py` | Accounting, dashboard access, and log redaction tests |
+| OTel turn waterfalls and OTLP/HTTP export | `operations/tracing.py`, runtime model and tool boundaries | `test_tracing.py`, Jaeger ingestion and restart checks |
 | Migrations, restart recovery, one scheduler, health endpoints | `storage/database.py`, `runtime/scheduler.py`, `server.py` | Database reopen, process lock, and restart tests |
 | Consistent backup and restore | `backup.py` | Database and file restoration in `test_integrations.py` |
 | Locked image, non-root runtime, both architectures | `Dockerfile`, Compose files | Container chat, restart, UID, and resource checks |
@@ -57,6 +58,17 @@ The application loads skill resources from an operator-controlled directory.
 It does not bundle the upstream ADK skill registry.
 
 ## Current verification
+
+The 2026-10-10 tracing update adds optional, content-free OTel spans and OTLP/HTTP protobuf export.
+Twenty-one deterministic checks cover model and tool ownership, parallel delegates, title and compaction calls, errors, cancellation, approvals, sampling, redaction, and shutdown.
+A local HTTP receiver verified the protobuf payload, trace hierarchy, endpoint, and authentication headers.
+Jaeger `2.22.0` displayed a 12-span fake-model turn with two overlapping research delegates.
+Its Badger volume retained the complete trace across a container restart.
+These checks used disposable SQLite data and made no model API requests.
+
+The full suite passed 739 tests, with three live tests excluded.
+Application lint, formatting, lock validation, Compose configuration, and package builds passed.
+Real model and deployed transport acceptance remain separate checks.
 
 The 2026-10-10 OpenRouter retention update enforces `provider.zdr=true` in the application adapter.
 Standalone requests passed automatic ZDR routing for all seven configured chat models.

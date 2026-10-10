@@ -54,7 +54,20 @@ def build_hooks(runtime, session):
         return message
 
     async def before_tool(tool, args, ctx):
-        return await check_approval(runtime, session, tool, args, ctx)
+        decision = await check_approval(runtime, session, tool, args, ctx)
+        if decision.kind != "allow":
+            with runtime.tracing.span(
+                f"execute_tool {tool.name}",
+                {
+                    "gen_ai.operation.name": "execute_tool",
+                    "gen_ai.tool.name": tool.name,
+                    "theos.tool.status": "waiting_for_approval"
+                    if decision.kind == "ask"
+                    else "denied",
+                },
+            ):
+                pass
+        return decision
 
     async def after_tool(result, ctx):
         if result.name == "sandbox_view_image" and result.status == "completed":

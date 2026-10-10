@@ -358,6 +358,16 @@ Delegates receive search, weather, and skill tools only.
 They cannot create more delegates or change account data.
 Source: [runtime tool registration](../src/theos/runtime/tools.py).
 
+## OpenTelemetry tracing
+
+The server uses `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`.
+It exports content-free turn, model, tool, delegate, and title spans through OTLP/HTTP protobuf.
+The runtime owns its tracer provider and background batch processor.
+The optional `compose.tracing.yaml` runs Jaeger `2.22.0` with seven-day Badger storage in a separate volume.
+Jaeger supplies the waterfall viewer. It is an operations dependency, not an assistant tool.
+See [observability](base-infra/observability.md) for setup and trace contents.
+Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
+
 ## Scheduled agent tasks
 
 SQLite, croniter, and the normal agent runtime execute one-time or recurring tasks.

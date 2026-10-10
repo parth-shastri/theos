@@ -45,6 +45,7 @@ Updated: 2026-10-10.
 | Browser conversation titles | Generate from the first completed exchange with the selected model and refine once after three user messages. Bound title calls, include their usage in costs, preserve custom titles, and retain a fallback on failure. Migration 007 tracks automatic titles |
 | Configuration | Pydantic settings with the `AGENT_` prefix |
 | Deployment | One application worker and scheduler per SQLite database |
+| Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata only, without content or exception payloads. Keep SQLite events and usage. Use optional Jaeger v2 with single-node Badger storage and seven-day retention for waterfalls |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
 | Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials use the enrolled Telegram owner's private account access. No automatic merging of existing browser and Telegram accounts |

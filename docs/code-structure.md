@@ -30,7 +30,7 @@ All source paths below start at `src/theos`.
 | Browser | Serve chat, owner-scoped activity, administrator usage aggregates, uploads, and streamed replies | `transports/browser/app.py`, `transports/browser/activity.py`, `transports/browser/static/` |
 | Browser enrollment | Confirm Telegram-owned browser sign-in, issue hashed credentials, and revoke generated access | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py` |
 | Terminal | Run `theos` as a deployed workspace client or standalone runtime, with a generic renderer | `transports/terminal/cli.py`, `remote.py`, `routes.py`, `wire.py`, `session.py`, `app.py`, `screens.py` |
-| Operations | Redact logs and make consistent backups | `operations/logging.py`, `backup.py` |
+| Operations | Redact logs, export OTel spans, and make consistent backups | `operations/logging.py`, `operations/tracing.py`, `backup.py` |
 
 ## Follow one turn
 

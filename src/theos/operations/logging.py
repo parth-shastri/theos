@@ -21,6 +21,7 @@ class SafeFormatter(logging.Formatter):
                 "scheduler_failed",
                 "notification_failed",
                 "telegram_update_failed",
+                "trace_export_failed",
                 "started",
                 "stopped",
             }
@@ -50,6 +51,8 @@ def configure_logging(directory):
         "google",
         "mcp",
         "opensandbox",
+        "opentelemetry",
+        "urllib3",
     ):
         remote = logging.getLogger(name)
         remote.handlers = [logging.NullHandler()]
