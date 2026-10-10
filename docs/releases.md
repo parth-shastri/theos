@@ -48,7 +48,9 @@ Each selected image runs readiness, authenticated chat, restart recovery, native
 The `CI passed` check requires successful application checks and every selected container check.
 It accepts a skipped container job only when the policy explicitly selects no container architectures.
 Tagged releases retain application checks and require separate image acceptance before publication and deployment.
-Branch protection on `dev`, `main`, and `rpi` requires a PR and `CI passed` from GitHub Actions.
+One active [repository ruleset](https://github.com/parth-shastri/theos/rules/24850327) targets `dev`, `main`, and `rpi`.
+The `Integration branches: PR and CI` ruleset requires a PR and `CI passed` from GitHub Actions.
+It has no bypass actors. The old branch protection rules were removed after the ruleset was verified.
 These requirements apply to administrators. Force pushes and branch deletion are blocked.
 Reviewer approvals remain optional. Merge commits remain allowed for promotions and history synchronization.
 Branches need not be current with the destination before merge. Destination PR CI validates the proposed merge.

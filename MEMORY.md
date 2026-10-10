@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-10.
+Updated: 2026-10-11.
 
 ## Confirmed decisions
 
@@ -203,6 +203,8 @@ The public GitHub repository is `parth-shastri/theos`.
 On 2026-10-10, the operator made the repository public to avoid the private-repository Actions minutes quota.
 GitHub now permits branch protection for this repository without an account upgrade.
 On 2026-10-11, the operator required branch protection on `dev`, `main`, and `rpi`.
+The operator then replaced the three branch protection rules with one active [repository ruleset](https://github.com/parth-shastri/theos/rules/24850327).
+The `Integration branches: PR and CI` ruleset targets only these three branches and has no bypass actors.
 Each branch requires a PR and the `CI passed` check from GitHub Actions, including for administrators.
 Force pushes and branch deletion are blocked. Reviewer approvals remain optional, and merge commits remain allowed.
 Branches need not be current with the destination before merge. Destination PR CI still validates the proposed merge.
