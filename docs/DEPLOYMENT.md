@@ -8,7 +8,8 @@ The Compose service name is `theos`, regardless of `AGENT_NAME`.
 
 You need a Linux server, Docker with the Compose plugin, and a copy of this repository.
 You also need a model credential and a Telegram bot token for Telegram use.
-The image uses Python 3.13 and supports Linux amd64 and arm64 builds.
+The image uses Python 3.13. Routine CI checks Linux amd64, arm64, 386, ARMv7, and PPC64LE builds. Extended CI also checks s390x and RISC-V64.
+See [architecture coverage](releases.md#architecture-coverage) for native and emulated checks and deployment limits.
 The default resource limits are one CPU and 768 MiB of memory.
 These limits are not measured minimum requirements.
 

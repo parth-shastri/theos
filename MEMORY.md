@@ -203,7 +203,8 @@ Merge the topic branch into `dev` through a PR.
 Promote `dev` through a PR to either `main` or `rpi`. Publish Raspberry Pi releases from `rpi`.
 Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
-CI covers Python 3.12 and 3.13, browser syntax, packages, both native container architectures, workflow validation, and secret scanning.
+CI covers Python 3.12 and 3.13, browser syntax, packages, workflow validation, secret scanning, and containers on amd64, arm64, 386, ARMv7, and PPC64LE.
+An explicit extended run also checks s390x and RISC-V64. AMD64 and ARM64 run natively; other targets use QEMU.
 The release workflow publishes a tested arm64 image and deploys its digest with a Pi runner labeled `theos-rpi`.
 Activation uses a separate restored data volume. Failure restores the previous image and original volume.
 The Pi SSH alias is `neuralbox-pi`; the default deployment directory is `/home/neuron/theos-deploy`.
