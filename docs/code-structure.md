@@ -22,6 +22,8 @@ All source paths below start at `src/theos`.
 | Runtime | Reserve turns and run the harness | `runtime/engine.py` |
 | Approvals | Match decisions to unchanged actions | `runtime/approvals.py` |
 | Checkpoints | Save tool attempts and recover results | `runtime/checkpoints.py`, `runtime/hooks.py` |
+| Partial answers | Reserve a final model call and return saved findings after runtime limits | `runtime/recovery.py` |
+| Call budgets | Separate research, compaction, and recovery allowances under one total ceiling | `runtime/budgets.py` |
 | Delivery events | Turn harness events into transport events | `runtime/events.py`, `runtime/turn.py` |
 | Providers and usage | Build model clients, retain OpenRouter reasoning and costs, and record usage | `runtime/models.py`, `runtime/model_catalog.py`, `runtime/openrouter.py`, `runtime/usage.py` |
 | Scheduler | Deliver reminders and run agent tasks, memory consolidation, and Health work | `runtime/scheduler.py`, `runtime/scheduled.py` |
@@ -30,7 +32,7 @@ All source paths below start at `src/theos`.
 | Browser | Serve chat, owner-scoped activity, administrator usage aggregates, uploads, and streamed replies | `transports/browser/app.py`, `transports/browser/activity.py`, `transports/browser/static/` |
 | Browser enrollment | Confirm Telegram-owned browser sign-in, issue hashed credentials, and revoke generated access | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py` |
 | Terminal | Run `theos` as a deployed workspace client or standalone runtime, with a generic renderer | `transports/terminal/cli.py`, `remote.py`, `routes.py`, `wire.py`, `session.py`, `app.py`, `screens.py` |
-| Operations | Redact logs and make consistent backups | `operations/logging.py`, `backup.py` |
+| Operations | Redact logs, export OTel spans, and make consistent backups | `operations/logging.py`, `operations/tracing.py`, `backup.py` |
 
 ## Follow one turn
 

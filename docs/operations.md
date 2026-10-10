@@ -21,6 +21,7 @@ The browser **Admin dashboard** requires an administrator token.
 It shows sessions, usage, traces, and jobs.
 Each user can open **Activity & usage** to inspect only their own usage.
 See [observability](base-infra/observability.md) for log locations and limits.
+That guide also covers optional OpenTelemetry export and the Jaeger trace waterfall.
 
 ## Read logs
 

@@ -91,6 +91,7 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
                           count: Callable[[Sequence[Message]], Awaitable[int]],
                           count_request: Callable[[ModelRequest], Awaitable[int]],
                           max_tokens: int, context_window: int,
+                          reserved_model_calls: int = 1,
                           ) -> AsyncIterator[ContextCompaction]:
     """Commit memory only after every bounded summary chunk succeeds."""
     before = await count(memory.view(history))
@@ -159,10 +160,9 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
             if not chunk:
                 raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
             phase = 'budget_exhausted'
-            if budget.used >= budget.max_model_calls - 1 or not budget.spend():
+            if budget.used >= budget.max_model_calls - reserved_model_calls or not budget.spend():
                 raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
             model_calls += 1
-            yield ContextCompaction('progress', before_tokens=before)
             phase = 'summary_failed'
             result = None
             async with aclosing(model.stream(accepted)) as stream:
@@ -176,6 +176,8 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
             for key, value in (result.usage if result else {}).items():
                 if isinstance(value, int):
                     usage[key] = usage.get(key, 0) + value
+            yield ContextCompaction('progress', before_tokens=before, model_calls=1,
+                                    usage=result.usage if result else {})
             phase = 'invalid_summary'
             if (not text or result.tool_calls or result.stop_reason in {'length', 'max_tokens', 'cut_off'}
                     or await count([AssistantMessage(text=text)]) > summary_limit):

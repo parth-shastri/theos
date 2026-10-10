@@ -50,11 +50,13 @@ class Agent:
         deps: Any = None,
         inbox: Inbox | None = None,
         budget: Budget | None = None,
+        compaction_budget: Budget | None = None,
         memory: ContextMemory | None = None,
     ) -> TurnResult:
         """Consume `run_stream()` and return its final result."""
         return await collect_run_stream(
-            self.run_stream(history, deps=deps, inbox=inbox, budget=budget, memory=memory)
+            self.run_stream(history, deps=deps, inbox=inbox, budget=budget,
+                            compaction_budget=compaction_budget, memory=memory)
         )
 
     async def run_stream(
@@ -64,6 +66,7 @@ class Agent:
         deps: Any = None,
         inbox: Inbox | None = None,
         budget: Budget | None = None,
+        compaction_budget: Budget | None = None,
         memory: ContextMemory | None = None,
     ) -> AsyncIterator[RunEvent]:
         """Yield every event produced while this agent runs one turn."""
@@ -76,6 +79,7 @@ class Agent:
             instructions=self.instructions,
             inbox=inbox,
             budget=budget,
+            compaction_budget=compaction_budget,
             max_context_tokens=self.max_context_tokens,
             estimate_tokens=self.estimate_tokens,
             context_window=self.context_window,

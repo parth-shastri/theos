@@ -85,6 +85,31 @@ class ModelCosts(BaseModel):
     output: float = Field(ge=0)
 
 
+class TracingSettings(BaseModel):
+    """Optional OTLP/HTTP export with explicit, bounded content capture."""
+
+    enabled: bool = False
+    endpoint: str = "http://127.0.0.1:4318/v1/traces"
+    headers: dict[str, SecretStr] = Field(default_factory=dict)
+    service_name: str = "theos"
+    sample_ratio: float = Field(default=1, ge=0, le=1)
+    timeout: float = Field(default=5, gt=0, le=30)
+    capture_content: bool = False
+    content_max_bytes: int = Field(default=8192, ge=256, le=65536)
+    span_content_max_bytes: int = Field(default=32768, ge=1024, le=131072)
+
+    @model_validator(mode="after")
+    def valid_endpoint(self):
+        uri = urlsplit(self.endpoint)
+        if uri.scheme not in {"http", "https"} or not uri.hostname or uri.username or uri.password:
+            raise ValueError(
+                "Use an HTTP or HTTPS trace endpoint. Put credentials in tracing headers."
+            )
+        if not self.service_name.strip():
+            raise ValueError("Set a nonempty tracing service name.")
+        return self
+
+
 class ClientSettings(BaseSettings):
     """Read remote credentials without validating deployment service configuration."""
 
@@ -102,6 +127,7 @@ class Settings(ClientSettings):
         "Theos"
     )
     data_dir: Path = Path(".theos")
+    tracing: TracingSettings = Field(default_factory=TracingSettings)
     host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
     # Each credential maps to one identity. Never accept an owner from request data.
@@ -118,7 +144,10 @@ class Settings(ClientSettings):
     reasoning: Literal["default", "none", "low", "medium", "high", "xhigh", "max"] = "default"
     auto_titles: bool = True
     max_concurrent_turns: int = Field(default=4, ge=1, le=32)
-    max_model_calls: int = Field(default=12, ge=1, le=100)
+    max_model_calls: int = Field(default=30, ge=1, le=100)
+    max_compaction_calls: int = Field(default=5, ge=0, le=100)
+    max_recovery_calls: int = Field(default=2, ge=0, le=100)
+    delegate_max_model_calls: int = Field(default=10, ge=1, le=100)
     max_scheduled_tasks: int = Field(default=50, ge=1, le=200)
     turn_timeout: int = Field(default=300, ge=10, le=3600)
     context_tokens: int = Field(default=24000, ge=4096)
