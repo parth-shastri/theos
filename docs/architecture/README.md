@@ -16,7 +16,7 @@ All diagram text uses Excalidraw's traditional handwriting font.
 | Planned tools | [Excalidraw](theos-tools.excalidraw) | [PNG](theos-tools.png) / [SVG](theos-tools.svg) | `e30817048481493188` |
 | Current service boundaries | [Excalidraw](theos-services.excalidraw) | [PNG](theos-services.png) / [SVG](theos-services.svg) | `66eb68d358104b6cac` |
 | Telegram sequence | [Excalidraw](theos-telegram.excalidraw) | [PNG](theos-telegram.png) / [SVG](theos-telegram.svg) | `0ac33544769e4bf2b2` |
-| Turn tracing and export | [Excalidraw](theos-tracing.excalidraw) | [PNG](theos-tracing.png) / [SVG](theos-tracing.svg) | `c691b05d74f04f1895` |
+| Conversations, turn tracing, and export | [Excalidraw](theos-tracing.excalidraw) | [PNG](theos-tracing.png) / [SVG](theos-tracing.svg) | `c6613715b8be475d8c` |
 
 ## Complete framework
 
@@ -95,6 +95,7 @@ Regenerate the editable sources and previews:
 ```sh
 uv run python scripts/render_architecture.py
 uv run python scripts/render_service_map.py
+uv run python scripts/render_tracing.py
 ```
 
 Render each updated `.elements.json` file through the Excalidraw MCP.

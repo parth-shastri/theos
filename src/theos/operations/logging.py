@@ -2,7 +2,58 @@
 
 import json
 import logging
+import time
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
+
+class RetentionFileHandler(RotatingFileHandler):
+    """Keep four bounded files and expire old files after seven days."""
+
+    retention_seconds = 7 * 86400
+
+    def __init__(self, path):
+        super().__init__(path, maxBytes=2_000_000, backupCount=3)
+        self.first_record = time.time()
+        with Path(self.baseFilename).open() as source:
+            first = source.readline()
+        if first:
+            try:
+                self.first_record = float(json.loads(first)["time"])
+            except (ValueError, KeyError, TypeError):
+                self.first_record = Path(self.baseFilename).stat().st_mtime
+        self.next_cleanup = 0.0
+        self.expire()
+
+    def expire(self):
+        """Inspect only this handler's backup files, never unrelated files."""
+        now = time.time()
+        if now < self.next_cleanup:
+            return
+        for index in range(1, self.backupCount + 1):
+            path = Path(f"{self.baseFilename}.{index}")
+            if path.exists() and path.stat().st_mtime < now - self.retention_seconds:
+                path.unlink()
+        self.next_cleanup = now + 3600
+
+    def shouldRollover(self, record):
+        return time.time() - self.first_record >= self.retention_seconds or super().shouldRollover(
+            record
+        )
+
+    def doRollover(self):
+        super().doRollover()
+        self.first_record = time.time()
+        self.next_cleanup = 0.0
+        self.expire()
+
+    def emit(self, record):
+        try:
+            self.expire()
+        except OSError:
+            # Cleanup failures must not interrupt a turn or remote exporter.
+            pass
+        super().emit(record)
 
 
 class SafeFormatter(logging.Formatter):
@@ -36,7 +87,7 @@ class SafeFormatter(logging.Formatter):
 def configure_logging(directory):
     """Disable verbose SDK and harness logs that can contain prompts or tokens."""
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    handler = RotatingFileHandler(directory / "theos.log", maxBytes=2_000_000, backupCount=3)
+    handler = RetentionFileHandler(directory / "theos.log")
     handler.setFormatter(SafeFormatter())
     logger = logging.getLogger("theos")
     logger.handlers = [handler]

@@ -14,6 +14,8 @@ services:
       - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686"
       - "127.0.0.1:${JAEGER_OTLP_PORT:-4318}:4318"
     restart: unless-stopped
+    environment:
+      GOMEMLIMIT: 300MiB
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

@@ -1,0 +1,10 @@
+# JAEGER_STORAGE_PATH must be an existing host directory with a 1 GB filesystem quota.
+# Apply after compose.yaml and compose.tracing.yaml.
+services:
+  jaeger:
+    volumes:
+      - type: bind
+        source: ${JAEGER_STORAGE_PATH:?Set JAEGER_STORAGE_PATH to the quota-backed trace directory}
+        target: /tmp
+        bind:
+          create_host_path: false

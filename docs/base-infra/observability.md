@@ -76,8 +76,19 @@ The browser Admin dashboard still shows SQLite events. Jaeger shows the span wat
 Old SQLite events do not become OTel traces.
 
 Each turn starts a new root trace, including approval continuation and scheduled turns.
-The root includes `gen_ai.conversation.id`, `theos.turn.id`, transport, scheduled state, and final status.
+Every span includes the existing `gen_ai.conversation.id` and its `theos.turn.id`.
+The root also includes transport, scheduled state, and final status.
 Use `gen_ai.conversation.id` in Jaeger's **Attributes** filter to find turns from one conversation.
+
+OpenTelemetry defines a conversation identifier, but it does not require one trace for an entire conversation.
+Its [GenAI conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md) use that identifier to correlate operations.
+These conventions remain in development.
+[Langfuse sessions](https://langfuse.com/docs/observability/features/sessions) also group multiple traces into one interaction.
+
+Theos uses one trace per turn because each turn has a clear start, result, and cancellation boundary.
+A conversation can remain idle for days and continue after a restart.
+A conversation root would include that idle time and require a separate lifecycle policy.
+Jaeger searches related turn traces by attribute. It does not provide a dedicated conversation replay page.
 
 Model calls and executed tools are children of the turn.
 Each research delegate is a child of `execute_tool delegate_tasks`.
@@ -104,7 +115,8 @@ ssh -L 16686:127.0.0.1:16686 your-host
 
 Use both Compose files for later lifecycle commands.
 The `jaeger-data` volume is separate from application data and application backups.
-Monitor its disk use. Retention does not guarantee a fixed disk limit.
+The default named volume has no disk quota. Seven-day expiry does not impose a fixed storage limit.
+Use the quota overlay below for a deployment with the selected 1 GB storage budget.
 
 ## Export to another backend
 
@@ -164,14 +176,60 @@ The estimate does not represent an invoice or separate cached-token pricing.
 
 ## Retention
 
-The application log rotates at 2,000,000 bytes with three backup files.
-Compose rotates container logs at 5 MB with three files.
-These mechanisms operate independently.
+| Data | Policy | Enforcement |
+| --- | --- | --- |
+| Application log | 2,000,000 bytes per file, three backups | At most about 8 MB across four files |
+| Application log age | Rotate the current file after seven days. Remove backups with modification times older than seven days | Startup, rotation, and hourly checks when the handler emits events |
+| Container output | 5 MB per file, three files per container | Docker logging driver |
+| Export queue | 2,048 spans, batches of 256 | SDK discards queued spans on overflow rather than growing without a limit |
+| Jaeger spans | Seven-day expiry | Badger TTL and background maintenance |
+| Jaeger memory | 512 MiB container limit, 300 MiB Go memory target | A limiter refuses ingestion above its 320 MiB soft heap threshold. Batches contain at most 256 spans |
+| Jaeger storage | 1 GB filesystem capacity | Linux quota overlay and host provisioning below |
+| SQLite events, usage, and conversation state | Keep existing records | No automatic deletion in this change |
 
-The application has no automatic retention schedule for conversations, tool traces, or usage rows.
-Monitor database and volume growth.
+These policies keep logs on disk and bound the queue in memory.
+File age applies to whole files, not individual log records.
+An idle process removes expired backups when logging resumes.
+Monitor SQLite growth separately. Retained database pages do not imply that all rows reside in process memory.
 The backup command excludes application logs.
 Archive required diagnostic evidence separately before a restore or cleanup.
+
+### Apply the 1 GB trace storage quota
+
+The Linux helper creates a dedicated ext4 filesystem inside a 1,000,000,000-byte image.
+Filesystem metadata reduces the space available for spans.
+A systemd mount retains the capacity limit across host restarts.
+The helper refuses existing paths and never formats an existing trace store.
+It requires Linux, systemd, and `mkfs.ext4`. It does not provision storage on macOS.
+
+1. Provision a new trace filesystem on the Linux deployment host.
+
+   ```sh
+   sudo sh scripts/provision_trace_storage.sh
+   ```
+
+2. Add the storage path to the deployment environment.
+
+   ```dotenv
+   JAEGER_STORAGE_PATH=/var/lib/theos/jaeger
+   ```
+
+3. Start the stack with all three Compose files.
+
+   ```sh
+   docker compose -f compose.yaml -f compose.tracing.yaml -f compose.tracing.quota.yaml up --build -d
+   ```
+
+Use those three files for subsequent lifecycle commands.
+The overlay replaces Jaeger's named volume with the quota-backed host directory.
+It refuses to create a missing host path.
+The mount directory permits writes only by UID 10001, which the pinned Jaeger image uses.
+
+This hard quota protects the host disk. It does not trigger oldest-first eviction before seven-day expiry.
+When storage fills, Badger can fail writes or restart. Remote spans can be lost while Theos continues serving turns.
+Lower the sampling ratio or shorten `ttl.spans` in `config/jaeger.yaml` if the seven-day volume exceeds the budget.
+Do not delete database files while Jaeger runs.
+The host filesystem provision and exhaustion check remain deployment acceptance steps.
 
 ## Planned operations framework
 

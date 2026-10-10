@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 from contextlib import aclosing, contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
 from importlib.metadata import version
 from uuid import uuid4
@@ -45,6 +46,7 @@ class Tracing:
     def __init__(self, settings, *, exporter=None):
         self.provider = None
         self.tracer = None
+        self.correlation = ContextVar("theos_trace_correlation", default=None)
         if not settings.enabled:
             return
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -91,6 +93,7 @@ class Tracing:
         from opentelemetry.context import Context
         from opentelemetry.trace import SpanKind
 
+        attributes = {**({} if root else self.correlation.get() or {}), **(attributes or {})}
         with self.tracer.start_as_current_span(
             name,
             context=Context() if root else None,
@@ -99,6 +102,15 @@ class Tracing:
             record_exception=False,
             set_status_on_exception=False,
         ) as span:
+            token = None
+            if root:
+                token = self.correlation.set(
+                    {
+                        key: attributes[key]
+                        for key in ("gen_ai.conversation.id", "theos.turn.id")
+                        if key in attributes
+                    }
+                )
             try:
                 yield span
             except BaseException as error:
@@ -112,6 +124,9 @@ class Tracing:
                         else "failed",
                     )
                 raise
+            finally:
+                if token is not None:
+                    self.correlation.reset(token)
 
     @staticmethod
     def failed(span, error_type):

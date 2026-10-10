@@ -162,6 +162,14 @@ async def test_concurrent_turns_and_resume_have_distinct_traces(runtime, exporte
     for model in (s for s in output if s.parent):
         root = next(r for r in roots if r.context.span_id == model.parent.span_id)
         assert root.context.trace_id == model.context.trace_id
+        assert (
+            model.attributes["gen_ai.conversation.id"] == root.attributes["gen_ai.conversation.id"]
+        )
+        assert model.attributes["theos.turn.id"] == root.attributes["theos.turn.id"]
+    assert sum(r.attributes["gen_ai.conversation.id"] == first["id"] for r in roots) == 2
+    with runtime.tracing.span("outside a turn") as outside:
+        assert outside.is_recording()
+    assert "gen_ai.conversation.id" not in (await spans(runtime, exporter))[-1].attributes
 
 
 async def test_model_failure_has_sanitized_error_and_closed_root(

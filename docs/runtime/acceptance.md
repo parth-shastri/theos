@@ -61,12 +61,18 @@ It does not bundle the upstream ADK skill registry.
 
 The 2026-10-10 tracing update adds optional, content-free OTel spans and OTLP/HTTP protobuf export.
 Twenty-one deterministic checks cover model and tool ownership, parallel delegates, title and compaction calls, errors, cancellation, approvals, sampling, redaction, and shutdown.
+Concurrent turns and later turns share conversation identifiers without sharing trace identifiers.
+Five log checks cover size rotation, age rotation, expired backups, quiet processes, and cleanup failures.
 A local HTTP receiver verified the protobuf payload, trace hierarchy, endpoint, and authentication headers.
 Jaeger `2.22.0` displayed a 12-span fake-model turn with two overlapping research delegates.
 Its Badger volume retained the complete trace across a container restart.
 These checks used disposable SQLite data and made no model API requests.
+Jaeger accepted another 12-span turn with the memory limiter and 300 MiB Go memory target enabled.
+A second container accepted a turn with a 1 GB capacity limit on its temporary filesystem.
+The quota overlay replaces the named volume and refuses a missing host path.
+Linux ext4 provisioning, persistence, and quota exhaustion remain deployment checks.
 
-The full suite passed 739 tests, with three live tests excluded.
+The full suite passed 744 tests, with three live tests excluded.
 Application lint, formatting, lock validation, Compose configuration, and package builds passed.
 Real model and deployed transport acceptance remain separate checks.
 
