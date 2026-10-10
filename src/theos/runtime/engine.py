@@ -24,6 +24,7 @@ from theos.storage.messages import stamp_message
 
 from . import approvals, checkpoints, hooks, titles, tools
 from .events import publish_event
+from .text import WRITING_RULES, reply_text
 from .turn import Turn
 from .usage import record_usage
 
@@ -206,7 +207,9 @@ class Runtime:
             async with self.lock(turn.session_id), self.semaphore:
                 if message:
                     if not history and session["title_auto"]:
-                        title = " ".join(message.content.split())[:80] or "Attached files"
+                        title = (
+                            reply_text(" ".join(message.content.split()))[:80] or "Attached files"
+                        )
                         self.db.execute(
                             "UPDATE sessions SET title=? WHERE id=?", (title, turn.session_id)
                         )
@@ -248,6 +251,13 @@ class Runtime:
                         )
                         if retrieved:
                             instructions += "\n" + retrieved
+                        instructions += "\n" + WRITING_RULES
+                        if session["channel"].startswith("telegram"):
+                            instructions += (
+                                "\nYour reply will appear in Telegram. Use short paragraphs, "
+                                "simple lists, and optional Markdown emphasis, links, or code. "
+                                "Avoid Markdown tables. Do not emit raw HTML or Telegram escape sequences."
+                            )
                         agent = Agent(
                             model,
                             tools,
