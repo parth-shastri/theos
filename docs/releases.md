@@ -10,6 +10,8 @@ Merge normal topic branches into `dev` through a PR.
 Promote `dev` through a separate PR for each destination when ready: `main`, `rpi`, or both.
 Promotions are independent. Every change does not require both promotion PRs.
 `main` does not need to precede `rpi` in the release process.
+Use merge commits for branch promotion and history synchronization PRs. Do not squash or rebase these PRs.
+Merge commits preserve shared branch history so later promotion PRs do not repeat previously promoted commits.
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 

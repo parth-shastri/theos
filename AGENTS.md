@@ -20,6 +20,7 @@ Read [docs/code-structure.md](docs/code-structure.md) for service boundaries and
 - Merge normal topic branches into `dev` through a PR.
 - When a destination is ready, promote `dev` to `main` or `rpi` through a PR. Each destination needs its own PR.
 - Promotions are independent. Do not require both promotion PRs for every change. Publish Pi releases from `rpi`.
+- Use merge commits for branch promotion and history synchronization PRs. Do not squash or rebase these PRs.
 - Do not commit changes directly to `dev`, `main`, or `rpi`.
 - Preserve source attribution and the starter provenance manifest.
 - Follow `/Users/nightowl/WRITING.md` for long Markdown changes when that file exists.

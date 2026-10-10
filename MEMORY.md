@@ -19,6 +19,7 @@ Updated: 2026-10-10.
 | Terminal configuration | Current `.env`, editable codebase `.env`, then `~/.config/theos/.env`. Explicit `--config` takes precedence |
 | Terminal storage | Default `~/.theos`. Resolve configured relative data paths from the configuration directory |
 | Telegram onboarding | Private `/start` asks what to call the user, then asks for a valid timezone. Save the chosen name in owner-scoped preferences and include it in model context. `/skip` accepts the saved name when available. Preserve existing completed profiles and pending timezone setup |
+| Telegram setup guidance | After setup, point users to Connections in the web UI to add connectors and to the existing `/help` command. Show web guidance when `AGENT_WEB_URL` is configured. Otherwise, show help for capabilities and account connections |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
 | Telegram enrollment limit | 50 unique senders per database, including incomplete setup. Operators can lower the limit |
 | Browser style | Controls and visual style from ocr-checker |
@@ -206,6 +207,9 @@ Use descriptive names such as `fix/<name>`, `feature/<name>`, `chore/<name>`, or
 Merge normal topic branches into `dev` through a PR.
 Promote `dev` through a separate PR for each destination when ready: `main`, `rpi`, or both.
 Promotions are independent. Every change does not require both promotion PRs.
+Use merge commits for branch promotion and history synchronization PRs. Do not squash or rebase these PRs.
+On 2026-10-10, PR #1 promoted the code to `main` through a squash merge, leaving different histories with identical files.
+The operator requested history synchronization through a topic branch from `dev`, a merge of `main`, and a PR into `dev`.
 Publish Raspberry Pi releases from `rpi`.
 Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
@@ -227,12 +231,16 @@ The check does not read updates or send messages. It does not prove reply delive
 On 2026-10-10, the prior token returned HTTP 401. The operator replaced it in local `.env.pi`.
 Only that token was synchronized to the Pi. Container recreation applied it.
 Live authentication and polling-configuration checks passed for `@mytheos_bot`.
-The connection-check code needs a new tagged release before it becomes part of the deployed image.
+Release `rpi-v0.1.1` includes the deployed Telegram connection checks and browser onboarding.
 GitHub rejected branch protection for the private repository because the account requires an upgrade.
 The disposable Docker rehearsal passed first installation, replacement, intentional readiness failure, and automatic rollback on the Pi.
 Both the original and restored SQLite records survived.
 CI passed on `main` and `rpi` with Python 3.12 and 3.13, native amd64 and arm64 containers, workflow validation, browser checks, and secret scanning.
-Release `rpi-v0.1.0` is deployed and healthy on the Pi.
+Release `rpi-v0.1.1` is deployed and healthy on the Pi with package version `0.1.1` and database schema 9.
+On 2026-10-10, the operator requested promotion of `dev` to `rpi` and deployment through a new release tag.
+The `rpi-v0.1.1` workflow succeeded and the Pi manifest confirmed the active release. The previous release and backup remain available.
+The operator requested PR #8's setup guidance on both `main` and `rpi`, followed by a new Pi release.
+Prepare package version `0.1.2` and tag `rpi-v0.1.2`. Its deployment remains unconfirmed until the workflow and Pi manifest confirm success.
 The running container uses `owner` and the HTTPS Google callbacks. Readiness and browser-token authentication passed.
 The GHCR image denies anonymous pulls. The first registry upload failed with `unknown blob`; retrying publication succeeded before any deployment change.
 The Cloudflare tunnel routes all paths on `theos.parth-shastri.com` to `http://localhost:8080`. Its proxied CNAME targets tunnel `4584e314-7c3f-448a-8118-7b6e324ebe3c`. Public HTTPS checks passed for the homepage and its assets, health endpoints, authenticated owner APIs, rejection of anonymous API requests, and both Google callback routes. A real model turn completed through the public SSE stream, and its conversation history was saved. The operator updated the Google redirect list. Full Google consent and account linking remain untested. The existing `mytheos.parth-shastri.com` frontend uses its original Vercel CNAME. On the operator Mac, Tailscale's internal DNS lookup retained a stale nonexistent-domain response despite correct public DNS answers. Refreshing `accept-dns` off and back to its original enabled setting restored normal macOS resolution. The Theos browser workspace then loaded, owner sign-in succeeded, and a browser-submitted real model turn returned `BROWSER_OK` in Brave.
