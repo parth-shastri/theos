@@ -200,7 +200,7 @@ def findings(history, offset):
 async def finish(
     runtime, turn, session, history, memory, offset, budget, instructions, reason, deadline
 ):
-    """Try one bounded answer with no tools, then use a deterministic partial answer."""
+    """Try bounded answers with no tools, then use a deterministic partial answer."""
     settle_calls(runtime, turn, history)
     answer = (
         history[-1]
@@ -210,16 +210,17 @@ async def finish(
     mode = "existing_answer" if answer else "saved_findings"
     duration_ms = None
     with runtime.tracing.span("finalize partial answer", {"theos.recovery.reason": reason}) as span:
-        seconds = min(FINAL_SECONDS, max(0, deadline - time.monotonic()))
-        if (
+        final_deadline = min(deadline, time.monotonic() + FINAL_SECONDS)
+        while (
             answer is None
             and reason != "provider_error"
             and instructions
-            and seconds > 0
+            and time.monotonic() < final_deadline
             and budget.used < budget.max_model_calls
         ):
+            used_before = budget.used
             try:
-                async with asyncio.timeout(seconds):
+                async with asyncio.timeout(max(0, final_deadline - time.monotonic())):
                     async with runtime.models(
                         runtime.settings, session["model"], session["reasoning"]
                     ) as model:
@@ -261,6 +262,8 @@ async def finish(
                     "final_answer_unavailable", extra={"error_type": type(error).__name__}
                 )
                 answer = None
+                if budget.used == used_before:
+                    break
         text = answer.text if answer else findings(history, offset)
         caveat = (
             "Some action outcomes are unknown. Check the external service before repeating them."

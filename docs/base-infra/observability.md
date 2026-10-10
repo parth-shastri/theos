@@ -142,6 +142,12 @@ SQLite events and usage remain available when remote tracing is disabled.
 
 The Compose viewer and receiver bind to host loopback.
 Jaeger access is separate from Theos administrator authentication.
+The current setup has no Jaeger password, user accounts, or per-user trace isolation.
+Anyone who can reach the viewer can inspect every stored trace, including captured conversation content.
+Treat the viewer as an operator tool. Theos browser tokens do not protect its UI or query API.
+Local access and authenticated SSH tunnels control network access. They do not filter traces by owner.
+A reverse proxy can add login protection, but login alone does not enforce per-user trace ownership.
+User-facing trace access needs a separate layer that checks conversation ownership. This layer is not implemented.
 For a remote host, use private access or an SSH tunnel.
 
 ```sh

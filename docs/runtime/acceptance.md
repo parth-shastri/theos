@@ -60,6 +60,15 @@ It does not bundle the upstream ADK skill registry.
 
 ## Current verification
 
+Release 0.1.5 raises the default total to 30 calls with proportional allowances.
+The allocation is 23 research calls, five compaction calls, and two recovery calls, with ten calls per delegate.
+Recovery can use its second tool-free attempt within the existing 15-second deadline.
+The final local suite passed 837 tests, with three live tests excluded, after integration with the current CI policy.
+Lint, formatting, lock validation, and package builds passed for version 0.1.5.
+The version and all release documentation changes are included in the tracing PR.
+Jaeger access remains private to operators, without built-in passwords or per-user trace isolation.
+
+
 The 2026-10-10 tracing update adds optional, content-free OTel spans and OTLP/HTTP protobuf export.
 Twenty-one deterministic checks cover model and tool ownership, parallel delegates, title and compaction calls, errors, cancellation, approvals, sampling, redaction, and shutdown.
 Concurrent turns and later turns share conversation identifiers without sharing trace identifiers.

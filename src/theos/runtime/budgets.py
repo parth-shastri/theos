@@ -22,7 +22,7 @@ class TurnBudget:
 
     def __init__(self, settings):
         self.total = Budget(settings.max_model_calls)
-        final = int(settings.max_model_calls > 1)
+        final = min(settings.max_recovery_calls, max(0, settings.max_model_calls - 1))
         # Small ceilings retain one research call before allocating compaction.
         compact = min(settings.max_compaction_calls, max(0, settings.max_model_calls - final - 1))
         self.research = CallAllowance(settings.max_model_calls - compact - final, self.total)

@@ -51,6 +51,7 @@ async def test_concurrent_allowances_cannot_cross_the_total(settings):
 def test_environment_configures_allowances(monkeypatch):
     monkeypatch.setenv("AGENT_MAX_MODEL_CALLS", "24")
     monkeypatch.setenv("AGENT_MAX_COMPACTION_CALLS", "3")
+    monkeypatch.setenv("AGENT_MAX_RECOVERY_CALLS", "1")
     monkeypatch.setenv("AGENT_DELEGATE_MAX_MODEL_CALLS", "6")
     settings = Settings(_env_file=None, provider="fake")
     budget = TurnBudget(settings)
@@ -58,6 +59,35 @@ def test_environment_configures_allowances(monkeypatch):
     assert budget.research.max_model_calls == 20
     assert budget.compaction.max_model_calls == 3
     assert settings.delegate_max_model_calls == 6
+
+
+def test_release_defaults_scale_the_call_allowances():
+    settings = Settings(_env_file=None, provider="fake")
+    budget = TurnBudget(settings)
+    assert budget.total.max_model_calls == 30
+    assert budget.research.max_model_calls == 23
+    assert budget.compaction.max_model_calls == 5
+    assert budget.recovery.max_model_calls == 2
+    assert settings.delegate_max_model_calls == 10
+
+
+async def test_second_recovery_call_stays_tool_free_and_inside_total(runtime):
+    runtime.settings.max_model_calls = 5
+    runtime.settings.max_compaction_calls = 0
+    runtime.settings.max_recovery_calls = 2
+    count = await install_read(runtime)
+    research = FakeModel([read_call("one"), read_call("two"), read_call("three")])
+    failed = FakeModel([RuntimeError("temporary failure")])
+    final = FakeModel([AssistantMessage("The park opens at 7 AM.")])
+    use_models(runtime, research, failed, final)
+    row = session(runtime)
+    events = await collect(runtime.start("alice", row["id"], "Check the opening time."))
+    assert events[-1]["status"] == "partial"
+    assert "7 AM" in runtime.db.load_history("alice", row["id"])[-1].text
+    assert count == [1, 1, 1]
+    assert len(research.requests) + len(failed.requests) + len(final.requests) == 5
+    assert not failed.requests[0].tools and not final.requests[0].tools
+    assert failed.requests[0].messages[0].content == final.requests[0].messages[0].content
 
 
 @pytest.mark.parametrize(

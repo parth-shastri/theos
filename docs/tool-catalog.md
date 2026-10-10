@@ -370,7 +370,7 @@ Theos chooses names from task scope. Users do not need to request delegation or 
 The runtime instructions prefer concurrent delegation for substantial independent research and direct execution for simple lookups.
 Delegate instructions limit research to two focused search calls with three results each, then request findings and unverified facts.
 These search limits are model instructions. Runtime limits enforce a configurable call cap and 85 seconds per delegate.
-`AGENT_DELEGATE_MAX_MODEL_CALLS` defaults to four calls. Each call also consumes the shared research allowance.
+`AGENT_DELEGATE_MAX_MODEL_CALLS` defaults to ten calls. Each call also consumes the shared research allowance.
 Delegates share the research budget and retain one parent call for synthesis.
 The outer tool deadline remains 90 seconds. Each delegate returns its findings when another delegate stops.
 After delegation, parent instructions permit two focused verification searches and require an answer with remaining uncertainty.
@@ -381,13 +381,15 @@ Source: [runtime tool registration](../src/theos/runtime/tools.py).
 
 ## Partial answers
 
-The runtime reserves one model call and up to 15 seconds within the configured turn deadline for a final answer.
+The runtime reserves two model calls and up to 15 seconds within the configured turn deadline for a final answer.
 `AGENT_MAX_MODEL_CALLS` sets the total ceiling, including research, compaction, titles, and recovery.
-`AGENT_MAX_COMPACTION_CALLS` reserves two calls by default within that ceiling.
-The default allocation is nine research calls, two compaction calls, and one recovery call.
+`AGENT_MAX_COMPACTION_CALLS` reserves five calls by default within that ceiling.
+The default allocation is 23 research calls, five compaction calls, and two recovery calls.
 Compaction does not consume research slots. Unused compaction slots remain reserved.
 Research retains at least one call when the total budget is one.
 Recovery uses unchanged instructions, bounded conversation copies, and no tools.
+`AGENT_MAX_RECOVERY_CALLS` defaults to two calls within the same 15-second recovery deadline.
+A failed first request can use the second reserved call when time remains.
 If recovery fails, the runtime returns saved findings with a limitation notice.
 Timeout, budget, context, output, and provider failures produce a `partial` conversation status.
 Incomplete scheduled runs pause their schedule. Explicit cancellation retains the `interrupted` status.
