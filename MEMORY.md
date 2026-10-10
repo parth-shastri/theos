@@ -206,6 +206,9 @@ Use descriptive names such as `fix/<name>`, `feature/<name>`, `chore/<name>`, or
 Merge normal topic branches into `dev` through a PR.
 Promote `dev` through a separate PR for each destination when ready: `main`, `rpi`, or both.
 Promotions are independent. Every change does not require both promotion PRs.
+Use merge commits for branch promotion and history synchronization PRs. Do not squash or rebase these PRs.
+On 2026-10-10, PR #1 promoted the code to `main` through a squash merge, leaving different histories with identical files.
+The operator requested history synchronization through a topic branch from `dev`, a merge of `main`, and a PR into `dev`.
 Publish Raspberry Pi releases from `rpi`.
 Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
