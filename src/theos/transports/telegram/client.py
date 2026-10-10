@@ -4,6 +4,8 @@ import httpx
 
 from theos.services.errors import ServiceError
 
+from .formatting import plain_messages
+
 
 async def api(bot, method, payload=None, files=None):
     """Call the Bot API without exposing credentials in errors."""
@@ -24,12 +26,15 @@ async def api(bot, method, payload=None, files=None):
 
 
 async def send(bot, chat, text, topic=None, markup=None):
-    """Send bounded plain text with optional topic and approval controls."""
-    payload = {
-        "chat_id": chat,
-        "text": text[:4000] or " ",
-        **({"message_thread_id": topic} if topic else {}),
-    }
-    if markup:
-        payload["reply_markup"] = markup
-    return await bot.api("sendMessage", payload)
+    """Send literal text in bounded chunks, with controls after the complete review."""
+    parts = plain_messages(text)
+    for index, part in enumerate(parts):
+        payload = {
+            "chat_id": chat,
+            "text": part["text"],
+            **({"message_thread_id": topic} if topic else {}),
+        }
+        if markup and index == len(parts) - 1:
+            payload["reply_markup"] = markup
+        result = await bot.api("sendMessage", payload)
+    return result
