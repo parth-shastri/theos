@@ -19,6 +19,7 @@ Updated: 2026-10-10.
 | Terminal configuration | Current `.env`, editable codebase `.env`, then `~/.config/theos/.env`. Explicit `--config` takes precedence |
 | Terminal storage | Default `~/.theos`. Resolve configured relative data paths from the configuration directory |
 | Telegram onboarding | Private `/start` asks what to call the user, then asks for a valid timezone. Save the chosen name in owner-scoped preferences and include it in model context. `/skip` accepts the saved name when available. Preserve existing completed profiles and pending timezone setup |
+| Telegram setup guidance | After setup, point users to Connections in the web UI to add connectors and to the existing `/help` command. Show web guidance when `AGENT_WEB_URL` is configured. Otherwise, show help for capabilities and account connections |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
 | Telegram enrollment limit | 50 unique senders per database, including incomplete setup. Operators can lower the limit |
 | Browser style | Controls and visual style from ocr-checker |
