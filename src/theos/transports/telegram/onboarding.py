@@ -176,10 +176,16 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
                 bot.db.execute(
                     "UPDATE telegram_enrollments SET state='ready' WHERE user_id=?", (user_id,)
                 )
+            next_steps = (
+                "Open Connections in the web UI to add connectors, or send /help to learn more."
+                if bot.settings.web_url
+                else "Send /help to learn about capabilities and account connections."
+            )
             await bot.send(
                 chat,
                 f"Setup complete. Timezone: {timezone}.\n"
-                "Send a message, photo, document, or voice note. Send /help for commands.\n"
+                "Send a message, photo, document, or voice note.\n"
+                f"{next_steps}\n"
                 "You can ask me to change your name or timezone later.",
                 topic,
             )
