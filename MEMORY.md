@@ -216,7 +216,15 @@ The operator requested history synchronization through a topic branch from `dev`
 Publish Raspberry Pi releases from `rpi`.
 Do not commit changes directly to `dev`, `main`, or `rpi`.
 Tags named `rpi-vX.Y.Z` must match the package version and the current remote `rpi` commit.
-CI covers Python 3.12 and 3.13, browser syntax, packages, workflow validation, secret scanning, and containers on amd64, arm64, 386, ARMv7, and PPC64LE.
+CI covers Python 3.12 and 3.13, browser syntax, packages, Compose, workflow validation, and secret scanning.
+On 2026-10-10, the operator requested lower CI usage through destination-specific container coverage.
+Run CI on PRs into `dev`, `main`, and `rpi`, and pushes to those integration branches.
+Topic pushes do not start duplicate runs. New development pushes and PR updates cancel superseded runs.
+Dev checks ARM64 only when build or deployment files change. Missing comparison history retains ARM64 coverage.
+Main checks amd64, arm64, 386, ARMv7, and PPC64LE before promotion and after merge.
+Rpi checks native ARM64. Tagged releases retain application CI and test the exact ARM64 image before publishing it.
+The release does not repeat the general container matrix. Deployment verification and rollback remain required.
+The final CI gate accepts skipped container jobs only when the policy explicitly selects no architectures.
 An explicit extended run also checks s390x and RISC-V64. AMD64 and ARM64 run natively; other targets use QEMU.
 The release workflow publishes a tested arm64 image and deploys its digest with a Pi runner labeled `theos-rpi`.
 Activation uses a separate restored data volume. Failure restores the previous image and original volume.
