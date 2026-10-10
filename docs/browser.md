@@ -23,7 +23,44 @@ AGENT_ADMINS=["owner"]
 
 Each token identifies one user.
 Tokens must be unique and contain at least 32 characters.
-Empty user and administrator maps disable browser account access.
+Empty user and administrator maps disable configured browser accounts.
+Telegram-confirmed browser access works independently of these maps when `AGENT_WEB_URL` is configured.
+An entry in `AGENT_USERS` grants ordinary browser access.
+Only an explicit entry in `AGENT_ADMINS` grants administrator access.
+The first configured or enrolled user does not become an administrator automatically.
+Telegram onboarding issues ordinary browser credentials after the user confirms their browser in Telegram.
+
+## Open the web UI from Telegram
+
+The operator sets `AGENT_WEB_URL` to the deployment's HTTPS origin, such as `https://theos.example.com`.
+HTTP origins are allowed only for localhost development.
+The operator also configures the Telegram bot token and makes the web UI reachable.
+
+1. Complete `/start`, preferred-name setup, and timezone setup in your private bot chat.
+2. Select **Open Theos** in the bot's setup message.
+3. Compare the browser code with the code sent to your private bot chat.
+4. If the codes match, select **Approve browser** in Telegram.
+5. Copy the personal access token and save it privately.
+6. Select **Open workspace** in the browser.
+
+Select **Deny** if you did not request the sign-in or the codes do not match.
+The link expires after ten minutes and can open only one browser sign-in request.
+The code is a visual confirmation. It cannot replace the private browser cookie or Telegram approval.
+The browser removes the invitation from its address bar before sending it in the setup request.
+Permanent tokens never enter URLs or Telegram messages.
+
+The approved browser receives an HttpOnly session cookie that expires after seven days.
+You can reload the browser during confirmation or return to an active device session without entering the token.
+On another device, enter your saved token or send `/web` in Telegram for a new confirmation link.
+A new confirmed Telegram sign-in replaces your previous saved token. Other active device sessions remain valid.
+Send `/web revoke` in your private bot chat to revoke all generated tokens and device sessions.
+Sign-out ends the current browser session. It retains your saved token and other device sessions.
+
+The browser uses your existing `telegram:<id>` owner, preferred name, personal records, and combined usage.
+Browser conversations and Telegram conversations remain separate threads.
+The application does not merge a configured browser account with Telegram by name.
+The administrator account remains separate from new Telegram users.
+Token reset and revocation retain personal records and history.
 
 ## Open a conversation
 
@@ -36,9 +73,10 @@ Empty user and administrator maps disable browser account access.
 7. Enter your message.
 8. Select **Send**.
 
-The browser keeps the token in tab session storage until sign-out.
-It sends the token in the authorization header.
+For manual token sign-in, the browser keeps the token in tab session storage until sign-out.
+It sends that token in the authorization header.
 It does not place the token in a URL.
+Telegram-confirmed sign-in uses a protected session cookie instead of storing its session secret in JavaScript.
 The conversation list contains only browser sessions for that user.
 The sidebar contains conversations and workspace links.
 Use the sidebar icon beside the logo to hide or show conversations.
@@ -96,7 +134,7 @@ See [observability](base-infra/observability.md).
 
 These access checks do not encrypt database contents.
 An operator with database access can still read saved content.
-User public-key onboarding and encrypted personal storage remain planned.
+Encryption onboarding and encrypted personal storage remain deferred.
 
 ## Costs, thinking, and tools
 
@@ -277,9 +315,11 @@ An approval cannot authorize another conversation's action.
 Google and Zepto callbacks bind consent to the owner who started setup.
 Gmail sending retains draft review and approval. All Zepto tool calls retain approval.
 
-The application has no automatic account-linking flow between browser and Telegram identities.
-Browser IDs cannot start with `telegram:`, `telegram-group:`, or `terminal:`.
+Telegram-confirmed browser access uses the same owner as the enrolled private Telegram sender.
+Existing configured browser accounts remain separate unless a future explicit account migration links them.
+Configured browser IDs cannot start with `telegram:`, `telegram-group:`, or `terminal:`.
 Keep each browser ID stable when rotating its token.
-Groups and terminal sessions receive no account tools.
+Groups and standalone terminal sessions receive no account tools.
+Connected terminal clients use the authenticated browser owner's account access.
 
 Source: [browser application](../src/theos/transports/browser/app.py), [connection routes](../src/theos/transports/browser/connections.py), and [browser assets](../src/theos/transports/browser/static/).

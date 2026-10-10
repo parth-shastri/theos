@@ -35,6 +35,49 @@
         <p id="login-error" class="error" role="alert"></p>
         <small>Your access token stays in this tab until you sign out.</small>
       </form>
+      <section
+        id="web-signin"
+        class="login-card"
+        aria-labelledby="web-signin-title"
+        hidden
+      >
+        <img src="/static/brand.png" data-brand width="48" height="48" alt="" />
+        <span class="eyebrow">YOUR THEOS ACCOUNT</span>
+        <h1 id="web-signin-title">Confirm in Telegram</h1>
+        <p id="web-signin-instructions">
+          Match this code with the message in your private bot chat, then select
+          Approve browser.
+        </p>
+        <output
+          id="web-signin-code"
+          class="signin-code"
+          aria-label="Browser confirmation code"
+        ></output>
+        <p id="web-signin-status" role="status" aria-live="polite">
+          Preparing your sign-in…
+        </p>
+        <div id="web-token-save" hidden>
+          <label for="web-access-token">Your personal access token</label>
+          <input
+            id="web-access-token"
+            type="password"
+            readonly
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="copy-web-token" type="button">Copy access token</button>
+          <small
+            >Save this token privately to sign in on another device. A new
+            Telegram sign-in replaces your previous saved token.</small
+          >
+          <button id="finish-web-signin" class="primary" type="button">
+            Open workspace ↗
+          </button>
+        </div>
+        <button id="cancel-web-signin" type="button">
+          Back to token sign-in
+        </button>
+      </section>
     </div>
     <div id="workspace" class="workspace" hidden>
       <header class="app-header">

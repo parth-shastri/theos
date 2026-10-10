@@ -64,7 +64,7 @@ async def command(bot, session, command, argument, chat, topic):
         await bot.send(
             chat,
             f"I am {bot.settings.name}, your personal assistant.\n\n"
-            "Send a message, photo, document, or voice note. Commands: /new, /resume, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_zepto.",
+            "Send a message, photo, document, or voice note. Commands: /web, /new, /resume, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_zepto.",
             topic,
         )
     elif command in {"/new", "/reset"}:

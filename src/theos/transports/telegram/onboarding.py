@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from theos.services.preferences.tools import preferences
 from theos.storage.telegram_access import code_fingerprint, has_access
 
+from .web_access import send_link
+
 
 def enroll(bot, sender):
     """Reserve one user slot and save initial preferences in one transaction."""
@@ -26,15 +28,22 @@ def enroll(bot, sender):
             current["display_name"] = name[:200]
         bot.db.put_record(owner, "preferences", "settings", current)
         bot.db.execute(
-            "INSERT INTO telegram_enrollments VALUES (?,?,'timezone',?)",
+            "INSERT INTO telegram_enrollments VALUES (?,?,'name',?)",
             (user_id, owner, time.time()),
         )
         return bot.db.one("SELECT * FROM telegram_enrollments WHERE user_id=?", (user_id,))
 
 
 async def prompt(bot, owner, chat, topic):
-    """Ask for a timezone without sending onboarding text to the model."""
+    """Ask for the pending preference without sending setup text to the model."""
     current = preferences(bot.db, owner, bot.settings.timezone)
+    row = bot.db.one("SELECT state FROM telegram_enrollments WHERE owner=?", (owner,))
+    if row["state"] == "name":
+        text = "What should I call you? Send your preferred name (up to 200 characters)."
+        if current.get("display_name"):
+            text += f"\nSend /skip to use {current['display_name']}."
+        await bot.send(chat, text, topic)
+        return
     await bot.send(
         chat,
         "What is your timezone? Send a name such as Asia/Kolkata or UTC.\n"
@@ -123,7 +132,7 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             chat,
             f"I am {bot.settings.name}, your personal assistant.\n"
             "Your place is reserved.\n"
-            "Let us set your timezone for reminders and daily records.",
+            "Let us set your preferred name and timezone.",
             topic,
         )
 
@@ -133,10 +142,26 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
     if callback:
         await bot.api(
             "answerCallbackQuery",
-            {"callback_query_id": callback["id"], "text": "Complete timezone setup first."},
+            {"callback_query_id": callback["id"], "text": "Complete setup first."},
         )
     elif text and (not text.startswith("/") or action == "/skip"):
         current = preferences(bot.db, owner, bot.settings.timezone)
+        if row["state"] == "name":
+            name = current.get("display_name", "") if action == "/skip" else text
+            name = " ".join(name.split())
+            if not 1 <= len(name) <= 200:
+                await bot.send(chat, "Send a name from 1 to 200 characters.", topic)
+            else:
+                current["display_name"] = name
+                with bot.db.transaction():
+                    bot.db.put_record(owner, "preferences", "settings", current)
+                    bot.db.execute(
+                        "UPDATE telegram_enrollments SET state='timezone' WHERE user_id=?",
+                        (user_id,),
+                    )
+                await bot.send(chat, f"I will call you {name}.", topic)
+            await prompt(bot, owner, chat, topic)
+            return True
         timezone = current["timezone"] if action == "/skip" else text
         try:
             ZoneInfo(timezone)
@@ -158,6 +183,8 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
                 "You can ask me to change your name or timezone later.",
                 topic,
             )
+            if bot.settings.web_url:
+                await send_link(bot, owner, chat, topic)
             return True
     await prompt(bot, owner, chat, topic)
     return True

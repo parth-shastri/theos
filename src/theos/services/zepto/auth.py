@@ -182,13 +182,13 @@ class Zepto:
 
     def connection_status(self, owner):
         """Return setup progress only to its authenticated browser owner."""
-        if not browser_account_access(self.settings, owner):
+        if not browser_account_access(self.settings, owner, self.db):
             raise PermissionError("Browser account access is required.")
         return self.browser_status.get(owner, {"status": "idle"})
 
     async def connect_from_browser(self, owner):
         """Publish a sign-in link without putting OAuth data in chat history."""
-        if not browser_account_access(self.settings, owner):
+        if not browser_account_access(self.settings, owner, self.db):
             raise PermissionError("Browser account access is required.")
         self.authorize(owner)
         current = self.pending.get(owner)

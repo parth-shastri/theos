@@ -74,21 +74,21 @@ def connection_status(runtime, owner):
 def register_connections(app, settings, current, identity):
     """Bind each account action to the token's owner, never a submitted user ID."""
 
-    def authorize(owner, service):
-        if not browser_account_access(settings, owner):
+    def authorize(request, owner, service):
+        if not browser_account_access(settings, owner, current(request).db):
             raise PermissionError("Browser account access is required.")
         if service not in {"gmail", "health", "zepto"}:
             raise ValueError("Unknown account service.")
 
     @app.get("/api/connections")
     async def connections(request: Request, owner: Annotated[str, Depends(identity)]):
-        if not browser_account_access(settings, owner):
+        if not browser_account_access(settings, owner, current(request).db):
             raise PermissionError("Browser account access is required.")
         return connection_status(current(request), owner)
 
     @app.post("/api/connections/{service}/connect")
     async def connect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
-        authorize(owner, service)
+        authorize(request, owner, service)
         runtime = current(request)
         if service == "zepto":
             return await runtime.zepto.connect_from_browser(owner)
@@ -96,7 +96,7 @@ def register_connections(app, settings, current, identity):
 
     @app.post("/api/connections/{service}/disconnect")
     async def disconnect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
-        authorize(owner, service)
+        authorize(request, owner, service)
         runtime = current(request)
         if service == "zepto":
             await runtime.zepto.disconnect(owner)
@@ -105,6 +105,6 @@ def register_connections(app, settings, current, identity):
 
     @app.post("/api/connections/zepto/finish")
     async def finish(body: ReturnURL, request: Request, owner: Annotated[str, Depends(identity)]):
-        authorize(owner, "zepto")
+        authorize(request, owner, "zepto")
         await current(request).zepto.finish_return_url(owner, body.url)
         return {"accepted": True}
