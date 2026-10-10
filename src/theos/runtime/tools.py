@@ -5,7 +5,7 @@ import logging
 from contextlib import aclosing
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from harness import (
     Agent,
@@ -28,6 +28,13 @@ from theos.storage.account_access import account_access
 from .models import session_options
 
 logger = logging.getLogger("theos")
+
+
+class DelegateTask(BaseModel):
+    """A named research assignment. The name identifies the agent in progress and traces."""
+
+    name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9 _.-]*$")
+    task: str = Field(min_length=1, max_length=8000)
 
 
 async def build_tools(runtime, session):
@@ -64,27 +71,62 @@ async def build_tools(runtime, session):
 
     @tool
     async def delegate_tasks(
-        tasks: Annotated[list[str], Field(min_length=1, max_length=3)], ctx: RunContext
+        tasks: Annotated[
+            list[DelegateTask | Annotated[str, Field(min_length=1, max_length=8000)]],
+            Field(min_length=1, max_length=3),
+        ],
+        ctx: RunContext,
     ):
-        """Delegate up to three research tasks with read-only tools and a shared model-call budget."""
+        """Delegate up to three parallel research tasks. Use {name, task} assignments with distinct descriptive agent names. Legacy task strings remain supported. Agents use read-only tools and share the model-call budget."""
 
-        async def research(question, index):
+        tasks = [
+            DelegateTask.model_validate(value) if not isinstance(value, str) else value
+            for value in tasks
+        ]
+        names = [
+            assignment.name if isinstance(assignment, DelegateTask) else f"research {index}"
+            for index, assignment in enumerate(tasks, start=1)
+        ]
+        if len({name.casefold() for name in names}) != len(names):
+            raise ValueError("Use a distinct name for each delegate.")
+
+        async def research(assignment, index):
+            name = names[index - 1]
+            question = assignment.task if isinstance(assignment, DelegateTask) else assignment
             with runtime.tracing.span(
-                f"invoke_agent research {index}",
+                f"invoke_agent {name}",
                 {
                     "gen_ai.operation.name": "invoke_agent",
-                    "gen_ai.agent.name": "research",
+                    "gen_ai.agent.name": name,
                     "theos.delegate.index": index,
                 },
             ) as span:
-                result = await run_research(question)
+                runtime.tracing.content(
+                    span,
+                    "gen_ai.input.messages",
+                    [{"role": "user", "parts": [{"type": "text", "content": question}]}],
+                )
+                result = await run_research(question, name)
+                result["name"] = name
+                runtime.tracing.content(
+                    span,
+                    "gen_ai.output.messages",
+                    [
+                        {
+                            "role": "assistant",
+                            "parts": [
+                                {"type": "text", "content": result["answer"] or result["status"]}
+                            ],
+                        }
+                    ],
+                )
                 if span is not None:
                     span.set_attribute("theos.agent.status", result["status"])
                     if result["status"] in {"failed", "interrupted"}:
                         runtime.tracing.failed(span, result["status"])
                 return result
 
-        async def run_research(question):
+        async def run_research(question, name):
             if len(question) > 8000:
                 raise ValueError("Each delegated task must contain at most 8000 characters.")
             async with runtime.models(
@@ -105,7 +147,7 @@ async def build_tools(runtime, session):
                         runtime.tracing.tool(t)
                         for t in information_tools(runtime.settings, runtime.http)
                     ],
-                    "Research the requested topic. Use read-only tools. Return findings and sources.",
+                    f"You are {name}. Research the requested topic. Use read-only tools. Return findings and sources.",
                     hooks=Hooks(before_model=before_model, after_model=record_usage),
                     max_context_tokens=8000,
                 )

@@ -100,8 +100,30 @@ Approval requests and policy denials create tool spans without executing the too
 ![Tracing and span ownership](../architecture/theos-tracing.png)
 
 The exporter sends model names, tool names, call IDs, token counts, timings, status, and exception types.
-It excludes owner IDs, prompts, replies, reasoning, tool arguments, tool results, credentials, and exception text.
-There is no content-capture setting.
+Content capture is disabled by default. Set `AGENT_TRACING__CAPTURE_CONTENT=true` to include messages and tool content.
+Captured traces contain private conversation data. Keep the receiver private.
+
+| Attribute | Captured content |
+| --- | --- |
+| `gen_ai.system_instructions` | Model instructions as JSON text parts |
+| `gen_ai.input.messages` | Model inputs, including earlier tool requests and results, as JSON roles and parts |
+| `gen_ai.output.messages` | Model replies and tool requests, with names, arguments, and call IDs |
+| `gen_ai.tool.call.arguments` | Validated tool arguments as JSON |
+| `gen_ai.tool.call.result` | Successful tool results as JSON |
+| `gen_ai.agent.name` | Parent or delegate name, also inherited by its model and tool spans |
+
+Each captured field permits 8,192 UTF-8 JSON bytes by default. Each span permits 32,768 captured bytes in total.
+The serializer bounds nesting, item counts, and traversal before encoding. It preserves valid JSON when content exceeds a limit.
+`theos.content.truncated=true` identifies shortened fields or omitted messages. Model input capture retains at most the latest 32 messages in order.
+The serializer masks structured credential fields. This does not remove sensitive information from arbitrary prose.
+Capture excludes reasoning, image payloads, provider state, authentication headers, owner IDs, and exception text.
+Failed tool messages retain their status without their error payload.
+
+Pass named assignments to `delegate_tasks`, for example `{"tasks":[{"name":"Mumbai Weather Analyst","task":"Compare the three-day forecast"}]}`.
+The delegate span uses `invoke_agent Mumbai Weather Analyst` and records its task and final answer when capture is enabled.
+The delegate result includes its name. Legacy string assignments remain supported with names such as `research 1`.
+Agent names follow the [OTel GenAI agent conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md).
+No transient process identifier is exported as `gen_ai.agent.id`.
 The exporter does not write local OTLP/JSON files.
 SQLite events and usage remain available when remote tracing is disabled.
 
@@ -132,6 +154,9 @@ AGENT_TRACING__ENDPOINT=http://127.0.0.1:4318/v1/traces
 AGENT_TRACING__SERVICE_NAME=theos
 AGENT_TRACING__SAMPLE_RATIO=1
 AGENT_TRACING__TIMEOUT=5
+AGENT_TRACING__CAPTURE_CONTENT=false
+AGENT_TRACING__CONTENT_MAX_BYTES=8192
+AGENT_TRACING__SPAN_CONTENT_MAX_BYTES=32768
 AGENT_TRACING__HEADERS={}
 ```
 

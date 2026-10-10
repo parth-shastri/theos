@@ -1,4 +1,4 @@
-"""Runtime-owned OpenTelemetry spans with content-free OTLP/HTTP export."""
+"""Runtime-owned OpenTelemetry spans with bounded OTLP/HTTP content export."""
 
 import asyncio
 import logging
@@ -9,8 +9,11 @@ from dataclasses import replace
 from importlib.metadata import version
 from uuid import uuid4
 
+from harness import SystemMessage, ToolOutput
 from harness.events import GenerationComplete, _tool_scope
 from harness.model import collect_model_stream
+
+from .trace_content import bounded_json, message_content
 
 logger = logging.getLogger("theos")
 
@@ -47,6 +50,8 @@ class Tracing:
         self.provider = None
         self.tracer = None
         self.correlation = ContextVar("theos_trace_correlation", default=None)
+        self.capture_budget = ContextVar("theos_trace_content_budget", default=None)
+        self.settings = settings
         if not settings.enabled:
             return
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -102,12 +107,15 @@ class Tracing:
             record_exception=False,
             set_status_on_exception=False,
         ) as span:
+            budget_token = self.capture_budget.set(
+                {"remaining": self.settings.span_content_max_bytes}
+            )
             token = None
-            if root:
+            if root or "gen_ai.agent.name" in attributes:
                 token = self.correlation.set(
                     {
                         key: attributes[key]
-                        for key in ("gen_ai.conversation.id", "theos.turn.id")
+                        for key in ("gen_ai.conversation.id", "theos.turn.id", "gen_ai.agent.name")
                         if key in attributes
                     }
                 )
@@ -127,6 +135,31 @@ class Tracing:
             finally:
                 if token is not None:
                     self.correlation.reset(token)
+                self.capture_budget.reset(budget_token)
+
+    def content(self, span, key, value):
+        """Capture only when enabled and sampled. Each span owns a separate budget."""
+        if span is None or not span.is_recording() or not self.settings.capture_content:
+            return
+        budget = self.capture_budget.get()
+        limit = min(self.settings.content_max_bytes, budget["remaining"])
+        if limit < 256:
+            span.set_attribute("theos.content.truncated", True)
+            return
+        try:
+            encoded, truncated = bounded_json(value, limit)
+        except (ValueError, TypeError, RecursionError):
+            span.set_attribute("theos.content.capture_error", True)
+            return
+        size = len(encoded.encode("utf-8"))
+        budget["remaining"] -= size
+        span.set_attribute(key, encoded)
+        span.set_attribute(
+            "theos.content.captured_bytes",
+            self.settings.span_content_max_bytes - budget["remaining"],
+        )
+        if truncated:
+            span.set_attribute("theos.content.truncated", True)
 
     @staticmethod
     def failed(span, error_type):
@@ -168,11 +201,21 @@ class Tracing:
             return original
 
         async def execute(args, ctx):
-            attrs = {"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": original.name}
+            attrs = {
+                "gen_ai.operation.name": "execute_tool",
+                "gen_ai.tool.name": original.name,
+                "gen_ai.tool.type": "function",
+            }
             if call_id := _tool_scope.get():
                 attrs["gen_ai.tool.call.id"] = call_id
             with self.span(f"execute_tool {original.name}", attrs) as span:
+                self.content(span, "gen_ai.tool.call.arguments", args)
                 result = await original.execute(args, ctx)
+                self.content(
+                    span,
+                    "gen_ai.tool.call.result",
+                    result.content if isinstance(result, ToolOutput) else result,
+                )
                 span.set_attribute("theos.tool.status", "completed")
                 return result
 
@@ -201,6 +244,24 @@ class TracedModel:
             "gen_ai.request.model": self.model.model_id,
         }
         with self.tracing.span(f"chat {self.model.model_id}", attrs, client=True) as span:
+            if self.tracing.settings.capture_content and span.is_recording():
+                messages = request.messages[-32:]
+                self.tracing.content(
+                    span,
+                    "gen_ai.system_instructions",
+                    [
+                        {"type": "text", "content": m.content}
+                        for m in request.messages[:32]
+                        if isinstance(m, SystemMessage)
+                    ],
+                )
+                self.tracing.content(
+                    span,
+                    "gen_ai.input.messages",
+                    [message_content(m) for m in messages if not isinstance(m, SystemMessage)],
+                )
+                if len(request.messages) > 32:
+                    span.set_attribute("theos.content.truncated", True)
             started = time.monotonic()
             first = True
             complete = False
@@ -212,6 +273,9 @@ class TracedModel:
                         )
                         first = False
                     if isinstance(event, GenerationComplete):
+                        self.tracing.content(
+                            span, "gen_ai.output.messages", [message_content(event.message)]
+                        )
                         complete = True
                         for key, attribute in {
                             "input_tokens": "input_tokens",

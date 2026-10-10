@@ -86,7 +86,7 @@ class ModelCosts(BaseModel):
 
 
 class TracingSettings(BaseModel):
-    """Optional OTLP/HTTP trace export, without conversation content."""
+    """Optional OTLP/HTTP export with explicit, bounded content capture."""
 
     enabled: bool = False
     endpoint: str = "http://127.0.0.1:4318/v1/traces"
@@ -94,6 +94,9 @@ class TracingSettings(BaseModel):
     service_name: str = "theos"
     sample_ratio: float = Field(default=1, ge=0, le=1)
     timeout: float = Field(default=5, gt=0, le=30)
+    capture_content: bool = False
+    content_max_bytes: int = Field(default=8192, ge=256, le=65536)
+    span_content_max_bytes: int = Field(default=32768, ge=1024, le=131072)
 
     @model_validator(mode="after")
     def valid_endpoint(self):

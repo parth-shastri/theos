@@ -15,27 +15,27 @@
 <polyline points="115,340 115,420" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <polyline points="109.24689353674957,409.4690092573155 115,420 120.75310646325043,409.4690092573155" fill="none" stroke="#53657b" stroke-width="2"/>
 <rect x="40" y="420" width="220" height="95" rx="8" fill="#e7f0ff" stroke="#53657b" stroke-width="2"/>
-<text x="87.0" y="459.45" fill="#263447" font-size="23">Model calls</text>
-<text x="61.5" y="488.2" fill="#263447" font-size="23">Tokens + timing</text>
+<text x="92.0" y="460.15" fill="#263447" font-size="21">Model calls</text>
+<text x="56.5" y="486.4" fill="#263447" font-size="21">Messages + timing</text>
 <polyline points="245,340 385,390 385,420" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <polyline points="379.24689353674955,409.4690092573155 385,420 390.75310646325045,409.4690092573155" fill="none" stroke="#53657b" stroke-width="2"/>
 <rect x="285" y="420" width="270" height="95" rx="8" fill="#e5f5e8" stroke="#53657b" stroke-width="2"/>
 <text x="363.5" y="459.45" fill="#263447" font-size="23">Tool calls</text>
-<text x="330.5" y="488.2" fill="#263447" font-size="23">Status + timing</text>
+<text x="304.5" y="488.2" fill="#263447" font-size="23">Arguments + results</text>
 <polyline points="420,515 420,570" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <polyline points="414.24689353674955,559.4690092573155 420,570 425.75310646325045,559.4690092573155" fill="none" stroke="#53657b" stroke-width="2"/>
 <rect x="285" y="570" width="270" height="100" rx="8" fill="#e5f5e8" stroke="#53657b" stroke-width="2"/>
 <text x="330.0" y="611.95" fill="#263447" font-size="23">delegate_tasks</text>
-<text x="308.0" y="640.7" fill="#263447" font-size="23">Research delegates</text>
+<text x="313.0" y="640.7" fill="#263447" font-size="23">Named assignments</text>
 <polyline points="320,670 150,700 150,745" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <polyline points="144.24689353674955,734.4690092573155 150,745 155.75310646325045,734.4690092573155" fill="none" stroke="#53657b" stroke-width="2"/>
 <rect x="40" y="745" width="220" height="105" rx="8" fill="#f1eaff" stroke="#53657b" stroke-width="2"/>
-<text x="90.0" y="789.45" fill="#263447" font-size="23">Research 1</text>
+<text x="63.0" y="789.45" fill="#263447" font-size="23">Named agent A</text>
 <text x="71.0" y="818.2" fill="#263447" font-size="23">Model + tools</text>
 <polyline points="470,670 470,745" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <polyline points="464.24689353674955,734.4690092573155 470,745 475.75310646325045,734.4690092573155" fill="none" stroke="#53657b" stroke-width="2"/>
 <rect x="285" y="745" width="270" height="105" rx="8" fill="#f1eaff" stroke="#53657b" stroke-width="2"/>
-<text x="355.0" y="789.45" fill="#263447" font-size="23">Research 2</text>
+<text x="332.0" y="789.45" fill="#263447" font-size="23">Named agent B</text>
 <text x="341.0" y="818.2" fill="#263447" font-size="23">Model + tools</text>
 <text x="65" y="898.9" fill="#263447" font-size="21">Each turn owns its parallel delegate branches.</text>
 <polyline points="555,290 740,290" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
@@ -60,6 +60,6 @@
 <text x="719.5" y="803.55" fill="#263447" font-size="22">Memory guard + bounded batches</text>
 <text x="736.5" y="831.05" fill="#263447" font-size="22">File and container logs rotate</text>
 <rect x="650" y="880" width="500" height="80" rx="8" fill="#fff3d9" stroke="#53657b" stroke-width="2"/>
-<text x="698.0" y="912.3" fill="#263447" font-size="22">Metadata only / no message content</text>
+<text x="684.5" y="912.3" fill="#263447" font-size="22">Opt-in content: 8 KB/field, 32 KB/span</text>
 <text x="719.5" y="939.8" fill="#263447" font-size="22">Export failures do not fail turns</text>
 </svg>

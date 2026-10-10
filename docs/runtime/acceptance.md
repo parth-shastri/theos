@@ -72,6 +72,15 @@ The local Theos and Jaeger Compose services started with separate persistent dat
 Theos readiness returned HTTP 200. Jaeger displayed the scripted 12-span example waterfall.
 The local browser instance uses the configured OpenRouter model with Telegram polling disabled.
 
+The bounded content update adds three checks for named delegates, task capture, message and tool links, byte limits, Unicode, cycles, and structured credential masking.
+The full suite passed 747 tests, with three live tests excluded. Ruff checks, formatting, package builds, and the local Docker build passed.
+A real OpenRouter `gpt-6-luna` turn compared three-day Open-Meteo forecasts for Pune, Mumbai, and Bengaluru.
+The parent called `get_weather` for Pune. Two named agents fetched Mumbai and Bengaluru forecasts concurrently and returned separate summaries.
+Jaeger displayed the 14-span waterfall in 28 seconds, with seven model calls and three successful weather tool calls.
+Its GenAI panel rendered the delegate task and answer. All captured fields stayed within their byte limits without truncation.
+The exported child spans retained their agent names. Legacy task strings and content-disabled tracing remain covered by tests.
+This local result does not complete the pending Telegram, image, reasoning-control, or Pi workload checks.
+
 The full suite passed 744 tests, with three live tests excluded.
 Application lint, formatting, lock validation, Compose configuration, and package builds passed.
 Real model and deployed transport acceptance remain separate checks.

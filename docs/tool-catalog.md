@@ -354,6 +354,8 @@ Calls run in order. Failed or canceled calls do not replay automatically.
 ## Delegated research
 
 `delegate_tasks` runs up to three research tasks with the parent's model-call budget.
+Each assignment can supply a descriptive `name` and a `task`. Results and OTel spans include that name.
+Legacy string assignments remain supported.
 Delegates receive search, weather, and skill tools only.
 They cannot create more delegates or change account data.
 Source: [runtime tool registration](../src/theos/runtime/tools.py).
@@ -361,13 +363,15 @@ Source: [runtime tool registration](../src/theos/runtime/tools.py).
 ## OpenTelemetry tracing
 
 The server uses `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`.
-It exports content-free turn, model, tool, delegate, and title spans through OTLP/HTTP protobuf.
+It exports turn, model, tool, delegate, and title spans through OTLP/HTTP protobuf.
+Optional content capture includes messages, tool arguments, results, and named delegate tasks within configurable byte limits.
 The runtime owns its tracer provider and background batch processor.
 The optional `compose.tracing.yaml` runs Jaeger `2.22.0` with seven-day Badger storage in a separate volume.
 Jaeger uses a 512 MiB container limit, a Go memory target, and the Collector memory limiter.
 Jaeger supplies the waterfall viewer. It is an operations dependency, not an assistant tool.
 See [observability](base-infra/observability.md) for setup and trace contents.
 Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
+The [content serializer](../src/theos/operations/trace_content.py) uses the OTel GenAI role and parts schema without new dependencies.
 
 ## Scheduled agent tasks
 

@@ -36,20 +36,20 @@ def main():
     scene.node("turn-two", "rectangle", 335, 245, 220, 95, "Turn 2\nTrace B", PURPLE, 25)
     scene.text("grouping", 73, 207, "Grouping only / each turn has its own root", 20)
     scene.edge("models", [(115, 340), (115, 420)])
-    scene.node("model", "rectangle", 40, 420, 220, 95, "Model calls\nTokens + timing", BLUE, 23)
+    scene.node("model", "rectangle", 40, 420, 220, 95, "Model calls\nMessages + timing", BLUE, 21)
     scene.edge("tools", [(245, 340), (385, 390), (385, 420)])
-    scene.node("tool", "rectangle", 285, 420, 270, 95, "Tool calls\nStatus + timing", GREEN, 23)
+    scene.node("tool", "rectangle", 285, 420, 270, 95, "Tool calls\nArguments + results", GREEN, 23)
     scene.edge("delegate-tool", [(420, 515), (420, 570)])
     scene.node(
-        "delegate", "rectangle", 285, 570, 270, 100, "delegate_tasks\nResearch delegates", GREEN, 23
+        "delegate", "rectangle", 285, 570, 270, 100, "delegate_tasks\nNamed assignments", GREEN, 23
     )
     scene.edge("child-one", [(320, 670), (150, 700), (150, 745)])
     scene.node(
-        "research-one", "rectangle", 40, 745, 220, 105, "Research 1\nModel + tools", PURPLE, 23
+        "research-one", "rectangle", 40, 745, 220, 105, "Named agent A\nModel + tools", PURPLE, 23
     )
     scene.edge("child-two", [(470, 670), (470, 745)])
     scene.node(
-        "research-two", "rectangle", 285, 745, 270, 105, "Research 2\nModel + tools", PURPLE, 23
+        "research-two", "rectangle", 285, 745, 270, 105, "Named agent B\nModel + tools", PURPLE, 23
     )
     scene.text("parallel", 65, 880, "Each turn owns its parallel delegate branches.", 21)
     scene.edge("export", [(555, 290), (740, 290)])
@@ -108,7 +108,7 @@ def main():
         880,
         500,
         80,
-        "Metadata only / no message content\nExport failures do not fail turns",
+        "Opt-in content: 8 KB/field, 32 KB/span\nExport failures do not fail turns",
         YELLOW,
         22,
     )

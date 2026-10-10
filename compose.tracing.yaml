@@ -4,6 +4,7 @@ services:
     environment:
       AGENT_TRACING__ENABLED: "true"
       AGENT_TRACING__ENDPOINT: http://jaeger:4318/v1/traces
+      AGENT_TRACING__CAPTURE_CONTENT: ${AGENT_TRACING__CAPTURE_CONTENT:-false}
   jaeger:
     image: jaegertracing/jaeger:2.22.0
     command: ["--config", "/etc/jaeger/tracing.yaml"]

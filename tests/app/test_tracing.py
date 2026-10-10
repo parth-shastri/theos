@@ -127,7 +127,9 @@ async def test_parallel_delegates_keep_separate_model_and_tool_parents(runtime, 
     root = next(s for s in output if s.parent is None)
     delegate_tool = next(s for s in output if s.name == "execute_tool delegate_tasks")
     assert delegate_tool.parent.span_id == root.context.span_id
-    delegates = [s for s in output if s.attributes.get("gen_ai.agent.name") == "research"]
+    delegates = [
+        s for s in output if s.name in {"invoke_agent research 1", "invoke_agent research 2"}
+    ]
     assert len(delegates) == 2
     assert all(s.parent.span_id == delegate_tool.context.span_id for s in delegates)
     for delegate in delegates:
@@ -145,6 +147,118 @@ async def test_parallel_delegates_keep_separate_model_and_tool_parents(runtime, 
     )[:2]
     assert first_calls[0].end_time >= first_calls[1].start_time
     assert "secret task" not in repr([dict(s.attributes) for s in output])
+
+
+async def test_named_delegates_capture_tasks_and_preserve_child_identity(
+    runtime, scripted_models, exporter
+):
+    runtime.tracing.settings.capture_content = True
+    scripted_models.responses.extend(
+        [
+            [
+                AssistantMessage(
+                    tool_calls=[
+                        ToolCall(
+                            "delegate-id",
+                            "delegate_tasks",
+                            {
+                                "tasks": [
+                                    {"name": "Rain analyst", "task": "Assess rainfall"},
+                                    {"name": "Heat analyst", "task": "Assess heat"},
+                                ]
+                            },
+                        )
+                    ]
+                ),
+                AssistantMessage("Comparison"),
+            ],
+            [AssistantMessage("Rain findings")],
+            [AssistantMessage("Heat findings")],
+        ]
+    )
+    result = await collect(runtime.start("alice", session(runtime)["id"], "Compare weather"))
+    assert result[-1]["status"] == "completed"
+    output = await spans(runtime, exporter)
+    delegates = [
+        s for s in output if s.name in {"invoke_agent Rain analyst", "invoke_agent Heat analyst"}
+    ]
+    assert len(delegates) == 2
+    for delegate in delegates:
+        assert "Assess" in delegate.attributes["gen_ai.input.messages"]
+        assert "findings" in delegate.attributes["gen_ai.output.messages"]
+        children = [s for s in output if s.parent and s.parent.span_id == delegate.context.span_id]
+        assert children and all(
+            s.attributes["gen_ai.agent.name"] == delegate.attributes["gen_ai.agent.name"]
+            for s in children
+        )
+    tool_span = next(s for s in output if s.name == "execute_tool delegate_tasks")
+    assert (
+        json.loads(tool_span.attributes["gen_ai.tool.call.arguments"])["tasks"][0]["name"]
+        == "Rain analyst"
+    )
+    assert json.loads(tool_span.attributes["gen_ai.tool.call.result"])[0]["name"] == "Rain analyst"
+    final = next(
+        s
+        for s in output
+        if s.attributes.get("gen_ai.output.messages")
+        and "Comparison" in s.attributes["gen_ai.output.messages"]
+    )
+    assert final.attributes["gen_ai.agent.name"] == "Theos"
+
+
+async def test_content_capture_bounds_wire_fields_and_links_tool_messages(
+    runtime, scripted_models, exporter
+):
+    runtime.tracing.settings.capture_content = True
+    runtime.tracing.settings.content_max_bytes = 512
+    runtime.tracing.settings.span_content_max_bytes = 1024
+    scripted_models.responses.append(
+        [
+            AssistantMessage(tool_calls=[ToolCall("skills-id", "list_skills", {})]),
+            AssistantMessage("🙂" * 10000, reasoning="Do not capture private reasoning"),
+        ]
+    )
+    result = await collect(runtime.start("alice", session(runtime)["id"], "List skills"))
+    assert result[-1]["status"] == "completed"
+    output = await spans(runtime, exporter)
+    assert any(s.attributes.get("theos.content.truncated") for s in output)
+    for s in output:
+        fields = {
+            k: v
+            for k, v in s.attributes.items()
+            if k
+            in {
+                "gen_ai.input.messages",
+                "gen_ai.output.messages",
+                "gen_ai.system_instructions",
+                "gen_ai.tool.call.arguments",
+                "gen_ai.tool.call.result",
+            }
+        }
+        assert sum(len(v.encode("utf-8")) for v in fields.values()) <= 1024
+        for value in fields.values():
+            assert len(value.encode("utf-8")) <= 512
+            json.loads(value)
+    tool_span = next(s for s in output if s.name == "execute_tool list_skills")
+    assert tool_span.attributes["gen_ai.tool.type"] == "function"
+    assert json.loads(tool_span.attributes["gen_ai.tool.call.arguments"]) == {}
+    assert json.loads(tool_span.attributes["gen_ai.tool.call.result"]) == []
+    request = next(
+        s for s in output if '"tool_call"' in s.attributes.get("gen_ai.output.messages", "")
+    )
+    assert "skills-id" in request.attributes["gen_ai.output.messages"]
+    assert "Do not capture" not in repr([dict(s.attributes) for s in output])
+
+
+def test_bounded_capture_handles_cycles_large_unicode_and_secret_keys():
+    from theos.operations.trace_content import bounded_json
+
+    value = {"text": "🙂" * 100000, "api_key": "never-export"}
+    value["cycle"] = value
+    encoded, truncated = bounded_json(value, 512)
+    assert truncated and len(encoded.encode("utf-8")) <= 512
+    json.loads(encoded)
+    assert "never-export" not in encoded
 
 
 async def test_concurrent_turns_and_resume_have_distinct_traces(runtime, exporter):
