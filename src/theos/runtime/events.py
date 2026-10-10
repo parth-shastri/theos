@@ -2,14 +2,19 @@
 
 import json
 import time
+from dataclasses import replace
 
 from harness import PendingApproval, TextDelta, ToolFinished, TurnFinished
 from harness.events import ModelCalled, ModelResponded, ReasoningDelta, ToolStarted
 from theos.storage.messages import display_metadata
 
+from .text import reply_text
+
 
 def publish_event(runtime, turn, event, status):
     """Publish one event and return the latest turn status."""
+    if isinstance(event, (TextDelta, ReasoningDelta)):
+        event = replace(event, text=reply_text(event.text))
     if turn.raw_events:
         turn.emit({"type": "harness", "event": event})
     # Child progress belongs to its tool. It cannot finish or supply the parent answer.
