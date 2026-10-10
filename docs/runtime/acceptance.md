@@ -58,6 +58,14 @@ It does not bundle the upstream ADK skill registry.
 
 ## Current verification
 
+The 2026-10-10 CI usage update selects container coverage by destination and build-file changes.
+All 49 policy checks passed on Python 3.12 and 3.13.
+They cover PR merge bases, multi-commit pushes, deleted and renamed build files, missing history, and failed or skipped checks.
+The full Python 3.12 suite passed 767 tests, with three live tests excluded.
+Workflow validation, application lint, formatting, and package builds passed.
+Tagged releases retain application checks and test the exact ARM64 image before publication.
+These local checks do not prove a tagged deployment through the updated workflow.
+
 The 2026-10-10 OpenRouter retention update enforces `provider.zdr=true` in the application adapter.
 Standalone requests passed automatic ZDR routing for all seven configured chat models.
 Of 81 explicit provider routes, 76 returned HTTP 200 and five returned HTTP 429.
