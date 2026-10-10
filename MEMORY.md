@@ -199,7 +199,9 @@ Preserve historical paths in provenance manifests.
 
 ## Git and Raspberry Pi releases
 
-The private GitHub repository is `parth-shastri/theos`.
+The public GitHub repository is `parth-shastri/theos`.
+On 2026-10-10, the operator made the repository public to avoid the private-repository Actions minutes quota.
+GitHub now permits branch protection for this repository without an account upgrade.
 Start normal changes on a topic branch from `dev`, including fixes, features, chores, and documentation.
 On 2026-10-10, the operator approved an exception for urgent Pi release fixes while `dev` contains unfinished changes.
 Start these hotfixes on a `fix/<name>` branch from `rpi` and merge them into `rpi` through a PR.
@@ -243,7 +245,7 @@ On 2026-10-10, the prior token returned HTTP 401. The operator replaced it in lo
 Only that token was synchronized to the Pi. Container recreation applied it.
 Live authentication and polling-configuration checks passed for `@mytheos_bot`.
 Release `rpi-v0.1.1` includes the deployed Telegram connection checks and browser onboarding.
-GitHub rejected branch protection for the private repository because the account requires an upgrade.
+GitHub initially rejected branch protection while the repository was private because the account required an upgrade.
 The disposable Docker rehearsal passed first installation, replacement, intentional readiness failure, and automatic rollback on the Pi.
 Both the original and restored SQLite records survived.
 CI passed on `main` and `rpi` with Python 3.12 and 3.13, native amd64 and arm64 containers, workflow validation, browser checks, and secret scanning.
