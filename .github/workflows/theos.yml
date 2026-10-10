@@ -3,7 +3,17 @@ on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
+    inputs:
+      extended_architectures:
+        description: Also check IBM Z and RISC-V under emulation
+        type: boolean
+        default: true
   workflow_call:
+    inputs:
+      extended_architectures:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -73,39 +83,49 @@ jobs:
     name: Container ${{ matrix.architecture }}
     strategy:
       fail-fast: false
+      max-parallel: 7
       matrix:
-        include:
-          - runner: ubuntu-latest
-            architecture: amd64
-          - runner: ubuntu-24.04-arm
-            architecture: arm64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
+        architecture: ${{ fromJSON(inputs.extended_architectures && '["amd64", "arm64", "386", "armv7", "ppc64le", "s390x", "riscv64"]' || '["amd64", "arm64", "386", "armv7", "ppc64le"]') }}
+    runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    env:
+      TEST_PLATFORM: ${{ fromJSON('{"amd64":"linux/amd64","arm64":"linux/arm64","386":"linux/386","armv7":"linux/arm/v7","ppc64le":"linux/ppc64le","s390x":"linux/s390x","riscv64":"linux/riscv64"}')[matrix.architecture] }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Install emulators for the additional architectures
+        if: matrix.architecture != 'amd64' && matrix.architecture != 'arm64'
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+        with:
+          platforms: all
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          platforms: linux/${{ matrix.architecture }}
+          platforms: ${{ env.TEST_PLATFORM }}
           load: true
           tags: theos:test
           cache-from: type=gha,scope=${{ matrix.architecture }}
           cache-to: type=gha,mode=max,scope=${{ matrix.architecture }}
       - name: Run container acceptance and measure resources
+        env:
+          EXPECTED_BITS: ${{ (matrix.architecture == '386' || matrix.architecture == 'armv7') && '32' || '64' }}
+          EXPECTED_ARCH: ${{ matrix.architecture == 'armv7' && 'arm' || matrix.architecture }}
         run: |
-          docker run -d --name theos-smoke -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 theos:test
-          for _ in $(seq 1 30); do
+          test "$(docker image inspect theos:test --format '{{.Architecture}}')" = "$EXPECTED_ARCH"
+          docker run --platform "$TEST_PLATFORM" -d --name theos-smoke -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 theos:test
+          for _ in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
             sleep 2
           done
+          docker exec theos-smoke python -c 'from PIL import Image; from cryptography.fernet import Fernet; import sqlite3; Image.new("RGB", (2, 2)).save("/tmp/portability.png"); key = Fernet.generate_key(); cipher = Fernet(key); assert cipher.decrypt(cipher.encrypt(b"portable")) == b"portable"; assert sqlite3.connect(":memory:").execute("select 1").fetchone()[0] == 1'
           python3 scripts/theos_smoke.py
           docker stats --no-stream --format '{{json .}}' theos-smoke > resources-${{ matrix.architecture }}.json
           test "$(docker exec theos-smoke id -u)" = 10001
+          test "$(docker exec theos-smoke python -c 'import struct; print(struct.calcsize("P") * 8)')" = "$EXPECTED_BITS"
           docker restart theos-smoke
-          for _ in $(seq 1 30); do
+          for _ in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
             sleep 2
           done
