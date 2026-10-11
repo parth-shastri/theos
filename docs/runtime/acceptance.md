@@ -1,5 +1,14 @@
 # Feature and acceptance checklist
 
+## Release 0.1.9 preflight
+
+The combined research and shared-skills code passed 950 deterministic tests, with three live tests excluded.
+The Pi retained healthy release `rpi-v0.1.8` during preparation.
+Read-only Telegram authentication and polling checks passed. Public readiness and the private Jaeger services API also passed.
+The Pi runner is online. Shared skills are mounted read-only, and the private environment has mode `0600`.
+The environment has no legacy context or model-call overrides. Provider capacity and proportional research allowances can use their defaults.
+Release deployment, migration 010, and the retained skill mount still require verification after the tag runs.
+
 ## Pi Jaeger through Tailscale Serve
 
 On 2026-10-11, the Pi enabled persistent HTTPS Serve on port 8443 for its loopback Jaeger viewer.

@@ -340,3 +340,12 @@ Only explicit research receives the durable research tools and structured refere
 Exa's contents API reads extracted source text without an application excerpt limit.
 The shared call ceiling stays unchanged. Final responses hold summary capacity within the existing summary allowance.
 See [research behavior](docs/runtime/deep-research.md) and [call budgets](docs/runtime/call-budgets.md).
+
+## Release 0.1.9 preparation
+
+On 2026-10-11, the operator requested all open PRs on `dev`, `main`, and `rpi`, followed by one Pi release tag.
+Release 0.1.9 combines private Jaeger access, complete research responses, explicit deep research, and shared Pi skills.
+The Pi already has the required shared skill paths and no explicit context or call-count overrides.
+Retain those settings so research uses provider context capacity and proportional call allowances.
+Keep local development credentials unchanged.
+Deployment remains unconfirmed until release CI and the Pi manifest confirm success.
