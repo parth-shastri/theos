@@ -90,6 +90,11 @@ const generationFields = {
   },
 };
 const commands = [
+  {
+    name: "research",
+    argument: "QUESTION",
+    description: "Start explicit deep research",
+  },
   { name: "help", description: "Show commands and keyboard shortcuts" },
   { name: "new", description: "Start a new conversation" },
   { name: "reset", description: "Reset this conversation after confirmation" },
@@ -958,6 +963,17 @@ async function runCommand(text) {
     throw new Error(
       `/${spec.name} takes no arguments. Use /help for command syntax.`,
     );
+  if (spec.name === "research") {
+    if (!argument) throw new Error("Use /research followed by your question.");
+    messageMetadata(bubble("user", argument), {
+      created_at: Date.now() / 1000,
+    });
+    $("research-mode").value = "normal";
+    return stream(`/api/sessions/${selected}/turn`, {
+      text: argument,
+      mode: "deep_research",
+    });
+  }
   if (spec.name === "help") return commandHelp();
   if (spec.name === "new") return newSession();
   if (spec.name === "reset") return $("reset").onclick();
@@ -1115,6 +1131,7 @@ function setBusy(value) {
     "reasoning",
     "upload",
     "generation-button",
+    "research-mode",
     "command-help",
     "new-session",
     "attach-files",
@@ -1345,6 +1362,7 @@ async function openSession(id) {
   showView("chat-view");
   const session = await json(`/api/sessions/${id}`);
   selected = id;
+  $("research-mode").value = "normal";
   $("session-title").textContent = session.title;
   $("model").value = session.model;
   savedModel = session.model;
@@ -1539,7 +1557,9 @@ async function stream(path, payload, onAccepted = null) {
           if (finalReply) {
             finalReply.dispose();
             speechControls.delete(finalReply);
-            lastAnswerBody?.parentElement.querySelector(".speech-control")?.remove();
+            lastAnswerBody?.parentElement
+              .querySelector(".speech-control")
+              ?.remove();
             finalReply = null;
           }
           if (!body && lastAnswerBody) {
@@ -1551,7 +1571,10 @@ async function stream(path, payload, onAccepted = null) {
           }
           answerBodies = [];
         }
-        if (event.type === "assistant_complete" || event.type === "answer_replace") {
+        if (
+          event.type === "assistant_complete" ||
+          event.type === "answer_replace"
+        ) {
           if (event.text || event.reasoning || body) {
             if (!body) {
               body = bubble("assistant", "");
@@ -1733,7 +1756,13 @@ $("composer").onsubmit = async (event) => {
   $("attachments").textContent = "";
   $("message").required = true;
   try {
-    await stream(`/api/sessions/${selected}/turn`, { text, files: attached });
+    const mode = $("research-mode").value;
+    $("research-mode").value = "normal";
+    await stream(`/api/sessions/${selected}/turn`, {
+      text,
+      files: attached,
+      mode,
+    });
   } catch (error) {
     showError(error);
   }
@@ -2406,3 +2435,97 @@ setSidebar(!sidebarMedia.matches);
 document
   .getElementById("attach-files")
   .addEventListener("click", () => document.getElementById("upload").click());
+
+// A selected mode applies to one message. Ordinary follow-ups never inherit it.
+let researchRequest = 0;
+async function showResearch() {
+  if (!selected) return;
+  const sessionId = selected,
+    request = ++researchRequest;
+  $("research-dialog").showModal();
+  $("research-status").textContent = "Loading saved research…";
+  $("research-detail").replaceChildren();
+  try {
+    const runs = await json(`/api/sessions/${sessionId}/research`);
+    if (request !== researchRequest || selected !== sessionId) return;
+    $("research-runs").replaceChildren();
+    $("research-status").textContent = runs.length
+      ? "Select a researcher to inspect findings and sources."
+      : "No saved deep research in this conversation.";
+    for (const run of runs) {
+      const button = node("button", `${run.name} · ${run.status}`);
+      button.onclick = async () => {
+        const detailRequest = ++researchRequest;
+        try {
+          const detail = await json(
+            `/api/sessions/${sessionId}/research/${run.id}`,
+          );
+          if (detailRequest !== researchRequest || selected !== sessionId)
+            return;
+          button.textContent = `${detail.name} · ${detail.status}`;
+          drawResearch(detail);
+        } catch (error) {
+          $("research-status").textContent = error.message;
+        }
+      };
+      $("research-runs").append(button);
+    }
+  } catch (error) {
+    $("research-status").textContent = error.message;
+  }
+}
+function drawResearch(run) {
+  const content = $("research-detail");
+  content.replaceChildren(
+    node("h3", run.name),
+    node("p", run.task),
+    node("p", run.reason || run.status),
+  );
+  if (run.answer) {
+    content.append(node("h3", "Report"));
+    const report = node("div", "", "markdown-body");
+    TheosMarkdown.render(report, run.answer);
+    content.append(report);
+  }
+  for (const item of run.items) {
+    const details = node("details"),
+      value = item.content;
+    details.append(
+      node("summary", `${item.kind}: ${value.title || value.url || item.id}`),
+    );
+    if (value.url) {
+      try {
+        const url = new URL(value.url);
+        if (["https:", "http:"].includes(url.protocol)) {
+          const link = node("a", value.url);
+          link.href = url.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          details.append(link);
+        }
+      } catch (_) {
+        /* Keep invalid source URLs as plain saved data. */
+      }
+    }
+    details.append(node("pre", JSON.stringify(value, null, 2)));
+    content.append(details);
+  }
+  const transcript = node("details");
+  transcript.append(
+    node("summary", "Original research transcript"),
+    node("pre", JSON.stringify(run.history, null, 2)),
+  );
+  content.append(transcript);
+  const summaries = node("details");
+  summaries.append(
+    node("summary", "Saved summary checkpoints"),
+    node("pre", JSON.stringify(run.checkpoints, null, 2)),
+  );
+  content.append(summaries);
+}
+$("research-button").onclick = () => showResearch();
+$("research-refresh").onclick = () => showResearch();
+$("research-close").onclick = () => {
+  researchRequest++;
+  $("research-dialog").close();
+};

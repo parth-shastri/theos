@@ -208,7 +208,16 @@ async def test_researcher_reserves_the_configured_output_before_generation(runti
     call = ToolCall(
         "research",
         "delegate_tasks",
-        {"tasks": [{"name": "sources", "task": "Compare the sources."}]},
+        {
+            "tasks": [
+                {
+                    "name": "sources",
+                    "task": "Compare the sources.",
+                    "context": "x" * 6600,
+                    "requirements": ["Preserve the source dates."],
+                }
+            ]
+        },
     )
     returned = await execute_tool(
         call,
@@ -346,7 +355,14 @@ async def test_each_delegate_reserves_a_full_handoff_and_receives_user_correctio
         return evidence
 
     monkeypatch.setattr(tools, "information_tools", lambda *args: [read_reference])
-    parent = FakeModel([delegate_call(), AssistantMessage("Comparison from both handoffs.")])
+    assignment = delegate_call()
+    for task in assignment.tool_calls[0].arguments["tasks"]:
+        task["requirements"] = [
+            "Only primary sources published this year.",
+            "Correction: include the publication date and opposing views.",
+        ]
+        task["context"] = "Earlier verified source https://example.org/earlier"
+    parent = FakeModel([assignment, AssistantMessage("Comparison from both handoffs.")])
     answers = ["Research details " * 2000 + f"FINAL URL https://example.org/{i}" for i in range(2)]
     children = [
         FakeModel(

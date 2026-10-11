@@ -83,7 +83,7 @@ See the [terminal guide](../terminal.md#connect-to-a-deployment).
 | `AGENT_DATA_DIR` | `.theos` | Databases, local files, and logs |
 | `AGENT_MAX_CONCURRENT_TURNS` | `4` | Concurrent turns, from 1 to 32 |
 | `AGENT_MAX_MODEL_CALLS` | `30` | Total calls per turn, including compaction, titles, and recovery, from 1 to 100 |
-| `AGENT_MAX_COMPACTION_CALLS` | `5` | Reserved compaction calls within the total, from 0 to 100 |
+| `AGENT_MAX_COMPACTION_CALLS` | `5` | Shared summary calls within the total, including protected final summary holds, from 0 to 100 |
 | `AGENT_MAX_RECOVERY_CALLS` | `1` | Legacy setting accepted for compatibility. The runtime always reserves one final response call |
 | `AGENT_DELEGATE_MAX_MODEL_CALLS` | `10` | Calls per delegate within the shared research allowance, from 1 to 100 |
 | `AGENT_TURN_TIMEOUT` | `300` | Deadline for new research, from 10 to 3600 seconds. Active answers can finish after it |
@@ -316,3 +316,8 @@ Do not paste credentials into chat or a sandbox.
 Use `docker compose config --quiet` for routine configuration checks.
 The full resolved configuration can contain credentials.
 Back up the token encryption key with the matching application data.
+
+The parent holds one summary call for its final response within the summary allowance.
+Each active delegate holds one when available. Completed delegates release unused holds.
+These holds do not add calls or change the generation output setting.
+See the [call budget map](../runtime/call-budgets.md).

@@ -113,7 +113,7 @@ def findings(history, offset):
         if isinstance(message, AssistantMessage) and message.text and not message.tool_calls:
             sections.append(message.text)
         elif isinstance(message, ToolResultMessage):
-            if message.name == "delegate_tasks":
+            if message.name in {"delegate_tasks", "deep_research"}:
                 try:
                     delegates = json.loads(message.content)
                     sections.extend(
@@ -139,6 +139,7 @@ async def response_call(
     *,
     compact_budget=None,
     model=None,
+    research_id=None,
 ):
     """Use one tool-free response call with the same task and complete working context."""
     from harness import Agent, ContextCompaction, Hooks, collect_run_stream
@@ -163,6 +164,8 @@ async def response_call(
 
         async def prepare(request, ctx):
             request.options.update(context.options(runtime, session, limits))
+            if research_id:
+                runtime.research.attach(request, session["owner"], session["id"], research_id)
             return request
 
         async def record(message, ctx):
@@ -181,7 +184,9 @@ async def response_call(
             "Do not call tools, repeat research, or claim uncertain actions succeeded.",
             hooks=Hooks(before_model=prepare, after_model=record),
             context_window=limits.context,
-            compaction=replace(context.compaction(runtime, session, limits), trigger_ratio=1.0),
+            compaction=replace(
+                context.compaction(runtime, session, limits, research_id), trigger_ratio=1.0
+            ),
         )
         # Use a copy so a failed final call cannot replace the durable transcript.
         working = list(history)
@@ -230,7 +235,8 @@ async def finish(runtime, turn, session, history, memory, offset, budget, instru
                     budget,
                     instructions,
                     reason,
-                    compact_budget=turn.budgets.compaction,
+                    compact_budget=turn.budgets.final_compaction,
+                    research_id=turn.research_id,
                 )
                 duration_ms = (time.monotonic() - started) * 1000
                 if answer:

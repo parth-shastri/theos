@@ -39,6 +39,12 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             if limits
             else session_options(runtime.settings, session)
         )
+        turn = runtime.active.get(session_id)
+        if turn and turn.research_id:
+            runtime.research.attach(request, owner, session_id, turn.research_id)
+            runtime.research.checkpoint(
+                owner, session_id, turn.research_id, ctx.history, ctx.memory
+            )
         started = time.monotonic()
         created_at = time.time()
         return request
@@ -80,6 +86,14 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         return decision
 
     async def after_tool(result, ctx):
+        turn = runtime.active.get(session_id)
+        if turn and turn.research_id:
+            from theos.services.research.tools import capture_search
+
+            result = capture_search(runtime, session, turn.research_id, result)
+            runtime.research.checkpoint(
+                owner, session_id, turn.research_id, [*ctx.history, result], ctx.memory
+            )
         if result.name == "sandbox_view_image" and result.status == "completed":
             value = json.loads(result.content)
             ctx.state.setdefault("view_images", []).append(value["file_id"])

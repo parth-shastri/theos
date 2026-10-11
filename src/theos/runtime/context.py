@@ -129,13 +129,29 @@ def options(runtime, session, limits):
     return values
 
 
-def compaction(runtime, session, limits):
+def compaction(runtime, session, limits, research_id=None):
     """Apply the same task-preserving compaction to parents, delegates, and recovery."""
+    from theos.services.research.store import valid_summary
+
+    prompt = SUMMARY_PROMPT
+    if research_id:
+        prompt += (
+            " Return a JSON object with summary (the progress summary) and record_ids "
+            "(every ID from protected_context.records, unchanged). "
+            "Keep source conflicts and unanswered questions. Do not use Markdown fences."
+        )
     return CompactionConfig(
-        SUMMARY_PROMPT,
+        prompt,
         options(runtime, session, limits),
         max_summary_tokens=None,
         reduce_current_turn=True,
         trigger_ratio=runtime.settings.compaction_trigger_ratio,
         target_ratio=0.45,
+        preserve_user_messages=bool(research_id),
+        summary_context=(
+            lambda: runtime.research.summary_context(session["owner"], session["id"], research_id)
+        )
+        if research_id
+        else None,
+        validate_summary=valid_summary if research_id else None,
     )

@@ -43,7 +43,7 @@ def journal_tool(runtime, original, session):
             deadline = getattr(turn, "research_deadline", None)
             timeout = (
                 None
-                if original.name == "delegate_tasks" or deadline is None
+                if original.name in {"delegate_tasks", "deep_research"} or deadline is None
                 else max(0, deadline - time.monotonic())
             )
             async with asyncio.timeout(timeout):
@@ -54,7 +54,7 @@ def journal_tool(runtime, original, session):
             ) from error
 
     # A research handoff contains model generation. Do not time out its active response.
-    timeout = None if original.name == "delegate_tasks" else 90
+    timeout = None if original.name in {"delegate_tasks", "deep_research"} else 90
     return Tool(
         original.name, original.description, original.input_model, execute, timeout_s=timeout
     )

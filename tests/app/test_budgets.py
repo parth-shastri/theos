@@ -41,9 +41,12 @@ async def test_concurrent_allowances_cannot_cross_the_total(settings):
         return calls
 
     used = await asyncio.gather(
-        *(consume(b) for b in (budget.research, budget.compaction, budget.recovery))
+        *(
+            consume(b)
+            for b in (budget.research, budget.compaction, budget.recovery, budget.final_compaction)
+        )
     )
-    assert used == [9, 2, 1]
+    assert used == [9, 1, 1, 1]
     assert budget.total.used == 12
     assert all(not b.spend() for b in (budget.research, budget.compaction, budget.recovery))
 
@@ -102,9 +105,9 @@ def test_invalid_allowances_are_rejected(field, value):
         Settings(_env_file=None, provider="fake", **{field: value})
 
 
-@pytest.mark.parametrize("allowance", [0, 1, 2])
+@pytest.mark.parametrize("allowance", [0, 1, 2, 3])
 async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(runtime, allowance):
-    runtime.settings.max_model_calls = 5
+    runtime.settings.max_model_calls = 6
     runtime.settings.max_compaction_calls = allowance
     runtime.settings.context_tokens = 4096
     await install_read(runtime)
@@ -123,7 +126,7 @@ async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(run
             "Keep the preferences and the earlier findings.",
             usage={"input_tokens": 10, "output_tokens": 5},
         )
-    ] * allowance
+    ] * max(0, allowance - 1)
     model = FakeModel(
         [*summaries, read_call("source"), AssistantMessage("The park opens at 7 AM.")]
     )
@@ -132,8 +135,8 @@ async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(run
     events = await collect(runtime.start("alice", row["id"], "Check the opening time."))
     history = runtime.db.load_history("alice", row["id"])
     assert history[:2] == original
-    assert len(model.requests) + len(final.requests) <= 5
-    if allowance == 2:
+    assert len(model.requests) + len(final.requests) <= 6
+    if allowance == 3:
         assert events[-1]["status"] == "completed"
         assert len(model.requests) == 4
         assert not final.requests
@@ -142,10 +145,9 @@ async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(run
         assert runtime.db.one("SELECT COUNT(*) n FROM usage")["n"] == 4
     else:
         assert events[-1]["status"] == "failed"
-        assert len(model.requests) == allowance
-        assert not final.requests
+        assert len(model.requests) == max(0, allowance - 1)
+        assert len(final.requests) == int(allowance > 0)
         assert history[-1].text.startswith("Request failed:")
-        assert (
-            runtime.db.one("SELECT COALESCE(SUM(output_tokens),0) n FROM usage")["n"]
-            == 5 * allowance
+        assert runtime.db.one("SELECT COALESCE(SUM(output_tokens),0) n FROM usage")["n"] == 5 * max(
+            0, allowance - 1
         )

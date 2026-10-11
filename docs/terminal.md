@@ -211,3 +211,7 @@ The standalone terminal runs the application scheduler while it remains open.
 Reminders and scheduled task results appear as notices.
 Use `/reload` to read a scheduled turn's complete saved transcript.
 Work due during downtime follows the existing scheduler recovery rules at the next start.
+
+Use `/research QUESTION` to start explicit deep research in local or connected mode.
+The command applies to one turn. Ordinary follow-ups do not inherit it.
+Saved records are available through the browser Research view or a later explicit research turn.

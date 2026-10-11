@@ -1,5 +1,28 @@
 # Feature and acceptance checklist
 
+## Explicit deep research and protected final summaries
+
+PR #42 adds a turn-specific research mode, saved SQLite research records, and the browser Research view.
+Normal queries receive focused delegate briefs and protected final summary capacity without research records.
+The final suite passed 930 tests, with three credential-dependent live tests excluded.
+Application lint, formatting, JavaScript syntax, lock validation, and package builds passed.
+
+Deterministic checks cover explicit entry points, normal follow-ups, source and conversation ownership, full reports, source extraction, and restart persistence.
+They also cover replaced notes, repeated summaries, missing reference rejection, original user corrections, and parent and delegate final summaries after exhaustion.
+Small and concurrent budgets stay within the shared ceiling.
+For agents, only the provider output parameter enforces generation length. Application code does not cut answers.
+
+The local ARM64 Docker test instance on port 8082 passed readiness with migration 010 and the existing persistent test volume.
+A real OpenRouter browser turn researched Python sorting against official documentation.
+It saved a plan, complete source text, a finding with source IDs, and a cited report.
+One source extraction failed. Later source reads succeeded, with the largest saved source containing 187,428 characters.
+The Research dialog displayed the report and saved records.
+A normal follow-up returned `NORMAL_OK` without creating another research run.
+The model did not require context compaction during this live check. Forced summaries use deterministic harness tests.
+This check does not confirm deployed Telegram, Pi release, or real-model summary accuracy.
+
+See [research behavior](deep-research.md) and the [call budget map](call-budgets.md).
+
 ## Provider state recovery hotfix
 
 A later voice turn transcribed successfully, but its model request mixed OpenAI and Azure encrypted reasoning.

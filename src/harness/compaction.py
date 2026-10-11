@@ -11,8 +11,15 @@ from typing import Any
 from harness.events import ContextCompaction, GenerationComplete
 from harness.limits import HarnessError, HarnessErrorCode
 from harness.output import requested_output_tokens
-from harness.types import (AssistantMessage, Budget, Message, ModelRequest,
-                           SystemMessage, ToolResultMessage, UserMessage)
+from harness.types import (
+    AssistantMessage,
+    Budget,
+    Message,
+    ModelRequest,
+    SystemMessage,
+    ToolResultMessage,
+    UserMessage,
+)
 
 
 @dataclass
@@ -57,6 +64,9 @@ class CompactionConfig:
     reduce_current_turn: bool = False
     trigger_ratio: float = 1.0
     target_ratio: float = 0.5
+    preserve_user_messages: bool = False
+    summary_context: Callable[[], dict] | None = None
+    validate_summary: Callable[[str, dict], bool] | None = None
 
 
 def _summary_data(message: Message) -> dict:
@@ -113,6 +123,9 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
         if summary_limit < 32:
             raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
         pins = list(memory.pinned_messages)
+        if config.preserve_user_messages:
+            pins = sorted(set(pins + [i for i, m in enumerate(history) if isinstance(m, UserMessage)]))
+        protected = config.summary_context() if config.summary_context else {}
         boundaries = [i for i in range(start + 1, latest + 1) if isinstance(history[i], UserMessage)]
         completed = (_completed_tool_boundaries(history, max(start, latest, 0))
                      if config.reduce_current_turn else [])
@@ -143,7 +156,8 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
                 SystemMessage(config.prompt),
                 UserMessage(json.dumps(dict(summary_token_limit=summary_limit,
                     task=[_summary_data(history[i]) for i in pins],
-                    previous_summary=summary, messages=[_summary_data(m) for m in chunk]),
+                    previous_summary=summary, messages=[_summary_data(m) for m in chunk],
+                    **({'protected_context': protected} if protected else {})),
                     ensure_ascii=False, separators=(',', ':'))),
             ], [], options=dict(config.options))
 
@@ -195,8 +209,12 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
                     or config.max_summary_tokens is not None
                     and await count([AssistantMessage(text=text)]) > summary_limit):
                 raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
+            if config.validate_summary and not config.validate_summary(text, protected):
+                phase = 'missing_research_references'
+                raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
             summary = text
             index += len(chunk)
+        pins = [i for i in pins if i < cut]
         candidate = ContextMemory(summary, cut, pins)
         after = await count(candidate.view(history))
         phase = 'summary_does_not_fit'

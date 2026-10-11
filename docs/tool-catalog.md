@@ -370,7 +370,7 @@ Calls run in order. Failed or canceled calls do not replay automatically.
 ## Delegated research
 
 `delegate_tasks` runs up to three research tasks with the parent's research allowance.
-Each assignment can supply a descriptive `name` and a `task`. Results and OTel spans include that name.
+Each assignment supplies a descriptive `name`, `task`, relevant `context`, quoted `requirements`, and optional deep-research `source_ids`. Results and OTel spans include that name.
 Theos chooses names from task scope. Users do not need to request delegation or name agents.
 The runtime instructions prefer concurrent delegation for substantial independent research and direct execution for simple lookups.
 Delegate instructions limit research to two focused search calls with three results each, then request findings and unverified facts.
@@ -378,13 +378,35 @@ These search limits are model instructions. Runtime limits enforce a configurabl
 `AGENT_DELEGATE_MAX_MODEL_CALLS` defaults to ten calls. Each call also consumes the shared research allowance.
 Delegates share the research budget and retain one parent call for synthesis.
 Normal tools retain their 90-second deadline. Delegate groups permit each final handoff to finish.
-Each delegate receives the user requirements, corrections, conversation summary, and available findings.
+Named delegates receive a focused brief and the original user messages selected by quoted requirements. Unrelated parent history stays with the parent.
 Delegates return model-written answers with source URLs, status, and a limit reason to the parent.
 The parent receives the full answers, rather than only a source list.
 Legacy string assignments remain supported.
 Delegates receive search, weather, and skill tools only.
 They cannot create more delegates or change account data.
 Source: [runtime tool registration](../src/theos/runtime/tools.py).
+
+## Explicit deep research
+
+Deep research requires the browser mode or an explicit user command. It applies to one turn.
+The `deep_research` tool runs independent assignments within the same shared call ceiling.
+Each researcher saves its full transcript, report, evidence, notes, and summary checkpoints in SQLite migration 010.
+The browser **Research** view permits later inspection within the same account and conversation.
+Normal questions do not receive these tools or create research records.
+
+| Tool | Behavior | Dependency |
+| --- | --- | --- |
+| `deep_research` | Up to three named delegates with relevant briefs and durable records | Existing harness and runtime |
+| `save_research_note` | Save plans, findings, conflicts, and questions with source IDs and status | Existing SQLite database |
+| `list_research` | List research in the current conversation | Existing SQLite database |
+| `read_research` | Reopen full saved reports and evidence | Existing SQLite database |
+| `read_source` | Read and save extracted source text without an application excerpt limit | Exa contents API and `AGENT_EXA_KEY` |
+
+Source extraction uses `POST https://api.exa.ai/contents` with `urls` and `text: true`.
+It does not request `maxCharacters`. No new package dependency is required.
+Search excerpts retain their search-provider limits. The source reader is separate.
+Extraction can fail for inaccessible pages. Returned text is not proof that all page content was accessible.
+See [Exa contents documentation](https://exa.ai/docs/reference/get-contents) and [research behavior](runtime/deep-research.md).
 
 ## Context and answer limits
 
@@ -418,6 +440,9 @@ Provider-stopped answers remain intact and carry an incomplete notice.
 The default allocation is 24 research calls, five compaction calls, and one parent response call.
 Each delegate reserves one research slot for its final handoff before any sibling starts.
 Its default ten-call allowance includes that handoff. Compaction uses the separate shared compaction allowance.
+The parent holds one summary call for its final response. Each active delegate holds one when available.
+Ordinary summaries use unheld calls. Completed delegates release unused holds.
+See the [call budget map](runtime/call-budgets.md) for request checks and exhaustion paths.
 A total budget of one reserves the parent response without starting research.
 The runtime accepts the legacy `AGENT_MAX_RECOVERY_CALLS` setting, but always permits one final response attempt.
 
