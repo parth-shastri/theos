@@ -104,18 +104,10 @@ async def capacity(runtime, session):
 
 
 def options(runtime, session, limits):
-    """Use provider output maxima unless the user explicitly chose an output value."""
+    """Use the configured output limit unless the conversation supplies one."""
     # Keep the output setting intact. The harness summarizes input when both cannot fit.
     values = session_options(runtime.settings, session)
-    if (
-        runtime.settings.provider == "anthropic"
-        and not limits.output
-        and "max_tokens" not in values
-    ):
-        raise ValueError(
-            "Set max_output_tokens for an Anthropic model absent from the capacity catalog."
-        )
-    if limits.output and not any(
+    if not any(
         key in values for key in ("max_output_tokens", "max_tokens", "max_completion_tokens")
     ):
         # Map the common output setting to the provider's supported wire parameter.
@@ -125,7 +117,7 @@ def options(runtime, session, limits):
             if provider in {"openrouter", "anthropic", "llama"}
             else "max_output_tokens"
         )
-        values[key] = limits.output
+        values[key] = min(runtime.settings.max_output_tokens, limits.output or 1_000_000)
     return values
 
 

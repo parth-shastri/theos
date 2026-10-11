@@ -18,6 +18,7 @@ class Turn:
     research_task: str | None = None
     research_id: str | None = None
     inbox: Inbox = field(default_factory=Inbox)
+    provider_failure: Exception | None = None
     delegate_results: dict[str, dict[str, dict]] = field(default_factory=dict)
 
     def emit(self, value):

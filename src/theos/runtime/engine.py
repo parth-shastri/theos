@@ -25,7 +25,9 @@ from theos.storage.messages import stamp_message
 
 from . import approvals, checkpoints, context, hooks, recovery, titles, tools
 from .budgets import TurnBudget
+from .errors import CheckedModel
 from .events import publish_event
+from .reviews import approval_fields
 from .text import WRITING_RULES, reply_text
 from .turn import Turn
 from .usage import record_usage
@@ -87,10 +89,11 @@ class Runtime:
             "UPDATE approvals SET status='expired' WHERE session=? AND status='pending' AND expires<=?",
             (session_id, time.time()),
         )
-        return self.db.rows(
+        rows = self.db.rows(
             "SELECT id,call_id,tool,arguments,preview,expires FROM approvals WHERE session=? AND status='pending' ORDER BY created",
             (session_id,),
         )
+        return [{**row, "review": approval_fields(json.loads(row["preview"]))} for row in rows]
 
     def start(
         self,
@@ -236,6 +239,7 @@ class Runtime:
         budget = allowances.research
         instructions = ""
         reason = None
+        failure = None
         # 1. Restore saved results so a restart does not repeat completed or uncertain actions.
         history = self.recover_history(turn.owner, turn.session_id)
         history_offset = len(history)
@@ -263,6 +267,7 @@ class Runtime:
                 async with self.models(
                     self.settings, session["model"], session["reasoning"]
                 ) as model:
+                    model = CheckedModel(model, self.settings.provider)
                     limits = await context.capacity(self, session)
                     tools = await self.tools(session)
                     user_preferences = preferences(self.db, turn.owner, self.settings.timezone)
@@ -343,6 +348,8 @@ class Runtime:
                                 self.record_usage(session, event.usage)
                             # Deliver progress separately from the durable hooks.
                             status = publish_event(self, turn, event, status)
+                    if turn.provider_failure:
+                        raise turn.provider_failure
                     if status == "budget_exhausted":
                         reason = "budget_limit"
                     elif status == "completed" and history[-1].stop_reason == "length":
@@ -364,6 +371,7 @@ class Runtime:
                             self, turn, session, model, history, budget=budget
                         )
             except Exception as error:
+                failure = error
                 reason = recovery.failure_reason(error)
                 logger.warning(
                     "turn_incomplete",
@@ -384,6 +392,7 @@ class Runtime:
                     allowances.recovery,
                     instructions,
                     reason,
+                    error=failure,
                 )
         except asyncio.CancelledError:
             status = "interrupted"
