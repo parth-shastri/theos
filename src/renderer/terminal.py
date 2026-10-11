@@ -428,7 +428,9 @@ class _PlainBackend(_Backend):
 
     def _model_finished(self, event: ModelFinished) -> None:
         self._record_usage(event.usage)
-        if self.streaming:
+        if event.replace_answer and event.text:
+            self._write(f'\nRevised answer\n{event.text}\n')
+        elif self.streaming:
             self._write("\n")
         elif event.text:
             self._write(f"Assistant\n{event.text}\n")

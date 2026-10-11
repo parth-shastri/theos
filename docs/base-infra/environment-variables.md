@@ -84,31 +84,34 @@ See the [terminal guide](../terminal.md#connect-to-a-deployment).
 | `AGENT_MAX_CONCURRENT_TURNS` | `4` | Concurrent turns, from 1 to 32 |
 | `AGENT_MAX_MODEL_CALLS` | `30` | Total calls per turn, including compaction, titles, and recovery, from 1 to 100 |
 | `AGENT_MAX_COMPACTION_CALLS` | `5` | Reserved compaction calls within the total, from 0 to 100 |
-| `AGENT_MAX_RECOVERY_CALLS` | `2` | Reserved tool-free recovery calls within the total, from 0 to 100 |
+| `AGENT_MAX_RECOVERY_CALLS` | `1` | Legacy setting accepted for compatibility. The runtime always reserves one final response call |
 | `AGENT_DELEGATE_MAX_MODEL_CALLS` | `10` | Calls per delegate within the shared research allowance, from 1 to 100 |
-| `AGENT_TURN_TIMEOUT` | `300` | Turn duration in seconds, from 10 to 3600 |
-| `AGENT_CONTEXT_TOKENS` | `24000` | Harness context window, at least 4096 tokens |
+| `AGENT_TURN_TIMEOUT` | `300` | Deadline for new research, from 10 to 3600 seconds. Active answers can finish after it |
+| `AGENT_CONTEXT_TOKENS` | Unset | Optional context override, at least 4096 tokens and within known provider capacity |
+| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.6` | Compact at this fraction of context capacity, from 0.5 to 0.7 |
 | `AGENT_MAX_UPLOAD_BYTES` | `10485760` | File limit, from 1024 to 26214400 bytes |
 
 Compose overrides the host, port, and data directory with `0.0.0.0`, `8080`, and `/data`.
 Use `HOST_BIND_IP` and `HOST_PORT` to change the host mapping.
-The context setting controls harness context handling.
-It does not change the capacity of the selected model.
+Unset context uses the model capacity from provider metadata or the verified catalog.
+Unknown models use a logged 24,000-token fallback unless the operator configures a window.
+The context override does not increase the selected model's capacity.
+Remove an earlier `AGENT_CONTEXT_TOKENS=24000` setting to use the advertised model window.
+Compaction starts at 60 percent by default and targets 45 percent after a complete summary.
 
-The default total contains 23 research calls, five compaction calls, and two recovery calls.
-The parent and all delegates share the research allowance. Title generation also uses this allowance.
-Each delegate has its own configured cap and retains one shared research call for the parent.
+The default total contains 24 research calls, five compaction calls, and one parent response call.
+The parent and delegates share research calls. Title generation also uses this allowance.
+Each delegate reserves a handoff call before research starts. Its ten-call default includes that response.
 Compaction uses its reserved allowance without consuming research calls.
 Unused compaction calls stay reserved. They do not extend research.
 Each summary chunk consumes one compaction call, including failed provider requests.
-Exhausted compaction returns a partial answer through the existing recovery path.
-Recovery can use two tool-free calls within the same 15-second allowance.
-A failed first request can use the second slot when time remains. Tools are never repeated.
-Set `AGENT_MAX_RECOVERY_CALLS=1` for one attempt, or zero to return saved findings directly.
 Compaction usage enters the same usage records as ordinary model requests.
 
-Small total limits reduce the effective compaction allowance to retain one research call and the effective recovery allowance.
-A total limit of one permits one research call and uses saved findings for recovery.
+On research exhaustion, the runtime requests one final response without tools or a generation deadline.
+A failed final response returns complete saved findings without retrying.
+The legacy recovery setting no longer changes the single-attempt rule.
+Small total limits reduce compaction reserves first.
+A total limit of one reserves the final response and starts no research.
 Set the compaction allowance to zero to disable model-based compaction.
 The request must still fit the configured context window.
 The delegate deadline remains 85 seconds. The turn deadline remains 300 seconds by default.

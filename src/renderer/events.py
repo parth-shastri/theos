@@ -55,6 +55,7 @@ class ModelFinished(_ScopedEvent):
     stop_reason: str | None = None
     usage: dict[str, int] = field(default_factory=dict)
     requested_tools: tuple[str, ...] = ()
+    replace_answer: bool = False
 
 
 @dataclass(frozen=True)

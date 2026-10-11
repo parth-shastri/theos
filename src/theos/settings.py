@@ -146,11 +146,13 @@ class Settings(ClientSettings):
     max_concurrent_turns: int = Field(default=4, ge=1, le=32)
     max_model_calls: int = Field(default=30, ge=1, le=100)
     max_compaction_calls: int = Field(default=5, ge=0, le=100)
-    max_recovery_calls: int = Field(default=2, ge=0, le=100)
+    # Accept older environment files. Recovery now always reserves one response call.
+    max_recovery_calls: int = Field(default=1, ge=0, le=100)
     delegate_max_model_calls: int = Field(default=10, ge=1, le=100)
     max_scheduled_tasks: int = Field(default=50, ge=1, le=200)
     turn_timeout: int = Field(default=300, ge=10, le=3600)
-    context_tokens: int = Field(default=24000, ge=4096)
+    context_tokens: int | None = Field(default=None, ge=4096)
+    compaction_trigger_ratio: float = Field(default=0.6, ge=0.5, le=0.7)
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=25 * 1024 * 1024)
     timezone: str = "UTC"
     input_cost_per_million: float | None = Field(default=None, ge=0)

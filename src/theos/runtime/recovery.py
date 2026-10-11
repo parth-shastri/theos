@@ -1,9 +1,9 @@
 """Return useful partial answers without repeating tools or changing instructions."""
 
-import asyncio
 import json
 import logging
 import time
+from contextlib import asynccontextmanager
 from dataclasses import replace
 
 from harness import (
@@ -11,27 +11,16 @@ from harness import (
     ContextLimitError,
     HarnessError,
     HarnessErrorCode,
-    ModelCalled,
-    ModelRequest,
-    ModelResponded,
-    SystemMessage,
-    TextDelta,
     ToolResultMessage,
-    UserMessage,
-    collect_model_stream,
     message_from_dict,
     message_to_dict,
     unanswered_calls,
-    validate_assistant_message,
 )
 from theos.storage.messages import stamp_message
 
-from .events import publish_event
-from .models import session_options
 from .text import reply_text
 
 logger = logging.getLogger("theos")
-FINAL_SECONDS = 15
 REASONS = {
     "budget_limit": "The research reached its model-call limit.",
     "timeout": "The research reached its time limit.",
@@ -50,24 +39,6 @@ def failure_reason(error):
     ):
         return "context_limit"
     return "provider_error"
-
-
-def clip(text, size):
-    """Bound model-visible copies. Keep the original durable results unchanged."""
-    if len(text) <= size:
-        return text
-    marker = "\n[Result shortened.]"
-    return text[: max(0, size - len(marker))] + marker[:size]
-
-
-def bound_tool_results(request, total_chars):
-    """Bound tool data sent to a model while preserving complete durable results."""
-    count = sum(isinstance(m, ToolResultMessage) for m in request.messages)
-    allowance = min(8000, max(1, total_chars // max(1, count)))
-    request.messages = [
-        replace(m, content=clip(m.content, allowance)) if isinstance(m, ToolResultMessage) else m
-        for m in request.messages
-    ]
 
 
 def settle_calls(runtime, turn, history):
@@ -135,136 +106,140 @@ def settle_calls(runtime, turn, history):
             )
 
 
-def bounded_history(history, offset, size=6000):
-    """Keep a question and complete tool exchanges in a small recovery request."""
-    question = next((m for m in reversed(history) if isinstance(m, UserMessage)), None)
-    selected = [UserMessage(clip(question.content, size // 3))] if question else []
-    results = {m.call_id: m for m in history[offset:] if isinstance(m, ToolResultMessage)}
-    # Prefer recent exchanges. Never separate a tool result from its call.
-    exchanges = []
-    remaining = size * 2 // 3
-    for message in reversed(history[offset:]):
-        if not isinstance(message, AssistantMessage):
-            continue
-        if message.tool_calls:
-            calls = [c for c in message.tool_calls if c.id in results]
-            if not calls or remaining <= 0:
-                continue
-            allowance = max(1, remaining // len(calls))
-            batch = [AssistantMessage(tool_calls=[replace(c, arguments={}) for c in calls])]
-            for call in calls:
-                result = results[call.id]
-                content = clip(result.content, allowance)
-                batch.append(replace(result, content=content))
-                remaining -= len(content)
-            exchanges.append(batch)
-        elif message.text and remaining > 0:
-            text = clip(message.text, remaining)
-            exchanges.append([AssistantMessage(text)])
-            remaining -= len(text)
-    for exchange in reversed(exchanges):
-        selected.extend(exchange)
-    return selected
-
-
 def findings(history, offset):
-    """Share fallback space across delegates and recent results without inventing facts."""
-    delegate_sections = []
+    """Return complete available findings. Never shorten generated answers or sources."""
     sections = []
     for message in history[offset:]:
         if isinstance(message, AssistantMessage) and message.text and not message.tool_calls:
-            sections.append(clip(message.text, 4000))
+            sections.append(message.text)
         elif isinstance(message, ToolResultMessage):
             if message.name == "delegate_tasks":
                 try:
                     delegates = json.loads(message.content)
-                    for delegate in delegates:
-                        if not delegate.get("answer"):
-                            continue
-                        delegate_sections.append(
-                            clip(
-                                f"{delegate['name']} ({delegate['status']}):\n{delegate['answer']}",
-                                4000,
-                            )
-                        )
+                    sections.extend(
+                        f"{delegate['name']} ({delegate['status']}):\n{delegate['answer']}"
+                        for delegate in delegates
+                        if delegate.get("answer")
+                    )
                     continue
                 except (ValueError, TypeError, KeyError):
                     pass
-            sections.append(clip(f"{message.name} ({message.status}):\n{message.content}", 4000))
-    selected = [*delegate_sections[-3:], *sections[-9:]]
-    if not selected:
-        return ""
-    allowance = 8000 // len(selected)
-    return "\n\n".join(clip(section, allowance) for section in selected)
+            sections.append(f"{message.name} ({message.status}):\n{message.content}")
+    return "\n\n".join(sections)
 
 
-async def finish(
-    runtime, turn, session, history, memory, offset, budget, instructions, reason, deadline
+async def response_call(
+    runtime,
+    session,
+    history,
+    memory,
+    budget,
+    instructions,
+    reason,
+    *,
+    compact_budget=None,
+    model=None,
 ):
-    """Try bounded answers with no tools, then use a deterministic partial answer."""
+    """Use one tool-free response call with the same task and complete working context."""
+    from harness import Agent, ContextCompaction, Hooks, collect_run_stream
+
+    from . import context
+
+    limits = await context.capacity(runtime, session)
+    existing_model = model
+
+    @asynccontextmanager
+    async def connection():
+        if existing_model is not None:
+            yield existing_model
+        else:
+            async with runtime.models(
+                runtime.settings, session["model"], session["reasoning"]
+            ) as connected:
+                yield connected
+
+    async with connection() as connected:
+        model = connected
+
+        async def prepare(request, ctx):
+            request.options.update(context.options(runtime, session, limits))
+            await context.fit_output(request, model, limits.context)
+            return request
+
+        async def record(message, ctx):
+            runtime.record_usage(session, message.usage)
+            return message
+
+        agent = Agent(
+            model,
+            instructions=instructions
+            + "\n"
+            + "Research has stopped: "
+            + REASONS[reason]
+            + " "
+            + "Write the requested answer from the collected findings and sources. "
+            "Preserve the user's requirements and corrections. Identify missing or uncertain facts. "
+            "Do not call tools, repeat research, or claim uncertain actions succeeded.",
+            hooks=Hooks(before_model=prepare, after_model=record),
+            context_window=limits.context,
+            compaction=replace(context.compaction(runtime, session, limits), trigger_ratio=1.0),
+        )
+        # Use a copy so a failed final call cannot replace the durable transcript.
+        working = list(history)
+
+        async def final_events():
+            from contextlib import aclosing
+
+            async with aclosing(
+                agent.run_stream(
+                    working, budget=budget, compaction_budget=compact_budget, memory=memory
+                )
+            ) as stream:
+                async for event in stream:
+                    if isinstance(event, ContextCompaction) and event.status == "progress":
+                        runtime.record_usage(session, event.usage)
+                    yield event
+
+        result = await collect_run_stream(final_events())
+        answer = result.message
+        if answer is None or answer.tool_calls or not answer.text:
+            return None
+        return answer
+
+
+async def finish(runtime, turn, session, history, memory, offset, budget, instructions, reason):
+    """Finish once without a generation deadline or repeated research."""
     settle_calls(runtime, turn, history)
-    answer = (
-        history[-1]
-        if reason == "delegate_partial" and isinstance(history[-1], AssistantMessage)
-        else None
-    )
+    last = history[-1] if history and isinstance(history[-1], AssistantMessage) else None
+    answer = last if reason in {"delegate_partial", "output_limit"} and last and last.text else None
     mode = "existing_answer" if answer else "saved_findings"
     duration_ms = None
     with runtime.tracing.span("finalize answer", {"theos.recovery.reason": reason}) as span:
-        final_deadline = min(deadline, time.monotonic() + FINAL_SECONDS)
-        while (
+        if (
             answer is None
             and reason != "provider_error"
             and instructions
-            and time.monotonic() < final_deadline
             and budget.used < budget.max_model_calls
         ):
-            used_before = budget.used
+            started = time.monotonic()
             try:
-                async with asyncio.timeout(max(0, final_deadline - time.monotonic())):
-                    async with runtime.models(
-                        runtime.settings, session["model"], session["reasoning"]
-                    ) as model:
-                        options = session_options(runtime.settings, session)
-                        options["max_tokens"] = min(
-                            options.get("max_tokens", options.get("max_completion_tokens", 2048)),
-                            max(256, runtime.settings.context_tokens // 4),
-                        )
-                        options.pop("max_completion_tokens", None)
-                        # Sizing does not consume a model call or modify saved history.
-                        for size in (6000, 3000, 1000):
-                            request = ModelRequest(
-                                [
-                                    SystemMessage(instructions),
-                                    *bounded_history(history, offset, size),
-                                ],
-                                options=options,
-                            )
-                            if (
-                                await model.estimate_tokens(request) + options["max_tokens"]
-                                <= runtime.settings.context_tokens
-                            ):
-                                break
-                        else:
-                            raise ContextLimitError("The recovery request does not fit.")
-                        if budget.spend():
-                            publish_event(runtime, turn, ModelCalled(request), "partial")
-                            started = time.monotonic()
-                            answer = await collect_model_stream(model.stream(request))
-                            duration_ms = (time.monotonic() - started) * 1000
-                            runtime.record_usage(session, answer.usage)
-                            validate_assistant_message(answer)
-                            if answer.tool_calls or not answer.text:
-                                answer = None
-                            else:
-                                mode = "model"
+                answer = await response_call(
+                    runtime,
+                    session,
+                    history,
+                    memory,
+                    budget,
+                    instructions,
+                    reason,
+                    compact_budget=turn.budgets.compaction,
+                )
+                duration_ms = (time.monotonic() - started) * 1000
+                if answer:
+                    mode = "model"
             except Exception as error:
                 logger.warning(
                     "final_answer_unavailable", extra={"error_type": type(error).__name__}
                 )
-                answer = None
-                if budget.used == used_before:
-                    break
         text = answer.text if answer else findings(history, offset)
         caveat = (
             "Some action outcomes are unknown. Check the external service before repeating them."
@@ -273,6 +248,8 @@ async def finish(
             )
             else "Some details remain incomplete or unverified."
         )
+        if answer and answer.stop_reason in {"length", "max_tokens", "cut_off"}:
+            caveat = "The provider stopped generation at its output limit. The returned text is incomplete."
         status = "partial" if text else "failed"
         if status == "failed":
             mode = "failure"
@@ -289,10 +266,28 @@ async def finish(
             ),
             duration_ms=duration_ms,
         )
+        # Retain drafts for diagnostics but hide replaced answers in conversation views.
+        for previous in history[offset:]:
+            if isinstance(previous, AssistantMessage) and previous.text and not previous.tool_calls:
+                previous._theos_display = {
+                    **getattr(previous, "_theos_display", {}),
+                    "superseded": True,
+                }
         history.append(message)
         runtime.db.save_history(turn.owner, turn.session_id, history, memory.to_dict(), status)
-        publish_event(runtime, turn, TextDelta(message.text), status)
-        publish_event(runtime, turn, ModelResponded(message), status)
+        from theos.storage.messages import display_metadata
+
+        turn.emit(
+            {
+                "type": "answer_replace",
+                "text": message.text,
+                "reasoning": message.reasoning,
+                "stop_reason": message.stop_reason,
+                "usage": message.usage,
+                "already_counted": mode == "existing_answer",
+                "display": display_metadata(message),
+            }
+        )
         if span is not None:
             span.set_attribute("theos.recovery.mode", mode)
             span.set_attribute("theos.agent.status", status)

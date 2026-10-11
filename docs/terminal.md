@@ -3,6 +3,8 @@
 The `theos` command opens the terminal user interface (UI).
 It uses the installed package and needs no module target.
 The terminal can connect to a deployment or run a standalone local runtime.
+Connected terminals use protocol version 2 for answer replacement.
+Update the deployment and client together when installing this change.
 Connected mode shares the browser user's conversations, tools, settings, approvals, and usage.
 Standalone mode retains its own terminal owner and SQLite storage.
 

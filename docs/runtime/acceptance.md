@@ -134,7 +134,7 @@ The final answer covered both itineraries and a recommendation, with a normal `s
 Jaeger displayed the named branches. All content stayed within capture limits, with eight spans marked for truncation.
 The final answer was captured in full. The 33 tracing and integration checks, Ruff checks, and local Docker build passed.
 
-Runtime recovery now reserves one model call and up to 15 seconds within the turn deadline for a final answer.
+The earlier recovery implementation reserved one model call and up to 15 seconds within the turn deadline for a final answer.
 The recovery request uses unchanged instructions and no tools. Failed recovery returns bounded saved findings with explicit uncertainty.
 Sixteen deterministic checks cover turn and delegate timeouts, shared and delegate budgets, context sizing, recovery failures, output truncation, and explicit cancellation.
 They also check full durable results, bounded model-visible copies, completed sibling findings, conversation continuation, and uncertain writes without repetition.
@@ -507,3 +507,21 @@ Live acceptance must check those contracts against the account's enabled API ver
 A disconnected account keeps local records but stops pending background work.
 
 No production server or external account was configured during local acceptance.
+
+## Research context and response limits
+
+Parents and delegates now share provider capacities and compaction at 60 percent of the model window.
+Agent response limits use only the supported provider output parameter. Application code does not clip generated answers.
+Each researcher reserves one final handoff before research starts. The parent retains a separate final response call.
+Final responses retain task requirements, corrections, complete findings, and sources. They do not run tools or retry.
+Active generation can finish after the research deadline. Explicit cancellation and provider connection idle timeouts remain.
+Telegram, browser chat, and terminals replace interrupted drafts. Stored history retains the original drafts for diagnosis.
+Connected terminals use protocol version 2 and require matching client and deployment updates.
+
+Deterministic checks cover provider capacity refresh, native output parameters, reserved sibling handoffs, and complete context.
+They also cover answers above the earlier byte limit, full evidence chunks, long summaries, and generation beyond research deadlines.
+Transport checks cover browser replacement, Telegram chunk replacement, terminal replacement, and reopened conversation history.
+This change has not deployed or run a live provider research query.
+
+The final local suite passed 875 checks, with three credential-dependent live checks excluded.
+Ruff checks, formatting, lock validation, source and wheel builds, browser JavaScript syntax, and the client-only wheel check passed.

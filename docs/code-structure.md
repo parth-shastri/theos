@@ -23,6 +23,7 @@ All source paths below start at `src/theos`.
 | Approvals | Match decisions to unchanged actions | `runtime/approvals.py` |
 | Checkpoints | Save tool attempts and recover results | `runtime/checkpoints.py`, `runtime/hooks.py` |
 | Partial answers | Reserve a final model call and return saved findings after runtime limits | `runtime/recovery.py` |
+| Context and output | Resolve provider capacities and share compaction rules across agents | `runtime/context.py` |
 | Call budgets | Separate research, compaction, and recovery allowances under one total ceiling | `runtime/budgets.py` |
 | Delivery events | Turn harness events into transport events | `runtime/events.py`, `runtime/turn.py` |
 | Providers and usage | Build model clients, retain OpenRouter reasoning and costs, and record usage | `runtime/models.py`, `runtime/model_catalog.py`, `runtime/openrouter.py`, `runtime/usage.py` |

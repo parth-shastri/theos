@@ -19,6 +19,8 @@ from renderer.interactive import (
     normalize_prompt,
 )
 
+from .wire import replacement_event
+
 
 def timestamp(value):
     return datetime.fromtimestamp(value, UTC).isoformat()
@@ -74,7 +76,13 @@ class TerminalSession:
 
     def history(self, session_id):
         self._session(session_id)
-        return self.db.load_history(self.owner, session_id)
+        from theos.storage.messages import display_metadata
+
+        return [
+            message
+            for message in self.db.load_history(self.owner, session_id)
+            if not display_metadata(message).get("superseded")
+        ]
 
     def sessions(self):
         return tuple(
@@ -223,6 +231,8 @@ class TerminalSession:
                         continue
                     for normalized in events(adapter(event)):
                         yield normalized
+                elif item["type"] == "answer_replace":
+                    yield replacement_event(item)
                 elif item["type"] == "error":
                     yield Notice(item["message"], "error")
                 elif item["type"] == "file":

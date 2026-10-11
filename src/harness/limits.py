@@ -42,7 +42,7 @@ class HarnessError(ValueError):
 class ExecutionLimits:
     """Upper bounds on one complete assistant response."""
 
-    max_output_bytes: int = 1024 * 1024
+    max_output_bytes: int | None = None
     max_argument_bytes: int = 64 * 1024
     max_nesting_depth: int = 32
     max_tool_calls: int = 16
@@ -50,7 +50,7 @@ class ExecutionLimits:
 
     def __post_init__(self) -> None:
         if min(
-            self.max_output_bytes,
+            self.max_output_bytes if self.max_output_bytes is not None else 0,
             self.max_argument_bytes,
             self.max_nesting_depth,
             self.max_tool_calls,
@@ -94,7 +94,7 @@ def validate_assistant_message(
         raise HarnessError(HarnessErrorCode.MALFORMED_MODEL_OUTPUT)
     output_bytes = len((message.text or "").encode("utf-8"))
     output_bytes += len((message.reasoning or "").encode("utf-8"))
-    if output_bytes > limits.max_output_bytes:
+    if limits.max_output_bytes is not None and output_bytes > limits.max_output_bytes:
         raise HarnessError(HarnessErrorCode.OUTPUT_LIMIT_EXCEEDED)
     if len(message.tool_calls) > limits.max_tool_calls:
         raise HarnessError(HarnessErrorCode.TOO_MANY_TOOL_CALLS)

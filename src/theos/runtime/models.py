@@ -3,6 +3,8 @@
 import json
 from contextlib import asynccontextmanager
 
+import httpx
+
 from harness import AssistantMessage
 from harness.testing import FakeModel
 
@@ -39,7 +41,15 @@ async def model_client(settings, model_id, reasoning):
 
         from harness.providers.gemini import GeminiChatModel
 
-        client = genai.Client(api_key=key, http_options={"timeout": 60000})
+        async def idle_timeout(request):
+            # The SDK passes timeout=None. Set phase timeouts without a server deadline header.
+            request.extensions["timeout"] = httpx.Timeout(60, connect=10).as_dict()
+
+        # Force httpx so Gemini's optional aiohttp transport cannot impose a total deadline.
+        transport = httpx.AsyncClient(
+            timeout=httpx.Timeout(60, connect=10), event_hooks={"request": [idle_timeout]}
+        )
+        client = genai.Client(api_key=key, http_options={"httpx_async_client": transport})
         thinking = None
         if reasoning != "default":
             if model_id.startswith("gemini-3"):
@@ -55,14 +65,20 @@ async def model_client(settings, model_id, reasoning):
         finally:
             await client.aio.aclose()
             client.close()
+            await transport.aclose()
     elif settings.provider == "anthropic":
         from anthropic import AsyncAnthropic
 
         from harness.providers.anthropic import AnthropicChatModel
 
-        async with AsyncAnthropic(api_key=key, timeout=60, max_retries=2) as client:
+        async with AsyncAnthropic(
+            api_key=key, timeout=httpx.Timeout(60, connect=10), max_retries=2
+        ) as client:
             yield AnthropicChatModel(
-                client, model_id, thinking=None if reasoning == "none" else {"type": "adaptive"}
+                client,
+                model_id,
+                max_tokens=None,
+                thinking=None if reasoning == "none" else {"type": "adaptive"},
             )
     else:
         from openai import AsyncOpenAI
@@ -74,7 +90,10 @@ async def model_client(settings, model_id, reasoning):
             "llama": "http://127.0.0.1:8081/v1",
         }.get(settings.provider)
         async with AsyncOpenAI(
-            api_key=key or "local", base_url=base_url, timeout=60, max_retries=2
+            api_key=key or "local",
+            base_url=base_url,
+            timeout=httpx.Timeout(60, connect=10),
+            max_retries=2,
         ) as client:
             if settings.provider == "llama":
                 from harness.providers.llama import LlamaServerModel

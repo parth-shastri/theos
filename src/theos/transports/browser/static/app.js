@@ -1357,6 +1357,7 @@ async function openSession(id) {
   if (!session.history.length) empty();
   const calls = new Map();
   for (const message of session.history) {
+    if (message.display?.superseded) continue;
     if (message.type === "user") {
       const body = bubble("user", message.content);
       messageMetadata(body, message.display);
@@ -1478,6 +1479,8 @@ async function stream(path, payload, onAccepted = null) {
   thinking(body, "", true);
   scrollChat(true);
   let finalReply = null;
+  let lastAnswerBody = null;
+  let answerBodies = [];
   let reasoning = "";
   let responseText = "";
   let buffer = "";
@@ -1532,7 +1535,23 @@ async function stream(path, payload, onAccepted = null) {
           metrics.update(responseText, reasoning);
           thinking(body, reasoning, true);
         }
-        if (event.type === "assistant_complete") {
+        if (event.type === "answer_replace") {
+          if (finalReply) {
+            finalReply.dispose();
+            speechControls.delete(finalReply);
+            lastAnswerBody?.parentElement.querySelector(".speech-control")?.remove();
+            finalReply = null;
+          }
+          if (!body && lastAnswerBody) {
+            body = lastAnswerBody;
+            metrics = streamingMetadata(body);
+          }
+          for (const previous of answerBodies) {
+            if (previous !== body) previous.parentElement.remove();
+          }
+          answerBodies = [];
+        }
+        if (event.type === "assistant_complete" || event.type === "answer_replace") {
           if (event.text || event.reasoning || body) {
             if (!body) {
               body = bubble("assistant", "");
@@ -1548,6 +1567,10 @@ async function stream(path, payload, onAccepted = null) {
               body.parentElement.remove();
               finalReply = null;
             } else finalReply = speechControl(body);
+          }
+          if (body && !event.requested_tools?.length) {
+            lastAnswerBody = body;
+            answerBodies.push(body);
           }
           body = null;
           metrics = null;

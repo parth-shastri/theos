@@ -377,31 +377,63 @@ Delegate instructions limit research to two focused search calls with three resu
 These search limits are model instructions. Runtime limits enforce a configurable call cap and 85 seconds per delegate.
 `AGENT_DELEGATE_MAX_MODEL_CALLS` defaults to ten calls. Each call also consumes the shared research allowance.
 Delegates share the research budget and retain one parent call for synthesis.
-The outer tool deadline remains 90 seconds. Each delegate returns its findings when another delegate stops.
-After delegation, parent instructions permit two focused verification searches and require an answer with remaining uncertainty.
+Normal tools retain their 90-second deadline. Delegate groups permit each final handoff to finish.
+Each delegate receives the user requirements, corrections, conversation summary, and available findings.
+Delegates return model-written answers with source URLs, status, and a limit reason to the parent.
+The parent receives the full answers, rather than only a source list.
 Legacy string assignments remain supported.
 Delegates receive search, weather, and skill tools only.
 They cannot create more delegates or change account data.
 Source: [runtime tool registration](../src/theos/runtime/tools.py).
 
+## Context and answer limits
+
+Parents and delegates use the same model capacity and compaction policy.
+OpenRouter metadata supplies the provider context and maximum output tokens.
+The runtime caches metadata for one hour and uses verified catalog values when retrieval fails.
+Unknown models use a logged 24,000-token context fallback unless the operator sets a window.
+Unknown Anthropic models require an explicit output setting because that API requires an output maximum.
+`AGENT_CONTEXT_TOKENS` optionally selects a smaller window, within known provider capacity.
+`AGENT_COMPACTION_TRIGGER_RATIO` defaults to 0.6 and accepts 0.5 through 0.7.
+The runtime summarizes completed exchanges at that threshold and targets 45 percent of the window.
+The current task stays complete. Summaries preserve requirements, corrections, findings, source URLs, dates, conflicts, and uncertain actions.
+Oversized evidence enters consecutive summary chunks. The durable transcript retains every original message.
+Failed or incomplete summaries never replace the previous working summary.
+
+For agents, only `max_output_tokens` enforces response length, through the provider's supported parameter.
+OpenAI Responses and Gemini use `max_output_tokens`. OpenRouter and Anthropic use the equivalent `max_tokens` field.
+Requests use the provider output maximum unless the user chooses a smaller value.
+The same parameter also respects the provider's remaining combined input and output capacity.
+Application code never clips generated answers or rejects them by byte size.
+The 1,024-token context reservation remains accounting only. It does not cap generation.
+Provider-stopped answers remain intact and carry an incomplete notice.
+
 ## Partial answers
 
-The runtime reserves two model calls and up to 15 seconds within the configured turn deadline for a final answer.
-`AGENT_MAX_MODEL_CALLS` sets the total ceiling, including research, compaction, titles, and recovery.
-`AGENT_MAX_COMPACTION_CALLS` reserves five calls by default within that ceiling.
-The default allocation is 23 research calls, five compaction calls, and two recovery calls.
-Compaction does not consume research slots. Unused compaction slots remain reserved.
-Research retains at least one call when the total budget is one.
-Recovery uses unchanged instructions, bounded conversation copies, and no tools.
-`AGENT_MAX_RECOVERY_CALLS` defaults to two calls within the same 15-second recovery deadline.
-A failed first request can use the second reserved call when time remains.
-If recovery fails, the runtime returns saved findings with a limitation notice.
-Timeout, budget, context, output, and provider failures produce a `partial` conversation status.
-Incomplete scheduled runs pause their schedule. Explicit cancellation retains the `interrupted` status.
-The runtime never repeats tools during recovery. It preserves uncertain action results for review.
-Model requests receive at most 8,000 characters per tool result, with an additional shared bound per request.
-Durable tool results retain their full content. OTel content capture has separate byte limits.
-Source: [runtime recovery](../src/theos/runtime/recovery.py) and [model checkpoints](../src/theos/runtime/hooks.py).
+`AGENT_MAX_MODEL_CALLS` sets the total ceiling, including research, compaction, titles, and final responses.
+The default allocation is 24 research calls, five compaction calls, and one parent response call.
+Each delegate reserves one research slot for its final handoff before any sibling starts.
+Its default ten-call allowance includes that handoff. Compaction uses the separate shared compaction allowance.
+A total budget of one reserves the parent response without starting research.
+The runtime accepts the legacy `AGENT_MAX_RECOVERY_CALLS` setting, but always permits one final response attempt.
+
+Call, research-time, or context exhaustion stops new research and requests one final response without tools.
+That request retains the task, corrections, complete available context, and a limit notice.
+Final responses use the full model window and compact only when necessary to fit.
+If complete context cannot fit and compaction cannot finish, the runtime preserves it and returns a clear failure or saved findings.
+A failed final response never triggers a second attempt or repeats tools.
+Research deadlines do not cancel active answer generation or final responses.
+Provider connection idle timeouts and explicit cancellation remain active.
+The connected terminal stream waits without a response read deadline.
+
+Failed final generation returns complete saved findings with a limitation notice.
+Useful answers have `partial` status. Empty failures have `failed` status.
+Incomplete scheduled runs pause their schedule. Explicit cancellation retains `interrupted` status.
+Telegram, browser chat, and terminals replace incomplete drafts with the final answer.
+Stored history retains replaced drafts for diagnosis and hides them when conversations reopen.
+Connected terminals use protocol version 2. Update the client and deployment together.
+OTel content capture has separate byte limits. Those limits do not change model answers.
+Source: [context policy](../src/theos/runtime/context.py), [runtime recovery](../src/theos/runtime/recovery.py), and [model checkpoints](../src/theos/runtime/hooks.py).
 
 ## OpenTelemetry tracing
 
