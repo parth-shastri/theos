@@ -68,6 +68,8 @@ class SafeFormatter(logging.Formatter):
             if record.msg
             in {
                 "turn_failed",
+                "turn_incomplete",
+                "openrouter_reasoning_replay_rejected",
                 "integration_unavailable",
                 "scheduler_failed",
                 "notification_failed",

@@ -2,6 +2,13 @@
 
 Theos records application events, tool traces, and model usage locally.
 Optional OpenTelemetry tracing exports one trace per turn through OTLP/HTTP protobuf.
+
+OpenRouter can reject saved encrypted reasoning when its required endpoint conflicts with zero data retention.
+The adapter retries that routing rejection once without the affected reasoning sequences, before generation starts.
+It preserves ZDR, visible history, tool exchanges, and request options.
+The log event `openrouter_reasoning_replay_rejected` records this recovery without private content.
+The event `turn_incomplete` records failures that still require a partial answer.
+The call budget counts harness model calls. SDK retries and this bounded routing retry are transport attempts within those calls.
 The application log formatter excludes prompts, credentials, and remote error bodies.
 Conversation history remains private data in SQLite and needs separate protection.
 

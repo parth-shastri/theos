@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from openai import APIStatusError, AsyncOpenAI
+from openai import APIStatusError, AsyncOpenAI, NotFoundError
 from openai.types.chat import ChatCompletion
 
-from harness import UserMessage
-from harness.events import GenerationComplete, ReasoningDelta
-from harness.types import ModelRequest
+from harness import AssistantMessage, UserMessage
+from harness.events import GenerationComplete, ReasoningDelta, TextDelta
+from harness.types import ModelRequest, ToolSpec
 from theos.runtime.openrouter import OpenRouterChatModel
 
 
@@ -98,6 +98,178 @@ async def test_openrouter_unavailable_zdr_route_does_not_retry_without_policy():
             await model.generate(ModelRequest([UserMessage("Reply OK")]))
     assert len(calls) == 1
     assert calls[0]["provider"] == {"zdr": True}
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("retry_fails", [False, True])
+async def test_openrouter_rejected_encrypted_replay_keeps_history_tools_and_zdr(
+    streaming, retry_fails
+):
+    calls = []
+    failure = {
+        "error": {"message": "No endpoints found matching your data policy (Zero data retention)."}
+    }
+
+    def respond(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        if len(calls) == 1 or retry_fails:
+            return httpx.Response(404, json=failure)
+        reply = {
+            "id": "chat-recovered",
+            "created": 1,
+            "model": body["model"],
+            "object": "chat.completion.chunk" if streaming else "chat.completion",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "delta" if streaming else "message": {"role": "assistant", "content": "OK"},
+                }
+            ],
+        }
+        if streaming:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text="data: " + json.dumps(reply) + "\n\ndata: [DONE]\n\n",
+            )
+        return httpx.Response(200, json=reply)
+
+    previous = AssistantMessage(
+        "Saved answer",
+        reasoning="Saved summary",
+        provider_data={
+            "openrouter": {
+                "model": "openai/gpt-6-luna",
+                "reasoning_details": [
+                    {
+                        "type": "reasoning.summary",
+                        "summary": "Saved summary",
+                        "format": "openai-responses-v1",
+                    },
+                    {
+                        "type": "reasoning.encrypted",
+                        "data": "opaque",
+                        "format": "openai-responses-v1",
+                    },
+                ],
+            }
+        },
+    )
+    original = copy.deepcopy(previous)
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = OpenRouterChatModel(
+            client, "openai/gpt-6-luna", api="chat_completions", stream=streaming
+        )
+        request = ModelRequest(
+            [previous, UserMessage("Reply OK")],
+            tools=[
+                ToolSpec(
+                    "get_preferences", "Read preferences", {"type": "object", "properties": {}}
+                )
+            ],
+            options={"max_tokens": 100, "extra_body": {"provider": {"only": ["azure"]}}},
+        )
+        if retry_fails:
+            with pytest.raises(APIStatusError):
+                await model.generate(request)
+        else:
+            assert (await model.generate(request)).text == "OK"
+    assert len(calls) == 2
+    expected = copy.deepcopy(calls[0])
+    expected["messages"][0].pop("reasoning_details")
+    assert calls[1] == expected
+    assert all(call["provider"] == {"zdr": True, "only": ["azure"]} for call in calls)
+    assert previous == original
+
+
+@pytest.mark.parametrize(
+    "model_id,block_format,error_message",
+    [
+        (
+            "anthropic/claude-sonnet-5.5",
+            "anthropic-claude-v1",
+            "No endpoints found matching your data policy (Zero data retention).",
+        ),
+        ("openai/gpt-6-luna", "openai-responses-v1", "Unknown model"),
+    ],
+)
+async def test_openrouter_does_not_discard_claude_state_or_retry_unrelated_404(
+    model_id, block_format, error_message
+):
+    calls = []
+
+    def respond(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(404, json={"error": {"message": error_message}})
+
+    previous = AssistantMessage(
+        "Saved",
+        provider_data={
+            "openrouter": {
+                "model": model_id,
+                "reasoning_details": [
+                    {"type": "reasoning.encrypted", "data": "opaque", "format": block_format}
+                ],
+            }
+        },
+    )
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = OpenRouterChatModel(client, model_id, api="chat_completions")
+        with pytest.raises(APIStatusError):
+            await model.generate(ModelRequest([previous, UserMessage("Reply OK")]))
+    assert len(calls) == 1
+    assert calls[0]["messages"][0]["reasoning_details"][0]["data"] == "opaque"
+
+
+async def test_openrouter_does_not_restart_a_stream_after_output():
+    calls = []
+    model = OpenRouterChatModel(SimpleNamespace(), "openai/gpt-6-luna", api="chat_completions")
+
+    async def partial(payload):
+        calls.append(payload)
+        yield TextDelta("Already delivered")
+        raise NotFoundError(
+            "Routing failed",
+            response=httpx.Response(
+                404, request=httpx.Request("POST", "https://openrouter.test/v1")
+            ),
+            body={"message": "No endpoints found matching your data policy (Zero data retention)."},
+        )
+
+    model._stream_chat_once = partial
+    previous = AssistantMessage(
+        "Saved",
+        provider_data={
+            "openrouter": {
+                "model": model.model_id,
+                "reasoning_details": [
+                    {
+                        "type": "reasoning.encrypted",
+                        "data": "opaque",
+                        "format": "openai-responses-v1",
+                    }
+                ],
+            }
+        },
+    )
+    events = []
+    with pytest.raises(NotFoundError):
+        async for event in model.stream(ModelRequest([previous, UserMessage("Continue")])):
+            events.append(event)
+    assert [event.text for event in events] == ["Already delivered"]
+    assert len(calls) == 1
 
 
 async def test_openrouter_stream_preserves_reasoning_tools_and_cost(runtime):
