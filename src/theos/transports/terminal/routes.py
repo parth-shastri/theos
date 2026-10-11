@@ -7,7 +7,7 @@ from fastapi import Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, StrictBool
 
-from .wire import display_events, encode_event
+from .wire import PROTOCOL_VERSION, display_events, encode_event
 
 
 class ClientSession(BaseModel):
@@ -51,13 +51,13 @@ def register_terminal(app, settings, current, identity, browser_session):
         return StreamingResponse(
             generate(),
             media_type="text/event-stream",
-            headers={"X-Accel-Buffering": "no", "X-Theos-Terminal-Protocol": "1"},
+            headers={"X-Accel-Buffering": "no", "X-Theos-Terminal-Protocol": str(PROTOCOL_VERSION)},
         )
 
     @app.get("/api/terminal/info")
     async def info(owner=authenticated):
         return {
-            "protocol": 1,
+            "protocol": PROTOCOL_VERSION,
             "name": settings.name,
             "provider": settings.provider,
             "api": {"openai": "responses", "openrouter": "chat_completions"}.get(settings.provider),

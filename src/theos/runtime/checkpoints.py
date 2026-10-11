@@ -1,6 +1,8 @@
 """Durable tool attempts and conversation recovery."""
 
+import asyncio
 import json
+import time
 
 import httpx
 
@@ -37,13 +39,25 @@ def journal_tool(runtime, original, session):
         )
         try:
             # 3. Execute once. The after-tool hook saves the result before the next model call.
-            return await original.execute(args, ctx)
+            turn = runtime.active.get(session["id"])
+            deadline = getattr(turn, "research_deadline", None)
+            timeout = (
+                None
+                if original.name in {"delegate_tasks", "deep_research"} or deadline is None
+                else max(0, deadline - time.monotonic())
+            )
+            async with asyncio.timeout(timeout):
+                return await original.execute(args, ctx)
         except (httpx.TimeoutException, httpx.TransportError, TimeoutError) as error:
             raise OutcomeUnknown(
                 "The service connection ended. The action outcome is unknown."
             ) from error
 
-    return Tool(original.name, original.description, original.input_model, execute, timeout_s=90)
+    # A research handoff contains model generation. Do not time out its active response.
+    timeout = None if original.name in {"delegate_tasks", "deep_research"} else 90
+    return Tool(
+        original.name, original.description, original.input_model, execute, timeout_s=timeout
+    )
 
 
 def recover_history(runtime, owner, session_id):

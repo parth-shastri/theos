@@ -47,10 +47,10 @@ Updated: 2026-10-11.
 | Configuration | Pydantic settings with the `AGENT_` prefix |
 | Deployment | One application worker and scheduler per SQLite database |
 | Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. All spans share the existing conversation ID and a separate turn ID. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata by default. Optional bounded content capture includes model messages, tool arguments/results, and delegate tasks/results. Use OTel GenAI roles, parts, and descriptive agent names inherited by child spans. Retain legacy string delegate tasks. Theos chooses descriptive agent names from task scope without user-supplied names. Delegate substantial independent research when useful, and handle simple or dependent lookups directly. Instruct research delegates to use at most two focused search calls with three results each, then return findings and unverified facts. These search limits are guidance. After delegation, instruct the parent to use findings and caveats, with at most two focused verification searches before answering. Retain the enforced shared model-call budget and 90-second tool timeout. Capture limits default to 8,192 UTF-8 JSON bytes per field and 32,768 per span. Exclude reasoning, binary payloads, provider state, and exception payloads. Keep SQLite events and usage. Use optional Jaeger v2 with single-node Badger storage for waterfalls |
-| Trace access | The optional Jaeger viewer and OTLP receiver bind to host loopback. Jaeger has no configured password or per-user trace isolation. Theos authentication does not protect it. Operators use local access or authenticated SSH tunnels. Anyone with Jaeger access can inspect all stored traces. Per-user trace access requires a separate ownership-checking layer and is not implemented |
+| Trace access | The optional Jaeger viewer and OTLP receiver bind to host loopback. The Pi uses persistent Tailscale Serve on HTTPS port 8443 to proxy the viewer. Restrict Pi TCP 8443 to `group:theos-operators` in the tailnet policy. Exclude this endpoint from broader grants across both IP families. The group currently contains `parth-shastri@github`. Keep Funnel disabled for this endpoint. Jaeger has no configured password or per-user trace isolation. Theos authentication does not protect it. Operators can also use local access or authenticated SSH tunnels. Anyone with Jaeger access can inspect all stored traces. Per-user trace access requires a separate ownership-checking layer and is not implemented |
 | Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. Use seven-day Jaeger span expiry, a 512 MiB container limit, and memory pressure guards. Do not impose a 1 GB disk quota. Jaeger storage retains traces across restarts. Monitor disk growth separately |
-| Turn recovery | Preserve all current model instructions. Reserve up to two shared model calls and up to 15 seconds within the turn deadline for a tool-free final answer. If recovery fails with useful findings, return those bounded findings and explicit uncertainty with `partial` status. If no findings exist, return a clear failure with `failed` status. Do not claim an answer or an action was completed. Keep completed delegate findings when siblings stop. Enforce the configured delegate call cap and 85 seconds per delegate while retaining a parent synthesis call. Bound model-visible tool copies without changing durable results. Never repeat tools during recovery. Pause incomplete schedules and preserve explicit cancellation as `interrupted` |
-| Model-call allowances | Keep `AGENT_MAX_MODEL_CALLS` as the total turn ceiling, default 30. Reserve `AGENT_MAX_COMPACTION_CALLS`, default five, and `AGENT_MAX_RECOVERY_CALLS`, default two, within that ceiling. The default research allowance is 23 calls shared by the parent, delegates, and titles. Unused compaction slots remain reserved. Each summary chunk consumes a compaction slot and enters usage records. Set `AGENT_DELEGATE_MAX_MODEL_CALLS` for the per-delegate cap, default ten. Small total ceilings reduce reserves and retain one research call. A total of one uses saved findings for recovery. Recovery can try a second tool-free request after a failed first attempt within the same 15-second deadline. Generic harness callers retain shared-budget compaction unless they supply a separate budget. Export allowance limits and consumed calls on each turn trace. Preserve every model instruction |
+| Turn recovery | Reserve one tool-free response call for the parent. Reserve each delegate handoff before research starts. On call, time, or context exhaustion, stop new research and request one final response with a limit notice. Keep the full task, corrections, summary, findings, and sources. Do not retry failed final responses or repeat tools. Return complete saved findings if final generation fails. Preserve uncertain actions and completed siblings. Pause incomplete schedules. Explicit cancellation retains interrupted status |
+| Model-call allowances | Keep AGENT_MAX_MODEL_CALLS as the total ceiling, default 30. When counts are omitted, derive compaction calls from a configurable one-sixth ratio and each delegate research/handoff ceiling from a configurable one-third ratio, rounded up. Explicit counts override their own ratios, including zero summaries. Resolve once per turn in TurnBudget. Bound summaries to retain research capacity and bound delegates by the shared research pool. At 30 total, allocate 24 research, five compaction, and one parent response; at 50, allocate 40 research, nine compaction, and one parent response. Delegate handoffs consume reserved research slots. The derived delegate ceiling includes its handoff and excludes shared summary calls: ten at 30 total, 17 at 50. Hold one summary call for the parent final response and one per active delegate when available. Ordinary summaries use unheld calls. Release unused delegate holds when they finish. Unused compaction slots stay separate from research. Each summary chunk consumes a compaction call and enters usage records. A total of one reserves only the parent response. Accept AGENT_MAX_RECOVERY_CALLS for old configurations, but always reserve one response call. Export allowance limits and consumed calls on turn traces |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
 | Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials use the enrolled Telegram owner's private account access. No automatic merging of existing browser and Telegram accounts |
@@ -60,9 +60,14 @@ Updated: 2026-10-11.
 | Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user approved opt-in for future user-message consolidation through Mem0 inference |
 | Scheduled agent tasks | Durable one-time and cron schedules run through the normal conversation runtime and approval policy. Interrupted or uncertain runs pause the schedule |
 | Remote sandbox | Keep the Mac mini configuration, database, and server logs under `/Volumes/extssd/opensandbox`. Pin the native server to `1.1.1`. Use server proxy mode with `resolve_internal=false`. Keep launchd console logs under the user's Library because macOS blocks its removable-volume access. Docker storage remains on the SSD |
-| Reply generation requirement | Use provider limits for assistant replies. Do not impose application output-token caps or deadlines that truncate active reply generation. Implementation remains pending, including recovery |
+| Model context | Use advertised provider context capacities. Refresh OpenRouter metadata hourly and retain verified catalog fallbacks. Unknown models retain a logged 24,000-token fallback unless explicitly configured. Compact at 60 percent, configurable from 50 to 70 percent. Target 45 percent after compaction. Preserve full transcripts and the current task. Summarize completed exchanges and split oversized evidence into complete consecutive chunks. Final responses reserve the requested output before using the remaining context. Never silently discard old context to force a request |
+| Reply generation requirement | Enforce agent response limits only through max_output_tokens, translated to the supported provider parameter. Use the provider output maximum unless the user selects a smaller value. Reserve the full requested output before summarizing input for answers and summary calls. Do not silently lower the output parameter to fit input. Calls without a known output value use DEFAULT_OUTPUT_RESERVATION, defined once as 8,192 tokens in harness/output.py. Agents, turn entry points, and summary requests share that estimate. It never sets a provider output parameter. Never use application code to clip or reject generated answer text by size. Research deadlines stop new calls and tools, without canceling active answers or final responses. Preserve provider-truncated text and mark it incomplete. Provider connection idle timeouts and explicit cancellation remain |
+| Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
+| Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/data/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
+| Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. Keep host CLI installation separate from remote sandbox execution |
+| Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
 | Comments | Explain constraints and number the major workflow steps |
 | Documentation | Task-based Markdown guides, Simplified Technical English, and existing Excalidraw PNG diagrams |
 
@@ -302,3 +307,50 @@ On 2026-10-11, the operator authorized a fresh beta reset of chats, pending chat
 Keep account setup, connected credentials, enrollment, preferences, files, and usage accounting.
 Preserve the Telegram offset so a restart does not replay old updates.
 This is a one-time reset, not a retention policy for SQLite events.
+
+## Pi Jaeger access
+
+On 2026-10-11, the operator requested private Pi Jaeger access through Tailscale Serve.
+The viewer URL is `https://neuralbox-pi.tail61f0ca.ts.net:8443/`.
+Tailscale Serve proxies `http://127.0.0.1:16686` and persists across restarts.
+The tailnet policy restricts Pi TCP 8443 to `group:theos-operators`, currently `parth-shastri@github`.
+The former wildcard grant now excludes the Pi. Separate grants retain other Pi TCP ports, UDP, and ICMP.
+The existing SSH policy and node attributes remain unchanged. This endpoint has no public Funnel configuration.
+Seven saved policy tests cover operator access, nonoperator rejection, both IP families, and other service access.
+Mac HTTPS checks passed with certificate validation. The viewer displayed an existing four-span Pi trace.
+No nonoperator device was available for a live denial check. The saved policy tests validate denial.
+Keep the policy snapshot and runbook together in the same change.
+See [observability](docs/base-infra/observability.md#pi-viewer-through-tailscale-serve) and [policy snapshot](config/tailscale/pi-jaeger.policy.json).
+
+## Research response fix
+
+The research response fix replaces interrupted drafts in Telegram, browser chat, and terminal conversation views.
+Stored history retains the originals with a superseded display flag.
+Connected terminals use protocol version 2 for explicit answer replacement.
+Update the deployment and terminal client together when releasing this change.
+This branch does not deploy or publish a release.
+
+## Explicit research workspace
+
+PR #42 adds explicit deep research on the existing fix branch.
+Migration 010 stores research runs, evidence, notes, and full checkpoints in the existing SQLite database.
+Docker retains these records in its persistent data volume. The browser Research view reads account-owned conversation records.
+Normal queries receive focused delegate briefs and protected summary capacity for final responses.
+Only explicit research receives the durable research tools and structured reference checks.
+Exa's contents API reads extracted source text without an application excerpt limit.
+The shared call ceiling stays unchanged. Final responses hold summary capacity within the existing summary allowance.
+See [research behavior](docs/runtime/deep-research.md) and [call budgets](docs/runtime/call-budgets.md).
+
+## Release 0.1.9 preparation
+
+On 2026-10-11, the operator requested all open PRs on `dev`, `main`, and `rpi`, followed by one Pi release tag.
+Release 0.1.9 combines private Jaeger access, complete research responses, explicit deep research, and shared Pi skills.
+The Pi already has the required shared skill paths and no explicit context or call-count overrides.
+Retain those settings so research uses provider context capacity and proportional call allowances.
+Keep local development credentials unchanged.
+Deployment remains unconfirmed until release CI and the Pi manifest confirm success.
+
+The 0.1.9 main promotion exposed a CI race in the sibling-recovery test's 0.3-second setup deadline.
+The test now advances isolated runtime clocks after one delegate completes, while preserving the event loop clock.
+It still checks the expired parent deadline, retained sibling answer, partial delegate, and single tool-free final response.
+This test-only correction changes no production limits or environment settings.

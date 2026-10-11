@@ -33,6 +33,29 @@ async def collect(session, prompt="Hello", session_id="local"):
     return [event async for event in session.stream(prompt, session_id=session_id)]
 
 
+async def test_terminal_replaces_incomplete_answer_and_hides_original_on_reopen(
+    terminal, scripted_models
+):
+    scripted_models.responses.append(
+        [
+            AssistantMessage(
+                "Incomplete draft with final source",
+                stop_reason="length",
+                usage={"output_tokens": 10},
+            )
+        ]
+    )
+    output = await collect(terminal)
+    replacement = next(e for e in output if isinstance(e, ModelFinished) and e.replace_answer)
+    assert "Incomplete draft with final source" in replacement.text
+    assert replacement.usage == {}
+    assert output[-1].status == "partial"
+    raw = terminal.db.load_history(terminal.owner, "local")
+    assert raw[-2].text == "Incomplete draft with final source"
+    assert len(terminal.history("local")) == len(raw) - 1
+    assert terminal.history("local")[-1].text == replacement.text
+
+
 async def test_terminal_stream_uses_application_tools_and_saves_history(terminal, scripted_models):
     scripted_models.responses.append(
         [

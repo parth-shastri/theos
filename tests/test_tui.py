@@ -805,3 +805,25 @@ async def test_only_main_response_shows_usage_even_with_expanded_intermediate_re
                 assert segment.style.bold is False
                 assert segment.style.color.name == _DETAIL_COLOR
         assert any('Your meal plan.' in segment.text and segment.style.bold for segment in segments)
+
+
+@pytest.mark.asyncio
+async def test_replacement_removes_drafts_after_a_later_generation_starts():
+    from renderer import RunStarted
+
+    app = HarnessTui(HarnessBinding(run=lambda *_: []), session_id='default')
+    async with app.run_test():
+        renderer = app.renderer
+        for event in [
+            RunStarted(prompt='Compare the research'), ModelStarted(),
+            TextDelta('Broken first draft'), ModelFinished(text='Broken first draft'),
+            ModelStarted(), TextDelta('Broken later draft'),
+            ModelFinished(text='Complete replacement with the final source.', replace_answer=True),
+            RunFinished('partial'),
+        ]:
+            renderer.handle(event)
+        transcript = _render_transcript(renderer)
+        assert 'Broken first draft' not in transcript
+        assert 'Broken later draft' not in transcript
+        assert 'Complete replacement with the final source.' in transcript
+        assert renderer.assistant_text == 'Complete replacement with the final source.'

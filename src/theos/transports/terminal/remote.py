@@ -12,7 +12,7 @@ from renderer.events import RunFinished
 from renderer.interactive import RuntimeInfo, SessionInfo, normalize_prompt
 from theos.storage.messages import restore_message
 
-from .wire import approval_events, decode_event
+from .wire import PROTOCOL_VERSION, approval_events, decode_event
 
 
 def server_url(value):
@@ -56,9 +56,8 @@ class RemoteSession:
     async def connect(self):
         self.me = await self.request("GET", "api/me")
         self.info = await self.request("GET", "api/terminal/info")
-        if self.info.get("protocol") != 1:
+        if self.info.get("protocol") != PROTOCOL_VERSION:
             raise ValueError("Update the deployment to use this terminal client.")
-        self.http.timeout = httpx.Timeout(15, read=self.info["turn_timeout"] + 30)
 
     async def close(self):
         await self.http.aclose()
@@ -130,13 +129,17 @@ class RemoteSession:
 
     async def history(self, session_id):
         return tuple(
-            restore_message(value) for value in (await self.snapshot(session_id))["history"]
+            restore_message(value)
+            for value in (await self.snapshot(session_id))["history"]
+            if not value.get("display", {}).get("superseded")
         )
 
     async def history_timestamps(self, session_id):
         row = self._snapshots.get(session_id) or await self.snapshot(session_id)
         return tuple(
-            timestamp(value.get("display", {}).get("created_at")) for value in row["history"]
+            timestamp(value.get("display", {}).get("created_at"))
+            for value in row["history"]
+            if not value.get("display", {}).get("superseded")
         )
 
     async def session_title(self, session_id):
@@ -213,10 +216,13 @@ class RemoteSession:
         finished = False
         try:
             async with self.http.stream(
-                "POST", self.path(session_id, suffix), json=body
+                "POST",
+                self.path(session_id, suffix),
+                json=body,
+                timeout=httpx.Timeout(15, read=None),
             ) as response:
                 await self.check_response(response)
-                if response.headers.get("X-Theos-Terminal-Protocol") != "1":
+                if response.headers.get("X-Theos-Terminal-Protocol") != str(PROTOCOL_VERSION):
                     raise RuntimeError("The deployment returned an unsupported terminal stream.")
                 data = []
                 async for line in response.aiter_lines():

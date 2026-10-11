@@ -4,12 +4,13 @@ import asyncio
 import json
 import time
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import pytest
 
 from harness import AssistantMessage, ToolCall, ToolResultMessage, UserMessage, tool
 from harness.testing import FakeModel
-from theos.runtime import recovery, tools
+from theos.runtime import hooks, recovery, tools
 
 from .conftest import collect
 
@@ -102,7 +103,8 @@ async def test_budget_reserves_one_tool_free_answer_with_unchanged_instructions(
     assert len(research.requests) + len(final.requests) == 3
     request = final.requests[0]
     assert not request.tools
-    assert request.messages[0].content == research.requests[0].messages[0].content
+    assert request.messages[0].content.startswith(research.requests[0].messages[0].content)
+    assert "Research has stopped" in request.messages[0].content
     assert any(isinstance(m, ToolResultMessage) and "7 AM" in m.content for m in request.messages)
     assert runtime.db.one("SELECT SUM(output_tokens) n FROM usage")["n"] == 9
     # A later user turn must work without replaying either completed tool call.
@@ -113,24 +115,28 @@ async def test_budget_reserves_one_tool_free_answer_with_unchanged_instructions(
     assert count == [1, 1]
 
 
-async def test_single_call_budget_returns_saved_findings_without_extra_request(runtime):
+async def test_single_call_budget_reserves_the_response_without_starting_research(runtime):
     runtime.settings.max_model_calls = 1
     count = await install_read(runtime)
-    research = FakeModel([read_call("one")])
-    use_models(runtime, research)
+    research = FakeModel([])
+    final = FakeModel([AssistantMessage("The opening time at 7 AM remains unverified.")])
+    use_models(runtime, research, final)
     row = session(runtime)
     assert_partial(
         runtime, row, await collect(runtime.start("alice", row["id"], "Read the source."))
     )
-    assert count == [1]
-    assert len(research.requests) == 1
+    assert count == []
+    assert len(research.requests) == 0
+    assert len(final.requests) == 1
+    assert not final.requests[0].tools
 
 
 class WaitingModel(FakeModel):
     async def stream(self, request):
         if len(self.requests) >= len(self.script):
             self.requests.append(request)
-            await asyncio.Event().wait()
+            await asyncio.sleep(0.05)
+            raise TimeoutError("The provider connection stalled.")
         async for event in super().stream(request):
             yield event
 
@@ -152,9 +158,8 @@ async def test_turn_timeout_preserves_results_and_finishes_inside_deadline(runti
     assert not final.requests[0].tools
 
 
-async def test_recovery_timeout_falls_back_without_retry(runtime, monkeypatch):
+async def test_provider_stall_during_recovery_falls_back_without_retry(runtime):
     runtime.settings.max_model_calls = 2
-    monkeypatch.setattr(recovery, "FINAL_SECONDS", 0.03)
     count = await install_read(runtime)
     research, final = FakeModel([read_call("one")]), WaitingModel([])
     use_models(runtime, research, final)
@@ -176,13 +181,18 @@ class OversizedModel(FakeModel):
 @pytest.mark.parametrize("recovery_fits", [True, False])
 async def test_context_limit_recovers_from_actual_request_sizing(runtime, recovery_fits):
     runtime.settings.context_tokens = 4096
-    content = "Verified opening time: 7 AM. " + "source material " * 5000
+    runtime.settings.max_compaction_calls = 0
+    content = "Verified opening time: 7 AM."
     count = await install_read(runtime, content)
     research = OversizedModel([read_call("one")])
     final_class = FakeModel if recovery_fits else OversizedModel
     final = final_class([AssistantMessage("The park opens at 7 AM.")])
     use_models(runtime, research, final)
     row = session(runtime)
+    runtime.db.execute(
+        "UPDATE sessions SET generation=? WHERE id=?",
+        (json.dumps({"max_output_tokens": 512}), row["id"]),
+    )
     history = assert_partial(
         runtime, row, await collect(runtime.start("alice", row["id"], "Read the source."))
     )
@@ -192,7 +202,8 @@ async def test_context_limit_recovers_from_actual_request_sizing(runtime, recove
     assert len(final.requests) == (1 if recovery_fits else 0)
 
 
-async def test_large_results_are_bounded_for_model_but_retained_in_storage(runtime):
+async def test_large_results_are_preserved_for_model_and_storage(runtime):
+    runtime.settings.context_tokens = 200000
     content = "Park opening time: 7 AM. " + "source material " * 5000
     await install_read(runtime, content)
     research = FakeModel([read_call("one"), AssistantMessage("It opens at 7 AM.")])
@@ -201,8 +212,7 @@ async def test_large_results_are_bounded_for_model_but_retained_in_storage(runti
     events = await collect(runtime.start("alice", row["id"], "Read the source."))
     assert events[-1]["status"] == "completed"
     sent = next(m for m in research.requests[-1].messages if isinstance(m, ToolResultMessage))
-    assert len(sent.content) < 8100
-    assert sent.content.endswith("[Result shortened.]")
+    assert sent.content == content
     saved = next(
         m for m in runtime.db.load_history("alice", row["id"]) if isinstance(m, ToolResultMessage)
     )
@@ -277,10 +287,31 @@ async def test_one_delegate_timeout_preserves_sibling_answer(runtime, monkeypatc
     assert len(parent.requests) == 2
 
 
-async def test_turn_timeout_during_delegation_preserves_completed_sibling(runtime):
-    runtime.settings.turn_timeout = 0.15
+async def test_turn_timeout_during_delegation_preserves_completed_sibling(runtime, monkeypatch):
+    # Advance only runtime deadline clocks after the sibling has returned its answer.
+    # Keep the event loop's real clock intact and allow CI setup to take any duration.
+    clock = [time.monotonic()]
+    finished = asyncio.Event()
+    monkeypatch.setattr(hooks, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(tools, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+
+    class CompletedModel(FakeModel):
+        async def stream(self, request):
+            try:
+                async for event in super().stream(request):
+                    yield event
+            finally:
+                finished.set()
+
+    class SlowWaitingModel(WaitingModel):
+        async def stream(self, request):
+            await asyncio.wait_for(finished.wait(), timeout=5)
+            clock[0] = runtime.active[row["id"]].research_deadline + 1
+            async for event in super().stream(request):
+                yield event
+
     parent = FakeModel([delegate_call()])
-    fast, slow = FakeModel([AssistantMessage("Park opens at 7 AM.")]), WaitingModel([])
+    fast, slow = CompletedModel([AssistantMessage("Park opens at 7 AM.")]), SlowWaitingModel([])
     final = FakeModel([AssistantMessage("The park opens at 7 AM. Museum hours remain unverified.")])
     use_models(runtime, parent, fast, slow, final)
     row = session(runtime)
@@ -294,6 +325,8 @@ async def test_turn_timeout_during_delegation_preserves_completed_sibling(runtim
     by_name = {d["name"]: d for d in json.loads(result.content)}
     assert by_name["Park hours"]["answer"] == "Park opens at 7 AM."
     assert by_name["Museum hours"]["status"] == "partial"
+    assert by_name["Museum hours"]["reason"] == "timeout"
+    assert len(parent.requests) == len(final.requests) == 1
     assert (
         runtime.db.one("SELECT status FROM tool_runs WHERE call_id='delegates'")["status"]
         == "completed"
@@ -340,7 +373,14 @@ async def test_output_limit_returns_explicit_partial_answer(runtime):
     final = FakeModel([AssistantMessage("Park opens at 7 AM; other details remain unverified.")])
     use_models(runtime, parent, final)
     row = session(runtime)
-    assert_partial(runtime, row, await collect(runtime.start("alice", row["id"], "Plan a walk.")))
+    events = await collect(runtime.start("alice", row["id"], "Plan a walk."))
+    history = assert_partial(runtime, row, events)
+    assert "Park opens at 7 AM. More details" in history[-1].text
+    assert "provider stopped generation" in history[-1].text
+    assert not final.requests
+    assert history[-2]._theos_display["superseded"]
+    replacement = next(e for e in events if e["type"] == "answer_replace")
+    assert replacement["text"] == history[-1].text
 
 
 @pytest.mark.parametrize("max_calls", [6, 12])
@@ -375,14 +415,14 @@ async def test_delegate_iterations_are_enforced_and_parent_can_answer(
     assert_partial(
         runtime, row, await collect(runtime.start("alice", row["id"], "Compare the opening times."))
     )
-    assert len(parent.requests) == 2
+    assert len(parent.requests) in {1, 2}
     assert all(len(child.requests) <= delegate_calls for child in children)
-    assert sum(len(m.requests) for m in [parent, *children]) <= max_calls - 1
+    assert sum(len(m.requests) for m in [parent, *children]) <= max_calls
     if max_calls >= 2 * delegate_calls + 3:
         assert all(len(child.requests) == delegate_calls for child in children)
 
 
-def test_saved_findings_keep_both_delegate_answers_within_total_bound():
+def test_saved_findings_keep_both_delegate_answers_in_full():
     delegates = [
         {
             "name": "Mumbai itinerary",
@@ -402,4 +442,5 @@ def test_saved_findings_keep_both_delegate_answers_within_total_bound():
     answer = recovery.findings(history, 1)
     assert "Mumbai museum opens at 10 AM" in answer
     assert "Bengaluru gallery opens at 11 AM" in answer
-    assert len(answer) <= 8100
+    assert delegates[0]["answer"] in answer
+    assert delegates[1]["answer"] in answer

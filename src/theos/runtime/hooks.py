@@ -2,6 +2,7 @@
 
 import json
 import time
+from time import monotonic
 
 from harness import (
     Hooks,
@@ -12,11 +13,11 @@ from theos.runtime.models import session_options
 from theos.storage.messages import stamp_message
 
 from .approvals import check_approval
-from .recovery import bound_tool_results
+from .context import ResearchStopped, options
 from .text import reply_text
 
 
-def build_hooks(runtime, session):
+def build_hooks(runtime, session, *, limits=None, deadline=None):
     """Save model and tool checkpoints at the harness execution boundaries."""
     owner = session["owner"]
     session_id = session["id"]
@@ -31,8 +32,19 @@ def build_hooks(runtime, session):
             stamp_message(image)
             ctx.history.append(image)
             request.messages.append(image)
-        request.options.update(session_options(runtime.settings, session))
-        bound_tool_results(request, runtime.settings.context_tokens * 2)
+        if deadline is not None and monotonic() >= deadline:
+            raise ResearchStopped("The research reached its time limit.")
+        request.options.update(
+            options(runtime, session, limits)
+            if limits
+            else session_options(runtime.settings, session)
+        )
+        turn = runtime.active.get(session_id)
+        if turn and turn.research_id:
+            runtime.research.attach(request, owner, session_id, turn.research_id)
+            runtime.research.checkpoint(
+                owner, session_id, turn.research_id, ctx.history, ctx.memory
+            )
         started = time.monotonic()
         created_at = time.time()
         return request
@@ -56,6 +68,8 @@ def build_hooks(runtime, session):
         return message
 
     async def before_tool(tool, args, ctx):
+        if deadline is not None and monotonic() >= deadline:
+            raise ResearchStopped("The research reached its time limit.")
         decision = await check_approval(runtime, session, tool, args, ctx)
         if decision.kind != "allow":
             with runtime.tracing.span(
@@ -72,6 +86,14 @@ def build_hooks(runtime, session):
         return decision
 
     async def after_tool(result, ctx):
+        turn = runtime.active.get(session_id)
+        if turn and turn.research_id:
+            from theos.services.research.tools import capture_search
+
+            result = capture_search(runtime, session, turn.research_id, result)
+            runtime.research.checkpoint(
+                owner, session_id, turn.research_id, [*ctx.history, result], ctx.memory
+            )
         if result.name == "sandbox_view_image" and result.status == "completed":
             value = json.loads(result.content)
             ctx.state.setdefault("view_images", []).append(value["file_id"])

@@ -64,12 +64,18 @@ async def command(bot, session, command, argument, chat, topic):
         await bot.send(
             chat,
             f"I am {bot.settings.name}, your personal assistant.\n\n"
-            "Send a message, photo, document, or voice note. Commands: /web, /new, /resume, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_zepto.",
+            "Send a message, photo, document, or voice note. Commands: /web, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_zepto.",
             topic,
         )
     elif command in {"/new", "/reset"}:
         await bot.runtime.reset(owner, session["id"])
         await bot.send(chat, "Conversation reset. Your saved records remain available.", topic)
+    elif command == "/research":
+        if not argument.strip():
+            raise ValueError("Use /research followed by your question.")
+        await bot.render(
+            bot.runtime.start(owner, session["id"], argument, mode="deep_research"), chat, topic
+        )
     elif command == "/resume":
         await bot.render(bot.runtime.start(owner, session["id"]), chat, topic)
     elif command == "/model":
