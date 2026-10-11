@@ -13,7 +13,8 @@ The full suite passed 854 tests, with three credential-dependent live checks exc
 Regression checks cover provider changes across consecutive turns, exact HTTP 400/404 retries, preserved tool exchanges, and empty recovery.
 Three live turns completed against a disposable copy of the Pi conversation with mixed OpenAI and Azure state.
 The copy used the full runtime and configured services. It did not change production chat or send Telegram messages.
-Live audio transcription had already succeeded before the failing model request.
+A second diagnostic transcribed the saved seven-second voice note and ran its unchanged text in a disposable fresh conversation.
+That turn and the following text turn completed. No Telegram message or scheduled reminder was delivered.
 The Pi beta reset clears chats, pending chat actions, Telegram inbox payloads, and trace records.
 It retains accounts, preferences, credentials, files, usage records, and the Telegram offset.
 
