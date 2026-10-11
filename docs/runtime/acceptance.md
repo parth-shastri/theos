@@ -418,6 +418,14 @@ The new service map and Telegram sequence use the Excalidraw MCP.
 Their editable sources, elements, and PNG previews remain together under `docs/architecture`.
 The guides embed PNG previews and link to editable sources.
 
+The 2026-10-11 sandbox startup fix explicitly starts the interpreter for new sandboxes.
+The full suite passed 854 tests, with three live tests excluded.
+Ruff lint, formatting, and package builds passed.
+A patched application client ran from the Pi against the Mac mini.
+It passed Python execution, file retrieval, reconnection, and destruction in 10.57 seconds.
+The earlier range execution timeout remains unresolved.
+These checks did not cover Telegram delivery or browser automation.
+
 ## Repeat the deterministic checks
 
 1. Install the locked dependencies.
@@ -469,7 +477,7 @@ Mocks do not count as live results.
 | Automatic memory | Approve consolidation, submit personal facts, confirm retrieval and correction, then disable consolidation | Pending |
 | Scheduled agent tasks | Receive a timed Telegram result, approve a protected action, and inspect a recurring run after restart | Pending |
 | Exa, Brave, Open-Meteo | Search, exercise fallback, request a forecast | Pending |
-| OpenSandbox | Create, reconnect, execute code, automate a browser, deliver a file, destroy | Pending |
+| OpenSandbox | Create, reconnect, execute code, automate a browser, deliver a file, destroy | Patched application client creation, Python execution, file retrieval, reconnection, and destruction passed from the Pi on 2026-10-11. Range execution, browser automation, and transport delivery remain pending |
 | R2 | Archive, restore, and delete a disposable object | Pending |
 | Transcription and Kokoro | Transcribe audio and play generated speech | Pending. Operator confirmed Whisper Small cache discovery on the Mac mini on 2026-10-04. Inference and playback remain unconfirmed |
 | Gmail | Connect, read a thread, download an attachment, draft, approve, and send to a test recipient | Pending |
