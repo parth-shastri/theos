@@ -165,6 +165,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     async def create(*args, **kwargs):
         created.append(kwargs)
         assert kwargs["env"] == {} and "volumes" not in kwargs
+        assert kwargs["entrypoint"] == ["/opt/code-interpreter/code-interpreter.sh"]
         assert kwargs["connection_config"].use_server_proxy is use_server_proxy
         return sandbox
 
@@ -200,6 +201,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     restarted = Sandboxes(runtime.settings, runtime.db, runtime.files)
     await restarted.get("alice", "session1")
     assert connected == ["sandbox1"]
+    assert len(created) == 1
     await restarted.get("bob", "session1")
     assert len(created) == 2
     await call_tool(restarted.tools("bob", "session1"), "sandbox_lifecycle", action="destroy")
