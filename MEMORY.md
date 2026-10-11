@@ -275,7 +275,7 @@ Release `rpi-v0.1.2` deployed successfully on 2026-10-10 through workflow 380528
 The operator requested PR #11's Telegram formatting and punctuation fix on `dev`, `main`, and `rpi`, followed by a new release tag.
 Release `rpi-v0.1.3` deployed successfully on 2026-10-10 through workflow 38057843139. The Pi manifest confirmed the release and healthy container.
 The operator authorized merging ZDR promotion PRs #15 and #16 with merge commits after CI, followed by a new Pi release.
-Prepare package version `0.1.4` and tag `rpi-v0.1.4` through the normal topic-branch and promotion PR workflow. Release `rpi-v0.1.9` deployed successfully through workflow `38144121306` after the skill mount correction below.
+Prepare package version `0.1.4` and tag `rpi-v0.1.4` through the normal topic-branch and promotion PR workflow. Deployment remains unconfirmed until release CI and the Pi manifest confirm success.
 The running container uses `owner` and the HTTPS Google callbacks. Readiness and browser-token authentication passed.
 The GHCR image denies anonymous pulls. The first registry upload failed with `unknown blob`; retrying publication succeeded before any deployment change.
 The Cloudflare tunnel routes all paths on `theos.parth-shastri.com` to `http://localhost:8080`. Its proxied CNAME targets tunnel `4584e314-7c3f-448a-8118-7b6e324ebe3c`. Public HTTPS checks passed for the homepage and its assets, health endpoints, authenticated owner APIs, rejection of anonymous API requests, and both Google callback routes. A real model turn completed through the public SSE stream, and its conversation history was saved. The operator updated the Google redirect list. Full Google consent and account linking remain untested. The existing `mytheos.parth-shastri.com` frontend uses its original Vercel CNAME. On the operator Mac, Tailscale's internal DNS lookup retained a stale nonexistent-domain response despite correct public DNS answers. Refreshing `accept-dns` off and back to its original enabled setting restored normal macOS resolution. The Theos browser workspace then loaded, owner sign-in succeeded, and a browser-submitted real model turn returned `BROWSER_OK` in Brave.
@@ -348,7 +348,7 @@ Release 0.1.9 combines private Jaeger access, complete research responses, expli
 The Pi already has the required shared skill paths and no explicit context or call-count overrides.
 Retain those settings so research uses provider context capacity and proportional call allowances.
 Keep local development credentials unchanged.
-Deployment remains unconfirmed until release CI and the Pi manifest confirm success.
+Release `rpi-v0.1.9` deployed successfully through workflow `38144121306` after the skill mount correction below.
 
 The 0.1.9 main promotion exposed a CI race in the sibling-recovery test's 0.3-second setup deadline.
 The test now advances isolated runtime clocks after one delegate completes, while preserving the event loop clock.
