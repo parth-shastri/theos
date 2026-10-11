@@ -1,8 +1,10 @@
 """OpenRouter response fields that the generic OpenAI adapter does not retain."""
 
 import copy
+import logging
 from decimal import Decimal, InvalidOperation
 
+from openai import NotFoundError
 from openai.types.chat import ChatCompletion
 
 from harness import AssistantMessage
@@ -81,6 +83,50 @@ class OpenRouterChatModel(OpenAIChatModel):
         return message
 
     async def _stream_chat(self, payload):
+        emitted = False
+        try:
+            async for event in self._stream_chat_once(payload):
+                emitted = True
+                yield event
+            return
+        except NotFoundError as error:
+            body = error.body if isinstance(error.body, dict) else {}
+            message = body.get("message", "")
+            if isinstance(body.get("error"), dict):
+                message = body["error"].get("message", message)
+            if (
+                emitted
+                or not self.model_id.startswith("openai/")
+                or not isinstance(message, str)
+                or "No endpoints found matching your data policy (Zero data retention)"
+                not in message
+            ):
+                raise
+            retry = copy.deepcopy(payload)
+            changed = False
+            for wire in retry["messages"]:
+                if any(
+                    block.get("type") == "reasoning.encrypted"
+                    and block.get("format")
+                    in {
+                        "openai-responses-v1",
+                        "azure-openai-responses-v1",
+                        "bedrock-openai-responses-v1",
+                    }
+                    for block in wire.get("reasoning_details", [])
+                ):
+                    # Omit the whole sequence. Never alter signed reasoning blocks.
+                    wire.pop("reasoning_details", None)
+                    wire.pop("reasoning", None)
+                    changed = True
+            if not changed:
+                raise
+            logging.getLogger("theos").warning("openrouter_reasoning_replay_rejected")
+        # Routing rejected the first request before generation. Keep ZDR and tools unchanged.
+        async for event in self._stream_chat_once(retry):
+            yield event
+
+    async def _stream_chat_once(self, payload):
         if not self.streaming:
             raw = await self.client.chat.completions.create(**payload)
             yield GenerationComplete(self.decode_response(raw))
