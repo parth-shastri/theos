@@ -349,3 +349,8 @@ The Pi already has the required shared skill paths and no explicit context or ca
 Retain those settings so research uses provider context capacity and proportional call allowances.
 Keep local development credentials unchanged.
 Deployment remains unconfirmed until release CI and the Pi manifest confirm success.
+
+The 0.1.9 main promotion exposed a CI race in the sibling-recovery test's 0.3-second setup deadline.
+The test now advances isolated runtime clocks after one delegate completes, while preserving the event loop clock.
+It still checks the expired parent deadline, retained sibling answer, partial delegate, and single tool-free final response.
+This test-only correction changes no production limits or environment settings.
