@@ -2,6 +2,16 @@
 
 Theos records application events, tool traces, and model usage locally.
 Optional OpenTelemetry tracing exports one trace per turn through OTLP/HTTP protobuf.
+
+OpenRouter can reject saved encrypted reasoning when its required endpoint conflicts with zero data retention.
+The adapter retries that routing rejection once without the affected reasoning sequences, before generation starts.
+It preserves ZDR, visible history, tool exchanges, and request options.
+The log event `openrouter_reasoning_replay_rejected` records this recovery without private content.
+For OpenAI models, each request replays only the latest known provider format of encrypted reasoning.
+The adapter omits incompatible sequences from the wire request and retains saved messages and signed blocks.
+It also retries a mixed-provider HTTP 400 once before generation, without incompatible reasoning.
+The event `turn_incomplete` records a turn that needs finalization.
+The call budget counts harness model calls. SDK retries and this bounded routing retry are transport attempts within those calls.
 The application log formatter excludes prompts, credentials, and remote error bodies.
 Conversation history remains private data in SQLite and needs separate protection.
 
@@ -102,10 +112,13 @@ Parallel delegates appear as separate branches with overlapping timings.
 Model spans also cover context summaries. Title generation has a separate `generate_title` span.
 Approval requests and policy denials create tool spans without executing the tool.
 
-Limit recovery adds a `finalize partial answer` span with `theos.recovery.reason` and `theos.recovery.mode`.
+Limit recovery adds a `finalize answer` span with `theos.recovery.reason` and `theos.recovery.mode`.
 The mode identifies a final model request, an existing answer, or saved findings.
 Any final model request appears beneath this span and has no tools.
-The turn records `partial` status. An uncertain external action retains `uncertain` trace status and requires review.
+The turn records `partial` status when it returns useful findings.
+If finalization has no useful output, it returns a clear failure and records `failed` status.
+The finalization span then records `theos.recovery.mode=failure` and a `no_answer` error.
+An uncertain external action retains `uncertain` trace status and requires review.
 Partial delegates expose their status and recovery reason. Completed sibling findings remain available to the parent.
 Model-visible tool copies have character limits separate from the OTel capture limits below.
 The runtime retains full durable tool results and does not repeat tools during recovery.

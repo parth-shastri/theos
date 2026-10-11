@@ -1,5 +1,36 @@
 # Feature and acceptance checklist
 
+## Provider state recovery hotfix
+
+A later voice turn transcribed successfully, but its model request mixed OpenAI and Azure encrypted reasoning.
+OpenRouter rejected this mixed history with HTTP 400. The following text turn failed for the same reason.
+Release 0.1.7 selects the latest known provider format for each OpenAI request and omits incompatible sequences.
+It preserves saved history, visible messages, tool exchanges, request options, and ZDR.
+A specific mixed-provider rejection permits one retry before generation. Unrelated errors and started streams do not retry.
+Empty recovery now returns a clear failure with `failed` status. Useful saved findings retain `partial` status.
+No model instructions changed.
+The full suite passed 854 tests, with three credential-dependent live checks excluded.
+Regression checks cover provider changes across consecutive turns, exact HTTP 400/404 retries, preserved tool exchanges, and empty recovery.
+Three live turns completed against a disposable copy of the Pi conversation with mixed OpenAI and Azure state.
+The copy used the full runtime and configured services. It did not change production chat or send Telegram messages.
+A second diagnostic transcribed the saved seven-second voice note and ran its unchanged text in a disposable fresh conversation.
+That turn and the following text turn completed. No Telegram message or scheduled reminder was delivered.
+The Pi beta reset clears chats, pending chat actions, Telegram inbox payloads, and trace records.
+It retains accounts, preferences, credentials, files, usage records, and the Telegram offset.
+
+## OpenRouter reasoning routing hotfix
+
+On 2026-10-11, the Pi returned partial answers because OpenRouter rejected saved encrypted OpenAI reasoning under ZDR.
+The same conversation succeeded without the incompatible reasoning sequences.
+Fresh Azure reasoning replay succeeded with ZDR.
+The adapter now retries that specific routing rejection once, before any generation event.
+The retry preserves ZDR, visible messages, tool exchanges, tools, and model options.
+Saved history remains unchanged. Claude signatures and unrelated failures retain their previous behavior.
+The full suite passed 844 checks, with three credential-dependent live checks excluded.
+A live diagnostic on the Pi completed with the affected history and all 98 tools.
+The diagnostic executed no tools and changed no production conversation records.
+
+
 The capability baseline uses upstream commit `d006624c150973a5637dbfb47ec0b4a6ff3ed613`.
 This checklist covers its user-facing capabilities and the additional persistence, transport, and deployment requirements.
 Tool names and transport APIs can differ from the upstream ADK interfaces.
@@ -107,7 +138,7 @@ Runtime recovery now reserves one model call and up to 15 seconds within the tur
 The recovery request uses unchanged instructions and no tools. Failed recovery returns bounded saved findings with explicit uncertainty.
 Sixteen deterministic checks cover turn and delegate timeouts, shared and delegate budgets, context sizing, recovery failures, output truncation, and explicit cancellation.
 They also check full durable results, bounded model-visible copies, completed sibling findings, conversation continuation, and uncertain writes without repetition.
-Tracing checks confirm the `partial` root status and the final model beneath a `finalize partial answer` span.
+Tracing checks confirm the `partial` root status and the final model beneath a `finalize answer` span.
 Terminal checks verify visible partial replies. Schedule checks verify that incomplete runs pause their schedule.
 The full suite passed 764 tests, with three live tests excluded. Ruff checks, package builds, and the local Docker build passed.
 The unchanged realistic travel query completed again with both named delegates, ten model calls, and 25 spans over 109 seconds.
