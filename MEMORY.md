@@ -63,6 +63,8 @@ Updated: 2026-10-11.
 | Reply generation requirement | Use provider limits for assistant replies. Do not impose application output-token caps or deadlines that truncate active reply generation. Implementation remains pending, including recovery |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
+| Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos loads physical copies from `/data/skills` through `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
+| Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
 | Comments | Explain constraints and number the major workflow steps |
 | Documentation | Task-based Markdown guides, Simplified Technical English, and existing Excalidraw PNG diagrams |
 

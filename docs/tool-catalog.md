@@ -255,6 +255,33 @@ Source: [service tools](../src/theos/services/skills/tools.py).
 | `list_skills` | List the skill instructions installed by the operator. |
 | `load_skill` | Read a skill or a resource inside its directory. |
 
+The Pi uses `/home/neuron/.agents/skills` as its shared skill directory.
+Theos reads a physical copy from `/data/skills` with `AGENT_SKILLS_DIR=/data/skills`.
+The [skills.sh CLI](https://skills.sh/docs) installed code review, arXiv, Hugging Face papers, DOCX, XLSX, and PDF skills.
+It runs through a temporary Node 22 runtime because the Pi's system Node 20 is incompatible with `skills@1.7.2`.
+Source licenses, installation metadata, hashes, and local corrections remain with the installation.
+
+The local [report style](../skills/report-style/SKILL.md) supplies the default appearance for new PDF and DOCX reports.
+The [style updater](../scripts/apply_skill_styles.py) adds its policy to the upstream DOCX and PDF instructions.
+The policy preserves explicit user styles and existing document formats during edits.
+See [shared skill maintenance](../skills/README.md) for installation and updates.
+
+| Report helper | Dependencies |
+| --- | --- |
+| `build_doc.py` | Python 3.10 or later, Markdown, Chrome or Chromium, network access for CSS fonts |
+| `build_docx.py` | Python 3.10 or later, python-docx, Markdown, Beautiful Soup, Inter and DejaVu Sans Mono fonts |
+| DOCX diagrams | Playwright and Chrome or Chromium |
+| Visual verification | LibreOffice for DOCX conversion and Poppler for PDF page images |
+
+The helper scripts declare their Python dependencies for `uv run`.
+Copy their scripts and text assets into the remote sandbox before execution.
+Skill installation does not install browser binaries, fonts, LibreOffice, or Poppler in that sandbox.
+
+On 2026-10-11, the Pi's deployed loader listed seven skills and read every instruction file.
+It also read the report scripts, stylesheet, JavaScript, and diagram references.
+Local PDF and DOCX samples rendered successfully and passed page inspection.
+Those samples do not verify remote document execution or transport delivery.
+
 ## Files
 
 Private SQLite catalog and local files. R2 operations also use boto3 and configured bucket credentials.
