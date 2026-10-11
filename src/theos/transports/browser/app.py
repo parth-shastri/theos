@@ -41,6 +41,7 @@ class NewSession(BaseModel):
 
 
 class ChatInput(BaseModel):
+    mode: Literal["normal", "deep_research"] = "normal"
     text: str = Field(default="", max_length=32000)
     files: list[str] = Field(default_factory=list, max_length=10)
 
@@ -266,6 +267,25 @@ def create_app(settings=None, runtime=None):
         row["usage"] = usage_summary(current(request).db, owner=owner, session=session_id)
         return row
 
+    @app.get("/api/sessions/{session_id}/research")
+    async def research_runs(session_id: str, request: Request, owner=Depends(identity)):
+        browser_session(request, owner, session_id)
+        return current(request).research.runs(owner, session_id)
+
+    @app.get("/api/sessions/{session_id}/research/{run_id}")
+    async def research_run(session_id: str, run_id: str, request: Request, owner=Depends(identity)):
+        browser_session(request, owner, session_id)
+        store = current(request).research
+        row = store.get(owner, session_id, run_id)
+        row["history"] = json.loads(row["history"])
+        row["memory"] = json.loads(row["memory"])
+        row["items"] = store.items(owner, session_id, run_id, family=True)
+        row["checkpoints"] = current(request).db.rows(
+            "SELECT id,history,memory,created FROM research_checkpoints WHERE run=? ORDER BY id",
+            (run_id,),
+        )
+        return row
+
     @app.get("/api/usage")
     async def usage(request: Request, owner=Depends(identity)):
         return usage_summary(current(request).db, owner=owner)
@@ -339,7 +359,9 @@ def create_app(settings=None, runtime=None):
         browser_session(request, owner, session_id)
         if not body.text.strip() and not body.files:
             raise ValueError("Enter a message or attach a file.")
-        return stream(current(request).start(owner, session_id, body.text, body.files))
+        return stream(
+            current(request).start(owner, session_id, body.text, body.files, mode=body.mode)
+        )
 
     @app.post("/api/sessions/{session_id}/resume")
     async def resume(session_id: str, request: Request, owner=Depends(identity)):

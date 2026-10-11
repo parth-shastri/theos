@@ -83,32 +83,44 @@ See the [terminal guide](../terminal.md#connect-to-a-deployment).
 | `AGENT_DATA_DIR` | `.theos` | Databases, local files, and logs |
 | `AGENT_MAX_CONCURRENT_TURNS` | `4` | Concurrent turns, from 1 to 32 |
 | `AGENT_MAX_MODEL_CALLS` | `30` | Total calls per turn, including compaction, titles, and recovery, from 1 to 100 |
-| `AGENT_MAX_COMPACTION_CALLS` | `5` | Reserved compaction calls within the total, from 0 to 100 |
-| `AGENT_MAX_RECOVERY_CALLS` | `2` | Reserved tool-free recovery calls within the total, from 0 to 100 |
-| `AGENT_DELEGATE_MAX_MODEL_CALLS` | `10` | Calls per delegate within the shared research allowance, from 1 to 100 |
-| `AGENT_TURN_TIMEOUT` | `300` | Turn duration in seconds, from 10 to 3600 |
-| `AGENT_CONTEXT_TOKENS` | `24000` | Harness context window, at least 4096 tokens |
+| `AGENT_MAX_COMPACTION_CALLS` | Unset; derived | Optional explicit summary count, from 0 to 100. Zero disables summaries |
+| `AGENT_COMPACTION_CALL_RATIO` | `1/6` | Fraction of total reserved for summaries when the count is absent, from 0 to 1. Round up |
+| `AGENT_MAX_RECOVERY_CALLS` | `1` | Legacy setting accepted for compatibility. The runtime always reserves one final response call |
+| `AGENT_DELEGATE_MAX_MODEL_CALLS` | Unset; derived | Optional explicit research and handoff ceiling per delegate, from 1 to 100 |
+| `AGENT_DELEGATE_CALL_RATIO` | `1/3` | Fraction of total for each delegate ceiling when the count is absent, greater than 0 and at most 1. Round up |
+| `AGENT_TURN_TIMEOUT` | `300` | Deadline for new research, from 10 to 3600 seconds. Active answers can finish after it |
+| `AGENT_CONTEXT_TOKENS` | Unset | Optional context override, at least 4096 tokens and within known provider capacity |
+| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.6` | Compact at this fraction of context capacity, from 0.5 to 0.7 |
 | `AGENT_MAX_UPLOAD_BYTES` | `10485760` | File limit, from 1024 to 26214400 bytes |
 
 Compose overrides the host, port, and data directory with `0.0.0.0`, `8080`, and `/data`.
 Use `HOST_BIND_IP` and `HOST_PORT` to change the host mapping.
-The context setting controls harness context handling.
-It does not change the capacity of the selected model.
+Unset context uses the model capacity from provider metadata or the verified catalog.
+Unknown models use a logged 24,000-token fallback unless the operator configures a window.
+The context override does not increase the selected model's capacity.
+Remove an earlier `AGENT_CONTEXT_TOKENS=24000` setting to use the advertised model window.
+Compaction starts at 60 percent by default and targets 45 percent after a complete summary.
 
-The default total contains 23 research calls, five compaction calls, and two recovery calls.
-The parent and all delegates share the research allowance. Title generation also uses this allowance.
-Each delegate has its own configured cap and retains one shared research call for the parent.
+Omitted counts derive from the total using the configured ratios, rounded up.
+Explicit counts override their own ratios. Remove old explicit counts to enable automatic derivation.
+The default total of 30 gives 24 research calls, five summary calls, and one parent response call.
+A total of 50 gives 40 research calls, nine summary calls, and one parent response call.
+The delegate ceiling grows from ten to 17 research and handoff calls.
+It is bounded by shared research capacity. Summary allocation also retains one research slot on small totals.
+Settings are resolved once per turn. Recreate the container after changing environment variables.
+The parent and delegates share research calls. Title generation also uses this allowance.
+Each delegate reserves a handoff call before research starts. Its derived ceiling includes that response.
+Delegate summaries count toward the shared total, outside its research and handoff ceiling.
 Compaction uses its reserved allowance without consuming research calls.
 Unused compaction calls stay reserved. They do not extend research.
 Each summary chunk consumes one compaction call, including failed provider requests.
-Exhausted compaction returns a partial answer through the existing recovery path.
-Recovery can use two tool-free calls within the same 15-second allowance.
-A failed first request can use the second slot when time remains. Tools are never repeated.
-Set `AGENT_MAX_RECOVERY_CALLS=1` for one attempt, or zero to return saved findings directly.
 Compaction usage enters the same usage records as ordinary model requests.
 
-Small total limits reduce the effective compaction allowance to retain one research call and the effective recovery allowance.
-A total limit of one permits one research call and uses saved findings for recovery.
+On research exhaustion, the runtime requests one final response without tools or a generation deadline.
+A failed final response returns complete saved findings without retrying.
+The legacy recovery setting no longer changes the single-attempt rule.
+Small total limits reduce compaction reserves first.
+A total limit of one reserves the final response and starts no research.
 Set the compaction allowance to zero to disable model-based compaction.
 The request must still fit the configured context window.
 The delegate deadline remains 85 seconds. The turn deadline remains 300 seconds by default.
@@ -151,6 +163,14 @@ The existing `gpt-6-luna` default remains available.
 Direct OpenAI adds only `gpt-5.6-luna` to its configured model.
 Other providers use the configured model unless an operator supplies an allowlist.
 Browser generation controls use a provider capability snapshot and save per conversation.
+There is no output-token setting in `.env`. Set `max_output_tokens` in the conversation generation controls.
+Without an override, requests use the known provider output maximum.
+The `gpt-6-luna` catalog fallback is 128,000 output tokens. OpenRouter metadata can update this value.
+Space checks reserve that output allowance before summarizing input. They do not silently lower the setting.
+Smaller context overrides must still accommodate the requested output and the preserved task.
+Calls without a known output setting share the 8,192-token space estimate defined in `harness/output.py`.
+This estimate does not change provider generation settings or shorten returned answers.
+A context override smaller than this estimate needs an explicit conversation output setting.
 
 ## Telegram
 
@@ -305,3 +325,8 @@ Do not paste credentials into chat or a sandbox.
 Use `docker compose config --quiet` for routine configuration checks.
 The full resolved configuration can contain credentials.
 Back up the token encryption key with the matching application data.
+
+The parent holds one summary call for its final response within the summary allowance.
+Each active delegate holds one when available. Completed delegates release unused holds.
+These holds do not add calls or change the generation output setting.
+See the [call budget map](../runtime/call-budgets.md).

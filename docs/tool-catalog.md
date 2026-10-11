@@ -255,6 +255,44 @@ Source: [service tools](../src/theos/services/skills/tools.py).
 | `list_skills` | List the skill instructions installed by the operator. |
 | `load_skill` | Read a skill or a resource inside its directory. |
 
+The Pi uses `/home/neuron/.agents/skills` as its shared skill directory.
+Theos mounts that same directory read-only at `/data/skills` with `AGENT_SKILLS_DIR=/data/skills`.
+The operator sets `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and installs `compose.skills.yaml` in the deployment directory.
+The deployment script retains this mount during release and rollback.
+Manual Compose commands must include the shared-skills file explicitly.
+Host skill updates appear without a copy or application restart.
+The [skills.sh CLI](https://skills.sh/docs) installed code review, Papers with Code, arXiv, Hugging Face papers, DOCX, XLSX, and PDF skills.
+It runs through a temporary Node 22 runtime because the Pi's system Node 20 is incompatible with `skills@1.7.2`.
+Source licenses, installation metadata, hashes, and local corrections remain with the installation.
+
+The local [report style](../skills/report-style/SKILL.md) supplies the default appearance for new PDF and DOCX reports.
+The [style updater](../scripts/apply_skill_styles.py) adds its policy to the upstream DOCX and PDF instructions.
+The policy preserves explicit user styles and existing document formats during edits.
+See [shared skill maintenance](../skills/README.md) for installation and updates.
+
+| Report helper | Dependencies |
+| --- | --- |
+| `build_doc.py` | Python 3.10 or later, Markdown, Chrome or Chromium, network access for CSS fonts |
+| `build_docx.py` | Python 3.10 or later, python-docx, Markdown, Beautiful Soup, Inter and DejaVu Sans Mono fonts |
+| DOCX diagrams | Playwright and Chrome or Chromium |
+| Visual verification | LibreOffice for DOCX conversion and Poppler for PDF page images |
+
+The helper scripts declare their Python dependencies for `uv run`.
+Copy their scripts and text assets into the remote sandbox before execution.
+Skill installation does not install browser binaries, fonts, LibreOffice, or Poppler in that sandbox.
+
+Paper research uses the official `pwc-cli` skill first, with arXiv and Hugging Face as supplemental sources.
+The Pi has `pwc 0.4.3` in an isolated Python environment.
+Live search and metadata retrieval passed against the public catalog.
+The remote sandbox needs a separate CLI installation.
+
+On 2026-10-11, the Pi's deployed loader listed eight skills and read every instruction file.
+A temporary host-file change appeared through `load_skill` without a restart.
+The container mount is read-only.
+It also read the report scripts, stylesheet, JavaScript, and diagram references.
+Local PDF and DOCX samples rendered successfully and passed page inspection.
+Those samples do not verify remote document execution or transport delivery.
+
 ## Files
 
 Private SQLite catalog and local files. R2 operations also use boto3 and configured bucket credentials.
@@ -370,38 +408,103 @@ Calls run in order. Failed or canceled calls do not replay automatically.
 ## Delegated research
 
 `delegate_tasks` runs up to three research tasks with the parent's research allowance.
-Each assignment can supply a descriptive `name` and a `task`. Results and OTel spans include that name.
+Each assignment supplies a descriptive `name`, `task`, relevant `context`, quoted `requirements`, and optional deep-research `source_ids`. Results and OTel spans include that name.
 Theos chooses names from task scope. Users do not need to request delegation or name agents.
 The runtime instructions prefer concurrent delegation for substantial independent research and direct execution for simple lookups.
 Delegate instructions limit research to two focused search calls with three results each, then request findings and unverified facts.
 These search limits are model instructions. Runtime limits enforce a configurable call cap and 85 seconds per delegate.
 `AGENT_DELEGATE_MAX_MODEL_CALLS` defaults to ten calls. Each call also consumes the shared research allowance.
 Delegates share the research budget and retain one parent call for synthesis.
-The outer tool deadline remains 90 seconds. Each delegate returns its findings when another delegate stops.
-After delegation, parent instructions permit two focused verification searches and require an answer with remaining uncertainty.
+Normal tools retain their 90-second deadline. Delegate groups permit each final handoff to finish.
+Named delegates receive a focused brief and the original user messages selected by quoted requirements. Unrelated parent history stays with the parent.
+Delegates return model-written answers with source URLs, status, and a limit reason to the parent.
+The parent receives the full answers, rather than only a source list.
 Legacy string assignments remain supported.
 Delegates receive search, weather, and skill tools only.
 They cannot create more delegates or change account data.
 Source: [runtime tool registration](../src/theos/runtime/tools.py).
 
+## Explicit deep research
+
+Deep research requires the browser mode or an explicit user command. It applies to one turn.
+The `deep_research` tool runs independent assignments within the same shared call ceiling.
+Each researcher saves its full transcript, report, evidence, notes, and summary checkpoints in SQLite migration 010.
+The browser **Research** view permits later inspection within the same account and conversation.
+Normal questions do not receive these tools or create research records.
+
+| Tool | Behavior | Dependency |
+| --- | --- | --- |
+| `deep_research` | Up to three named delegates with relevant briefs and durable records | Existing harness and runtime |
+| `save_research_note` | Save plans, findings, conflicts, and questions with source IDs and status | Existing SQLite database |
+| `list_research` | List research in the current conversation | Existing SQLite database |
+| `read_research` | Reopen full saved reports and evidence | Existing SQLite database |
+| `read_source` | Read and save extracted source text without an application excerpt limit | Exa contents API and `AGENT_EXA_KEY` |
+
+Source extraction uses `POST https://api.exa.ai/contents` with `urls` and `text: true`.
+It does not request `maxCharacters`. No new package dependency is required.
+Search excerpts retain their search-provider limits. The source reader is separate.
+Extraction can fail for inaccessible pages. Returned text is not proof that all page content was accessible.
+See [Exa contents documentation](https://exa.ai/docs/reference/get-contents) and [research behavior](runtime/deep-research.md).
+
+## Context and answer limits
+
+Parents and delegates use the same model capacity and compaction policy.
+OpenRouter metadata supplies the provider context and maximum output tokens.
+The runtime caches metadata for one hour and uses verified catalog values when retrieval fails.
+Unknown models use a logged 24,000-token context fallback unless the operator sets a window.
+Unknown Anthropic models require an explicit output setting because that API requires an output maximum.
+`AGENT_CONTEXT_TOKENS` optionally selects a smaller window, within known provider capacity.
+`AGENT_COMPACTION_TRIGGER_RATIO` defaults to 0.6 and accepts 0.5 through 0.7.
+The runtime summarizes completed exchanges at that threshold and targets 45 percent of the window.
+The current task stays complete. Summaries preserve requirements, corrections, findings, source URLs, dates, conflicts, and uncertain actions.
+Oversized evidence enters consecutive summary chunks. The durable transcript retains every original message.
+Failed or incomplete summaries never replace the previous working summary.
+
+For agents, only `max_output_tokens` enforces response length, through the provider's supported parameter.
+OpenAI Responses and Gemini use `max_output_tokens`. OpenRouter and Anthropic use the equivalent `max_tokens` field.
+Requests use the provider output maximum unless the user chooses a smaller value.
+Space checks reserve the full requested output before reducing input through summaries.
+Answer and summary requests must fit their input and requested output within the model window.
+The runtime does not silently lower the output setting to fit an oversized input.
+Application code never clips generated answers or rejects them by byte size.
+Calls without a known output setting use one shared 8,192-token space estimate.
+`harness/output.py` defines that estimate for agents, turn entry points, and summary requests.
+Known output settings replace the estimate. The estimate never enters a generation parameter or cuts returned text.
+Provider-stopped answers remain intact and carry an incomplete notice.
+
 ## Partial answers
 
-The runtime reserves two model calls and up to 15 seconds within the configured turn deadline for a final answer.
-`AGENT_MAX_MODEL_CALLS` sets the total ceiling, including research, compaction, titles, and recovery.
-`AGENT_MAX_COMPACTION_CALLS` reserves five calls by default within that ceiling.
-The default allocation is 23 research calls, five compaction calls, and two recovery calls.
-Compaction does not consume research slots. Unused compaction slots remain reserved.
-Research retains at least one call when the total budget is one.
-Recovery uses unchanged instructions, bounded conversation copies, and no tools.
-`AGENT_MAX_RECOVERY_CALLS` defaults to two calls within the same 15-second recovery deadline.
-A failed first request can use the second reserved call when time remains.
-If recovery fails, the runtime returns saved findings with a limitation notice.
-Timeout, budget, context, output, and provider failures produce a `partial` conversation status.
-Incomplete scheduled runs pause their schedule. Explicit cancellation retains the `interrupted` status.
-The runtime never repeats tools during recovery. It preserves uncertain action results for review.
-Model requests receive at most 8,000 characters per tool result, with an additional shared bound per request.
-Durable tool results retain their full content. OTel content capture has separate byte limits.
-Source: [runtime recovery](../src/theos/runtime/recovery.py) and [model checkpoints](../src/theos/runtime/hooks.py).
+`AGENT_MAX_MODEL_CALLS` sets the total ceiling, including research, compaction, titles, and final responses.
+Omitted summary and delegate counts derive from the total, rounded up, using configurable one-sixth and one-third ratios.
+Explicit counts override their ratios. The runtime resolves the allocation once per turn.
+At the default total of 30, allocation is 24 research calls, five compaction calls, and one parent response call.
+At 50, allocation becomes 40 research, nine compaction, and one parent response call.
+Each delegate reserves one research slot for its final handoff before any sibling starts.
+Its derived ceiling includes that handoff and is bounded by the research pool: ten at a total of 30, 17 at 50.
+Compaction uses the separate shared compaction allowance and counts toward the total, outside the delegate ceiling.
+The parent holds one summary call for its final response. Each active delegate holds one when available.
+Ordinary summaries use unheld calls. Completed delegates release unused holds.
+See the [call budget map](runtime/call-budgets.md) for request checks and exhaustion paths.
+A total budget of one reserves the parent response without starting research.
+The runtime accepts the legacy `AGENT_MAX_RECOVERY_CALLS` setting, but always permits one final response attempt.
+
+Call, research-time, or context exhaustion stops new research and requests one final response without tools.
+That request retains the task, corrections, complete available context, and a limit notice.
+Final responses use the model window after reserving the requested output and compact only when necessary to fit.
+If complete context cannot fit and compaction cannot finish, the runtime preserves it and returns a clear failure or saved findings.
+A failed final response never triggers a second attempt or repeats tools.
+Research deadlines do not cancel active answer generation or final responses.
+Provider connection idle timeouts and explicit cancellation remain active.
+The connected terminal stream waits without a response read deadline.
+
+Failed final generation returns complete saved findings with a limitation notice.
+Useful answers have `partial` status. Empty failures have `failed` status.
+Incomplete scheduled runs pause their schedule. Explicit cancellation retains `interrupted` status.
+Telegram, browser chat, and terminals replace incomplete drafts with the final answer.
+Stored history retains replaced drafts for diagnosis and hides them when conversations reopen.
+Connected terminals use protocol version 2. Update the client and deployment together.
+OTel content capture has separate byte limits. Those limits do not change model answers.
+Source: [context policy](../src/theos/runtime/context.py), [runtime recovery](../src/theos/runtime/recovery.py), and [model checkpoints](../src/theos/runtime/hooks.py).
 
 ## OpenTelemetry tracing
 
@@ -412,6 +515,9 @@ The runtime owns its tracer provider and background batch processor.
 The optional `compose.tracing.yaml` runs Jaeger `2.22.0` with seven-day Badger storage in a separate volume.
 Jaeger uses a 512 MiB container limit, a Go memory target, and the Collector memory limiter.
 Jaeger supplies the waterfall viewer. It is an operations dependency, not an assistant tool.
+The Pi uses host Tailscale `1.102.4` Serve for private HTTPS access to the viewer on port 8443.
+Tailnet grants restrict this port to `group:theos-operators` across IPv4 and IPv6.
+This host dependency does not change the application image or expose the OTLP receiver.
 See [observability](base-infra/observability.md) for setup and trace contents.
 Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
 The [content serializer](../src/theos/operations/trace_content.py) uses the OTel GenAI role and parts schema without new dependencies.

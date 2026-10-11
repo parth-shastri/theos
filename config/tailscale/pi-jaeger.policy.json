@@ -1,0 +1,149 @@
+{
+  "groups": {
+    "group:theos-operators": [
+      "parth-shastri@github"
+    ]
+  },
+  "hosts": {
+    "theos-nonoperator-test": "100.64.0.254",
+    "theos-nonoperator-v6-test": "fd7a:115c:a1e0::ffff:fffe"
+  },
+  "ipsets": {
+    "ipset:outside-theos-pi": [
+      "add 0.0.0.0/1",
+      "add 128.0.0.0/1",
+      "add ::/1",
+      "add 8000::/1",
+      "remove 100.68.21.29/32",
+      "remove fd7a:115c:a1e0::6e37:151e/128"
+    ]
+  },
+  "grants": [
+    {
+      "src": [
+        "*"
+      ],
+      "dst": [
+        "ipset:outside-theos-pi"
+      ],
+      "ip": [
+        "*"
+      ]
+    },
+    {
+      "src": [
+        "*"
+      ],
+      "dst": [
+        "100.68.21.29/32",
+        "fd7a:115c:a1e0::6e37:151e/128"
+      ],
+      "ip": [
+        "1-8442",
+        "8444-65535",
+        "udp:8443",
+        "icmp:*"
+      ]
+    },
+    {
+      "src": [
+        "group:theos-operators"
+      ],
+      "dst": [
+        "100.68.21.29/32",
+        "fd7a:115c:a1e0::6e37:151e/128"
+      ],
+      "ip": [
+        "tcp:8443"
+      ]
+    }
+  ],
+  "ssh": [
+    {
+      "action": "check",
+      "src": [
+        "autogroup:member"
+      ],
+      "dst": [
+        "autogroup:self"
+      ],
+      "users": [
+        "autogroup:nonroot",
+        "root"
+      ]
+    }
+  ],
+  "nodeAttrs": [
+    {
+      "target": [
+        "autogroup:member"
+      ],
+      "attr": [
+        "funnel"
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "src": "parth-shastri@github",
+      "proto": "tcp",
+      "accept": [
+        "100.68.21.29:8443",
+        "[fd7a:115c:a1e0::6e37:151e]:8443",
+        "100.68.21.29:22"
+      ]
+    },
+    {
+      "src": "theos-nonoperator-test",
+      "proto": "tcp",
+      "accept": [
+        "100.68.21.29:22",
+        "100.68.21.29:443",
+        "100.68.21.29:8442",
+        "100.68.21.29:8444",
+        "100.109.214.73:8443"
+      ],
+      "deny": [
+        "100.68.21.29:8443"
+      ]
+    },
+    {
+      "src": "theos-nonoperator-test",
+      "proto": "udp",
+      "accept": [
+        "100.68.21.29:8443"
+      ]
+    },
+    {
+      "src": "theos-nonoperator-test",
+      "proto": "icmp",
+      "accept": [
+        "100.68.21.29:0"
+      ]
+    },
+    {
+      "src": "theos-nonoperator-v6-test",
+      "proto": "tcp",
+      "accept": [
+        "[fd7a:115c:a1e0::6e37:151e]:22"
+      ],
+      "deny": [
+        "[fd7a:115c:a1e0::6e37:151e]:8443"
+      ]
+    },
+    {
+      "src": "theos-nonoperator-v6-test",
+      "proto": "udp",
+      "accept": [
+        "[fd7a:115c:a1e0::6e37:151e]:8443"
+      ]
+    },
+    {
+      "src": "theos-nonoperator-v6-test",
+      "proto": "icmp",
+      "accept": [
+        "[fd7a:115c:a1e0::6e37:151e]:0"
+      ]
+    }
+  ]
+}

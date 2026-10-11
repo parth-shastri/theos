@@ -1894,3 +1894,44 @@ tr:last-child td {
     animation: none !important;
   }
 }
+
+.research-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.research-controls select {
+  width: auto;
+  max-width: 100%;
+}
+.research-controls small {
+  color: var(--text-muted);
+}
+.research-runs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.research-detail {
+  min-width: 0;
+}
+.research-detail details {
+  margin: 0.8rem 0;
+}
+.research-detail summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.research-detail pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.research-detail a {
+  overflow-wrap: anywhere;
+}
+#research-dialog {
+  width: min(760px, calc(100vw - 2rem));
+}

@@ -158,8 +158,7 @@ from renderer import AgentSession
 agent = Agent(
     model,
     tools,
-    context_window=8192,
-    reserved_output_tokens=1024,
+    context_window=32768,
     compaction=CompactionConfig(
         prompt="Summarize the task, findings, sources, and unresolved questions.",
         options={"max_tokens": 512},

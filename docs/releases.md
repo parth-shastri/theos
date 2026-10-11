@@ -120,6 +120,15 @@ Keep this directory outside the runner checkout.
 Use the normal [deployment configuration](DEPLOYMENT.md#configure-the-application).
 The local `.env.pi` is ignored by Git and has mode `0600`.
 Its Pi copy also has mode `0600`. The local development `.env` remains separate.
+
+For universal agent skills, copy `compose.skills.yaml` into the deployment directory.
+Set `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and `AGENT_SKILLS_DIR=/data/skills` in `.env.pi`.
+The deployment script includes this file for releases and rollback.
+Theos reads the host directory through a read-only mount.
+Host skill installations and updates appear immediately.
+Back up the shared host directory separately from application data.
+For manual Compose commands, pass `-f compose.skills.yaml` after the saved release file.
+This deployment-script support requires promotion to `rpi` before the release runner uses it.
 The configured browser user and administrator are `owner`.
 Gmail uses `https://theos.parth-shastri.com/oauth/gmail/callback`.
 Google Health uses `https://theos.parth-shastri.com/oauth/health/callback`.

@@ -112,7 +112,7 @@ class AnthropicChatModel:
         client: AsyncAnthropic,
         model_id: str = "claude-opus-5",
         *,
-        max_tokens: int = 16000,
+        max_tokens: int | None = 16000,
         thinking: dict | None = {"type": "adaptive"},  # noqa: B006 - read, never mutated
         stream: bool = True,
         fallbacks: list[dict] | str | None = None,
@@ -134,9 +134,10 @@ class AnthropicChatModel:
         """Return the exact create kwargs for this request, minus `stream`."""
         payload: dict[str, Any] = {
             "model": self.model_id,
-            "max_tokens": self.max_tokens,
             "messages": self._messages(request.messages),
         }
+        if self.max_tokens is not None:
+            payload['max_tokens'] = self.max_tokens
         system = "\n\n".join(
             m.content for m in request.messages if isinstance(m, SystemMessage)
         )

@@ -323,3 +323,12 @@ Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser owner's account access.
 
 Source: [browser application](../src/theos/transports/browser/app.py), [connection routes](../src/theos/transports/browser/connections.py), and [browser assets](../src/theos/transports/browser/static/).
+
+## Explicit deep research
+
+Select **Deep research** beside the composer before sending a research question.
+The selection applies to that message and then returns to Normal.
+You can also use `/research QUESTION`. Ordinary questions do not enable this mode.
+Select **Research** above the conversation to inspect saved researchers, reports, sources, notes, transcripts, and summary checkpoints.
+The records remain in the conversation's persistent SQLite database after a restart or conversation reset.
+See [research behavior](runtime/deep-research.md) and the [call budget map](runtime/call-budgets.md).

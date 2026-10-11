@@ -25,6 +25,23 @@ from theos.transports.terminal.wire import display_events
 from .conftest import call_tool
 
 
+async def test_remote_recovery_event_and_reopened_history_preserve_one_answer(
+    remote, runtime, scripted_models
+):
+    await remote.create_session("recovery")
+    scripted_models.responses.append(
+        [AssistantMessage("All returned provider text", stop_reason="length")]
+    )
+    output = [e async for e in remote.stream("Answer the task.", session_id="recovery")]
+    replacement = next(e for e in output if isinstance(e, ModelFinished) and e.replace_answer)
+    assert "All returned provider text" in replacement.text
+    assert output[-1].status == "partial"
+    raw = runtime.db.load_history("alice", "recovery")
+    visible = await remote.history("recovery")
+    assert len(visible) == len(raw) - 1
+    assert visible[-1].text == replacement.text
+
+
 @pytest.fixture
 async def remote(runtime):
     client = RemoteSession(
@@ -303,7 +320,7 @@ async def test_remote_broken_stream_does_not_replay_the_post():
         posts.append(request)
         return httpx.Response(
             200,
-            headers={"X-Theos-Terminal-Protocol": "1"},
+            headers={"X-Theos-Terminal-Protocol": "2"},
             text='data: {"event":"TextDelta","data":{"text":"Partial","parent_call_id":null}}\n\n',
         )
 

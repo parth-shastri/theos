@@ -10,6 +10,7 @@ from harness.context import RunContext, default_estimate
 from harness.hooks import Hooks
 from harness.inbox import Inbox
 from harness.loop import TurnFinished, TurnResult, run_turn
+from harness.output import DEFAULT_OUTPUT_RESERVATION
 from harness.tools import tool
 from harness.types import AssistantMessage, Budget, ToolCall, UserMessage
 
@@ -67,7 +68,7 @@ async def test_run_forwards_every_field_to_run_stream(fake_model, monkeypatch):
         "max_context_tokens": 500,
         "estimate_tokens": default_estimate,
         "context_window": None,
-        "reserved_output_tokens": 1024,
+        "reserved_output_tokens": DEFAULT_OUTPUT_RESERVATION,
         "limits": support.limits,
         "compaction": None,
         "memory": None,

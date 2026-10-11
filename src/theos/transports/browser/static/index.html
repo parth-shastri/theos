@@ -149,6 +149,14 @@
             <span id="conversation-cost" class="cost-label"></span>
           </div>
           <div class="header-actions">
+            <button
+              id="research-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="research-dialog"
+            >
+              Research
+            </button>
             <button id="resume">↻ Resume</button
             ><button id="reset">Reset</button>
           </div>
@@ -164,6 +172,14 @@
           ></div>
           <div id="approvals"></div>
           <div class="composer-wrap">
+            <div class="research-controls">
+              <label for="research-mode">Mode</label>
+              <select id="research-mode" aria-describedby="research-mode-hint">
+                <option value="normal">Normal</option>
+                <option value="deep_research">Deep research</option>
+              </select>
+              <small id="research-mode-hint">For this message only</small>
+            </div>
             <p id="status" role="status">Ready when you are.</p>
             <form id="composer">
               <div
@@ -360,6 +376,23 @@
           <button class="primary" type="submit">Save settings</button>
         </div>
       </form>
+    </dialog>
+    <dialog id="research-dialog" aria-labelledby="research-title">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">SAVED EVIDENCE</span>
+          <h2 id="research-title">Research</h2>
+        </div>
+        <button id="research-close" type="button" aria-label="Close research">
+          Close
+        </button>
+      </div>
+      <p id="research-status" role="status"></p>
+      <div id="research-runs" class="research-runs"></div>
+      <div id="research-detail" class="research-detail"></div>
+      <div class="dialog-actions">
+        <button id="research-refresh" type="button">Refresh</button>
+      </div>
     </dialog>
     <dialog id="usage-dialog" aria-labelledby="usage-title">
       <div class="dialog-heading">

@@ -96,6 +96,8 @@ class Database:
                 "UPDATE memory_batches SET status='unknown', content='', error='Interrupted write' "
                 "WHERE status='running'"
             )
+            # Research checkpoints survive restarts. Do not silently restart an interrupted run.
+            self.execute("UPDATE research_runs SET status='interrupted' WHERE status='running'")
             # 4. Expire old decisions before any conversation resumes.
             self.execute(
                 "UPDATE approvals SET status='expired' WHERE status='pending' AND expires<?",
