@@ -158,7 +158,7 @@ Jaeger access is separate from Theos administrator authentication.
 The current setup has no Jaeger password, user accounts, or per-user trace isolation.
 Anyone who can reach the viewer can inspect every stored trace, including captured conversation content.
 Treat the viewer as an operator tool. Theos browser tokens do not protect its UI or query API.
-Local access and authenticated SSH tunnels control network access. They do not filter traces by owner.
+Local access, authenticated SSH tunnels, and Pi Tailscale Serve control network access. They do not filter traces by owner.
 A reverse proxy can add login protection, but login alone does not enforce per-user trace ownership.
 User-facing trace access needs a separate layer that checks conversation ownership. This layer is not implemented.
 For a remote host, use private access or an SSH tunnel.
@@ -171,6 +171,77 @@ Use both Compose files for later lifecycle commands.
 The `jaeger-data` volume is separate from application data and application backups.
 The named volume has no hard disk limit. Badger expires spans after seven days.
 Background maintenance reclaims expired data. Monitor volume growth separately.
+
+## Pi viewer through Tailscale Serve
+
+Connect your Mac to Tailscale and open [Pi Jaeger](https://neuralbox-pi.tail61f0ca.ts.net:8443/).
+Select service **theos** and find traces. Existing trace links also work with this hostname and port.
+The viewer uses your Tailscale device identity. You do not need an SSH port forward or a Jaeger password.
+The operator group currently contains `parth-shastri@github`.
+All allowed operators can inspect all stored traces, including captured conversation content.
+
+The Pi runs Tailscale `1.102.4` on the host.
+Serve terminates HTTPS on the Pi tailnet addresses and proxies `http://127.0.0.1:16686`.
+The `--bg` configuration persists across restarts.
+The host loopback bindings for Jaeger and OTLP remain unchanged.
+Serve exposes only the viewer. It does not expose OTLP port 4318.
+This endpoint uses private Serve, without public Funnel access.
+See [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
+
+The [policy snapshot](../../config/tailscale/pi-jaeger.policy.json) records the applied tailnet policy and seven access tests.
+It is not an automatic policy synchronization mechanism.
+Review the current tailnet policy before reapplying this snapshot, to preserve later changes.
+
+The former wildcard grant allowed every device to reach every port.
+Tailscale grants are additive. An operator grant cannot override an existing wildcard grant.
+The current policy excludes both Pi IP addresses from the broader grant.
+Separate grants retain other Pi TCP ports, UDP, and ICMP.
+Only `group:theos-operators` receives Pi TCP 8443.
+The four `/1` prefixes cover both address families before the IP set removes the Pi addresses.
+The test aliases are unassigned addresses for nonoperator policy checks, not enrolled devices.
+The existing SSH policy and Funnel capability attributes remain unchanged.
+A Funnel capability does not create a public endpoint. The Pi Serve configuration has no Funnel listener.
+See [grants](https://tailscale.com/docs/reference/syntax/grants) and [policy tests](https://tailscale.com/docs/reference/syntax/policy-file#tests).
+
+To configure another deployment:
+
+1. Confirm the host's Tailscale IPv4 and IPv6 addresses.
+2. Set the operator group to the approved operator identities.
+3. Exclude the viewer's TCP port from all broader grants that match the host.
+4. Add operator allow tests and nonoperator deny tests for both IP families.
+5. Save the policy after all Tailscale tests pass.
+6. Enable the private HTTPS proxy on the host.
+
+   ```sh
+   sudo tailscale serve --bg --https=8443 http://127.0.0.1:16686
+   ```
+
+7. Check the persistent proxy configuration.
+
+   ```sh
+   tailscale serve status --json
+   ```
+
+8. Verify HTTPS from an operator device with certificate validation enabled.
+
+   ```sh
+   curl --fail https://neuralbox-pi.tail61f0ca.ts.net:8443/api/v3/services
+   ```
+
+To add an operator, update `group:theos-operators` in the Tailscale admin console and save after the policy tests pass.
+Update this snapshot with the reviewed policy. Do not add a wildcard grant for Pi TCP 8443.
+If the Pi's Tailscale addresses change, update the grant destinations, IP set exclusions, and policy tests together.
+
+To disable this viewer endpoint, run the following command on the Pi:
+
+```sh
+sudo tailscale serve --https=8443 off
+```
+
+Keep the operator restriction in place when disabling Serve.
+Restore the former policy only after the listener is disabled, if a full rollback is required.
+The Jaeger container, trace volume, and seven-day retention do not require changes.
+The existing SSH tunnel remains available as a private alternative.
 
 ## Export to another backend
 
