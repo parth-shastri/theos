@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from openai import APIStatusError, AsyncOpenAI, NotFoundError
+from openai import APIStatusError, AsyncOpenAI, BadRequestError, NotFoundError
 from openai.types.chat import ChatCompletion
 
-from harness import AssistantMessage, UserMessage
+from harness import AssistantMessage, ToolCall, ToolResultMessage, UserMessage
 from harness.events import GenerationComplete, ReasoningDelta, TextDelta
 from harness.types import ModelRequest, ToolSpec
 from theos.runtime.openrouter import OpenRouterChatModel
@@ -102,19 +102,24 @@ async def test_openrouter_unavailable_zdr_route_does_not_retry_without_policy():
 
 @pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("retry_fails", [False, True])
+@pytest.mark.parametrize("status", [400, 404])
 async def test_openrouter_rejected_encrypted_replay_keeps_history_tools_and_zdr(
-    streaming, retry_fails
+    streaming, retry_fails, status
 ):
     calls = []
     failure = {
-        "error": {"message": "No endpoints found matching your data policy (Zero data retention)."}
+        "error": {
+            "message": "No endpoints found matching your data policy (Zero data retention)."
+            if status == 404
+            else "Your request contains encrypted reasoning or compaction content from multiple providers."
+        }
     }
 
     def respond(request):
         body = json.loads(request.content)
         calls.append(body)
         if len(calls) == 1 or retry_fails:
-            return httpx.Response(404, json=failure)
+            return httpx.Response(status, json=failure)
         reply = {
             "id": "chat-recovered",
             "created": 1,
@@ -189,25 +194,131 @@ async def test_openrouter_rejected_encrypted_replay_keeps_history_tools_and_zdr(
     assert previous == original
 
 
+async def test_openrouter_consecutive_turns_select_latest_provider_state():
+    calls = []
+    formats = ["azure-openai-responses-v1", "bedrock-openai-responses-v1", "openai-responses-v1"]
+
+    def respond(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        return httpx.Response(
+            200,
+            json={
+                "id": "chat-provider-change",
+                "created": 1,
+                "model": body["model"],
+                "object": "chat.completion",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {
+                            "role": "assistant",
+                            "content": "Done",
+                            "reasoning_details": [
+                                {
+                                    "type": "reasoning.encrypted",
+                                    "data": "opaque-new",
+                                    "format": formats[len(calls) - 1],
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        )
+
+    previous = AssistantMessage(
+        tool_calls=[ToolCall("read-1", "get_preferences", {})],
+        provider_data={
+            "openrouter": {
+                "model": "openai/gpt-6-luna",
+                "reasoning_details": [
+                    {
+                        "type": "reasoning.encrypted",
+                        "data": "opaque-old",
+                        "format": "openai-responses-v1",
+                    }
+                ],
+            }
+        },
+    )
+    history = [
+        UserMessage("Read my preferences"),
+        previous,
+        ToolResultMessage("read-1", "get_preferences", '{"timezone":"UTC"}'),
+    ]
+    original = copy.deepcopy(history)
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = OpenRouterChatModel(
+            client, "openai/gpt-6-luna", api="chat_completions", stream=False
+        )
+        for _ in range(3):
+            history.append(UserMessage("Continue"))
+            saved = copy.deepcopy(history)
+            expected = model.encode_request(ModelRequest(history))
+            response = await model.generate(ModelRequest(history))
+            assert history == saved
+            history.append(response)
+            wire = calls[-1]["messages"]
+            replay = [b["format"] for m in wire for b in m.get("reasoning_details", [])]
+            assert set(replay) == {
+                "openai-responses-v1" if len(calls) == 1 else formats[len(calls) - 2]
+            }
+            assert wire == expected["messages"]
+            assert calls[-1]["provider"] == {"zdr": True}
+            assert wire[1]["tool_calls"][0]["function"]["name"] == "get_preferences"
+            assert wire[2]["content"] == '{"timezone":"UTC"}'
+    assert history[:3] == original
+
+
+def test_openrouter_omits_entire_internally_mixed_reasoning_sequence():
+    details = [
+        {"type": "reasoning.encrypted", "data": "opaque", "format": f}
+        for f in ("openai-responses-v1", "azure-openai-responses-v1")
+    ]
+    previous = AssistantMessage(
+        "Saved answer",
+        provider_data={
+            "openrouter": {
+                "model": "openai/gpt-6-luna",
+                "reasoning_details": details,
+            }
+        },
+    )
+    model = OpenRouterChatModel(SimpleNamespace(), "openai/gpt-6-luna", api="chat_completions")
+    wire = model.encode_request(ModelRequest([previous]))["messages"][0]
+    assert wire["content"] == "Saved answer"
+    assert "reasoning_details" not in wire
+    assert previous.provider_data["openrouter"]["reasoning_details"] == details
+
+
 @pytest.mark.parametrize(
-    "model_id,block_format,error_message",
+    "model_id,block_format,error_message,status",
     [
         (
             "anthropic/claude-sonnet-5.5",
             "anthropic-claude-v1",
             "No endpoints found matching your data policy (Zero data retention).",
+            404,
         ),
-        ("openai/gpt-6-luna", "openai-responses-v1", "Unknown model"),
+        ("openai/gpt-6-luna", "openai-responses-v1", "Unknown model", 404),
+        ("openai/gpt-6-luna", "openai-responses-v1", "Invalid tool schema", 400),
     ],
 )
 async def test_openrouter_does_not_discard_claude_state_or_retry_unrelated_404(
-    model_id, block_format, error_message
+    model_id, block_format, error_message, status
 ):
     calls = []
 
     def respond(request):
         calls.append(json.loads(request.content))
-        return httpx.Response(404, json={"error": {"message": error_message}})
+        return httpx.Response(status, json={"error": {"message": error_message}})
 
     previous = AssistantMessage(
         "Saved",
@@ -233,19 +344,25 @@ async def test_openrouter_does_not_discard_claude_state_or_retry_unrelated_404(
     assert calls[0]["messages"][0]["reasoning_details"][0]["data"] == "opaque"
 
 
-async def test_openrouter_does_not_restart_a_stream_after_output():
+@pytest.mark.parametrize("status", [400, 404])
+async def test_openrouter_does_not_restart_a_stream_after_output(status):
     calls = []
     model = OpenRouterChatModel(SimpleNamespace(), "openai/gpt-6-luna", api="chat_completions")
 
     async def partial(payload):
         calls.append(payload)
         yield TextDelta("Already delivered")
-        raise NotFoundError(
+        error_class = NotFoundError if status == 404 else BadRequestError
+        raise error_class(
             "Routing failed",
             response=httpx.Response(
-                404, request=httpx.Request("POST", "https://openrouter.test/v1")
+                status, request=httpx.Request("POST", "https://openrouter.test/v1")
             ),
-            body={"message": "No endpoints found matching your data policy (Zero data retention)."},
+            body={
+                "message": "No endpoints found matching your data policy (Zero data retention)."
+                if status == 404
+                else "encrypted reasoning or compaction content from multiple providers"
+            },
         )
 
     model._stream_chat_once = partial
@@ -265,7 +382,7 @@ async def test_openrouter_does_not_restart_a_stream_after_output():
         },
     )
     events = []
-    with pytest.raises(NotFoundError):
+    with pytest.raises(NotFoundError if status == 404 else BadRequestError):
         async for event in model.stream(ModelRequest([previous, UserMessage("Continue")])):
             events.append(event)
     assert [event.text for event in events] == ["Already delivered"]
