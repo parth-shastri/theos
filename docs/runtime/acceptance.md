@@ -532,3 +532,8 @@ Ruff checks, formatting, lock validation, source and wheel builds, browser JavaS
 The output-space follow-up passed 887 tests, with three credential-dependent live checks excluded.
 It adds twelve checks for complete output reservations, small explicit settings, and preserved findings when requests cannot fit.
 Ruff checks, formatting, and source and wheel builds passed for this follow-up.
+
+The shared-default follow-up passed 891 tests, with three credential-dependent live checks excluded.
+Four added checks cover the shared fallback across entry points and summaries without a generation cap.
+Known output settings still take precedence. Small-window fixtures use explicit output settings.
+Ruff checks, formatting, and source and wheel builds passed.

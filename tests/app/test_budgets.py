@@ -109,6 +109,10 @@ async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(run
     runtime.settings.context_tokens = 4096
     await install_read(runtime)
     row = session(runtime)
+    runtime.db.execute(
+        "UPDATE sessions SET generation=? WHERE id=?",
+        ('{"max_output_tokens":512}', row["id"]),
+    )
     original = [
         UserMessage("Earlier preferences " + "a" * 10000),
         AssistantMessage("Earlier findings " + "b" * 10000),

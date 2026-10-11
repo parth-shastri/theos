@@ -159,6 +159,9 @@ Without an override, requests use the known provider output maximum.
 The `gpt-6-luna` catalog fallback is 128,000 output tokens. OpenRouter metadata can update this value.
 Space checks reserve that output allowance before summarizing input. They do not silently lower the setting.
 Smaller context overrides must still accommodate the requested output and the preserved task.
+Calls without a known output setting share the 8,192-token space estimate defined in `harness/output.py`.
+This estimate does not change provider generation settings or shorten returned answers.
+A context override smaller than this estimate needs an explicit conversation output setting.
 
 ## Telegram
 

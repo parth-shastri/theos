@@ -188,6 +188,10 @@ async def test_context_limit_recovers_from_actual_request_sizing(runtime, recove
     final = final_class([AssistantMessage("The park opens at 7 AM.")])
     use_models(runtime, research, final)
     row = session(runtime)
+    runtime.db.execute(
+        "UPDATE sessions SET generation=? WHERE id=?",
+        (json.dumps({"max_output_tokens": 512}), row["id"]),
+    )
     history = assert_partial(
         runtime, row, await collect(runtime.start("alice", row["id"], "Read the source."))
     )

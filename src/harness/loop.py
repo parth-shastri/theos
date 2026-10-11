@@ -23,7 +23,7 @@ from harness.hooks import Hooks
 from harness.inbox import Inbox
 from harness.limits import DEFAULT_EXECUTION_LIMITS, ExecutionLimits, validate_assistant_message
 from harness.model import ChatModel, default_estimate_tokens
-from harness.output import requested_output_tokens
+from harness.output import DEFAULT_OUTPUT_RESERVATION, requested_output_tokens
 from harness.tools import Tool, execute_tools
 from harness.types import (
     AssistantMessage,
@@ -269,7 +269,7 @@ async def run_turn_stream(
     max_context_tokens: int | None = None,
     estimate_tokens: EstimateTokens = default_estimate,
     context_window: int | None = None,
-    reserved_output_tokens: int = 1024,
+    reserved_output_tokens: int = DEFAULT_OUTPUT_RESERVATION,
     limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS,
     compaction: CompactionConfig | None = None,
     memory: ContextMemory | None = None,
@@ -430,7 +430,7 @@ async def run_turn(
     max_context_tokens: int | None = None,
     estimate_tokens: EstimateTokens = default_estimate,
     context_window: int | None = None,
-    reserved_output_tokens: int = 1024,
+    reserved_output_tokens: int = DEFAULT_OUTPUT_RESERVATION,
     limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS,
     compaction: CompactionConfig | None = None,
     memory: ContextMemory | None = None,

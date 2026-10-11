@@ -407,7 +407,9 @@ Space checks reserve the full requested output before reducing input through sum
 Answer and summary requests must fit their input and requested output within the model window.
 The runtime does not silently lower the output setting to fit an oversized input.
 Application code never clips generated answers or rejects them by byte size.
-Generic callers without an output setting retain a space estimate. It does not cap generation.
+Calls without a known output setting use one shared 8,192-token space estimate.
+`harness/output.py` defines that estimate for agents, turn entry points, and summary requests.
+Known output settings replace the estimate. The estimate never enters a generation parameter or cuts returned text.
 Provider-stopped answers remain intact and carry an incomplete notice.
 
 ## Partial answers

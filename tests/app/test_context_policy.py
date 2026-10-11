@@ -397,7 +397,7 @@ async def test_each_delegate_reserves_a_full_handoff_and_receives_user_correctio
 
 
 async def test_compaction_sends_every_piece_without_rewriting_the_transcript(runtime):
-    from harness import Agent
+    from harness import Agent, Hooks
 
     runtime.settings.context_tokens = 4096
     row = session(runtime)
@@ -413,8 +413,16 @@ async def test_compaction_sends_every_piece_without_rewriting_the_transcript(run
     summary = "Keep the original task and evidence. " * 100
     model = FakeModel([AssistantMessage(summary)] * 20)
     memory = ContextMemory()
+
+    async def configure(request, ctx):
+        request.options.update(context.options(runtime, row, limits))
+        return request
+
     result = await Agent(
-        model, context_window=limits.context, compaction=context.compaction(runtime, row, limits)
+        model,
+        hooks=Hooks(before_model=configure),
+        context_window=limits.context,
+        compaction=context.compaction(runtime, row, limits),
     ).run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(20))
     chunks = [json.loads(r.messages[1].content) for r in model.requests[:-1]]
     supplied = "".join(

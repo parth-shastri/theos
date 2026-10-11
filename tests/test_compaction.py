@@ -13,6 +13,46 @@ from harness.types import ToolResultMessage, message_to_dict
 CONFIG = CompactionConfig('Summarize the supplied conversation.', {'max_tokens': 256}, 128)
 
 
+@pytest.mark.parametrize('entrypoint', ['agent', 'turn', 'stream'])
+async def test_unknown_output_uses_the_shared_reservation_before_generation(entrypoint):
+    from harness import ContextLimitError, collect_run_stream, run_turn, run_turn_stream
+    from harness.output import DEFAULT_OUTPUT_RESERVATION
+
+    model = FakeModel([])
+    history = [UserMessage('q' * 9000)]
+    with pytest.raises(ContextLimitError, match=f'{DEFAULT_OUTPUT_RESERVATION} output tokens reserved'):
+        if entrypoint == 'agent':
+            await Agent(model, context_window=10000).run(history)
+        elif entrypoint == 'turn':
+            await run_turn(model, [], history, context_window=10000)
+        else:
+            await collect_run_stream(run_turn_stream(model, [], history, context_window=10000))
+    assert not model.requests
+
+
+async def test_unknown_answer_and_summary_share_the_estimate_without_setting_a_generation_cap():
+    from harness.model import default_estimate_tokens
+    from harness.output import DEFAULT_OUTPUT_RESERVATION
+
+    window = DEFAULT_OUTPUT_RESERVATION + 1800
+    history = [UserMessage('Keep source dates.'), AssistantMessage('x' * 6000),
+               UserMessage('Keep the requirements. ' + 'q' * 2400)]
+    original = [message_to_dict(message) for message in history]
+    answer = 'Complete finding. ' * 2000
+    assert len(answer) // 4 > DEFAULT_OUTPUT_RESERVATION
+    model = FakeModel([AssistantMessage('Keep the source dates.'), AssistantMessage(answer)])
+    result = await Agent(
+        model, context_window=window,
+        compaction=CompactionConfig('Preserve sources.', trigger_ratio=0.6),
+    ).run(history, budget=Budget(1), compaction_budget=Budget(5))
+    assert result.message.text == answer
+    assert len(model.requests) == 2
+    assert [message_to_dict(message) for message in history[:3]] == original
+    for request in model.requests:
+        assert request.options == {}
+        assert default_estimate_tokens(request) + DEFAULT_OUTPUT_RESERVATION <= window
+
+
 @pytest.mark.parametrize('parameter', ['max_output_tokens', 'max_tokens', 'max_completion_tokens'])
 @pytest.mark.parametrize('trigger_ratio', [0.6, 1.0])
 async def test_requested_output_triggers_compaction_before_the_input_threshold(parameter, trigger_ratio):
