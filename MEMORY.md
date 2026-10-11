@@ -59,7 +59,8 @@ Updated: 2026-10-11.
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
 | Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user approved opt-in for future user-message consolidation through Mem0 inference |
 | Scheduled agent tasks | Durable one-time and cron schedules run through the normal conversation runtime and approval policy. Interrupted or uncertain runs pause the schedule |
-| Remote sandbox | OpenSandbox can run on the Mac mini over Tailscale. Enable `AGENT_SANDBOX__USE_SERVER_PROXY` for execution through its server |
+| Remote sandbox | Keep the Mac mini configuration, database, and server logs under `/Volumes/extssd/opensandbox`. Pin the native server to `1.1.1`. Use server proxy mode with `resolve_internal=false`. Keep launchd console logs under the user's Library because macOS blocks its removable-volume access. Docker storage remains on the SSD |
+| Reply generation requirement | Use provider limits for assistant replies. Do not impose application output-token caps or deadlines that truncate active reply generation. Implementation remains pending, including recovery |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
 | Comments | Explain constraints and number the major workflow steps |
@@ -274,6 +275,26 @@ The running container uses `owner` and the HTTPS Google callbacks. Readiness and
 The GHCR image denies anonymous pulls. The first registry upload failed with `unknown blob`; retrying publication succeeded before any deployment change.
 The Cloudflare tunnel routes all paths on `theos.parth-shastri.com` to `http://localhost:8080`. Its proxied CNAME targets tunnel `4584e314-7c3f-448a-8118-7b6e324ebe3c`. Public HTTPS checks passed for the homepage and its assets, health endpoints, authenticated owner APIs, rejection of anonymous API requests, and both Google callback routes. A real model turn completed through the public SSE stream, and its conversation history was saved. The operator updated the Google redirect list. Full Google consent and account linking remain untested. The existing `mytheos.parth-shastri.com` frontend uses its original Vercel CNAME. On the operator Mac, Tailscale's internal DNS lookup retained a stale nonexistent-domain response despite correct public DNS answers. Refreshing `accept-dns` off and back to its original enabled setting restored normal macOS resolution. The Theos browser workspace then loaded, owner sign-in succeeded, and a browser-submitted real model turn returned `BROWSER_OK` in Brave.
 See [Git and releases](docs/releases.md).
+
+## Mac mini sandbox storage
+
+On 2026-10-11, the operator requested the sandbox setup on the external SSD.
+The active configuration, SQLite database, and server logs now use `/Volumes/extssd/opensandbox`.
+The migration preserved both earlier setups in `backups/20261011T060145Z` under that directory.
+The launch agent now pins OpenSandbox server `1.1.1` and uses the SSD configuration.
+Its working directory and console logs remain under the user's home directory.
+macOS denied launchd access to console logs on the removable volume.
+Docker Desktop already stores its data under `/Volumes/extssd/docker/DockerDesktop`.
+Both configured runtime images are downloaded.
+
+A direct SDK check from the Pi passed creation, interpreter readiness, Python execution, file retrieval, and destruction.
+The check returned `4` and read `sandbox-check` in 8.03 seconds before cleanup.
+It explicitly used `/opt/code-interpreter/code-interpreter.sh` as the entrypoint.
+Theos now supplies that entrypoint when creating a sandbox.
+A patched application client check from the Pi passed execution, file retrieval, reconnection, and destruction in 10.57 seconds.
+The regression checks cover direct and server-proxy creation without recreating saved sandboxes.
+A separate range execution also reached its 60-second deadline after readiness.
+These checks do not confirm Telegram execution, browser automation, or file delivery.
 
 ## Beta chat reset
 
