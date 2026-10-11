@@ -44,6 +44,8 @@ class Sandboxes:
         else:
             sandbox = await Sandbox.create(
                 config.image,
+                # The SDK default keeps the container alive without starting the interpreter.
+                entrypoint=["/opt/code-interpreter/code-interpreter.sh"],
                 timeout=timedelta(seconds=config.timeout_seconds),
                 connection_config=connection,
                 env={},

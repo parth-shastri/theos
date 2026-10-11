@@ -21,6 +21,8 @@ AGENT_SANDBOX__IMAGE=opensandbox/code-interpreter:v1.0.1
 AGENT_SANDBOX__TIMEOUT_SECONDS=600
 ```
 
+The image must provide `/opt/code-interpreter/code-interpreter.sh`.
+Theos supplies this entrypoint because the SDK default does not start the interpreter.
 The timeout ranges from 60 to 3600 seconds.
 The client requests one CPU and 512 MiB for each new sandbox.
 The server, image registry, and remote network remain operator responsibilities.
@@ -33,12 +35,12 @@ Use server proxy mode so only the OpenSandbox server port needs access from Theo
 
 1. Run `tailscale ip -4` on the Mac mini.
 2. Edit the existing sections in `/Volumes/extssd/opensandbox/config.toml` on the Mac mini.
-3. Replace `100.x.y.z` with the Mac mini's Tailscale address.
+3. Use the Mac mini's Tailscale address in the Theos client configuration.
 4. Set a generated API key in the server configuration.
 
 ```toml
 [server]
-host = "100.x.y.z"
+host = "0.0.0.0"
 port = 8085
 api_key = "replace-with-generated-key"
 
@@ -59,10 +61,10 @@ Preserve the other generated sections, including `[runtime]`.
 The server proxy uses local published ports because macOS cannot directly route to Docker bridge addresses.
 Keep Docker Desktop's disk image on the external SSD to store container files there.
 
-5. Start the server on the Mac mini.
+5. For a manual installation, start the server on the Mac mini.
 
 ```sh
-uvx opensandbox-server --config /Volumes/extssd/opensandbox/config.toml
+uvx --from opensandbox-server==1.1.1 opensandbox-server --config /Volumes/extssd/opensandbox/config.toml
 ```
 
 6. Configure Theos on its own host with the same key.
@@ -89,6 +91,37 @@ curl --fail http://100.x.y.z:8085/health
 Health checks do not verify authentication, sandbox creation, or execution.
 The live Tailscale workflow remains pending until these operations succeed.
 See the [OpenSandbox configuration reference](https://github.com/opensandbox-group/OpenSandbox/blob/main/server/configuration.md) for proxy and Docker settings.
+
+### Operator deployment
+
+The active launch agent uses `/Volumes/extssd/opensandbox/config.toml` and OpenSandbox server `1.1.1`.
+The database and server logs also use `/Volumes/extssd/opensandbox`.
+The earlier Application Support configuration remains as an inactive copy.
+Use the existing launch agent instead of starting a second server on port 8085.
+
+The agent label is `com.parthshastri.theos-opensandbox`.
+Its plist lives under `/Users/parthshastri/Library/LaunchAgents`.
+Keep its working directory under the user's home directory.
+Keep its console logs under `/Users/parthshastri/Library/Logs`.
+macOS blocks launchd from opening console logs on the removable volume.
+The application access log and server log remain on the SSD.
+
+The active server binds to `0.0.0.0` and publishes sandbox ports on `127.0.0.1`.
+This lets the native server proxy reach local ports when `resolve_internal=false`.
+The Pi still uses the Mac mini's Tailscale address for the server connection.
+Preload both runtime images before executing code:
+
+```sh
+docker pull opensandbox/code-interpreter:v1.1.0
+docker pull opensandbox/execd:v1.1.0
+```
+
+On 2026-10-11, a direct Pi SDK check passed creation, Python execution, file retrieval, and destruction.
+The check explicitly used the interpreter entrypoint `/opt/code-interpreter/code-interpreter.sh`.
+Theos now supplies that entrypoint when creating a sandbox.
+A patched application client check from the Pi passed Python execution, file retrieval, reconnection, and destruction in 10.57 seconds.
+A separate range execution reached its deadline after interpreter readiness.
+The checks did not cover Telegram delivery or browser automation.
 
 ## Browser dependencies
 

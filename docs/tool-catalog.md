@@ -290,6 +290,11 @@ Source: [service tools](../src/theos/services/voice/tools.py).
 
 OpenSandbox and its code interpreter SDK. Browser commands require agent-browser inside the remote image.
 
+The Mac mini uses OpenSandbox server `1.1.1` with configuration and state on the external SSD.
+It uses the `code-interpreter:v1.1.0` and `execd:v1.1.0` images from the `opensandbox` registry namespace.
+The interpreter requires `/opt/code-interpreter/code-interpreter.sh` as its entrypoint.
+Theos supplies this entrypoint when creating a sandbox. See [sandbox deployment](sandbox.md#operator-deployment).
+
 Source: [service tools](../src/theos/services/sandbox/tools.py).
 
 `AGENT_SANDBOX__USE_SERVER_PROXY=true` routes SDK execution and file requests through the OpenSandbox server.
