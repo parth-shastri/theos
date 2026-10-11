@@ -22,7 +22,7 @@ MODEL_CATALOG = {
     "qwen-3.8-27b": (
         "qwen/qwen3.8-27b",
         ("temperature", "top_p", "top_k", "seed", "frequency_penalty", "presence_penalty"),
-        131072,
+        235929,
     ),
 }
 MODEL_CHOICES = tuple(name for name in MODEL_CATALOG if name != "gpt-6-luna")
@@ -71,7 +71,12 @@ def model_choices(settings):
 
 def catalog_entry(model):
     return MODEL_CATALOG.get(model) or next(
-        (entry for entry in MODEL_CATALOG.values() if entry[0] == model), None
+        (
+            entry
+            for entry in MODEL_CATALOG.values()
+            if model in {entry[0], entry[0].split("/", 1)[1]}
+        ),
+        None,
     )
 
 

@@ -1,5 +1,33 @@
 # Feature and acceptance checklist
 
+## Explicit deep research and protected final summaries
+
+PR #42 adds a turn-specific research mode, saved SQLite research records, and the browser Research view.
+Normal queries receive focused delegate briefs and protected final summary capacity without research records.
+The final suite passed 948 tests, with three credential-dependent live tests excluded.
+Application lint, formatting, JavaScript syntax, lock validation, and package builds passed.
+
+Deterministic checks cover explicit entry points, normal follow-ups, source and conversation ownership, full reports, source extraction, and restart persistence.
+They also cover replaced notes, repeated summaries, missing reference rejection, original user corrections, and parent and delegate final summaries after exhaustion.
+Small and concurrent budgets stay within the shared ceiling.
+Proportional checks cover omitted counts, independent explicit overrides, configurable ratios, and totals from one to 100.
+A 50-call runtime check enforces 17 research and handoff calls for each of two concurrent delegates.
+The parent and delegates consume 36 shared calls in that check; summary and final reserves remain within the total.
+At 30 calls, automatic defaults retain 24 research, five summary, and one parent response slot.
+At 50, they derive 40 research, nine summary, and one parent response slot.
+For agents, only the provider output parameter enforces generation length. Application code does not cut answers.
+
+The local ARM64 Docker test instance on port 8082 passed readiness with migration 010 and the existing persistent test volume.
+A real OpenRouter browser turn researched Python sorting against official documentation.
+It saved a plan, complete source text, a finding with source IDs, and a cited report.
+One source extraction failed. Later source reads succeeded, with the largest saved source containing 187,428 characters.
+The Research dialog displayed the report and saved records.
+A normal follow-up returned `NORMAL_OK` without creating another research run.
+The model did not require context compaction during this live check. Forced summaries use deterministic harness tests.
+This check does not confirm deployed Telegram, Pi release, or real-model summary accuracy.
+
+See [research behavior](deep-research.md) and the [call budget map](call-budgets.md).
+
 ## Provider state recovery hotfix
 
 A later voice turn transcribed successfully, but its model request mixed OpenAI and Azure encrypted reasoning.
@@ -134,7 +162,7 @@ The final answer covered both itineraries and a recommendation, with a normal `s
 Jaeger displayed the named branches. All content stayed within capture limits, with eight spans marked for truncation.
 The final answer was captured in full. The 33 tracing and integration checks, Ruff checks, and local Docker build passed.
 
-Runtime recovery now reserves one model call and up to 15 seconds within the turn deadline for a final answer.
+The earlier recovery implementation reserved one model call and up to 15 seconds within the turn deadline for a final answer.
 The recovery request uses unchanged instructions and no tools. Failed recovery returns bounded saved findings with explicit uncertainty.
 Sixteen deterministic checks cover turn and delegate timeouts, shared and delegate budgets, context sizing, recovery failures, output truncation, and explicit cancellation.
 They also check full durable results, bounded model-visible copies, completed sibling findings, conversation continuation, and uncertain writes without repetition.
@@ -507,3 +535,33 @@ Live acceptance must check those contracts against the account's enabled API ver
 A disconnected account keeps local records but stops pending background work.
 
 No production server or external account was configured during local acceptance.
+
+## Research context and response limits
+
+Parents and delegates now share provider capacities and compaction at 60 percent of the model window.
+Agent response limits use only the supported provider output parameter. Application code does not clip generated answers.
+Each researcher reserves one final handoff before research starts. The parent retains a separate final response call.
+Final responses retain task requirements, corrections, complete findings, and sources. They do not run tools or retry.
+Active generation can finish after the research deadline. Explicit cancellation and provider connection idle timeouts remain.
+Telegram, browser chat, and terminals replace interrupted drafts. Stored history retains the original drafts for diagnosis.
+Connected terminals use protocol version 2 and require matching client and deployment updates.
+
+Deterministic checks cover provider capacity refresh, native output parameters, reserved sibling handoffs, and complete context.
+Output-space checks reserve the requested generation allowance before summarizing input.
+They cover parent answers, researcher answers, final responses, and all supported output parameter names.
+Summary chunks retain the full output allowance. Requests that cannot fit preserve complete saved findings without lowering that allowance.
+They also cover answers above the earlier byte limit, full evidence chunks, long summaries, and generation beyond research deadlines.
+Transport checks cover browser replacement, Telegram chunk replacement, terminal replacement, and reopened conversation history.
+This change has not deployed or run a live provider research query.
+
+The initial local suite passed 875 checks, with three credential-dependent live checks excluded.
+Ruff checks, formatting, lock validation, source and wheel builds, browser JavaScript syntax, and the client-only wheel check passed.
+
+The output-space follow-up passed 887 tests, with three credential-dependent live checks excluded.
+It adds twelve checks for complete output reservations, small explicit settings, and preserved findings when requests cannot fit.
+Ruff checks, formatting, and source and wheel builds passed for this follow-up.
+
+The shared-default follow-up passed 891 tests, with three credential-dependent live checks excluded.
+Four added checks cover the shared fallback across entry points and summaries without a generation cap.
+Known output settings still take precedence. Small-window fixtures use explicit output settings.
+Ruff checks, formatting, and source and wheel builds passed.

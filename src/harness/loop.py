@@ -23,6 +23,7 @@ from harness.hooks import Hooks
 from harness.inbox import Inbox
 from harness.limits import DEFAULT_EXECUTION_LIMITS, ExecutionLimits, validate_assistant_message
 from harness.model import ChatModel, default_estimate_tokens
+from harness.output import DEFAULT_OUTPUT_RESERVATION, requested_output_tokens
 from harness.tools import Tool, execute_tools
 from harness.types import (
     AssistantMessage,
@@ -200,18 +201,21 @@ async def _build_request(
         for _ in range(4):
             selected = ctx.memory.view(history)
             request = await prepare(selected)
-            output = request.options.get("max_tokens", request.options.get("max_completion_tokens"))
-            if type(output) is not int or output < 1:
-                output = max(1, reserved_output_tokens)
-                request.options["max_tokens"] = output
+            # Reserve the full requested output before summarizing input. Never shorten the answer.
+            output = requested_output_tokens(request, reserved_output_tokens)
             selected_tokens = await count(selected)
-            over = await count_request(request) + output - context_window
+            request_tokens = await count_request(request)
+            over = max(request_tokens + output - context_window,
+                       request_tokens - int(context_window * compaction.trigger_ratio))
             if max_context_tokens is not None:
                 over = max(over, selected_tokens - max_context_tokens)
             if over <= 0:
                 yield request
                 return
-            allowance = selected_tokens - over - 64
+            fixed = request_tokens - selected_tokens
+            allowance = (selected_tokens - over - 64 if compaction.trigger_ratio == 1.0 else
+                         min(context_window - output - fixed - 64,
+                             int(context_window * compaction.target_ratio) - fixed - 64))
             async with aclosing(compact_context(
                 history=history, memory=ctx.memory, config=compaction, model=model,
                 budget=compaction_budget if compaction_budget is not None else ctx.budget,
@@ -224,20 +228,18 @@ async def _build_request(
         raise ContextLimitError("summarized request still exceeds the context window")
 
     fixed = await model.estimate_tokens(build([]))
-    budget = context_window - reserved_output_tokens - fixed
+    # Read the output setting from the prepared request before reducing history.
+    budget = context_window - fixed
     if max_context_tokens is not None:
         budget = min(budget, max_context_tokens)
 
+    output_tokens = reserved_output_tokens
     for _ in range(6):
         if budget <= 0:
             break
         selected = select_context(history, max_tokens=budget, estimate_tokens=estimate_tokens)
         request = await prepare(selected)
-        output_tokens = request.options.get(
-            "max_tokens", request.options.get("max_completion_tokens")
-        )
-        if not isinstance(output_tokens, int) or isinstance(output_tokens, bool) or output_tokens < 1:
-            output_tokens = reserved_output_tokens
+        output_tokens = requested_output_tokens(request, reserved_output_tokens)
         over = await model.estimate_tokens(request) + output_tokens - context_window
         if over <= 0:
             yield request
@@ -249,7 +251,7 @@ async def _build_request(
 
     raise ContextLimitError(
         f"request does not fit a {context_window}-token window with "
-        f"{reserved_output_tokens} output tokens reserved"
+        f"{output_tokens} output tokens reserved"
     )
 
 
@@ -267,7 +269,7 @@ async def run_turn_stream(
     max_context_tokens: int | None = None,
     estimate_tokens: EstimateTokens = default_estimate,
     context_window: int | None = None,
-    reserved_output_tokens: int = 1024,
+    reserved_output_tokens: int = DEFAULT_OUTPUT_RESERVATION,
     limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS,
     compaction: CompactionConfig | None = None,
     memory: ContextMemory | None = None,
@@ -428,7 +430,7 @@ async def run_turn(
     max_context_tokens: int | None = None,
     estimate_tokens: EstimateTokens = default_estimate,
     context_window: int | None = None,
-    reserved_output_tokens: int = 1024,
+    reserved_output_tokens: int = DEFAULT_OUTPUT_RESERVATION,
     limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS,
     compaction: CompactionConfig | None = None,
     memory: ContextMemory | None = None,

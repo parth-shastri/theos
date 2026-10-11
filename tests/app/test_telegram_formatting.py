@@ -25,6 +25,35 @@ def test_markdown_becomes_text_and_entities():
     ]
 
 
+async def test_recovery_replaces_all_telegram_draft_chunks(runtime):
+    bot = Telegram(runtime)
+    messages = {}
+    next_id = 0
+
+    async def api(method, payload=None, files=None):
+        nonlocal next_id
+        if method == "sendMessage":
+            next_id += 1
+            messages[next_id] = payload
+            return {"message_id": next_id}
+        if method == "editMessageText":
+            messages[payload["message_id"]] = payload
+        elif method == "deleteMessage":
+            del messages[payload["message_id"]]
+
+    bot.api = api
+    final = "Complete research answer. " * 200 + "FINAL SOURCE"
+
+    async def events():
+        yield {"type": "assistant_complete", "text": "Broken draft " * 2000}
+        yield {"type": "answer_replace", "text": final}
+        yield {"type": "done", "status": "partial"}
+
+    await bot.render(SimpleNamespace(events=events), 123, None)
+    assert [p["text"] for p in messages.values()] == [p["text"] for p in format_reply(final)]
+    assert "FINAL SOURCE" in list(messages.values())[-1]["text"]
+
+
 def test_literal_html_and_links_are_safe():
     part = format_reply("<b>literal & text</b> [site](https://example.com?q=1&x=2)")[0]
     assert part["text"] == "<b>literal & text</b> site"

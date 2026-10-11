@@ -47,6 +47,9 @@ async def render(bot, turn, chat, topic):
             if time.monotonic() - last_edit >= 1:
                 await edit(text or "…")
                 last_edit = time.monotonic()
+        elif kind in {"assistant_complete", "answer_replace"}:
+            text = event["text"] or ""
+            await edit(text or "…")
         elif kind == "tool" and event["status"] == "running":
             if not text:
                 await edit("Using " + event["name"] + "…")

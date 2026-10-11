@@ -7,6 +7,8 @@ from harness import PendingApproval, ToolFinished, TurnFinished
 from renderer import events as display
 from renderer.adapters import HarnessAdapter, events
 
+PROTOCOL_VERSION = 2
+
 EVENT_TYPES = {
     cls.__name__: cls
     for cls in (
@@ -54,6 +56,16 @@ def decode_event(value):
     return cls(**data)
 
 
+def replacement_event(item):
+    return display.ModelFinished(
+        text=item["text"],
+        reasoning=item.get("reasoning"),
+        stop_reason=item.get("stop_reason"),
+        usage={} if item.get("already_counted") else item.get("usage", {}),
+        replace_answer=True,
+    )
+
+
 async def display_events(runtime, turn):
     """Keep server execution alive when the client closes its event stream."""
     adapter = HarnessAdapter()
@@ -66,6 +78,8 @@ async def display_events(runtime, turn):
                 continue
             for normalized in events(adapter(event)):
                 yield normalized
+        elif item["type"] == "answer_replace":
+            yield replacement_event(item)
         elif item["type"] == "error":
             yield display.Notice(item["message"], "error")
         elif item["type"] == "file":

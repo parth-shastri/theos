@@ -160,7 +160,7 @@ def test_database_reopen_migrations_backup_and_single_worker(settings, tmp_path)
     db.close()
     db = Database(settings.data_dir)
     assert db.load_history("alice", session["id"])[0].content == "durable"
-    assert db.one("PRAGMA user_version")["user_version"] == 9
+    assert db.one("PRAGMA user_version")["user_version"] == 10
     db.close()
 
 
