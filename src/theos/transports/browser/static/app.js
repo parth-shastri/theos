@@ -160,7 +160,15 @@ function renderGeneration(values = generation) {
     input.max =
       key === "max_output_tokens" ? capabilities.max_output_tokens : spec.max;
     input.step = spec.step;
-    input.placeholder = "Model default";
+    input.placeholder =
+      key === "max_output_tokens"
+        ? String(
+            Math.min(
+              me.default_max_output_tokens || 8192,
+              capabilities.max_output_tokens,
+            ),
+          )
+        : "Model default";
     input.value =
       key === "max_output_tokens" && values[key] != null
         ? Math.min(values[key], capabilities.max_output_tokens)
@@ -1443,8 +1451,34 @@ function approvals(items) {
   $("approvals").replaceChildren();
   for (const item of items) {
     const card = node("article", "");
-    card.append(node("strong", `Review ${item.tool}`));
-    card.append(node("pre", JSON.stringify(JSON.parse(item.preview), null, 2)));
+    card.append(node("strong", "Approval needed"));
+    card.append(node("p", item.tool.replaceAll("_", " "), "approval-action"));
+    const fields = node("dl", "", "approval-fields");
+    for (const field of item.review || []) {
+      fields.append(node("dt", field.label));
+      const value = node("dd", "");
+      if (field.kind === "markdown") {
+        const content = node("div", "", "markdown");
+        TheosMarkdown.render(content, field.text);
+        value.append(content);
+      } else {
+        value.append(
+          node(
+            field.kind === "code" ? "pre" : "div",
+            field.text,
+            "approval-value",
+          ),
+        );
+      }
+      fields.append(value);
+    }
+    card.append(fields);
+    const exact = node("details", "");
+    exact.append(node("summary", "Exact tool arguments"));
+    exact.append(
+      node("pre", JSON.stringify(JSON.parse(item.arguments), null, 2)),
+    );
+    card.append(exact);
     for (const [label, approved] of [
       ["Approve", true],
       ["Deny", false],

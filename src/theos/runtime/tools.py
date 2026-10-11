@@ -31,7 +31,8 @@ from theos.services.voice.tools import voice_tools
 from theos.storage.account_access import account_access
 
 from . import context
-from .recovery import failure_reason, findings, response_call
+from .errors import CheckedModel, ProviderFailure, failure_message
+from .recovery import failure_reason, response_call
 
 logger = logging.getLogger("theos")
 
@@ -230,6 +231,7 @@ async def build_tools(runtime, session):
                         )
                     )
             history.append(UserMessage(question))
+            failure = None
             result = {"name": name, "status": "partial", "answer": None, "reason": None}
             memory = ContextMemory()
             instructions = (
@@ -269,6 +271,7 @@ async def build_tools(runtime, session):
                 async with runtime.models(
                     runtime.settings, session["model"], session["reasoning"]
                 ) as model:
+                    model = CheckedModel(model, runtime.settings.provider)
 
                     async def record_usage(message, child_ctx):
                         runtime.record_usage(session, message.usage)
@@ -367,6 +370,7 @@ async def build_tools(runtime, session):
                         else:
                             result["status"] = "completed"
                     except Exception as error:
+                        failure = error
                         result["reason"] = failure_reason(error)
                     if result["reason"] in {"budget_limit", "context_limit", "timeout"}:
                         # Finished tool results stay paired with their calls in the final request.
@@ -401,7 +405,8 @@ async def build_tools(runtime, session):
                 result["reason"] = "interrupted"
                 raise
             except Exception as error:
-                result["reason"] = result["reason"] or failure_reason(error)
+                failure = error
+                result["reason"] = failure_reason(error)
                 logger.warning(
                     "delegate_incomplete",
                     extra={"error_type": type(error).__name__, "reason": result["reason"]},
@@ -411,8 +416,11 @@ async def build_tools(runtime, session):
                     response.release()
                 if final_summary:
                     final_summary.release()
+                if isinstance(failure, ProviderFailure):
+                    result["status"] = "failed"
+                    result["answer"] = failure_message(result["reason"], failure)
                 if not result["answer"]:
-                    result["answer"] = findings(history, 0)
+                    result["answer"] = failure_message(result["reason"], failure)
                 if run_id:
                     runtime.research.checkpoint(owner, session_id, run_id, history, memory)
                     runtime.research.finish(
@@ -425,6 +433,8 @@ async def build_tools(runtime, session):
                     )
                 turn = runtime.active.get(session_id)
                 if turn is not None:
+                    if isinstance(failure, ProviderFailure):
+                        turn.provider_failure = failure
                     from harness.events import _tool_scope
 
                     group = turn.delegate_results.setdefault(_tool_scope.get(), {})

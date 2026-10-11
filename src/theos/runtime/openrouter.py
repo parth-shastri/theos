@@ -153,6 +153,12 @@ class OpenRouterChatModel(OpenAIChatModel):
         async with stream:
             async for chunk in stream:
                 data = chunk.model_dump() if hasattr(chunk, "model_dump") else chunk
+                if data.get("error") or any(
+                    choice.get("finish_reason") == "error" for choice in data.get("choices") or []
+                ):
+                    from .errors import ProviderFailure
+
+                    raise ProviderFailure("openrouter", data.get("error") or {})
                 chunks.append(data)
                 for choice in data.get("choices") or []:
                     delta = choice.get("delta") or {}

@@ -155,7 +155,8 @@ class Settings(ClientSettings):
     max_scheduled_tasks: int = Field(default=50, ge=1, le=200)
     turn_timeout: int = Field(default=300, ge=10, le=3600)
     context_tokens: int | None = Field(default=None, ge=4096)
-    compaction_trigger_ratio: float = Field(default=0.6, ge=0.5, le=0.7)
+    compaction_trigger_ratio: float = Field(default=0.7, ge=0.5, le=0.7)
+    max_output_tokens: int = Field(default=8192, ge=1, le=1_000_000)
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=25 * 1024 * 1024)
     timezone: str = "UTC"
     input_cost_per_million: float | None = Field(default=None, ge=0)

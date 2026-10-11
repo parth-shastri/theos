@@ -15,6 +15,29 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.10
+
+This release contains the Pi configuration, provider failure, and approval review updates.
+Package version 0.1.10 uses the deployment tag `rpi-v0.1.10`.
+
+- Model output defaults to 8,192 tokens. Explicit conversation output settings retain precedence.
+- Pi uses a 100,000-token context cap and a 70 percent compaction trigger.
+- Compaction normally starts at 70,000 input tokens. Output reservations can require earlier compaction.
+- Provider failures identify the provider and safe error category without returning raw findings or unfinished response text.
+- Browser and Telegram approvals show labeled fields, formatted prose, and literal code. Exact snapshots still control approval.
+
+Before tagging, set these values in the private deployment `.env.pi`:
+
+```dotenv
+AGENT_CONTEXT_TOKENS=100000
+AGENT_COMPACTION_TRIGGER_RATIO=0.7
+AGENT_MAX_OUTPUT_TOKENS=8192
+```
+
+Preserve the other settings and keep a private configuration backup. The release activation applies the new environment.
+No database migration is required. Existing conversation output overrides remain valid.
+These notes describe the prepared release. Confirm deployment through the workflow result and Pi `current.json` manifest.
+
 ## Continuous integration
 
 [Theos CI](../.github/workflows/theos.yml) runs on pushes to `dev`, `main`, and `rpi`, and PRs into those branches.

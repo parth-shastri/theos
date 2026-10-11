@@ -90,7 +90,8 @@ See the [terminal guide](../terminal.md#connect-to-a-deployment).
 | `AGENT_DELEGATE_CALL_RATIO` | `1/3` | Fraction of total for each delegate ceiling when the count is absent, greater than 0 and at most 1. Round up |
 | `AGENT_TURN_TIMEOUT` | `300` | Deadline for new research, from 10 to 3600 seconds. Active answers can finish after it |
 | `AGENT_CONTEXT_TOKENS` | Unset | Optional context override, at least 4096 tokens and within known provider capacity |
-| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.6` | Compact at this fraction of context capacity, from 0.5 to 0.7 |
+| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.7` | Compact at this fraction of context capacity, from 0.5 to 0.7 |
+| `AGENT_MAX_OUTPUT_TOKENS` | `8192` | Default output allowance. Explicit conversation output settings override it |
 | `AGENT_MAX_UPLOAD_BYTES` | `10485760` | File limit, from 1024 to 26214400 bytes |
 
 Compose overrides the host, port, and data directory with `0.0.0.0`, `8080`, and `/data`.
@@ -98,8 +99,10 @@ Use `HOST_BIND_IP` and `HOST_PORT` to change the host mapping.
 Unset context uses the model capacity from provider metadata or the verified catalog.
 Unknown models use a logged 24,000-token fallback unless the operator configures a window.
 The context override does not increase the selected model's capacity.
-Remove an earlier `AGENT_CONTEXT_TOKENS=24000` setting to use the advertised model window.
-Compaction starts at 60 percent by default and targets 45 percent after a complete summary.
+Pi uses `AGENT_CONTEXT_TOKENS=100000` and `AGENT_MAX_OUTPUT_TOKENS=8192`.
+The default 70 percent trigger starts compaction at 70,000 input tokens for this Pi cap.
+An explicit trigger ratio overrides the default. Output reservations can require earlier compaction.
+Compaction starts at 70 percent by default and targets 45 percent after a complete summary.
 
 Omitted counts derive from the total using the configured ratios, rounded up.
 Explicit counts override their own ratios. Remove old explicit counts to enable automatic derivation.
@@ -117,7 +120,7 @@ Each summary chunk consumes one compaction call, including failed provider reque
 Compaction usage enters the same usage records as ordinary model requests.
 
 On research exhaustion, the runtime requests one final response without tools or a generation deadline.
-A failed final response returns complete saved findings without retrying.
+A failed final response returns a clear error without retrying. Saved findings remain in the transcript.
 The legacy recovery setting no longer changes the single-attempt rule.
 Small total limits reduce compaction reserves first.
 A total limit of one reserves the final response and starts no research.
@@ -163,8 +166,9 @@ The existing `gpt-6-luna` default remains available.
 Direct OpenAI adds only `gpt-5.6-luna` to its configured model.
 Other providers use the configured model unless an operator supplies an allowlist.
 Browser generation controls use a provider capability snapshot and save per conversation.
-There is no output-token setting in `.env`. Set `max_output_tokens` in the conversation generation controls.
-Without an override, requests use the known provider output maximum.
+Set `AGENT_MAX_OUTPUT_TOKENS` in `.env` for the default output allowance.
+Conversation generation controls can override this value.
+Without an override, requests use 8,192 output tokens, bounded by the known provider maximum.
 The `gpt-6-luna` catalog fallback is 128,000 output tokens. OpenRouter metadata can update this value.
 Space checks reserve that output allowance before summarizing input. They do not silently lower the setting.
 Smaller context overrides must still accommodate the requested output and the preserved task.
