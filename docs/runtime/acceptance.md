@@ -519,9 +519,16 @@ Telegram, browser chat, and terminals replace interrupted drafts. Stored history
 Connected terminals use protocol version 2 and require matching client and deployment updates.
 
 Deterministic checks cover provider capacity refresh, native output parameters, reserved sibling handoffs, and complete context.
+Output-space checks reserve the requested generation allowance before summarizing input.
+They cover parent answers, researcher answers, final responses, and all supported output parameter names.
+Summary chunks retain the full output allowance. Requests that cannot fit preserve complete saved findings without lowering that allowance.
 They also cover answers above the earlier byte limit, full evidence chunks, long summaries, and generation beyond research deadlines.
 Transport checks cover browser replacement, Telegram chunk replacement, terminal replacement, and reopened conversation history.
 This change has not deployed or run a live provider research query.
 
-The final local suite passed 875 checks, with three credential-dependent live checks excluded.
+The initial local suite passed 875 checks, with three credential-dependent live checks excluded.
 Ruff checks, formatting, lock validation, source and wheel builds, browser JavaScript syntax, and the client-only wheel check passed.
+
+The output-space follow-up passed 887 tests, with three credential-dependent live checks excluded.
+It adds twelve checks for complete output reservations, small explicit settings, and preserved findings when requests cannot fit.
+Ruff checks, formatting, and source and wheel builds passed for this follow-up.

@@ -163,7 +163,6 @@ async def response_call(
 
         async def prepare(request, ctx):
             request.options.update(context.options(runtime, session, limits))
-            await context.fit_output(request, model, limits.context)
             return request
 
         async def record(message, ctx):

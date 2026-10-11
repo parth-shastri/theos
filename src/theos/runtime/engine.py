@@ -303,9 +303,7 @@ class Runtime:
                         model,
                         tools,
                         instructions,
-                        hooks.build_hooks(
-                            self, session, model=model, limits=limits, deadline=deadline
-                        ),
+                        hooks.build_hooks(self, session, limits=limits, deadline=deadline),
                         context_window=limits.context,
                         compaction=context.compaction(self, session, limits),
                     )

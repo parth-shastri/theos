@@ -23,6 +23,7 @@ from harness.hooks import Hooks
 from harness.inbox import Inbox
 from harness.limits import DEFAULT_EXECUTION_LIMITS, ExecutionLimits, validate_assistant_message
 from harness.model import ChatModel, default_estimate_tokens
+from harness.output import requested_output_tokens
 from harness.tools import Tool, execute_tools
 from harness.types import (
     AssistantMessage,
@@ -200,8 +201,8 @@ async def _build_request(
         for _ in range(4):
             selected = ctx.memory.view(history)
             request = await prepare(selected)
-            # Output room is accounting only. Providers enforce generation parameters.
-            output = reserved_output_tokens
+            # Reserve the full requested output before summarizing input. Never shorten the answer.
+            output = requested_output_tokens(request, reserved_output_tokens)
             selected_tokens = await count(selected)
             request_tokens = await count_request(request)
             over = max(request_tokens + output - context_window,
@@ -227,16 +228,18 @@ async def _build_request(
         raise ContextLimitError("summarized request still exceeds the context window")
 
     fixed = await model.estimate_tokens(build([]))
-    budget = context_window - reserved_output_tokens - fixed
+    # Read the output setting from the prepared request before reducing history.
+    budget = context_window - fixed
     if max_context_tokens is not None:
         budget = min(budget, max_context_tokens)
 
+    output_tokens = reserved_output_tokens
     for _ in range(6):
         if budget <= 0:
             break
         selected = select_context(history, max_tokens=budget, estimate_tokens=estimate_tokens)
         request = await prepare(selected)
-        output_tokens = reserved_output_tokens
+        output_tokens = requested_output_tokens(request, reserved_output_tokens)
         over = await model.estimate_tokens(request) + output_tokens - context_window
         if over <= 0:
             yield request
@@ -248,7 +251,7 @@ async def _build_request(
 
     raise ContextLimitError(
         f"request does not fit a {context_window}-token window with "
-        f"{reserved_output_tokens} output tokens reserved"
+        f"{output_tokens} output tokens reserved"
     )
 
 

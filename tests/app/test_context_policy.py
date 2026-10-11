@@ -17,7 +17,7 @@ from harness import (
     tool,
 )
 from harness.testing import FakeModel
-from theos.runtime import context, tools
+from theos.runtime import context, recovery, tools
 from theos.runtime import models as runtime_models
 from theos.runtime.budgets import TurnBudget
 from theos.settings import Settings
@@ -105,6 +105,122 @@ async def test_parent_response_larger_than_old_byte_limit_is_preserved(runtime):
     assert runtime.db.load_history("alice", row["id"])[-1].text == text
     assert next(e for e in events if e["type"] == "assistant_complete")["text"] == text
     assert parent.requests[0].options["max_output_tokens"] == 128000
+
+
+@pytest.mark.parametrize("final_response", [False, True])
+async def test_requested_output_is_reserved_before_parent_or_final_generation(
+    runtime, final_response
+):
+    from harness.model import default_estimate_tokens
+
+    runtime.settings.context_tokens = 10000
+    runtime.settings.max_compaction_calls = 5
+
+    async def no_tools(current):
+        return []
+
+    runtime.tools = no_tools
+    row = runtime.db.create_session("alice", "gpt-6-luna", "default")
+    runtime.db.execute(
+        "UPDATE sessions SET generation=? WHERE id=?",
+        (json.dumps({"max_output_tokens": 8000}), row["id"]),
+    )
+    row = runtime.session("alice", row["id"])
+    earlier = [
+        UserMessage("Preserve the source dates."),
+        AssistantMessage("Evidence. " + "x" * 6600),
+    ]
+    question = "Compare the evidence, keeping the original requirements. " + "q" * 2000
+    original_text = earlier[-1].text
+    model = FakeModel(
+        [
+            AssistantMessage("Keep source dates and the original requirements."),
+            AssistantMessage("Complete answer."),
+        ]
+    )
+    use_models(runtime, model)
+    if final_response:
+        history = [*earlier, UserMessage(question)]
+        answer = await recovery.response_call(
+            runtime,
+            row,
+            history,
+            ContextMemory(),
+            Budget(1),
+            "Preserve the requirements.",
+            "budget_limit",
+            compact_budget=Budget(5),
+        )
+        assert answer.text == "Complete answer."
+        assert history[-1].content == question
+    else:
+        runtime.db.save_history("alice", row["id"], earlier)
+        events = await collect(runtime.start("alice", row["id"], question))
+        assert events[-1]["status"] == "completed"
+        assert runtime.db.load_history("alice", row["id"])[-1].text == "Complete answer."
+    assert len(model.requests) == 2
+    assert model.requests[0].messages[0].content == context.SUMMARY_PROMPT
+    assert earlier[-1].text == original_text
+    for request in model.requests:
+        assert request.options["max_output_tokens"] == 8000
+        assert default_estimate_tokens(request) + 8000 <= 10000
+
+
+async def test_unfit_output_reservation_preserves_findings_without_lowering_limit(runtime):
+    runtime.settings.context_tokens = 200000
+    runtime.settings.max_compaction_calls = 0
+    row = runtime.db.create_session("alice", "gpt-6-luna", "default")
+    model, final = FakeModel([read_call("saved")]), FakeModel([])
+    use_models(runtime, model, final)
+    evidence = "Complete saved evidence. " * 15000 + "LAST SOURCE https://example.org/full"
+    await install_read(runtime, evidence)
+    events = await collect(runtime.start("alice", row["id"], "Give the complete findings."))
+    assert events[-1]["status"] == "partial"
+    assert len(model.requests) == 1 and model.requests[0].options["max_output_tokens"] == 128000
+    assert not final.requests
+    assert evidence in runtime.db.load_history("alice", row["id"])[-1].text
+
+
+async def test_researcher_reserves_the_configured_output_before_generation(runtime, monkeypatch):
+    from harness import RunContext
+    from harness.model import default_estimate_tokens
+    from harness.tools import execute_tool
+
+    runtime.settings.context_tokens = 10000
+    runtime.settings.max_compaction_calls = 5
+    monkeypatch.setattr(tools, "information_tools", lambda *args: [])
+    row = runtime.db.create_session("alice", "gpt-6-luna", "default")
+    row["generation"] = json.dumps({"max_output_tokens": 8000})
+    history = [
+        UserMessage("Preserve the source dates."),
+        AssistantMessage("x" * 6600),
+        UserMessage("Keep the original requirements. " + "q" * 2000),
+    ]
+    model = FakeModel(
+        [
+            AssistantMessage("Keep source dates."),
+            AssistantMessage("Keep source dates and the original requirements."),
+            AssistantMessage("Complete research."),
+        ]
+    )
+    use_models(runtime, model)
+    delegate = next(t for t in await tools.build_tools(runtime, row) if t.name == "delegate_tasks")
+    call = ToolCall(
+        "research",
+        "delegate_tasks",
+        {"tasks": [{"name": "sources", "task": "Compare the sources."}]},
+    )
+    returned = await execute_tool(
+        call,
+        [delegate],
+        ctx=RunContext(deps=None, history=history, budget=TurnBudget(runtime.settings).research),
+    )
+    result = json.loads(returned.content)
+    assert result[0]["status"] == "completed" and result[0]["answer"] == "Complete research."
+    assert len(model.requests) == 3
+    for request in model.requests:
+        assert request.options["max_output_tokens"] == 8000
+        assert default_estimate_tokens(request) + 8000 <= 10000
 
 
 class SlowModel(FakeModel):
@@ -285,6 +401,7 @@ async def test_compaction_sends_every_piece_without_rewriting_the_transcript(run
 
     runtime.settings.context_tokens = 4096
     row = session(runtime)
+    row["generation"] = json.dumps({"max_output_tokens": 512})
     limits = await context.capacity(runtime, row)
     old_text = "abcdefghijklmnopqrstuvwxyz " * 1200
     history = [

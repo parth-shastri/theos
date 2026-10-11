@@ -5,7 +5,6 @@ import time
 from dataclasses import dataclass
 
 from harness import CompactionConfig
-from harness.model import default_estimate_tokens
 
 from .model_catalog import catalog_entry, wire_model
 from .models import session_options
@@ -106,6 +105,7 @@ async def capacity(runtime, session):
 
 def options(runtime, session, limits):
     """Use provider output maxima unless the user explicitly chose an output value."""
+    # Keep the output setting intact. The harness summarizes input when both cannot fit.
     values = session_options(runtime.settings, session)
     if (
         runtime.settings.provider == "anthropic"
@@ -127,22 +127,6 @@ def options(runtime, session, limits):
         )
         values[key] = limits.output
     return values
-
-
-async def fit_output(request, model, window):
-    """Respect the provider's combined input/output window without changing response text."""
-    estimator = getattr(model, "count_request_tokens", None) or getattr(
-        model, "estimate_tokens", None
-    )
-    remaining = window - (
-        await estimator(request) if estimator else default_estimate_tokens(request)
-    )
-    if remaining <= 0:
-        # The harness must get a chance to compact before rejecting an oversized input.
-        return
-    for key in ("max_output_tokens", "max_tokens", "max_completion_tokens"):
-        if key in request.options:
-            request.options[key] = min(request.options[key], remaining)
 
 
 def compaction(runtime, session, limits):

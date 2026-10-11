@@ -403,9 +403,11 @@ Failed or incomplete summaries never replace the previous working summary.
 For agents, only `max_output_tokens` enforces response length, through the provider's supported parameter.
 OpenAI Responses and Gemini use `max_output_tokens`. OpenRouter and Anthropic use the equivalent `max_tokens` field.
 Requests use the provider output maximum unless the user chooses a smaller value.
-The same parameter also respects the provider's remaining combined input and output capacity.
+Space checks reserve the full requested output before reducing input through summaries.
+Answer and summary requests must fit their input and requested output within the model window.
+The runtime does not silently lower the output setting to fit an oversized input.
 Application code never clips generated answers or rejects them by byte size.
-The 1,024-token context reservation remains accounting only. It does not cap generation.
+Generic callers without an output setting retain a space estimate. It does not cap generation.
 Provider-stopped answers remain intact and carry an incomplete notice.
 
 ## Partial answers
@@ -419,7 +421,7 @@ The runtime accepts the legacy `AGENT_MAX_RECOVERY_CALLS` setting, but always pe
 
 Call, research-time, or context exhaustion stops new research and requests one final response without tools.
 That request retains the task, corrections, complete available context, and a limit notice.
-Final responses use the full model window and compact only when necessary to fit.
+Final responses use the model window after reserving the requested output and compact only when necessary to fit.
 If complete context cannot fit and compaction cannot finish, the runtime preserves it and returns a clear failure or saved findings.
 A failed final response never triggers a second attempt or repeats tools.
 Research deadlines do not cancel active answer generation or final responses.

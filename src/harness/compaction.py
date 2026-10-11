@@ -10,6 +10,7 @@ from typing import Any
 
 from harness.events import ContextCompaction, GenerationComplete
 from harness.limits import HarnessError, HarnessErrorCode
+from harness.output import requested_output_tokens
 from harness.types import (AssistantMessage, Budget, Message, ModelRequest,
                            SystemMessage, ToolResultMessage, UserMessage)
 
@@ -137,8 +138,6 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
         summary = memory.summary if start else ''
         pending = [m for k, m in enumerate(history[start:cut], start)
                    if not isinstance(m, SystemMessage) and k not in pins]
-        output = min(1024, config.options.get('max_output_tokens', config.options.get('max_tokens', config.options.get('max_completion_tokens', 1024))))
-
         def request(chunk: Sequence[Message]) -> ModelRequest:
             return ModelRequest([
                 SystemMessage(config.prompt),
@@ -155,7 +154,8 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
             while index + len(chunk) < len(pending):
                 trial = [*chunk, pending[index + len(chunk)]]
                 prepared = request(trial)
-                if await count_request(prepared) + output > context_window:
+                # Summary requests need the same complete output reservation as answer requests.
+                if await count_request(prepared) + requested_output_tokens(prepared) > context_window:
                     break
                 chunk.append(pending[index + len(chunk)])
                 accepted = prepared
@@ -171,10 +171,6 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
                 pending[index:index + 1] = [replace(message, **{attribute: content[:middle]}),
                                             replace(message, **{attribute: content[middle:]})]
                 continue
-            remaining_output = context_window - await count_request(accepted)
-            for key in ('max_output_tokens', 'max_tokens', 'max_completion_tokens'):
-                if key in accepted.options:
-                    accepted.options[key] = min(accepted.options[key], remaining_output)
             phase = 'budget_exhausted'
             if budget.used >= budget.max_model_calls - reserved_model_calls or not budget.spend():
                 raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)

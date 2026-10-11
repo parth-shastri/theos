@@ -13,11 +13,11 @@ from theos.runtime.models import session_options
 from theos.storage.messages import stamp_message
 
 from .approvals import check_approval
-from .context import ResearchStopped, fit_output, options
+from .context import ResearchStopped, options
 from .text import reply_text
 
 
-def build_hooks(runtime, session, *, model=None, limits=None, deadline=None):
+def build_hooks(runtime, session, *, limits=None, deadline=None):
     """Save model and tool checkpoints at the harness execution boundaries."""
     owner = session["owner"]
     session_id = session["id"]
@@ -39,8 +39,6 @@ def build_hooks(runtime, session, *, model=None, limits=None, deadline=None):
             if limits
             else session_options(runtime.settings, session)
         )
-        if model is not None:
-            await fit_output(request, model, limits.context)
         started = time.monotonic()
         created_at = time.time()
         return request

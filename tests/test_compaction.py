@@ -13,6 +13,67 @@ from harness.types import ToolResultMessage, message_to_dict
 CONFIG = CompactionConfig('Summarize the supplied conversation.', {'max_tokens': 256}, 128)
 
 
+@pytest.mark.parametrize('parameter', ['max_output_tokens', 'max_tokens', 'max_completion_tokens'])
+@pytest.mark.parametrize('trigger_ratio', [0.6, 1.0])
+async def test_requested_output_triggers_compaction_before_the_input_threshold(parameter, trigger_ratio):
+    from harness import Hooks
+    from harness.model import default_estimate_tokens
+    from harness.types import ModelRequest
+
+    history = [UserMessage('Keep source dates.'), AssistantMessage('x' * 6600),
+               UserMessage('Keep these requirements. ' + 'q' * 2000)]
+    original = [message_to_dict(message) for message in history]
+    input_tokens = default_estimate_tokens(ModelRequest(history, []))
+    assert input_tokens < 10000 * trigger_ratio
+    assert input_tokens + 1024 < 10000 < input_tokens + 8000
+
+    async def configure(request, ctx):
+        request.options[parameter] = 8000
+        return request
+
+    model = FakeModel([AssistantMessage('Keep the source dates.'), AssistantMessage('Complete answer.')])
+    result = await Agent(
+        model, hooks=Hooks(before_model=configure), context_window=10000,
+        compaction=CompactionConfig('Preserve requirements and sources.', {parameter: 8000},
+                                    max_summary_tokens=None, trigger_ratio=trigger_ratio),
+    ).run(history, budget=Budget(1), compaction_budget=Budget(5))
+    assert result.message.text == 'Complete answer.'
+    assert len(model.requests) == 2
+    assert [message_to_dict(message) for message in history[:3]] == original
+    assert model.requests[-1].messages[-1].content == original[-1]['content']
+    for request in model.requests:
+        assert request.options[parameter] == 8000
+        assert default_estimate_tokens(request) + 8000 <= 10000
+
+
+async def test_unfit_requested_output_without_compaction_stops_before_generation():
+    from harness import ContextLimitError, Hooks
+
+    async def configure(request, ctx):
+        request.options['max_output_tokens'] = 8000
+        return request
+
+    model = FakeModel([])
+    with pytest.raises(ContextLimitError, match='8000 output tokens reserved'):
+        await Agent(model, hooks=Hooks(before_model=configure), context_window=10000).run(
+            [UserMessage('q' * 9000)])
+    assert not model.requests
+
+
+async def test_explicit_output_setting_replaces_the_larger_generic_space_estimate():
+    from harness import Hooks
+
+    async def configure(request, ctx):
+        request.options['max_output_tokens'] = 100
+        return request
+
+    model = FakeModel([AssistantMessage('Complete answer.')])
+    result = await Agent(model, hooks=Hooks(before_model=configure), context_window=500).run(
+        [UserMessage('A short question.')])
+    assert result.status == 'completed'
+    assert model.requests[0].options['max_output_tokens'] == 100
+
+
 def transcript():
     return [UserMessage('Answer in Hindi. Compare both options. ' + 'a' * 5600),
             AssistantMessage(text='First option examined. ' + 'b' * 5600),

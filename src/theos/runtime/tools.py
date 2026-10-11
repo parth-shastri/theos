@@ -213,7 +213,6 @@ async def build_tools(runtime, session):
                         if time.monotonic() >= deadline:
                             raise context.ResearchStopped("The research reached its time limit.")
                         request.options.update(context.options(runtime, session, limits))
-                        await context.fit_output(request, model, limits.context)
                         return request
 
                     async def before_tool(tool, args, child_ctx):

@@ -154,6 +154,11 @@ The existing `gpt-6-luna` default remains available.
 Direct OpenAI adds only `gpt-5.6-luna` to its configured model.
 Other providers use the configured model unless an operator supplies an allowlist.
 Browser generation controls use a provider capability snapshot and save per conversation.
+There is no output-token setting in `.env`. Set `max_output_tokens` in the conversation generation controls.
+Without an override, requests use the known provider output maximum.
+The `gpt-6-luna` catalog fallback is 128,000 output tokens. OpenRouter metadata can update this value.
+Space checks reserve that output allowance before summarizing input. They do not silently lower the setting.
+Smaller context overrides must still accommodate the requested output and the preserved task.
 
 ## Telegram
 
