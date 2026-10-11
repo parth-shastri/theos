@@ -65,7 +65,7 @@ Updated: 2026-10-11.
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
-| Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/data/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
+| Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
 | Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. Keep host CLI installation separate from remote sandbox execution |
 | Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
 | Comments | Explain constraints and number the major workflow steps |
@@ -354,3 +354,13 @@ The 0.1.9 main promotion exposed a CI race in the sibling-recovery test's 0.3-se
 The test now advances isolated runtime clocks after one delegate completes, while preserving the event loop clock.
 It still checks the expired parent deadline, retained sibling answer, partial delegate, and single tool-free final response.
 This test-only correction changes no production limits or environment settings.
+
+## Release backup and shared skills
+
+The first 0.1.9 deployment rolled back before candidate activation.
+The Telegram preflight created an empty `/data/skills` mount directory in the candidate data volume.
+The backup restore correctly refused that nonempty volume.
+Mount shared skills at `/skills`, outside the application data volume, and set `AGENT_SKILLS_DIR=/skills`.
+A disposable rehearsal confirmed an empty candidate volume and successful restoration of the saved backup.
+The operator requested one tag. Retain the failed attempt and its backup, then retry the same immutable image and tag.
+Do not move or create another tag. Keep `rpi` unchanged while the release workflow runs.
