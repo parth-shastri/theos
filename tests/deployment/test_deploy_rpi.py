@@ -1,6 +1,7 @@
 """Exercise state restoration after pull, backup, startup, and readiness failures."""
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +9,33 @@ from scripts.deploy_rpi import Deployer, DeploymentError, write_json
 
 IMAGE = "ghcr.io/parth-shastri/theos@sha256:" + "a" * 64
 REVISION = "b" * 40
+
+
+@pytest.mark.parametrize("shared_skills", [False, True])
+def test_compose_retains_optional_shared_skills_during_release_and_rollback(
+    tmp_path, monkeypatch, shared_skills
+):
+    override = tmp_path / "compose.skills.yaml"
+    if shared_skills:
+        override.write_text("services: {}\n")
+    deployer = Deployer(tmp_path, tmp_path / "candidate.yaml")
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(stdout="ok\n")
+
+    monkeypatch.setattr("scripts.deploy_rpi.subprocess.run", run)
+    for name in ("candidate", "previous"):
+        release = dict(image=IMAGE, volume=name, compose_file=str(tmp_path / f"{name}.yaml"))
+        assert deployer.compose(release, "up", "-d", "theos") == "ok"
+        command, options = calls[-1]
+        expected = ["-f", release["compose_file"]]
+        if shared_skills:
+            expected.extend(["-f", str(override)])
+        assert command[command.index("-f") :] == [*expected, "up", "-d", "theos"]
+        assert options["env"]["AGENT_IMAGE"] == IMAGE
+        assert options["env"]["AGENT_DATA_VOLUME"] == name
 
 
 @pytest.fixture

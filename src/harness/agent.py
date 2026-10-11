@@ -22,6 +22,7 @@ from harness.loop import (
     run_turn_stream,
 )
 from harness.model import ChatModel
+from harness.output import DEFAULT_OUTPUT_RESERVATION
 from harness.tools import Tool
 from harness.types import Budget, Message
 
@@ -39,7 +40,7 @@ class Agent:
     max_context_tokens: int | None = None
     estimate_tokens: EstimateTokens = default_estimate  # used to trim history
     context_window: int | None = None
-    reserved_output_tokens: int = 1024
+    reserved_output_tokens: int = DEFAULT_OUTPUT_RESERVATION
     limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS
     compaction: CompactionConfig | None = None
 

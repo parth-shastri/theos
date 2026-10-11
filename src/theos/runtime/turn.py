@@ -15,6 +15,8 @@ class Turn:
     queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=512))
     task: asyncio.Task | None = None
     raw_events: bool = False
+    research_task: str | None = None
+    research_id: str | None = None
     inbox: Inbox = field(default_factory=Inbox)
     delegate_results: dict[str, dict[str, dict]] = field(default_factory=dict)
 

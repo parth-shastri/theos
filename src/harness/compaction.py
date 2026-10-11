@@ -5,13 +5,21 @@ import asyncio
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import aclosing
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from harness.events import ContextCompaction, GenerationComplete
 from harness.limits import HarnessError, HarnessErrorCode
-from harness.types import (AssistantMessage, Budget, Message, ModelRequest,
-                           SystemMessage, ToolResultMessage, UserMessage)
+from harness.output import requested_output_tokens
+from harness.types import (
+    AssistantMessage,
+    Budget,
+    Message,
+    ModelRequest,
+    SystemMessage,
+    ToolResultMessage,
+    UserMessage,
+)
 
 
 @dataclass
@@ -24,7 +32,7 @@ class ContextMemory:
     def from_dict(cls, value: Any) -> ContextMemory:
         if (not isinstance(value, dict) or not isinstance(value.get('summary'), str)
                 or type(value.get('covered_messages')) is not int
-                or value['covered_messages'] < 0 or len(value['summary']) > 16384):
+                or value['covered_messages'] < 0):
             return cls()
         pins = value.get('pinned_messages', [])
         if (not isinstance(pins, list) or any(
@@ -52,8 +60,13 @@ class ContextMemory:
 class CompactionConfig:
     prompt: str
     options: dict[str, Any] = field(default_factory=dict)
-    max_summary_tokens: int = 512
+    max_summary_tokens: int | None = 512
     reduce_current_turn: bool = False
+    trigger_ratio: float = 1.0
+    target_ratio: float = 0.5
+    preserve_user_messages: bool = False
+    summary_context: Callable[[], dict] | None = None
+    validate_summary: Callable[[str, dict], bool] | None = None
 
 
 def _summary_data(message: Message) -> dict:
@@ -106,10 +119,13 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
                  memory.covered_messages <= len(history) else 0)
         latest = next((i for i in range(len(history) - 1, -1, -1)
                        if isinstance(history[i], UserMessage)), -1)
-        summary_limit = min(config.max_summary_tokens, max_tokens // 4)
+        summary_limit = min(config.max_summary_tokens or max_tokens // 4, max_tokens // 4)
         if summary_limit < 32:
             raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
         pins = list(memory.pinned_messages)
+        if config.preserve_user_messages:
+            pins = sorted(set(pins + [i for i, m in enumerate(history) if isinstance(m, UserMessage)]))
+        protected = config.summary_context() if config.summary_context else {}
         boundaries = [i for i in range(start + 1, latest + 1) if isinstance(history[i], UserMessage)]
         completed = (_completed_tool_boundaries(history, max(start, latest, 0))
                      if config.reduce_current_turn else [])
@@ -135,16 +151,15 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
         summary = memory.summary if start else ''
         pending = [m for k, m in enumerate(history[start:cut], start)
                    if not isinstance(m, SystemMessage) and k not in pins]
-        output = config.options.get('max_tokens', 1024)
-
         def request(chunk: Sequence[Message]) -> ModelRequest:
             return ModelRequest([
                 SystemMessage(config.prompt),
                 UserMessage(json.dumps(dict(summary_token_limit=summary_limit,
                     task=[_summary_data(history[i]) for i in pins],
-                    previous_summary=summary, messages=[_summary_data(m) for m in chunk]),
+                    previous_summary=summary, messages=[_summary_data(m) for m in chunk],
+                    **({'protected_context': protected} if protected else {})),
                     ensure_ascii=False, separators=(',', ':'))),
-            ], [], options={**config.options, 'max_tokens': output})
+            ], [], options=dict(config.options))
 
         index = 0
         while index < len(pending):
@@ -153,12 +168,23 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
             while index + len(chunk) < len(pending):
                 trial = [*chunk, pending[index + len(chunk)]]
                 prepared = request(trial)
-                if await count_request(prepared) + prepared.options.get('max_tokens', output) > context_window:
+                # Summary requests need the same complete output reservation as answer requests.
+                if await count_request(prepared) + requested_output_tokens(prepared) > context_window:
                     break
                 chunk.append(pending[index + len(chunk)])
                 accepted = prepared
             if not chunk:
-                raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
+                # Split an oversized evidence item into complete consecutive pieces.
+                # The original transcript stays intact, and every piece enters a summary call.
+                message = pending[index]
+                attribute = 'text' if isinstance(message, AssistantMessage) else 'content'
+                content = getattr(message, attribute, None)
+                if not content or len(content) < 2:
+                    raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
+                middle = len(content) // 2
+                pending[index:index + 1] = [replace(message, **{attribute: content[:middle]}),
+                                            replace(message, **{attribute: content[middle:]})]
+                continue
             phase = 'budget_exhausted'
             if budget.used >= budget.max_model_calls - reserved_model_calls or not budget.spend():
                 raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
@@ -180,10 +206,15 @@ async def compact_context(*, history: Sequence[Message], memory: ContextMemory,
                                     usage=result.usage if result else {})
             phase = 'invalid_summary'
             if (not text or result.tool_calls or result.stop_reason in {'length', 'max_tokens', 'cut_off'}
-                    or await count([AssistantMessage(text=text)]) > summary_limit):
+                    or config.max_summary_tokens is not None
+                    and await count([AssistantMessage(text=text)]) > summary_limit):
+                raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
+            if config.validate_summary and not config.validate_summary(text, protected):
+                phase = 'missing_research_references'
                 raise HarnessError(HarnessErrorCode.CONTEXT_LIMIT_EXCEEDED)
             summary = text
             index += len(chunk)
+        pins = [i for i in pins if i < cut]
         candidate = ContextMemory(summary, cut, pins)
         after = await count(candidate.view(history))
         phase = 'summary_does_not_fit'

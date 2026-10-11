@@ -617,6 +617,7 @@ if TEXTUAL_AVAILABLE:
             self._scope: str | None = None
             self._models: dict[str | None, _ModelState] = {}
             self._responses: dict[int, _ResponseBlock] = {}
+            self._answer_drafts: set[int] = set()
             self._entry_parents: dict[int, int] = {}
             self._assistant_index: int | None = None
             self._status_index: int | None = None
@@ -857,6 +858,7 @@ if TEXTUAL_AVAILABLE:
 
         def _handle(self, event: RenderEvent) -> None:
             if isinstance(event, RunStarted):
+                self._answer_drafts.clear()
                 if event.prompt is not None:
                     self.started_at = time.monotonic()
                     self._models.clear()
@@ -897,6 +899,13 @@ if TEXTUAL_AVAILABLE:
                 self._model_state.tool_drafts[event.index] = (name, arguments)
                 self._set_status(f"preparing {name}")
             elif isinstance(event, ModelFinished):
+                if event.replace_answer and self._scope is None:
+                    # Preserve activity indexes while replacing every draft from this turn.
+                    for index in self._answer_drafts:
+                        self.entries[index] = Text('')
+                        self._responses.pop(index, None)
+                    self._assistant_index = None
+                    self._answer_drafts.clear()
                 self._finish_thinking(event.reasoning)
                 if event.text:
                     self._model_state.text = event.text
@@ -907,6 +916,7 @@ if TEXTUAL_AVAILABLE:
                         stop_reason=event.stop_reason,
                     )
                 if event.requested_tools:
+                    self._answer_drafts.discard(self._assistant_index)
                     self._collapse_response()
                 for key, value in event.usage.items():
                     self.usage[key] = self.usage.get(key, 0) + value
@@ -1093,6 +1103,8 @@ if TEXTUAL_AVAILABLE:
                     timestamp=datetime.now().astimezone().isoformat() if timestamp == "" else timestamp,
                 )
                 self._responses[block.index] = block
+                if self._scope is None:
+                    self._answer_drafts.add(block.index)
                 self._append_entry(self._response_renderable(block))
             else:
                 block = self._responses[self._assistant_index]

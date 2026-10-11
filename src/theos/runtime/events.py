@@ -37,6 +37,7 @@ def publish_event(runtime, turn, event, status):
                     "text": event.message.text,
                     "reasoning": event.message.reasoning,
                     "usage": event.message.usage,
+                    "requested_tools": [call.name for call in event.message.tool_calls],
                     "display": display_metadata(event.message),
                 }
             )

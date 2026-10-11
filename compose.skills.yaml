@@ -1,0 +1,10 @@
+# Copy into the Pi deployment directory to expose its universal skill directory.
+services:
+  theos:
+    volumes:
+      - type: bind
+        source: ${THEOS_SHARED_SKILLS_DIR:?Set THEOS_SHARED_SKILLS_DIR to the host shared skill directory}
+        target: /data/skills
+        read_only: true
+        bind:
+          create_host_path: false

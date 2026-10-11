@@ -21,6 +21,8 @@ class TheosTui(HarnessTui):
     def __init__(self, session, **kwargs):
         super().__init__(session, **kwargs)
         self.remote = hasattr(session, "configuration")
+        self.command_specs = (*self.command_specs, ("/research", "Start explicit deep research"))
+        self.commands_with_argument = self.commands_with_argument | {"/research"}
         if self.remote:
             self.command_specs = (*self.command_specs, *REMOTE_COMMANDS)
             self.commands_with_argument = self.commands_with_argument | {"/model", "/reasoning"}
@@ -28,6 +30,14 @@ class TheosTui(HarnessTui):
     async def _command(self, raw):
         command, _, argument = raw.partition(" ")
         command = command.lower()
+        if command == "/research":
+            if not argument.strip():
+                self.notify("Use /research followed by your question.", severity="warning")
+            elif self._busy:
+                self.notify("Wait for the running turn.", severity="warning")
+            else:
+                self.run_turn("/research " + argument)
+            return
         if not self.remote or command not in {
             "/settings",
             "/model",
