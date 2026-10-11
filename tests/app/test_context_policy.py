@@ -49,9 +49,9 @@ async def test_known_capacity_sets_only_the_provider_output_parameter(runtime, p
     policy = context.compaction(runtime, row, limits)
     values = context.options(runtime, row, limits)
     assert limits.context >= 1_000_000
-    assert values[parameter] == (65536 if provider == "gemini" else 128000)
+    assert values[parameter] == 8192
     assert policy.options[parameter] == values[parameter]
-    assert policy.trigger_ratio == 0.6 and policy.target_ratio == 0.45
+    assert policy.trigger_ratio == 0.7 and policy.target_ratio == 0.45
     assert policy.max_summary_tokens is None and policy.reduce_current_turn
     row["generation"] = json.dumps({"max_output_tokens": 5000})
     assert context.options(runtime, row, limits)[parameter] == 5000
@@ -104,7 +104,7 @@ async def test_parent_response_larger_than_old_byte_limit_is_preserved(runtime):
     assert events[-1]["status"] == "completed"
     assert runtime.db.load_history("alice", row["id"])[-1].text == text
     assert next(e for e in events if e["type"] == "assistant_complete")["text"] == text
-    assert parent.requests[0].options["max_output_tokens"] == 128000
+    assert parent.requests[0].options["max_output_tokens"] == 8192
 
 
 @pytest.mark.parametrize("final_response", [False, True])
@@ -166,19 +166,22 @@ async def test_requested_output_is_reserved_before_parent_or_final_generation(
         assert default_estimate_tokens(request) + 8000 <= 10000
 
 
-async def test_unfit_output_reservation_preserves_findings_without_lowering_limit(runtime):
+async def test_unfit_output_reservation_keeps_evidence_private_without_lowering_limit(runtime):
     runtime.settings.context_tokens = 200000
     runtime.settings.max_compaction_calls = 0
+    runtime.settings.max_output_tokens = 128000
     row = runtime.db.create_session("alice", "gpt-6-luna", "default")
     model, final = FakeModel([read_call("saved")]), FakeModel([])
     use_models(runtime, model, final)
     evidence = "Complete saved evidence. " * 15000 + "LAST SOURCE https://example.org/full"
     await install_read(runtime, evidence)
     events = await collect(runtime.start("alice", row["id"], "Give the complete findings."))
-    assert events[-1]["status"] == "partial"
+    assert events[-1]["status"] == "failed"
     assert len(model.requests) == 1 and model.requests[0].options["max_output_tokens"] == 128000
     assert not final.requests
-    assert evidence in runtime.db.load_history("alice", row["id"])[-1].text
+    history = runtime.db.load_history("alice", row["id"])
+    assert evidence not in history[-1].text
+    assert any(isinstance(m, ToolResultMessage) and m.content == evidence for m in history)
 
 
 async def test_researcher_reserves_the_configured_output_before_generation(runtime, monkeypatch):
@@ -468,3 +471,43 @@ def test_held_delegate_calls_survive_shared_research_exhaustion(settings):
     assert allowance.used == allowance.max_model_calls
     assert not allowance.spend()
     assert not any(response.spend() for response in reserved)
+
+
+@pytest.mark.parametrize(
+    "provider,key",
+    [
+        ("openai", "max_output_tokens"),
+        ("openrouter", "max_tokens"),
+        ("anthropic", "max_tokens"),
+        ("gemini", "max_output_tokens"),
+    ],
+)
+async def test_pi_output_context_and_explicit_overrides(runtime, provider, key):
+    runtime.settings.provider = provider
+    runtime.settings.context_tokens = 100000
+    runtime.settings.max_output_tokens = 8192
+    row = runtime.db.create_session("alice", "gpt-6-luna", "default")
+    limits = await context.capacity(runtime, row)
+    assert limits.context == 100000
+    assert context.options(runtime, row, limits)[key] == 8192
+    policy = context.compaction(runtime, row, limits)
+    assert int(limits.context * policy.trigger_ratio) == 70000
+    assert policy.options[key] == 8192
+    row["generation"] = json.dumps({"max_output_tokens": 4096})
+    runtime.settings.compaction_trigger_ratio = 0.55
+    assert context.options(runtime, row, limits)[key] == 4096
+    assert context.compaction(runtime, row, limits).trigger_ratio == 0.55
+
+
+def test_environment_defaults_and_overrides(monkeypatch):
+    monkeypatch.delenv("AGENT_MAX_OUTPUT_TOKENS", raising=False)
+    monkeypatch.delenv("AGENT_COMPACTION_TRIGGER_RATIO", raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.max_output_tokens == 8192
+    assert settings.compaction_trigger_ratio == 0.7
+    monkeypatch.setenv("AGENT_MAX_OUTPUT_TOKENS", "4096")
+    monkeypatch.setenv("AGENT_CONTEXT_TOKENS", "100000")
+    monkeypatch.setenv("AGENT_COMPACTION_TRIGGER_RATIO", "0.6")
+    settings = Settings(_env_file=None)
+    assert settings.max_output_tokens == 4096 and settings.context_tokens == 100000
+    assert settings.compaction_trigger_ratio == 0.6

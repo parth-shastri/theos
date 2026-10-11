@@ -62,7 +62,7 @@ flowchart TD
     Result --> Next
 ```
 
-Ordinary research also summarizes at 60 percent of context capacity, with a configurable threshold from 50 to 70 percent.
+Ordinary research also summarizes at 70 percent of context capacity, with a configurable threshold from 50 to 70 percent.
 The diagram's size check is the additional requirement that input plus the full requested output fits.
 After a summary, the harness rebuilds the complete request and checks it again, up to four passes.
 The final response summarizes only when its input plus requested output cannot fit.
@@ -86,7 +86,7 @@ flowchart TD
     HeldSummary --> Fit{"Complete summary fits?"}
     Fit -->|Yes| Reply["One response call with no tools<br/>Include findings and a limit notice"]
     Space -->|Yes| Reply
-    HeldReply -->|No| Saved["Return complete saved findings with a limitation notice"]
+    HeldReply -->|No| Saved["Return a clear failure; retain evidence in the transcript"]
     Fit -->|No| Saved
     Reply --> Success{"Provider returned an answer?"}
     Success -->|No| Saved
@@ -95,9 +95,9 @@ flowchart TD
 
 The held summary is a protected opportunity, not a promise that any amount of evidence will fit.
 Several chunks can need several summary calls. Large original requirements can also exceed the model window.
-If summaries fail or cannot fit, the application retains the evidence and returns saved findings.
+If summaries fail or cannot fit, the application retains the evidence and returns a clear failure.
 It does not retry the final response or cut the text to force a fit.
-Provider failures return saved findings without another research attempt.
+Provider failures return a clear explanation without another research attempt.
 Explicit cancellation interrupts the turn instead of starting a final response.
 
 ## Configuration and accounting
@@ -113,7 +113,7 @@ Explicit cancellation interrupts the turn instead of starting a final response.
 | `AGENT_TURN_TIMEOUT` | `300` seconds | Before new main-agent model calls and tools |
 | Delegate research deadline | `85` seconds | Before new delegate model calls and tools, also bounded by the parent's research deadline |
 | Ordinary tool timeout | `90` seconds | Tool execution. Delegation groups permit active final responses to finish |
-| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.6` | Ordinary context preparation. Summaries target 45 percent of capacity |
+| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.7` | Ordinary context preparation. Summaries target 45 percent of capacity |
 | Conversation `max_output_tokens` | Provider maximum when known | Provider generation parameter, including answer and summary requests |
 
 Explicit counts override their ratios independently. Remove old explicit counts from `.env` to enable derivation.

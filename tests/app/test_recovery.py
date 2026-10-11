@@ -8,9 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from harness import AssistantMessage, ToolCall, ToolResultMessage, UserMessage, tool
+from harness import AssistantMessage, ToolCall, ToolResultMessage, tool
 from harness.testing import FakeModel
-from theos.runtime import hooks, recovery, tools
+from theos.runtime import hooks, tools
+from theos.runtime.context import ResearchStopped
 
 from .conftest import collect
 
@@ -58,8 +59,8 @@ async def test_provider_failure_without_findings_returns_clear_failure(runtime):
     assert events[-1] == {"type": "done", "status": "failed"}
     assert runtime.session("alice", row["id"])["status"] == "failed"
     answer = runtime.db.load_history("alice", row["id"])[-1].text
-    assert answer.startswith("Request failed:")
-    assert "No answer was generated" in answer
+    assert "test model failed while generating" in answer
+    assert not any(e["type"] == "text" for e in events)
     assert "Partial answer" not in answer
     assert "private provider credential" not in answer
     assert count == []
@@ -74,7 +75,7 @@ async def test_failed_recovery_without_findings_does_not_claim_partial_answer(ru
     row = session(runtime)
     events = await collect(runtime.start("alice", row["id"], "Read the source."))
     assert events[-1]["status"] == "failed"
-    assert runtime.db.load_history("alice", row["id"])[-1].text.startswith("Request failed:")
+    assert runtime.db.load_history("alice", row["id"])[-1].text.startswith("I could not finish")
     assert count == []
     assert len(final.requests) == 1
 
@@ -83,7 +84,7 @@ def assert_partial(runtime, row, events, finding="7 AM"):
     assert events[-1] == {"type": "done", "status": "partial"}
     assert not any(e["type"] == "error" for e in events)
     history = runtime.db.load_history("alice", row["id"])
-    assert history[-1].text.startswith("Partial answer:")
+    assert "Partial answer:" not in history[-1].text
     assert finding in history[-1].text
     assert runtime.session("alice", row["id"])["status"] == "partial"
     return history
@@ -136,7 +137,7 @@ class WaitingModel(FakeModel):
         if len(self.requests) >= len(self.script):
             self.requests.append(request)
             await asyncio.sleep(0.05)
-            raise TimeoutError("The provider connection stalled.")
+            raise ResearchStopped("The research reached its time limit.")
         async for event in super().stream(request):
             yield event
 
@@ -158,15 +159,17 @@ async def test_turn_timeout_preserves_results_and_finishes_inside_deadline(runti
     assert not final.requests[0].tools
 
 
-async def test_provider_stall_during_recovery_falls_back_without_retry(runtime):
+async def test_provider_stall_during_recovery_returns_failure_without_retry(runtime):
     runtime.settings.max_model_calls = 2
     count = await install_read(runtime)
-    research, final = FakeModel([read_call("one")]), WaitingModel([])
+    research, final = FakeModel([read_call("one")]), FakeModel([TimeoutError("connection stalled")])
     use_models(runtime, research, final)
     row = session(runtime)
-    assert_partial(
-        runtime, row, await collect(runtime.start("alice", row["id"], "Read the source."))
-    )
+    events = await collect(runtime.start("alice", row["id"], "Read the source."))
+    assert events[-1]["status"] == "failed"
+    answer = runtime.db.load_history("alice", row["id"])[-1].text
+    assert "connection timed out" in answer
+    assert "7 AM" not in answer
     assert len(final.requests) == 1
     assert count == [1]
 
@@ -193,10 +196,14 @@ async def test_context_limit_recovers_from_actual_request_sizing(runtime, recove
         "UPDATE sessions SET generation=? WHERE id=?",
         (json.dumps({"max_output_tokens": 512}), row["id"]),
     )
-    history = assert_partial(
-        runtime, row, await collect(runtime.start("alice", row["id"], "Read the source."))
-    )
-    assert "available model context" in history[-1].text
+    events = await collect(runtime.start("alice", row["id"], "Read the source."))
+    history = runtime.db.load_history("alice", row["id"])
+    if recovery_fits:
+        assert_partial(runtime, row, events)
+    else:
+        assert events[-1]["status"] == "failed"
+        assert content not in history[-1].text
+    assert "model context" in history[-1].text
     assert next(m for m in history if isinstance(m, ToolResultMessage)).content == content
     assert count == [1]
     assert len(final.requests) == (1 if recovery_fits else 0)
@@ -219,14 +226,15 @@ async def test_large_results_are_preserved_for_model_and_storage(runtime):
     assert saved.content == content
 
 
-async def test_final_model_failure_and_tool_request_use_saved_findings(runtime):
+async def test_final_model_failure_and_tool_request_do_not_expose_saved_findings(runtime):
     runtime.settings.max_model_calls = 2
     for response in (RuntimeError("private credential"), read_call("must-not-run")):
         count = await install_read(runtime)
         use_models(runtime, FakeModel([read_call("one")]), FakeModel([response]))
         row = session(runtime)
         events = await collect(runtime.start("alice", row["id"], "Read the source."))
-        assert_partial(runtime, row, events)
+        assert events[-1]["status"] == "failed"
+        assert "7 AM" not in runtime.db.load_history("alice", row["id"])[-1].text
         assert "private credential" not in json.dumps(events)
         assert count == [1]
 
@@ -410,37 +418,14 @@ async def test_delegate_iterations_are_enforced_and_parent_can_answer(
         )
         for i in range(2)
     ]
-    use_models(runtime, parent, *children)
+    final = FakeModel([AssistantMessage("Park opens at 7 AM; more research is needed.")])
+    use_models(runtime, parent, *children, final)
     row = session(runtime)
     assert_partial(
         runtime, row, await collect(runtime.start("alice", row["id"], "Compare the opening times."))
     )
     assert len(parent.requests) in {1, 2}
     assert all(len(child.requests) <= delegate_calls for child in children)
-    assert sum(len(m.requests) for m in [parent, *children]) <= max_calls
+    assert sum(len(m.requests) for m in [parent, *children, final]) <= max_calls
     if max_calls >= 2 * delegate_calls + 3:
         assert all(len(child.requests) == delegate_calls for child in children)
-
-
-def test_saved_findings_keep_both_delegate_answers_in_full():
-    delegates = [
-        {
-            "name": "Mumbai itinerary",
-            "status": "completed",
-            "answer": "Mumbai museum opens at 10 AM. " + "source details " * 2000,
-        },
-        {
-            "name": "Bengaluru itinerary",
-            "status": "completed",
-            "answer": "Bengaluru gallery opens at 11 AM. " + "source details " * 2000,
-        },
-    ]
-    history = [
-        UserMessage("Compare the cities."),
-        ToolResultMessage("research", "delegate_tasks", json.dumps(delegates)),
-    ]
-    answer = recovery.findings(history, 1)
-    assert "Mumbai museum opens at 10 AM" in answer
-    assert "Bengaluru gallery opens at 11 AM" in answer
-    assert delegates[0]["answer"] in answer
-    assert delegates[1]["answer"] in answer

@@ -183,3 +183,28 @@ def format_reply(source, limit=3900):
 def plain_messages(text):
     """Split literal command and review text using the same Unicode limit."""
     return _chunks(reply_text(text), [], 3900)
+
+
+def format_approval(tool, fields):
+    """Render labels and prose while preserving commands as literal code."""
+    text = "Approval needed\n" + tool.replace("_", " ") + "\n\n"
+    entities = [{"type": "bold", "offset": 0, "length": 15}]
+    for field in fields:
+        entities.append(
+            {"type": "bold", "offset": utf16_length(text), "length": utf16_length(field["label"])}
+        )
+        text += field["label"] + "\n"
+        offset = utf16_length(text)
+        if field["kind"] == "markdown":
+            for part in format_reply(field["text"]):
+                entities.extend({**e, "offset": e["offset"] + offset} for e in part["entities"])
+                text += part["text"]
+                offset += utf16_length(part["text"])
+        else:
+            text += field["text"]
+            if field["kind"] == "code":
+                entities.append(
+                    {"type": "pre", "offset": offset, "length": utf16_length(field["text"])}
+                )
+        text += "\n\n"
+    return _chunks(text.rstrip("\n"), entities, 3900)

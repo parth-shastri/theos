@@ -5,7 +5,7 @@ import asyncio
 import pytest
 from pydantic import ValidationError
 
-from harness import AssistantMessage, UserMessage
+from harness import AssistantMessage, ToolResultMessage, UserMessage
 from harness.testing import FakeModel
 from theos.runtime.budgets import TurnBudget
 from theos.settings import Settings
@@ -76,7 +76,7 @@ def test_release_defaults_scale_the_call_allowances():
     assert budget.delegate_limit == 10
 
 
-async def test_failed_response_call_does_not_retry_and_preserves_findings(runtime):
+async def test_failed_response_call_does_not_retry_or_display_findings(runtime):
     runtime.settings.max_model_calls = 5
     runtime.settings.max_compaction_calls = 0
     runtime.settings.max_recovery_calls = 2
@@ -86,8 +86,10 @@ async def test_failed_response_call_does_not_retry_and_preserves_findings(runtim
     use_models(runtime, research, failed)
     row = session(runtime)
     events = await collect(runtime.start("alice", row["id"], "Check the opening time."))
-    assert events[-1]["status"] == "partial"
-    assert "7 AM" in runtime.db.load_history("alice", row["id"])[-1].text
+    assert events[-1]["status"] == "failed"
+    history = runtime.db.load_history("alice", row["id"])
+    assert "7 AM" not in history[-1].text
+    assert any(isinstance(m, ToolResultMessage) and "7 AM" in m.content for m in history)
     assert count == [1, 1, 1, 1]
     assert len(research.requests) + len(failed.requests) == 5
     assert not failed.requests[0].tools
@@ -149,7 +151,7 @@ async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(run
         assert events[-1]["status"] == "failed"
         assert len(model.requests) == max(0, allowance - 1)
         assert len(final.requests) == int(allowance > 0)
-        assert history[-1].text.startswith("Request failed:")
+        assert "model context" in history[-1].text
         assert runtime.db.one("SELECT COALESCE(SUM(output_tokens),0) n FROM usage")["n"] == 5 * max(
             0, allowance - 1
         )

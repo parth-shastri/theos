@@ -22,7 +22,7 @@ All source paths below start at `src/theos`.
 | Runtime | Reserve turns and run the harness | `runtime/engine.py` |
 | Approvals | Match decisions to unchanged actions | `runtime/approvals.py` |
 | Checkpoints | Save tool attempts and recover results | `runtime/checkpoints.py`, `runtime/hooks.py` |
-| Partial answers | Reserve a final model call and return saved findings after runtime limits | `runtime/recovery.py` |
+| Final answers and failures | Reserve a final model call after runtime limits. Explain failures without exposing raw findings | `runtime/recovery.py`, `runtime/errors.py` |
 | Context and output | Resolve provider capacities and share compaction rules across agents | `runtime/context.py` |
 | Call budgets | Separate research, compaction, and recovery allowances under one total ceiling | `runtime/budgets.py` |
 | Deep research | Gate explicit mode and persist research evidence, notes, reports, and checkpoints | `runtime/research_mode.py`, `services/research/`, migration 010 |
