@@ -62,8 +62,12 @@ class Deployer:
             str(self.directory / ".env"),
             "-f",
             release["compose_file"],
-            *args,
         ]
+        # Host-installed skills stay shared across releases and rollback.
+        skills_compose = self.directory / "compose.skills.yaml"
+        if skills_compose.is_file():
+            command.extend(["-f", str(skills_compose)])
+        command.extend(args)
         try:
             return subprocess.run(
                 command, env=environment, check=True, capture_output=True, text=True, timeout=300

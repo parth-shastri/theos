@@ -1,8 +1,18 @@
 # Shared skills and report style
 
 The Pi stores shared skills in `/home/neuron/.agents/skills`.
-Theos loads a copy from `/data/skills` in its persistent data volume.
-Set `AGENT_SKILLS_DIR=/data/skills` in the deployment environment.
+Theos reads the same directory through a read-only bind mount at `/data/skills`.
+New installations and updates appear without copying files or restarting Theos.
+Set these variables in the Pi deployment environment:
+
+```env
+AGENT_SKILLS_DIR=/data/skills
+THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills
+```
+
+Copy the repository's `compose.skills.yaml` into `/home/neuron/theos-deploy`.
+The deployment script adds that file to release, readiness, and rollback commands.
+For manual Compose commands, include it with `-f` after the release Compose file.
 Host skills are available to Codex and linked into the existing Claude Code skill directory.
 
 The installed upstream skills are:
@@ -11,6 +21,7 @@ The installed upstream skills are:
 | --- | --- |
 | `code-review-excellence` | `wshobson/agents` |
 | `arxiv-search` | `langchain-ai/deepagents`, `libs/code/examples/skills/arxiv-search` |
+| `pwc-cli` | `huggingface/pwc-cli`, `standalone_cli` |
 | `huggingface-papers` | `huggingface/skills` |
 | `docx`, `xlsx`, `pdf` | `anthropics/skills` |
 
@@ -31,13 +42,27 @@ python3 scripts/apply_skill_styles.py --skills-dir /home/neuron/.agents/skills
 
 The script adds the shared style and updates the DOCX and PDF instructions.
 It preserves upstream instructions and resources.
-Copy the resulting directories into the active Theos data volume.
-Use physical directories rather than symlinks inside `/data` because deployment backups reject symlinks.
+The read-only mount exposes the result directly to Theos.
+Back up the shared host directory separately from the application data volume.
 Refresh the installation manifest after updates.
 
 The arXiv CLI entrypoint needs a local correction to print its returned result.
 The Pi installation records that correction and preserves upstream licenses.
 The upstream installation lock and `.theos-install.json` record sources and file hashes.
+
+Prefer `pwc-cli` for paper discovery, reading, related work, and benchmarks.
+Use arXiv and Hugging Face skills for supplemental evidence.
+Apply the paper policy after upstream updates:
+
+```sh
+python3 scripts/apply_paper_skill_policy.py --skills-dir /home/neuron/.agents/skills
+```
+
+The official [Papers with Code CLI](https://github.com/huggingface/pwc-cli) provides the companion command.
+The Pi uses version `0.4.3` in an isolated Python environment.
+Its source revision is `dba15a776f9773282fa590f42d7496f2833b5959`.
+Live paper search and metadata retrieval passed from the Pi host.
+The remote sandbox still needs its own CLI installation.
 
 Skill instructions do not install tools or grant execution permissions.
 The report helpers require their declared Python packages and a separate browser installation.

@@ -256,8 +256,12 @@ Source: [service tools](../src/theos/services/skills/tools.py).
 | `load_skill` | Read a skill or a resource inside its directory. |
 
 The Pi uses `/home/neuron/.agents/skills` as its shared skill directory.
-Theos reads a physical copy from `/data/skills` with `AGENT_SKILLS_DIR=/data/skills`.
-The [skills.sh CLI](https://skills.sh/docs) installed code review, arXiv, Hugging Face papers, DOCX, XLSX, and PDF skills.
+Theos mounts that same directory read-only at `/data/skills` with `AGENT_SKILLS_DIR=/data/skills`.
+The operator sets `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and installs `compose.skills.yaml` in the deployment directory.
+The deployment script retains this mount during release and rollback.
+Manual Compose commands must include the shared-skills file explicitly.
+Host skill updates appear without a copy or application restart.
+The [skills.sh CLI](https://skills.sh/docs) installed code review, Papers with Code, arXiv, Hugging Face papers, DOCX, XLSX, and PDF skills.
 It runs through a temporary Node 22 runtime because the Pi's system Node 20 is incompatible with `skills@1.7.2`.
 Source licenses, installation metadata, hashes, and local corrections remain with the installation.
 
@@ -277,7 +281,14 @@ The helper scripts declare their Python dependencies for `uv run`.
 Copy their scripts and text assets into the remote sandbox before execution.
 Skill installation does not install browser binaries, fonts, LibreOffice, or Poppler in that sandbox.
 
-On 2026-10-11, the Pi's deployed loader listed seven skills and read every instruction file.
+Paper research uses the official `pwc-cli` skill first, with arXiv and Hugging Face as supplemental sources.
+The Pi has `pwc 0.4.3` in an isolated Python environment.
+Live search and metadata retrieval passed against the public catalog.
+The remote sandbox needs a separate CLI installation.
+
+On 2026-10-11, the Pi's deployed loader listed eight skills and read every instruction file.
+A temporary host-file change appeared through `load_skill` without a restart.
+The container mount is read-only.
 It also read the report scripts, stylesheet, JavaScript, and diagram references.
 Local PDF and DOCX samples rendered successfully and passed page inspection.
 Those samples do not verify remote document execution or transport delivery.
