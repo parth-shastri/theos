@@ -4,28 +4,47 @@ Each user message starts one shared call budget. Normal questions and explicit d
 A delegate does not receive an extra pool of calls.
 Open the [Excalidraw overview](call-budgets.excalidraw) for the same allocation map.
 
-## Default allocation
+## Derive the allocation once per turn
+
+`AGENT_MAX_MODEL_CALLS` is the total. Explicit summary and delegate counts take precedence.
+When a count is omitted, multiply the total by its configured ratio and round up:
+
+- Summary calls: `ceil(total × AGENT_COMPACTION_CALL_RATIO)`. The default ratio is one-sixth.
+- Delegate research and handoff ceiling: `ceil(total × AGENT_DELEGATE_CALL_RATIO)`. The default ratio is one-third.
+- Parent final response: one held call, following the single-response rule.
+- Shared research calls: `total − summary calls − 1`.
+
+Summary allocation is capped at `max(total − 2, 0)` to retain research capacity on small totals.
+The delegate ceiling is capped at the shared research allowance. These caps also apply to explicit counts.
+Resolve these values once when the turn starts. The runtime and traces use the same resolved values.
 
 ```mermaid
 flowchart TD
-    Total["One turn: 30 model calls maximum"] --> Research["24 research calls<br/>Main agent, delegates, and title"]
-    Total --> Summaries["5 summary calls<br/>Shared by every agent"]
+    Config["Config: total T, ratios, optional counts"] --> Resolve["Use each explicit count if supplied<br/>Otherwise multiply T by its ratio and round up"]
+    Resolve --> Total["One shared ceiling: T calls"]
+    Total --> Summaries["S summary calls<br/>Capped to retain research and final response"]
     Total --> Answer["1 parent final response<br/>Held from the start"]
-    Research --> Child["Each delegate: at most 10 calls<br/>9 research + 1 held handoff"]
+    Total --> Research["T minus S minus 1 research calls<br/>Main agent, delegates, and title"]
+    Research --> Child["Delegate ceiling D, bounded by research pool<br/>D minus 1 research calls + 1 held handoff"]
     Summaries --> Held["Hold 1 summary for the parent<br/>Hold 1 per active delegate if available"]
-    Summaries --> Ordinary["Research summaries use only unheld calls"]
-    Held --> Released["Release a delegate's unused holds when it finishes"]
+    Held --> Released["Release unused delegate holds when it finishes"]
 ```
 
-The 24 research calls include the parent's calls and every delegate's calls.
-Each delegate holds its handoff before any sibling starts. Its handoff consumes one of those 24 calls.
-A delegate that cannot hold a handoff does not start research.
-The parent holds a separate final response within the 30-call total.
+| Total | Shared research | Shared summaries | Parent final response | Each delegate's research and handoff ceiling |
+| --- | --- | --- | --- | --- |
+| 30 | 24 | 5 | 1 | 10 |
+| 50 | 40 | 9 | 1 | 17 |
+| 100 | 82 | 17 | 1 | 34 |
+
+The delegate ceiling does not create more calls. Parent and delegate research share the same research allowance.
+Each delegate holds its handoff before any sibling starts. A delegate without a handoff slot does not start research.
+Delegate summaries use the separate shared summary allowance. They count toward the total, outside the delegate's research and handoff ceiling.
 A normal parent answer consumes a research call. The held parent response is for limits or interrupted research.
 
-Summary holds also come from the existing five calls. They do not increase the total.
-With three active delegates, four summary calls are held and one remains available for ordinary summaries.
-A completed delegate releases unused holds. Later research summaries can use those released calls.
+Summary holds come from the existing summary allowance. They do not increase the total.
+At 30 calls, three active delegates hold four summaries with the parent, leaving one for ordinary summaries.
+At 50 calls, the same holds leave five for ordinary summaries.
+Completed delegates release unused holds. Later research summaries can use those released calls.
 The parent's summary hold stays available until its final response or the end of the turn.
 A final response uses its held summary first, then any unheld summary calls still available.
 
@@ -94,8 +113,10 @@ Explicit cancellation interrupts the turn instead of starting a final response.
 | Setting | Default | Where the harness enforces it |
 | --- | --- | --- |
 | `AGENT_MAX_MODEL_CALLS` | `30` | Shared ceiling charged by every research, summary, title, and final response call |
-| `AGENT_MAX_COMPACTION_CALLS` | `5` | Shared summary allowance, including protected summary holds |
-| `AGENT_DELEGATE_MAX_MODEL_CALLS` | `10` | Each delegate's local allowance, including its held handoff |
+| `AGENT_MAX_COMPACTION_CALLS` | Unset; derived from total | Optional explicit shared summary count. Zero disables summaries |
+| `AGENT_COMPACTION_CALL_RATIO` | `1/6` | Summary fraction when the explicit count is absent, from 0 to 1 |
+| `AGENT_DELEGATE_MAX_MODEL_CALLS` | Unset; derived from total | Optional explicit research and handoff ceiling per delegate |
+| `AGENT_DELEGATE_CALL_RATIO` | `1/3` | Delegate fraction when the explicit count is absent, greater than 0 and at most 1 |
 | Parent final response | `1` | Held automatically within the total. Legacy `AGENT_MAX_RECOVERY_CALLS` does not add attempts |
 | `AGENT_TURN_TIMEOUT` | `300` seconds | Before new main-agent model calls and tools |
 | Delegate research deadline | `85` seconds | Before new delegate model calls and tools, also bounded by the parent's research deadline |
@@ -103,7 +124,12 @@ Explicit cancellation interrupts the turn instead of starting a final response.
 | `AGENT_COMPACTION_TRIGGER_RATIO` | `0.6` | Ordinary context preparation. Summaries target 45 percent of capacity |
 | Conversation `max_output_tokens` | Provider maximum when known | Provider generation parameter, including answer and summary requests |
 
-For smaller totals, summary allocation is `min(configured summaries, max(total - 2, 0))`.
+Explicit counts override their ratios independently. Remove old explicit counts from `.env` to enable derivation.
+For example, keeping `AGENT_DELEGATE_MAX_MODEL_CALLS=10` keeps that ceiling at ten when the total becomes 50.
+The example environment file leaves both count overrides commented out.
+After changing environment values, recreate the container so the process reads them.
+
+For smaller totals, summary allocation is `min(requested summaries, max(total - 2, 0))`.
 The parent still holds one final response. Research receives the remaining calls.
 A total of one therefore permits only the final response.
 Unused summary calls do not become research calls.

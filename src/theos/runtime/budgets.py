@@ -1,5 +1,7 @@
 """Separate call allowances under one turn ceiling."""
 
+from math import ceil
+
 from harness import Budget
 
 
@@ -81,10 +83,19 @@ class TurnBudget:
     def __init__(self, settings):
         self.total = Budget(settings.max_model_calls)
         final = 1
+        # Resolve once per turn. An explicit zero disables summaries rather than using the ratio.
+        requested_summaries = settings.max_compaction_calls
+        if requested_summaries is None:
+            requested_summaries = ceil(settings.max_model_calls * settings.compaction_call_ratio)
         # Small ceilings retain one research call before allocating compaction.
-        compact = min(settings.max_compaction_calls, max(0, settings.max_model_calls - final - 1))
+        compact = min(requested_summaries, max(0, settings.max_model_calls - final - 1))
         self.research = CallAllowance(settings.max_model_calls - compact - final, self.total)
         self.compaction = CallAllowance(compact, self.total)
+        requested_delegate = settings.delegate_max_model_calls
+        if requested_delegate is None:
+            requested_delegate = ceil(settings.max_model_calls * settings.delegate_call_ratio)
+        # The delegate ceiling includes its handoff. Summaries use the separate shared pool.
+        self.delegate_limit = min(requested_delegate, self.research.max_model_calls)
         # Hold input-summary capacity as well as an answer call for the parent.
         self.final_compaction = self.reserve_final_summary()
         self.recovery = CallAllowance(final, self.total)
@@ -100,7 +111,14 @@ class TurnBudget:
             "recovery": self.recovery,
         }
         return {
-            f"theos.budget.{name}.{field}": getattr(budget, source, 0)
-            for name, budget in values.items()
-            for field, source in (("limit", "max_model_calls"), ("used", "used"), ("held", "held"))
+            "theos.budget.delegate.limit": self.delegate_limit,
+            **{
+                f"theos.budget.{name}.{field}": getattr(budget, source, 0)
+                for name, budget in values.items()
+                for field, source in (
+                    ("limit", "max_model_calls"),
+                    ("used", "used"),
+                    ("held", "held"),
+                )
+            },
         }

@@ -4,12 +4,17 @@
 
 PR #42 adds a turn-specific research mode, saved SQLite research records, and the browser Research view.
 Normal queries receive focused delegate briefs and protected final summary capacity without research records.
-The final suite passed 930 tests, with three credential-dependent live tests excluded.
+The final suite passed 948 tests, with three credential-dependent live tests excluded.
 Application lint, formatting, JavaScript syntax, lock validation, and package builds passed.
 
 Deterministic checks cover explicit entry points, normal follow-ups, source and conversation ownership, full reports, source extraction, and restart persistence.
 They also cover replaced notes, repeated summaries, missing reference rejection, original user corrections, and parent and delegate final summaries after exhaustion.
 Small and concurrent budgets stay within the shared ceiling.
+Proportional checks cover omitted counts, independent explicit overrides, configurable ratios, and totals from one to 100.
+A 50-call runtime check enforces 17 research and handoff calls for each of two concurrent delegates.
+The parent and delegates consume 36 shared calls in that check; summary and final reserves remain within the total.
+At 30 calls, automatic defaults retain 24 research, five summary, and one parent response slot.
+At 50, they derive 40 research, nine summary, and one parent response slot.
 For agents, only the provider output parameter enforces generation length. Application code does not cut answers.
 
 The local ARM64 Docker test instance on port 8082 passed readiness with migration 010 and the existing persistent test volume.

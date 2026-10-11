@@ -437,9 +437,13 @@ Provider-stopped answers remain intact and carry an incomplete notice.
 ## Partial answers
 
 `AGENT_MAX_MODEL_CALLS` sets the total ceiling, including research, compaction, titles, and final responses.
-The default allocation is 24 research calls, five compaction calls, and one parent response call.
+Omitted summary and delegate counts derive from the total, rounded up, using configurable one-sixth and one-third ratios.
+Explicit counts override their ratios. The runtime resolves the allocation once per turn.
+At the default total of 30, allocation is 24 research calls, five compaction calls, and one parent response call.
+At 50, allocation becomes 40 research, nine compaction, and one parent response call.
 Each delegate reserves one research slot for its final handoff before any sibling starts.
-Its default ten-call allowance includes that handoff. Compaction uses the separate shared compaction allowance.
+Its derived ceiling includes that handoff and is bounded by the research pool: ten at a total of 30, 17 at 50.
+Compaction uses the separate shared compaction allowance and counts toward the total, outside the delegate ceiling.
 The parent holds one summary call for its final response. Each active delegate holds one when available.
 Ordinary summaries use unheld calls. Completed delegates release unused holds.
 See the [call budget map](runtime/call-budgets.md) for request checks and exhaustion paths.

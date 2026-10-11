@@ -145,10 +145,13 @@ class Settings(ClientSettings):
     auto_titles: bool = True
     max_concurrent_turns: int = Field(default=4, ge=1, le=32)
     max_model_calls: int = Field(default=30, ge=1, le=100)
-    max_compaction_calls: int = Field(default=5, ge=0, le=100)
+    # Omitted counts derive from these ratios when a turn starts.
+    max_compaction_calls: int | None = Field(default=None, ge=0, le=100)
+    compaction_call_ratio: float = Field(default=1 / 6, ge=0, le=1)
     # Accept older environment files. Recovery now always reserves one response call.
     max_recovery_calls: int = Field(default=1, ge=0, le=100)
-    delegate_max_model_calls: int = Field(default=10, ge=1, le=100)
+    delegate_max_model_calls: int | None = Field(default=None, ge=1, le=100)
+    delegate_call_ratio: float = Field(default=1 / 3, gt=0, le=1)
     max_scheduled_tasks: int = Field(default=50, ge=1, le=200)
     turn_timeout: int = Field(default=300, ge=10, le=3600)
     context_tokens: int | None = Field(default=None, ge=4096)

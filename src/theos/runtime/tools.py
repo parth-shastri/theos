@@ -42,7 +42,7 @@ DELEGATE_SECONDS = 85
 class DelegateBudget(Budget):
     """Bound research calls while preserving the reserved handoffs."""
 
-    def __init__(self, shared, maximum=4):
+    def __init__(self, shared, maximum):
         super().__init__(max_model_calls=maximum)
         self.shared = shared
 
@@ -155,7 +155,7 @@ async def build_tools(runtime, session):
                     "gen_ai.operation.name": "invoke_agent",
                     "gen_ai.agent.name": name,
                     "theos.delegate.index": index,
-                    "theos.delegate.model_calls.limit": runtime.settings.delegate_max_model_calls,
+                    "theos.delegate.model_calls.limit": allowances.delegate_limit,
                 },
             ) as span:
                 runtime.tracing.content(
@@ -340,7 +340,7 @@ async def build_tools(runtime, session):
                                     history,
                                     budget=DelegateBudget(
                                         shared_budget,
-                                        max(0, runtime.settings.delegate_max_model_calls - 1),
+                                        max(0, allowances.delegate_limit - 1),
                                     ),
                                     compaction_budget=allowances.compaction,
                                     memory=memory,

@@ -83,9 +83,11 @@ See the [terminal guide](../terminal.md#connect-to-a-deployment).
 | `AGENT_DATA_DIR` | `.theos` | Databases, local files, and logs |
 | `AGENT_MAX_CONCURRENT_TURNS` | `4` | Concurrent turns, from 1 to 32 |
 | `AGENT_MAX_MODEL_CALLS` | `30` | Total calls per turn, including compaction, titles, and recovery, from 1 to 100 |
-| `AGENT_MAX_COMPACTION_CALLS` | `5` | Shared summary calls within the total, including protected final summary holds, from 0 to 100 |
+| `AGENT_MAX_COMPACTION_CALLS` | Unset; derived | Optional explicit summary count, from 0 to 100. Zero disables summaries |
+| `AGENT_COMPACTION_CALL_RATIO` | `1/6` | Fraction of total reserved for summaries when the count is absent, from 0 to 1. Round up |
 | `AGENT_MAX_RECOVERY_CALLS` | `1` | Legacy setting accepted for compatibility. The runtime always reserves one final response call |
-| `AGENT_DELEGATE_MAX_MODEL_CALLS` | `10` | Calls per delegate within the shared research allowance, from 1 to 100 |
+| `AGENT_DELEGATE_MAX_MODEL_CALLS` | Unset; derived | Optional explicit research and handoff ceiling per delegate, from 1 to 100 |
+| `AGENT_DELEGATE_CALL_RATIO` | `1/3` | Fraction of total for each delegate ceiling when the count is absent, greater than 0 and at most 1. Round up |
 | `AGENT_TURN_TIMEOUT` | `300` | Deadline for new research, from 10 to 3600 seconds. Active answers can finish after it |
 | `AGENT_CONTEXT_TOKENS` | Unset | Optional context override, at least 4096 tokens and within known provider capacity |
 | `AGENT_COMPACTION_TRIGGER_RATIO` | `0.6` | Compact at this fraction of context capacity, from 0.5 to 0.7 |
@@ -99,9 +101,16 @@ The context override does not increase the selected model's capacity.
 Remove an earlier `AGENT_CONTEXT_TOKENS=24000` setting to use the advertised model window.
 Compaction starts at 60 percent by default and targets 45 percent after a complete summary.
 
-The default total contains 24 research calls, five compaction calls, and one parent response call.
+Omitted counts derive from the total using the configured ratios, rounded up.
+Explicit counts override their own ratios. Remove old explicit counts to enable automatic derivation.
+The default total of 30 gives 24 research calls, five summary calls, and one parent response call.
+A total of 50 gives 40 research calls, nine summary calls, and one parent response call.
+The delegate ceiling grows from ten to 17 research and handoff calls.
+It is bounded by shared research capacity. Summary allocation also retains one research slot on small totals.
+Settings are resolved once per turn. Recreate the container after changing environment variables.
 The parent and delegates share research calls. Title generation also uses this allowance.
-Each delegate reserves a handoff call before research starts. Its ten-call default includes that response.
+Each delegate reserves a handoff call before research starts. Its derived ceiling includes that response.
+Delegate summaries count toward the shared total, outside its research and handoff ceiling.
 Compaction uses its reserved allowance without consuming research calls.
 Unused compaction calls stay reserved. They do not extend research.
 Each summary chunk consumes one compaction call, including failed provider requests.
