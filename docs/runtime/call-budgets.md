@@ -3,7 +3,10 @@
 Each user message starts one shared call budget. Normal questions and explicit deep research use the same budget rules.
 A delegate does not receive an extra pool of calls.
 Open the [Excalidraw overview](call-budgets.excalidraw) for a 50-call example using the default ratios.
-The diagram shows the allocation. The descriptions, formulas, and checks are below.
+The diagram shows the allocation and the purpose of each allowance.
+The descriptions, formulas, and checks are below.
+
+![Budget allocation for a 50-call turn](call-budgets.png)
 
 ## Derive the allocation once per turn
 
@@ -18,14 +21,6 @@ When a count is omitted, multiply the total by its configured ratio and round up
 Summary allocation is capped at `max(total − 2, 0)` to retain research capacity on small totals.
 The delegate ceiling is capped at the shared research allowance. These caps also apply to explicit counts.
 Resolve these values once when the turn starts. The runtime and traces use the same resolved values.
-
-```mermaid
-flowchart TD
-    Total["50 calls"] --> Research["Research: 40"]
-    Total --> Summaries["Summaries: 9"]
-    Total --> Final["Parent final: 1 held call"]
-    Research --> Delegate["Each delegate: up to 17"]
-```
 
 | Total | Shared research | Shared summaries | Parent final response | Each delegate's research and handoff ceiling |
 | --- | --- | --- | --- | --- |
