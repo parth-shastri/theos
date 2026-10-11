@@ -298,18 +298,18 @@ async def test_model_failure_has_sanitized_error_and_closed_root(
 ):
     scripted_models.responses.append([RuntimeError("secret credential payload")])
     result = await collect(runtime.start("alice", session(runtime)["id"], "secret input"))
-    assert result[-1]["status"] == "partial"
+    assert result[-1]["status"] == "failed"
     assert not any(event["type"] == "error" for event in result)
     output = await spans(runtime, exporter)
     assert len(output) == 3
-    assert next(s for s in output if s.parent is None).attributes["theos.turn.status"] == "partial"
+    assert next(s for s in output if s.parent is None).attributes["theos.turn.status"] == "failed"
     assert all(s.end_time is not None and not s.events for s in output)
     assert "secret" not in repr([dict(s.attributes) for s in output])
     failed = next(s for s in output if s.attributes.get("error.type") == "RuntimeError")
     assert failed.status.status_code == StatusCode.ERROR
-    final = next(s for s in output if s.name == "finalize partial answer")
+    final = next(s for s in output if s.name == "finalize answer")
     assert final.attributes["theos.recovery.reason"] == "provider_error"
-    assert final.attributes["theos.recovery.mode"] == "saved_findings"
+    assert final.attributes["theos.recovery.mode"] == "failure"
 
 
 async def test_budget_recovery_exports_partial_status_and_final_model_parent(
@@ -327,7 +327,7 @@ async def test_budget_recovery_exports_partial_status_and_final_model_parent(
     output = await spans(runtime, exporter)
     root = next(s for s in output if s.parent is None)
     assert root.attributes["theos.turn.status"] == "partial"
-    final = next(s for s in output if s.name == "finalize partial answer")
+    final = next(s for s in output if s.name == "finalize answer")
     assert root.attributes["theos.budget.total.used"] == 2
     assert root.attributes["theos.budget.research.used"] == 1
     assert root.attributes["theos.budget.recovery.used"] == 1
