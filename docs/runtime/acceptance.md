@@ -8,7 +8,7 @@ Fresh Azure reasoning replay succeeded with ZDR.
 The adapter now retries that specific routing rejection once, before any generation event.
 The retry preserves ZDR, visible messages, tool exchanges, tools, and model options.
 Saved history remains unchanged. Claude signatures and unrelated failures retain their previous behavior.
-The full suite passed 843 checks, with three credential-dependent live checks excluded.
+The full suite passed 844 checks, with three credential-dependent live checks excluded.
 A live diagnostic on the Pi completed with the affected history and all 98 tools.
 The diagnostic executed no tools and changed no production conversation records.
 
