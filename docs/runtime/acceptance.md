@@ -7,7 +7,18 @@ The Pi retained healthy release `rpi-v0.1.8` during preparation.
 Read-only Telegram authentication and polling checks passed. Public readiness and the private Jaeger services API also passed.
 The Pi runner is online. Shared skills are mounted read-only, and the private environment has mode `0600`.
 The environment has no legacy context or model-call overrides. Provider capacity and proportional research allowances can use their defaults.
-Release deployment, migration 010, and the retained skill mount still require verification after the tag runs.
+Release `rpi-v0.1.9` deployed through workflow `38144121306` after one automatic rollback and a configuration correction.
+Preflight had created an empty `/data/skills` directory in the candidate volume, which backup restore correctly rejected.
+The corrected read-only mount at `/skills` leaves the candidate data volume empty until restore.
+A disposable rehearsal verified that mount and restored the existing backup with a passing SQLite integrity check.
+The retry used the same immutable image and tag. The failed attempt and backup remain available.
+
+Post-deployment checks passed package version 0.1.9, schema 10, SQLite integrity, and all three research tables.
+Browser-token authentication passed, and anonymous API access remained rejected.
+A live model probe returned `RELEASE_OK` without creating conversation records or sending Telegram messages.
+Telegram authentication and polling checks, public readiness, and the private Jaeger services API passed.
+The running container reads all eight shared skills through the read-only `/skills` mount.
+The installed terminal client reports version 0.1.9 and passes startup and dependency checks.
 
 ## Pi Jaeger through Tailscale Serve
 

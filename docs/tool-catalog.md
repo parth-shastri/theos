@@ -256,7 +256,7 @@ Source: [service tools](../src/theos/services/skills/tools.py).
 | `load_skill` | Read a skill or a resource inside its directory. |
 
 The Pi uses `/home/neuron/.agents/skills` as its shared skill directory.
-Theos mounts that same directory read-only at `/data/skills` with `AGENT_SKILLS_DIR=/data/skills`.
+Theos mounts that same directory read-only at `/skills` with `AGENT_SKILLS_DIR=/skills`.
 The operator sets `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and installs `compose.skills.yaml` in the deployment directory.
 The deployment script retains this mount during release and rollback.
 Manual Compose commands must include the shared-skills file explicitly.
