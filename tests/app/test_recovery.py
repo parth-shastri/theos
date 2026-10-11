@@ -4,12 +4,13 @@ import asyncio
 import json
 import time
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import pytest
 
 from harness import AssistantMessage, ToolCall, ToolResultMessage, UserMessage, tool
 from harness.testing import FakeModel
-from theos.runtime import recovery, tools
+from theos.runtime import hooks, recovery, tools
 
 from .conftest import collect
 
@@ -286,17 +287,31 @@ async def test_one_delegate_timeout_preserves_sibling_answer(runtime, monkeypatc
     assert len(parent.requests) == 2
 
 
-async def test_turn_timeout_during_delegation_preserves_completed_sibling(runtime):
-    runtime.settings.turn_timeout = 0.3
+async def test_turn_timeout_during_delegation_preserves_completed_sibling(runtime, monkeypatch):
+    # Advance only runtime deadline clocks after the sibling has returned its answer.
+    # Keep the event loop's real clock intact and allow CI setup to take any duration.
+    clock = [time.monotonic()]
+    finished = asyncio.Event()
+    monkeypatch.setattr(hooks, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(tools, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+
+    class CompletedModel(FakeModel):
+        async def stream(self, request):
+            try:
+                async for event in super().stream(request):
+                    yield event
+            finally:
+                finished.set()
 
     class SlowWaitingModel(WaitingModel):
         async def stream(self, request):
-            await asyncio.sleep(0.3)
+            await asyncio.wait_for(finished.wait(), timeout=5)
+            clock[0] = runtime.active[row["id"]].research_deadline + 1
             async for event in super().stream(request):
                 yield event
 
     parent = FakeModel([delegate_call()])
-    fast, slow = FakeModel([AssistantMessage("Park opens at 7 AM.")]), SlowWaitingModel([])
+    fast, slow = CompletedModel([AssistantMessage("Park opens at 7 AM.")]), SlowWaitingModel([])
     final = FakeModel([AssistantMessage("The park opens at 7 AM. Museum hours remain unverified.")])
     use_models(runtime, parent, fast, slow, final)
     row = session(runtime)
@@ -310,6 +325,8 @@ async def test_turn_timeout_during_delegation_preserves_completed_sibling(runtim
     by_name = {d["name"]: d for d in json.loads(result.content)}
     assert by_name["Park hours"]["answer"] == "Park opens at 7 AM."
     assert by_name["Museum hours"]["status"] == "partial"
+    assert by_name["Museum hours"]["reason"] == "timeout"
+    assert len(parent.requests) == len(final.requests) == 1
     assert (
         runtime.db.one("SELECT status FROM tool_runs WHERE call_id='delegates'")["status"]
         == "completed"
