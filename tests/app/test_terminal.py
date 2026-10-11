@@ -222,8 +222,7 @@ async def test_terminal_failure_is_visible_and_releases_turn(terminal, scripted_
     scripted_models.responses.append([RuntimeError("provider failed")])
     output = await collect(terminal)
     assert any(
-        isinstance(e, ModelFinished) and (e.text or "").startswith("Request failed:")
-        for e in output
+        isinstance(e, ModelFinished) and "failed while generating" in (e.text or "") for e in output
     )
     assert not any(isinstance(e, Notice) and e.level == "error" for e in output)
     assert output[-1].status == "failed" and not terminal.runtime.active

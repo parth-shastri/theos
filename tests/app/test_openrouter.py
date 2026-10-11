@@ -522,3 +522,57 @@ def test_openrouter_buffered_summaries_and_invalid_costs(cost, expected):
     assert message.reasoning == "Summary"
     assert message.usage.get("cost_nanousd") == expected
     assert model.encode_request(ModelRequest([message]))["messages"][0]["reasoning"] == "Summary"
+
+
+@pytest.mark.parametrize("with_error_body", [False, True])
+async def test_openrouter_stream_error_does_not_complete_partial_text(with_error_body):
+    from theos.runtime.errors import CheckedModel, ProviderFailure
+
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        chunks = [
+            {
+                "id": "failed",
+                "created": 1,
+                "model": "openai/gpt-6-luna",
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {"index": 0, "delta": {"content": "Unfinished response"}, "finish_reason": None}
+                ],
+            },
+            {
+                "id": "failed",
+                "created": 1,
+                "model": "openai/gpt-6-luna",
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "error"}],
+            },
+        ]
+        if with_error_body:
+            chunks[-1]["error"] = {"code": 502, "message": "private upstream response"}
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            text="".join("data: " + json.dumps(c) + "\n\n" for c in chunks) + "data: [DONE]\n\n",
+        )
+
+    async with AsyncOpenAI(
+        api_key="test",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = CheckedModel(
+            OpenRouterChatModel(client, "openai/gpt-6-luna", api="chat_completions"), "openrouter"
+        )
+        events = []
+        with pytest.raises(ProviderFailure) as failure:
+            async for event in model.stream(ModelRequest([UserMessage("Answer")])):
+                events.append(event)
+    assert not any(isinstance(e, (TextDelta, GenerationComplete)) for e in events)
+    assert "OpenRouter" in str(failure.value)
+    assert "private" not in str(failure.value)
+    if with_error_body:
+        assert "502" in str(failure.value)
+    assert len(calls) == 1

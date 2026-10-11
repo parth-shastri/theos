@@ -1,4 +1,4 @@
-"""Return useful partial answers without repeating tools or changing instructions."""
+"""Finish bounded research without exposing raw tool results as answers."""
 
 import json
 import logging
@@ -18,6 +18,7 @@ from harness import (
 )
 from theos.storage.messages import stamp_message
 
+from .errors import CheckedModel, ProviderFailure, failure_message
 from .text import reply_text
 
 logger = logging.getLogger("theos")
@@ -32,6 +33,8 @@ REASONS = {
 
 
 def failure_reason(error):
+    if isinstance(error, ProviderFailure):
+        return "provider_error"
     if isinstance(error, TimeoutError):
         return "timeout"
     if isinstance(error, ContextLimitError) or (
@@ -106,28 +109,6 @@ def settle_calls(runtime, turn, history):
             )
 
 
-def findings(history, offset):
-    """Return complete available findings. Never shorten generated answers or sources."""
-    sections = []
-    for message in history[offset:]:
-        if isinstance(message, AssistantMessage) and message.text and not message.tool_calls:
-            sections.append(message.text)
-        elif isinstance(message, ToolResultMessage):
-            if message.name in {"delegate_tasks", "deep_research"}:
-                try:
-                    delegates = json.loads(message.content)
-                    sections.extend(
-                        f"{delegate['name']} ({delegate['status']}):\n{delegate['answer']}"
-                        for delegate in delegates
-                        if delegate.get("answer")
-                    )
-                    continue
-                except (ValueError, TypeError, KeyError):
-                    pass
-            sections.append(f"{message.name} ({message.status}):\n{message.content}")
-    return "\n\n".join(sections)
-
-
 async def response_call(
     runtime,
     session,
@@ -160,7 +141,7 @@ async def response_call(
                 yield connected
 
     async with connection() as connected:
-        model = connected
+        model = CheckedModel(connected, runtime.settings.provider)
 
         async def prepare(request, ctx):
             request.options.update(context.options(runtime, session, limits))
@@ -211,12 +192,14 @@ async def response_call(
         return answer
 
 
-async def finish(runtime, turn, session, history, memory, offset, budget, instructions, reason):
+async def finish(
+    runtime, turn, session, history, memory, offset, budget, instructions, reason, error=None
+):
     """Finish once without a generation deadline or repeated research."""
     settle_calls(runtime, turn, history)
     last = history[-1] if history and isinstance(history[-1], AssistantMessage) else None
     answer = last if reason in {"delegate_partial", "output_limit"} and last and last.text else None
-    mode = "existing_answer" if answer else "saved_findings"
+    mode = "existing_answer" if answer else "failure"
     duration_ms = None
     with runtime.tracing.span("finalize answer", {"theos.recovery.reason": reason}) as span:
         if (
@@ -241,11 +224,13 @@ async def finish(runtime, turn, session, history, memory, offset, budget, instru
                 duration_ms = (time.monotonic() - started) * 1000
                 if answer:
                     mode = "model"
-            except Exception as error:
+            except Exception as failure:
+                error = failure
+                reason = failure_reason(failure)
                 logger.warning(
-                    "final_answer_unavailable", extra={"error_type": type(error).__name__}
+                    "final_answer_unavailable", extra={"error_type": type(failure).__name__}
                 )
-        text = answer.text if answer else findings(history, offset)
+        text = answer.text if answer else ""
         caveat = (
             "Some action outcomes are unknown. Check the external service before repeating them."
             if any(
@@ -258,11 +243,7 @@ async def finish(runtime, turn, session, history, memory, offset, budget, instru
         status = "partial" if text else "failed"
         if status == "failed":
             mode = "failure"
-        reply = (
-            f"Partial answer: {REASONS[reason]}\n\n{text}\n\n{caveat}"
-            if text
-            else f"Request failed: {REASONS[reason]} No answer was generated. Please try again."
-        )
+        reply = f"{text}\n\n{REASONS[reason]} {caveat}" if text else failure_message(reason, error)
         message = stamp_message(
             AssistantMessage(
                 reply_text(reply),

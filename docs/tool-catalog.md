@@ -452,9 +452,9 @@ Parents and delegates use the same model capacity and compaction policy.
 OpenRouter metadata supplies the provider context and maximum output tokens.
 The runtime caches metadata for one hour and uses verified catalog values when retrieval fails.
 Unknown models use a logged 24,000-token context fallback unless the operator sets a window.
-Unknown Anthropic models require an explicit output setting because that API requires an output maximum.
+Unknown Anthropic models use the configured output default because that API requires an output maximum.
 `AGENT_CONTEXT_TOKENS` optionally selects a smaller window, within known provider capacity.
-`AGENT_COMPACTION_TRIGGER_RATIO` defaults to 0.6 and accepts 0.5 through 0.7.
+`AGENT_COMPACTION_TRIGGER_RATIO` defaults to 0.7 and accepts 0.5 through 0.7.
 The runtime summarizes completed exchanges at that threshold and targets 45 percent of the window.
 The current task stays complete. Summaries preserve requirements, corrections, findings, source URLs, dates, conflicts, and uncertain actions.
 Oversized evidence enters consecutive summary chunks. The durable transcript retains every original message.
@@ -462,7 +462,8 @@ Failed or incomplete summaries never replace the previous working summary.
 
 For agents, only `max_output_tokens` enforces response length, through the provider's supported parameter.
 OpenAI Responses and Gemini use `max_output_tokens`. OpenRouter and Anthropic use the equivalent `max_tokens` field.
-Requests use the provider output maximum unless the user chooses a smaller value.
+Requests default to `AGENT_MAX_OUTPUT_TOKENS`, which defaults to 8,192, bounded by the provider maximum.
+An explicit conversation output setting overrides this default.
 Space checks reserve the full requested output before reducing input through summaries.
 Answer and summary requests must fit their input and requested output within the model window.
 The runtime does not silently lower the output setting to fit an oversized input.
@@ -491,13 +492,13 @@ The runtime accepts the legacy `AGENT_MAX_RECOVERY_CALLS` setting, but always pe
 Call, research-time, or context exhaustion stops new research and requests one final response without tools.
 That request retains the task, corrections, complete available context, and a limit notice.
 Final responses use the model window after reserving the requested output and compact only when necessary to fit.
-If complete context cannot fit and compaction cannot finish, the runtime preserves it and returns a clear failure or saved findings.
+If complete context cannot fit and compaction cannot finish, the runtime preserves it and returns a clear failure.
 A failed final response never triggers a second attempt or repeats tools.
 Research deadlines do not cancel active answer generation or final responses.
 Provider connection idle timeouts and explicit cancellation remain active.
 The connected terminal stream waits without a response read deadline.
 
-Failed final generation returns complete saved findings with a limitation notice.
+Failed final generation returns a provider-specific error with no raw tool results.
 Useful answers have `partial` status. Empty failures have `failed` status.
 Incomplete scheduled runs pause their schedule. Explicit cancellation retains `interrupted` status.
 Telegram, browser chat, and terminals replace incomplete drafts with the final answer.

@@ -237,6 +237,7 @@ def create_app(settings=None, runtime=None):
             },
             "model": settings.model,
             "reasoning": settings.reasoning,
+            "default_max_output_tokens": settings.max_output_tokens,
             "voice": {
                 "transcription": bool(settings.transcription_url),
                 "tts": bool(settings.kokoro_url),

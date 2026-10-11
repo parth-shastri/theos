@@ -26,6 +26,9 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
 
     async def before_model(request, ctx):
         nonlocal started, created_at
+        turn = runtime.active.get(session_id)
+        if turn and turn.provider_failure:
+            raise turn.provider_failure
         # Add sandbox images once, after the file catalog checks their owner.
         for file_id in ctx.state.pop("view_images", []):
             image = UserMessage("Image from the sandbox:", [runtime.files.image(owner, file_id)])

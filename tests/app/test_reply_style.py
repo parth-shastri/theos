@@ -60,7 +60,7 @@ async def test_reply_style_is_enforced_across_transports(runtime, channel, raw):
         deltas = [e["text"] for e in events if e["type"] in {"text", "reasoning"}]
         final = next(e for e in events if e["type"] == "assistant_complete")
         assert final["text"] == "First-next" and final["reasoning"] == "Reason-result"
-    assert deltas == ["First", "-next", "Reason-result"]
+    assert deltas == ["Reason-result", "First", "-next"]
     history = runtime.db.load_history("alice", session["id"])
     assert history[-1].text == "First-next" and history[-1].reasoning == "Reason-result"
     assert history[-1].provider_data == provider_data

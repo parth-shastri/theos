@@ -1195,6 +1195,32 @@ button.speech-button.is-playing {
 #approvals button {
   margin-right: 8px;
 }
+.approval-action {
+  text-transform: capitalize;
+  color: var(--text-soft);
+}
+.approval-fields {
+  margin: 16px 0;
+}
+.approval-fields dt {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 12px;
+}
+.approval-fields dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+.approval-value {
+  white-space: pre-wrap;
+}
+#approvals details {
+  margin: 12px 0;
+  color: var(--text-soft);
+}
+#approvals summary {
+  cursor: pointer;
+}
 #attachments {
   font-size: 11px;
   color: var(--accent);

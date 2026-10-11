@@ -573,7 +573,7 @@ No production server or external account was configured during local acceptance.
 
 ## Research context and response limits
 
-Parents and delegates now share provider capacities and compaction at 60 percent of the model window.
+Parents and delegates share provider capacities and compaction at 70 percent of the configured context window.
 Agent response limits use only the supported provider output parameter. Application code does not clip generated answers.
 Each researcher reserves one final handoff before research starts. The parent retains a separate final response call.
 Final responses retain task requirements, corrections, complete findings, and sources. They do not run tools or retry.
@@ -600,3 +600,15 @@ The shared-default follow-up passed 891 tests, with three credential-dependent l
 Four added checks cover the shared fallback across entry points and summaries without a generation cap.
 Known output settings still take precedence. Small-window fixtures use explicit output settings.
 Ruff checks, formatting, and source and wheel builds passed.
+
+## Pi configuration, provider failures, and approval reviews
+
+The 2026-10-11 local update sets the output default to 8,192 tokens and the compaction trigger to 70 percent.
+The private local Pi environment uses a 100,000-token context cap. Explicit conversation output settings and trigger ratios retain precedence.
+Release 0.1.10 preparation on 2026-10-12 passed 973 deterministic tests, with three live tests excluded.
+Provider checks cover HTTP failures, timeouts, broken streams, OpenRouter stream errors, compaction failures, final-response failures, and failed delegates.
+Failed generations withhold answer text. Failed turns preserve evidence in storage without returning raw findings as answers.
+Approval checks cover unchanged snapshots, nested fields, multiline code, Markdown, Unicode chunks, and buttons after the complete review.
+An isolated browser with synthetic approvals passed desktop light and dark checks and a 390px mobile check without horizontal overflow.
+Python style, browser syntax, Prettier, lock validation, and package builds passed.
+Live provider and Telegram checks and deployment to Pi were pending at release preparation.
