@@ -407,6 +407,9 @@ The runtime owns its tracer provider and background batch processor.
 The optional `compose.tracing.yaml` runs Jaeger `2.22.0` with seven-day Badger storage in a separate volume.
 Jaeger uses a 512 MiB container limit, a Go memory target, and the Collector memory limiter.
 Jaeger supplies the waterfall viewer. It is an operations dependency, not an assistant tool.
+The Pi uses host Tailscale `1.102.4` Serve for private HTTPS access to the viewer on port 8443.
+Tailnet grants restrict this port to `group:theos-operators` across IPv4 and IPv6.
+This host dependency does not change the application image or expose the OTLP receiver.
 See [observability](base-infra/observability.md) for setup and trace contents.
 Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
 The [content serializer](../src/theos/operations/trace_content.py) uses the OTel GenAI role and parts schema without new dependencies.

@@ -1,5 +1,20 @@
 # Feature and acceptance checklist
 
+## Pi Jaeger through Tailscale Serve
+
+On 2026-10-11, the Pi enabled persistent HTTPS Serve on port 8443 for its loopback Jaeger viewer.
+The endpoint is `https://neuralbox-pi.tail61f0ca.ts.net:8443/`.
+The operator group currently contains `parth-shastri@github`.
+Tailscale accepted seven policy tests before saving the restriction.
+These tests cover operator access, nonoperator denial over IPv4 and IPv6, and other service access.
+The nonoperator sources are synthetic policy-test addresses. No live nonoperator device was available.
+The Mac received HTTP 200 from the viewer with successful certificate validation.
+The Jaeger v3 services API returned `theos`. The viewer displayed the existing four-span Pi trace `ff2e20f09a5c2efd423cddf0c87844a3`.
+Serve status contains only the HTTPS proxy and no Funnel configuration.
+Jaeger port 16686 and OTLP port 4318 still listen on host loopback.
+SSH access and public Theos readiness passed after the policy change.
+Seven-day retention, application data, model instructions, and the deployed application release remain unchanged.
+
 ## Provider state recovery hotfix
 
 A later voice turn transcribed successfully, but its model request mixed OpenAI and Azure encrypted reasoning.
