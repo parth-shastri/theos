@@ -275,7 +275,7 @@ Release `rpi-v0.1.2` deployed successfully on 2026-10-10 through workflow 380528
 The operator requested PR #11's Telegram formatting and punctuation fix on `dev`, `main`, and `rpi`, followed by a new release tag.
 Release `rpi-v0.1.3` deployed successfully on 2026-10-10 through workflow 38057843139. The Pi manifest confirmed the release and healthy container.
 The operator authorized merging ZDR promotion PRs #15 and #16 with merge commits after CI, followed by a new Pi release.
-Prepare package version `0.1.4` and tag `rpi-v0.1.4` through the normal topic-branch and promotion PR workflow. Deployment remains unconfirmed until release CI and the Pi manifest confirm success.
+Prepare package version `0.1.4` and tag `rpi-v0.1.4` through the normal topic-branch and promotion PR workflow. Release `rpi-v0.1.9` deployed successfully through workflow `38144121306` after the skill mount correction below.
 The running container uses `owner` and the HTTPS Google callbacks. Readiness and browser-token authentication passed.
 The GHCR image denies anonymous pulls. The first registry upload failed with `unknown blob`; retrying publication succeeded before any deployment change.
 The Cloudflare tunnel routes all paths on `theos.parth-shastri.com` to `http://localhost:8080`. Its proxied CNAME targets tunnel `4584e314-7c3f-448a-8118-7b6e324ebe3c`. Public HTTPS checks passed for the homepage and its assets, health endpoints, authenticated owner APIs, rejection of anonymous API requests, and both Google callback routes. A real model turn completed through the public SSE stream, and its conversation history was saved. The operator updated the Google redirect list. Full Google consent and account linking remain untested. The existing `mytheos.parth-shastri.com` frontend uses its original Vercel CNAME. On the operator Mac, Tailscale's internal DNS lookup retained a stale nonexistent-domain response despite correct public DNS answers. Refreshing `accept-dns` off and back to its original enabled setting restored normal macOS resolution. The Theos browser workspace then loaded, owner sign-in succeeded, and a browser-submitted real model turn returned `BROWSER_OK` in Brave.
@@ -364,3 +364,11 @@ Mount shared skills at `/skills`, outside the application data volume, and set `
 A disposable rehearsal confirmed an empty candidate volume and successful restoration of the saved backup.
 The operator requested one tag. Retain the failed attempt and its backup, then retry the same immutable image and tag.
 Do not move or create another tag. Keep `rpi` unchanged while the release workflow runs.
+
+The second workflow attempt deployed the unchanged 0.1.9 image and published the GitHub release.
+The active manifest confirms tag `rpi-v0.1.9` and revision `6af0d911f4eef59cfa05f4911b345fe32d8130db`.
+Post-deployment checks passed package version 0.1.9, schema 10, SQLite integrity, browser authentication, and a live model response.
+Telegram authentication, public readiness, private Jaeger access, and all eight skills also passed.
+The host skill mount at `/skills` is read-only. The installed terminal client now reports version 0.1.9.
+The failed candidate volume, attempt records, private configuration, and original backup remain available.
+This retry used the operator's explicit one-tag request. No published tag moved, and no additional tag was created.
