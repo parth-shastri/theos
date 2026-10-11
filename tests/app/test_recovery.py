@@ -48,6 +48,34 @@ def read_call(identifier):
     return AssistantMessage(tool_calls=[ToolCall(identifier, "read_source", {})])
 
 
+async def test_provider_failure_without_findings_returns_clear_failure(runtime):
+    count = await install_read(runtime)
+    research = FakeModel([RuntimeError("private provider credential")])
+    use_models(runtime, research)
+    row = session(runtime)
+    events = await collect(runtime.start("alice", row["id"], "Create a reminder."))
+    assert events[-1] == {"type": "done", "status": "failed"}
+    assert runtime.session("alice", row["id"])["status"] == "failed"
+    answer = runtime.db.load_history("alice", row["id"])[-1].text
+    assert answer.startswith("Request failed:")
+    assert "No answer was generated" in answer
+    assert "Partial answer" not in answer
+    assert "private provider credential" not in answer
+    assert count == []
+    assert len(research.requests) == 1
+
+
+async def test_failed_recovery_without_findings_does_not_claim_partial_answer(runtime):
+    runtime.settings.turn_timeout = 0.12
+    count = await install_read(runtime)
+    use_models(runtime, WaitingModel([]), FakeModel([RuntimeError("unavailable")]))
+    row = session(runtime)
+    events = await collect(runtime.start("alice", row["id"], "Read the source."))
+    assert events[-1]["status"] == "failed"
+    assert runtime.db.load_history("alice", row["id"])[-1].text.startswith("Request failed:")
+    assert count == []
+
+
 def assert_partial(runtime, row, events, finding="7 AM"):
     assert events[-1] == {"type": "done", "status": "partial"}
     assert not any(e["type"] == "error" for e in events)
