@@ -6,11 +6,11 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from openai import APIStatusError, AsyncOpenAI
+from openai import APIStatusError, AsyncOpenAI, NotFoundError
 from openai.types.chat import ChatCompletion
 
 from harness import AssistantMessage, UserMessage
-from harness.events import GenerationComplete, ReasoningDelta
+from harness.events import GenerationComplete, ReasoningDelta, TextDelta
 from harness.types import ModelRequest, ToolSpec
 from theos.runtime.openrouter import OpenRouterChatModel
 
@@ -231,6 +231,45 @@ async def test_openrouter_does_not_discard_claude_state_or_retry_unrelated_404(
             await model.generate(ModelRequest([previous, UserMessage("Reply OK")]))
     assert len(calls) == 1
     assert calls[0]["messages"][0]["reasoning_details"][0]["data"] == "opaque"
+
+
+async def test_openrouter_does_not_restart_a_stream_after_output():
+    calls = []
+    model = OpenRouterChatModel(SimpleNamespace(), "openai/gpt-6-luna", api="chat_completions")
+
+    async def partial(payload):
+        calls.append(payload)
+        yield TextDelta("Already delivered")
+        raise NotFoundError(
+            "Routing failed",
+            response=httpx.Response(
+                404, request=httpx.Request("POST", "https://openrouter.test/v1")
+            ),
+            body={"message": "No endpoints found matching your data policy (Zero data retention)."},
+        )
+
+    model._stream_chat_once = partial
+    previous = AssistantMessage(
+        "Saved",
+        provider_data={
+            "openrouter": {
+                "model": model.model_id,
+                "reasoning_details": [
+                    {
+                        "type": "reasoning.encrypted",
+                        "data": "opaque",
+                        "format": "openai-responses-v1",
+                    }
+                ],
+            }
+        },
+    )
+    events = []
+    with pytest.raises(NotFoundError):
+        async for event in model.stream(ModelRequest([previous, UserMessage("Continue")])):
+            events.append(event)
+    assert [event.text for event in events] == ["Already delivered"]
+    assert len(calls) == 1
 
 
 async def test_openrouter_stream_preserves_reasoning_tools_and_cost(runtime):
