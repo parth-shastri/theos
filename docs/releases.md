@@ -122,9 +122,11 @@ The local `.env.pi` is ignored by Git and has mode `0600`.
 Its Pi copy also has mode `0600`. The local development `.env` remains separate.
 
 For universal agent skills, copy `compose.skills.yaml` into the deployment directory.
-Set `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and `AGENT_SKILLS_DIR=/data/skills` in `.env.pi`.
+Set `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and `AGENT_SKILLS_DIR=/skills` in `.env.pi`.
 The deployment script includes this file for releases and rollback.
 Theos reads the host directory through a read-only mount.
+Keep this mount outside `/data`. Preflight can leave a mount directory in a new data volume.
+Backup restoration requires that volume to remain empty until restore starts.
 Host skill installations and updates appear immediately.
 Back up the shared host directory separately from application data.
 For manual Compose commands, pass `-f compose.skills.yaml` after the saved release file.
