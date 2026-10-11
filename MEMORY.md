@@ -65,7 +65,7 @@ Updated: 2026-10-11.
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
-| Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/data/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
+| Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
 | Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. Keep host CLI installation separate from remote sandbox execution |
 | Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
 | Comments | Explain constraints and number the major workflow steps |
@@ -348,9 +348,27 @@ Release 0.1.9 combines private Jaeger access, complete research responses, expli
 The Pi already has the required shared skill paths and no explicit context or call-count overrides.
 Retain those settings so research uses provider context capacity and proportional call allowances.
 Keep local development credentials unchanged.
-Deployment remains unconfirmed until release CI and the Pi manifest confirm success.
+Release `rpi-v0.1.9` deployed successfully through workflow `38144121306` after the skill mount correction below.
 
 The 0.1.9 main promotion exposed a CI race in the sibling-recovery test's 0.3-second setup deadline.
 The test now advances isolated runtime clocks after one delegate completes, while preserving the event loop clock.
 It still checks the expired parent deadline, retained sibling answer, partial delegate, and single tool-free final response.
 This test-only correction changes no production limits or environment settings.
+
+## Release backup and shared skills
+
+The first 0.1.9 deployment rolled back before candidate activation.
+The Telegram preflight created an empty `/data/skills` mount directory in the candidate data volume.
+The backup restore correctly refused that nonempty volume.
+Mount shared skills at `/skills`, outside the application data volume, and set `AGENT_SKILLS_DIR=/skills`.
+A disposable rehearsal confirmed an empty candidate volume and successful restoration of the saved backup.
+The operator requested one tag. Retain the failed attempt and its backup, then retry the same immutable image and tag.
+Do not move or create another tag. Keep `rpi` unchanged while the release workflow runs.
+
+The second workflow attempt deployed the unchanged 0.1.9 image and published the GitHub release.
+The active manifest confirms tag `rpi-v0.1.9` and revision `6af0d911f4eef59cfa05f4911b345fe32d8130db`.
+Post-deployment checks passed package version 0.1.9, schema 10, SQLite integrity, browser authentication, and a live model response.
+Telegram authentication, public readiness, private Jaeger access, and all eight skills also passed.
+The host skill mount at `/skills` is read-only. The installed terminal client now reports version 0.1.9.
+The failed candidate volume, attempt records, private configuration, and original backup remain available.
+This retry used the operator's explicit one-tag request. No published tag moved, and no additional tag was created.

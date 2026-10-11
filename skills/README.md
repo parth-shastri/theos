@@ -1,12 +1,12 @@
 # Shared skills and report style
 
 The Pi stores shared skills in `/home/neuron/.agents/skills`.
-Theos reads the same directory through a read-only bind mount at `/data/skills`.
+Theos reads the same directory through a read-only bind mount at `/skills`.
 New installations and updates appear without copying files or restarting Theos.
 Set these variables in the Pi deployment environment:
 
 ```env
-AGENT_SKILLS_DIR=/data/skills
+AGENT_SKILLS_DIR=/skills
 THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills
 ```
 
