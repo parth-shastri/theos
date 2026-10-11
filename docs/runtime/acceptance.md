@@ -1,5 +1,18 @@
 # Feature and acceptance checklist
 
+## OpenRouter reasoning routing hotfix
+
+On 2026-10-11, the Pi returned partial answers because OpenRouter rejected saved encrypted OpenAI reasoning under ZDR.
+The same conversation succeeded without the incompatible reasoning sequences.
+Fresh Azure reasoning replay succeeded with ZDR.
+The adapter now retries that specific routing rejection once, before any generation event.
+The retry preserves ZDR, visible messages, tool exchanges, tools, and model options.
+Saved history remains unchanged. Claude signatures and unrelated failures retain their previous behavior.
+The full suite passed 843 checks, with three credential-dependent live checks excluded.
+A live diagnostic on the Pi completed with the affected history and all 98 tools.
+The diagnostic executed no tools and changed no production conversation records.
+
+
 The capability baseline uses upstream commit `d006624c150973a5637dbfb47ec0b4a6ff3ed613`.
 This checklist covers its user-facing capabilities and the additional persistence, transport, and deployment requirements.
 Tool names and transport APIs can differ from the upstream ADK interfaces.
