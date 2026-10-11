@@ -179,10 +179,11 @@ def findings(history, offset):
                 try:
                     delegates = json.loads(message.content)
                     for delegate in delegates:
+                        if not delegate.get("answer"):
+                            continue
                         delegate_sections.append(
                             clip(
-                                f"{delegate['name']} ({delegate['status']}):\n"
-                                f"{delegate.get('answer') or 'No findings available.'}",
+                                f"{delegate['name']} ({delegate['status']}):\n{delegate['answer']}",
                                 4000,
                             )
                         )
@@ -192,7 +193,7 @@ def findings(history, offset):
             sections.append(clip(f"{message.name} ({message.status}):\n{message.content}", 4000))
     selected = [*delegate_sections[-3:], *sections[-9:]]
     if not selected:
-        return "No verified findings are available yet. Your request is saved."
+        return ""
     allowance = 8000 // len(selected)
     return "\n\n".join(clip(section, allowance) for section in selected)
 
@@ -209,7 +210,7 @@ async def finish(
     )
     mode = "existing_answer" if answer else "saved_findings"
     duration_ms = None
-    with runtime.tracing.span("finalize partial answer", {"theos.recovery.reason": reason}) as span:
+    with runtime.tracing.span("finalize answer", {"theos.recovery.reason": reason}) as span:
         final_deadline = min(deadline, time.monotonic() + FINAL_SECONDS)
         while (
             answer is None
@@ -272,19 +273,29 @@ async def finish(
             )
             else "Some details remain incomplete or unverified."
         )
+        status = "partial" if text else "failed"
+        if status == "failed":
+            mode = "failure"
+        reply = (
+            f"Partial answer: {REASONS[reason]}\n\n{text}\n\n{caveat}"
+            if text
+            else f"Request failed: {REASONS[reason]} No answer was generated. Please try again."
+        )
         message = stamp_message(
             AssistantMessage(
-                reply_text(f"Partial answer: {REASONS[reason]}\n\n{text}\n\n{caveat}"),
+                reply_text(reply),
                 usage=answer.usage if answer else {},
                 stop_reason=answer.stop_reason if answer else None,
             ),
             duration_ms=duration_ms,
         )
         history.append(message)
-        runtime.db.save_history(turn.owner, turn.session_id, history, memory.to_dict(), "partial")
-        publish_event(runtime, turn, TextDelta(message.text), "partial")
-        publish_event(runtime, turn, ModelResponded(message), "partial")
+        runtime.db.save_history(turn.owner, turn.session_id, history, memory.to_dict(), status)
+        publish_event(runtime, turn, TextDelta(message.text), status)
+        publish_event(runtime, turn, ModelResponded(message), status)
         if span is not None:
             span.set_attribute("theos.recovery.mode", mode)
-            span.set_attribute("theos.agent.status", "partial")
-    return "partial"
+            span.set_attribute("theos.agent.status", status)
+            if status == "failed":
+                runtime.tracing.failed(span, "no_answer")
+    return status

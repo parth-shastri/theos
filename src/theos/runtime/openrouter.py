@@ -4,12 +4,33 @@ import copy
 import logging
 from decimal import Decimal, InvalidOperation
 
-from openai import NotFoundError
+from openai import BadRequestError, NotFoundError
 from openai.types.chat import ChatCompletion
 
 from harness import AssistantMessage
 from harness.events import GenerationComplete, ReasoningDelta, TextDelta, ToolCallDelta
 from harness.providers.openai import OpenAIChatModel, accumulate_chunks
+
+OPENAI_REASONING_FORMATS = {
+    "openai-responses-v1",
+    "azure-openai-responses-v1",
+    "bedrock-openai-responses-v1",
+}
+
+
+def encrypted_formats(wire):
+    return {
+        block["format"]
+        for block in wire.get("reasoning_details", [])
+        if block.get("type") == "reasoning.encrypted"
+        and block.get("format") in OPENAI_REASONING_FORMATS
+    }
+
+
+def omit_reasoning(wire):
+    """Omit a whole sequence without modifying any signed block or visible message."""
+    wire.pop("reasoning_details", None)
+    wire.pop("reasoning", None)
 
 
 def reasoning_text(value):
@@ -58,6 +79,12 @@ class OpenRouterChatModel(OpenAIChatModel):
                     wire["reasoning_details"] = copy.deepcopy(saved["reasoning_details"])
                 elif message.reasoning:
                     wire["reasoning"] = message.reasoning
+        if self.model_id.startswith("openai/"):
+            formats = [encrypted_formats(wire) for wire in payload["messages"]]
+            latest = next((group for group in reversed(formats) if len(group) == 1), set())
+            for wire, group in zip(payload["messages"], formats, strict=True):
+                if group and group != latest:
+                    omit_reasoning(wire)
         return payload
 
     def decode_response(self, raw):
@@ -89,35 +116,25 @@ class OpenRouterChatModel(OpenAIChatModel):
                 emitted = True
                 yield event
             return
-        except NotFoundError as error:
+        except (NotFoundError, BadRequestError) as error:
             body = error.body if isinstance(error.body, dict) else {}
             message = body.get("message", "")
             if isinstance(body.get("error"), dict):
                 message = body["error"].get("message", message)
-            if (
-                emitted
-                or not self.model_id.startswith("openai/")
-                or not isinstance(message, str)
-                or "No endpoints found matching your data policy (Zero data retention)"
-                not in message
-            ):
+            rejected_state = isinstance(message, str) and (
+                isinstance(error, NotFoundError)
+                and "No endpoints found matching your data policy (Zero data retention)" in message
+                or isinstance(error, BadRequestError)
+                and "encrypted reasoning or compaction content from multiple providers" in message
+            )
+            if emitted or not self.model_id.startswith("openai/") or not rejected_state:
                 raise
             retry = copy.deepcopy(payload)
             changed = False
             for wire in retry["messages"]:
-                if any(
-                    block.get("type") == "reasoning.encrypted"
-                    and block.get("format")
-                    in {
-                        "openai-responses-v1",
-                        "azure-openai-responses-v1",
-                        "bedrock-openai-responses-v1",
-                    }
-                    for block in wire.get("reasoning_details", [])
-                ):
+                if encrypted_formats(wire):
                     # Omit the whole sequence. Never alter signed reasoning blocks.
-                    wire.pop("reasoning_details", None)
-                    wire.pop("reasoning", None)
+                    omit_reasoning(wire)
                     changed = True
             if not changed:
                 raise
