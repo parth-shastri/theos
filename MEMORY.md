@@ -415,3 +415,15 @@ The live replay of the captured Pi failure produced all nine expected purchases 
 The live workspace check saved nested input/output files in R2 and calculated the expected total.
 See `docs/runtime/acceptance.md` for the current test evidence and remaining limits.
 These changes remain in the topic worktree and are not deployed to the Pi.
+
+## Text summaries on the recovery branch, 2026-10-13
+
+The operator requested integration on `fix/context-overflow-recovery` and removal of the separate structured-summary branch.
+Use the pinned Markdown summary template for fresh and iterative summaries. Do not request or parse generated JSON summaries.
+Replace model-written mechanical sections with original transcript data.
+Keep exact anchors, saved research IDs, and unknown tool outcomes in `ContextMemory.state.references`.
+Bound the request index while retaining the full index and transcript in storage.
+Save parent working memory in SQLite before the next answer request. Child summaries cannot replace that session.
+Keep Theos call budgets and research deadlines disabled by default. Summary calls retain usage accounting.
+Retain lean tails as the recovery default. Allow `current` tails and one through twenty recent user messages.
+The new implementation replaces the older JSON summary compressor. It does not add another compression pipeline or runtime dependency.

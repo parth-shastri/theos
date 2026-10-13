@@ -666,3 +666,22 @@ Private exports, reports, expectations, credentials, and service-test outputs re
 These checks cover saved-evidence recovery and report creation. They do not cover new account consent, fresh Gmail queries, or Telegram delivery.
 The Pi was last confirmed on `rpi-v0.1.10` at revision `67cccab0add9249a564790e1edaee54ebf9531ba`.
 The current changes remain local and are not deployed.
+
+## Text summaries integrated with recovery, 2026-10-13
+
+The integration stays on `fix/context-overflow-recovery` and uses the pinned Markdown summary template.
+Generated summaries do not use JSON. The obsolete research JSON validator is removed.
+Code supplies exact anchors, owned research IDs, and recorded unknown outcomes independently of summary prose.
+Requests receive a bounded index. Saved memory retains the full index across context updates and provider changes.
+Lean remains the default tail. The larger current tail and recent user count are configurable.
+Theos call budgets and research deadlines remain disabled by default. Summary calls still enter usage records.
+
+The full local suite passed 1,006 tests, with three credential-dependent tests excluded.
+New checks cover fresh and iterative text templates, model-written reference replacement, missing IDs, and 350-record indexes.
+They also cover both tail modes, retained user messages, credential redaction, and excluded opaque provider data.
+Storage checks cover publication before answer generation, SQLite rollback, delegate isolation, and full references after R2 restoration.
+Changed Python files and CI style targets pass Ruff and formatting checks. Lock validation and package builds pass.
+The context guide's prose lint reports 1.17 findings per 100 words.
+
+The prior recovery replay and workspace results above belong to the baseline recovery implementation.
+This summary integration did not repeat those live checks. It is not deployed.

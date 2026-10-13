@@ -160,6 +160,8 @@ class Settings(ClientSettings):
     compaction_trigger_ratio: float = Field(default=0.5, gt=0, le=1)
     compaction_model: str = "gpt-6-luna"
     compaction_context_tokens: int | None = Field(default=None, ge=1024)
+    compaction_tail_mode: Literal["current", "lean"] = "lean"
+    compaction_min_tail_user_messages: int = Field(default=1, ge=1, le=20)
     max_output_tokens: int = Field(default=8192, ge=1, le=1_000_000)
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=25 * 1024 * 1024)
     timezone: str = "UTC"

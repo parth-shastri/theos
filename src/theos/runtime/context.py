@@ -123,7 +123,7 @@ def options(runtime, session, limits):
     return values
 
 
-def compaction(runtime, session, limits, research_id=None):
+def compaction(runtime, session, limits, research_id=None, *, persist_session=True):
     """Apply the same task-preserving compaction to parents, delegates, and recovery."""
     from contextlib import asynccontextmanager
     from dataclasses import replace
@@ -168,6 +168,20 @@ def compaction(runtime, session, limits, research_id=None):
 
             yield SummaryModel(CheckedModel(model, runtime.settings.provider))
 
+    async def checkpoint(memory, history):
+        if research_id:
+            runtime.research.checkpoint(
+                session["owner"],
+                session["id"],
+                research_id,
+                history,
+                memory,
+                save_session=persist_session,
+            )
+        elif persist_session:
+            with runtime.db.transaction():
+                runtime.db.save_history(session["owner"], session["id"], history, memory.to_dict())
+
     return CompactionConfig(
         SUMMARY_PROMPT,
         model_options(runtime.settings.provider, "none"),
@@ -176,6 +190,9 @@ def compaction(runtime, session, limits, research_id=None):
         max_summary_tokens=None,
         # Context recovery is independent of optional research call budgets.
         resilient=True,
+        tail_mode=runtime.settings.compaction_tail_mode,
+        min_tail_user_messages=runtime.settings.compaction_min_tail_user_messages,
+        on_commit=checkpoint if persist_session or research_id else None,
         retrieval_tools=("history_read", "history_search"),
         reduce_current_turn=True,
         trigger_ratio=runtime.settings.compaction_trigger_ratio,

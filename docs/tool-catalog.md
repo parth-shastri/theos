@@ -1,5 +1,10 @@
 # Implemented tool catalog
 
+Context summaries use the pinned Markdown template without JSON generation.
+The harness supplies bounded exact references from the original transcript and owned research records.
+The full reference index stays in saved memory. Existing `history_read`, `history_search`, and research tools recover omitted details.
+This extension adds no tool or runtime dependency.
+
 The runtime binds tools to the authenticated owner and conversation.
 A model cannot supply another owner ID through tool arguments.
 Optional account tools appear only after configuration and transport checks.

@@ -368,7 +368,9 @@ async def build_tools(runtime, session):
                             after_tool=after_tool,
                         ),
                         context_window=limits.context,
-                        compaction=context.compaction(runtime, session, limits, run_id),
+                        compaction=context.compaction(
+                            runtime, session, limits, run_id, persist_session=False
+                        ),
                     )
                     try:
 
@@ -440,6 +442,7 @@ async def build_tools(runtime, session):
                             compact_budget=final_summary,
                             model=model,
                             research_id=run_id,
+                            persist_session=False,
                         )
                         if answer:
                             result["answer"] = answer.text

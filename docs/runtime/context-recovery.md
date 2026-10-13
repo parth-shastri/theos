@@ -46,6 +46,46 @@ The check happens immediately before each main model call, after application hoo
 Compaction does not run as an independent research agent with its own tool loop.
 The summary model receives a bounded request without tools.
 
+## Text summary structure
+
+The summary model returns Markdown text with the pinned policy's section headings.
+The application does not request JSON generation or parse summary prose as JSON.
+Fresh summaries and later updates use the same template:
+
+```text
+## Historical Task Snapshot
+## Goal
+## Constraints & Preferences
+## Completed Actions
+## Active State
+## Blocked
+## Key Decisions
+## Errors & Fixes
+## Resolved Questions
+## Relevant Files
+## Critical Context
+## Detailed Session Log (oldest first)
+```
+
+Lean mode includes the detailed session log. The prompt requests Pruned Skills only when relevant markers exist.
+Code supplies Anchor Index, User Messages, and Context Recovery sections from original data.
+Code replaces model-written versions of those sections before publication.
+
+The reference index includes exact tool identifiers, original message indices, and saved research IDs.
+It also identifies unknown tool outcomes. A summary cannot establish that an uncertain action succeeded.
+The model request receives a bounded reference index. Saved memory retains the full index in `state.references`.
+SQLite and later R2 checkpoints retain this index with the working context and full transcript.
+Research IDs come from owned application records. The model does not need to repeat every ID for acceptance.
+
+The runtime saves parent history and memory before the next answer request.
+A failed SQLite transaction restores the previous active memory. Child summaries never replace the parent session.
+Existing history tools recover omitted details by original message index or tool call ID.
+
+`AGENT_COMPACTION_TAIL_MODE=lean` retains the current recovery policy's default token tail.
+Set it to `current` for a larger recent tail without the detailed session log.
+`AGENT_COMPACTION_MIN_TAIL_USER_MESSAGES` defaults to one and accepts values from one through twenty.
+Both modes preserve complete tool exchanges and the active request.
+
 ## Scaled allocations
 
 | Allocation | Rule |

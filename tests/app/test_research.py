@@ -22,7 +22,6 @@ from tests.context_fixtures import long_history
 from theos.runtime import context, tools
 from theos.runtime.budgets import TurnBudget
 from theos.runtime.research_mode import explicit_request
-from theos.services.research.store import valid_summary
 from theos.services.research.tools import research_tools
 from theos.storage.database import Database
 from theos.transports.browser.app import create_app
@@ -328,11 +327,10 @@ async def test_repeated_summary_preserves_corrections_references_and_questions(r
         },
     )
     policy = context.compaction(runtime, row, context.ModelCapacity(100000, 500, "test"), run)
-    summary = json.dumps(
-        {
-            "summary": "Only primary sources from December 2025 onward. Include opposing views. Evidence is qualified. The opposing source remains undated.",
-            "record_ids": [source, question],
-        }
+    summary = (
+        "## Goal\nCompare qualified evidence.\n\n## Constraints & Preferences\n"
+        "Only primary sources from December 2025 onward. Include opposing views.\n\n"
+        "## Blocked\nThe opposing source remains undated."
     )
     memory = ContextMemory()
     history = long_history()
@@ -362,10 +360,7 @@ async def test_repeated_summary_preserves_corrections_references_and_questions(r
         runtime.research.item("alice", row["id"], source)["content"]["publishedDate"]
         == "2025-12-01"
     )
-    assert not valid_summary(
-        json.dumps({"summary": "Everything is certain.", "record_ids": [source]}),
-        runtime.research.summary_context("alice", row["id"], run),
-    )
+    assert set(memory.state["references"]["record_ids"]) == {source, question}
 
 
 @pytest.mark.parametrize("recipient", ["parent", "delegate"])

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, Literal
 
 from harness.types import (
     AssistantMessage,
@@ -104,6 +104,9 @@ class CompactionConfig:
     preserve_user_messages: bool = False
     # Compatibility flag. All configured compression uses the same pinned policy.
     resilient: bool = True
+    tail_mode: Literal["current", "lean"] = "lean"
+    min_tail_user_messages: int = 1
+    on_commit: Callable[[ContextMemory, Sequence[Message]], Awaitable[None]] | None = None
     summary_model: Any = None
     summary_window: int | None = None
     summary_timeout: float = 120

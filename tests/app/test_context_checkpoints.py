@@ -149,13 +149,18 @@ async def test_r2_restore_recovers_model_state_and_uncertain_actions(runtime, st
         "summary",
         1,
         working_messages=[{"type": "user", "content": "task", "images": []}],
-        state={"compression_count": 2, "usage_anchor": {"tokens": 42000}},
+        state={
+            "compression_count": 2,
+            "usage_anchor": {"tokens": 42000},
+            "references": {"anchors": [], "record_ids": ["Ssaved-source"], "unknown_tools": []},
+        },
     )
     await runtime.checkpoints.save("alice", sid, [UserMessage("task")], memory, "after_model")
     runtime.db.execute("DELETE FROM tool_runs WHERE session=?", (sid,))
     await runtime.checkpoints.restore("alice", sid)
     restored = runtime.session("alice", sid)
     assert json.loads(restored["memory"])["state"]["usage_anchor"]["tokens"] == 42000
+    assert json.loads(restored["memory"])["state"]["references"] == memory.state["references"]
     assert (
         runtime.db.one("SELECT status FROM tool_runs WHERE call_id=?", ("call1",))["status"]
         == "unknown"

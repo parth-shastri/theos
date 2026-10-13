@@ -124,6 +124,7 @@ async def response_call(
     compact_budget=None,
     model=None,
     research_id=None,
+    persist_session=True,
 ):
     """Use one tool-free response call with the same task and complete working context."""
     from harness import Agent, ContextCompaction, Hooks, collect_run_stream
@@ -168,7 +169,9 @@ async def response_call(
             "Do not call tools, repeat research, or claim uncertain actions succeeded.",
             hooks=Hooks(before_model=prepare, after_model=record),
             context_window=limits.context,
-            compaction=context.compaction(runtime, session, limits, research_id),
+            compaction=context.compaction(
+                runtime, session, limits, research_id, persist_session=persist_session
+            ),
         )
         # Use a copy so a failed final call cannot replace the durable transcript.
         working = list(history)

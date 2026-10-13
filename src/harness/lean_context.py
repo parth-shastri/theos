@@ -7,14 +7,26 @@ import hashlib
 import json
 import time
 from contextlib import aclosing, asynccontextmanager
+from copy import deepcopy
 from dataclasses import replace
 
-from harness.compression_policy import ContextCompressor, _is_summary_refusal
+from harness.compaction import ContextMemory
+from harness.compression_policy import (
+    ContextCompressor,
+    _is_summary_refusal,
+    _redact_compaction_text,
+)
 from harness.compression_support import parse_context_limit_from_error
 from harness.context_size import ContextOverflowError, request_size
 from harness.events import ContextCompaction, GenerationComplete
 from harness.model import collect_model_stream
 from harness.output import requested_output_tokens
+from harness.summary_references import (
+    ANCHOR_HEADING,
+    reference_state,
+    render_reference_index,
+    without_mechanical_sections,
+)
 from harness.types import (
     AssistantMessage,
     ModelRequest,
@@ -148,7 +160,10 @@ class LeanModel:
         self.memory, self.history, self.summary_budget = memory, history, summary_budget
         route = f"{getattr(model, 'provider', '')}/{getattr(model, 'model_id', '')}"
         if memory.state.get("route") != route:
+            references = memory.state.get("references")
             memory.state.clear()
+            if isinstance(references, dict):
+                memory.state["references"] = references
             memory.state["route"] = route
         self.state = memory.state
 
@@ -177,8 +192,27 @@ class LeanModel:
             yield self.model
 
     async def checkpoint(self):
+        if self.config.on_commit:
+            await self.config.on_commit(self.memory, self.history)
         if self.config.checkpoint:
             await self.config.checkpoint()
+
+    async def publish(self, rows, summary=None, references=None, compaction=None):
+        previous = deepcopy(self.memory.to_dict())
+        try:
+            self.commit(rows, summary)
+            if references is not None:
+                self.state["references"] = references
+            if compaction is not None:
+                self.state["ineffective"] = 0
+                self.state.pop("ineffective_probe_at", None)
+                self.state["last_compaction"] = compaction
+            await self.checkpoint()
+        except BaseException:
+            restored = ContextMemory.from_dict(previous)
+            self.memory.__dict__.update(restored.__dict__)
+            self.state = self.memory.state
+            raise
 
     def commit(self, rows, summary=None):
         # Rebuilt instruction hooks stay out of storage. System messages in the original
@@ -210,6 +244,12 @@ class LeanModel:
             self.state.get("compression_count", 0),
         )
         policy._session_id = "current"
+        policy.tail_mode = self.config.tail_mode
+        policy.min_tail_user_messages = self.config.min_tail_user_messages
+        if policy.tail_mode == "current":
+            policy.tail_token_budget = max(
+                1, min(int(window * 0.20), int(policy.threshold_tokens * self.config.target_ratio))
+            )
         if not force and before < policy.threshold_tokens and before + output <= window:
             yield request
             return
@@ -219,8 +259,7 @@ class LeanModel:
         )
         projected = ModelRequest(restore_rows(pruned), request.tools, request.options)
         if changed and request_size(projected) < before:
-            self.commit(pruned)
-            await self.checkpoint()
+            await self.publish(pruned)
             yield ContextCompaction(
                 "completed",
                 before_tokens=before,
@@ -340,7 +379,7 @@ class LeanModel:
                     calls += 1
                     result, text = await summarize(self.model)
             usage = result.usage
-            summary = policy._augment_summary_lean(policy._with_summary_prefix(text), middle)
+            summary = policy._with_summary_prefix(without_mechanical_sections(text))
             self.state.pop("cooldown_until", None)
             self.state["failures"] = {}
         except Exception as error:
@@ -376,6 +415,20 @@ class LeanModel:
         if len(self.history) != revision:
             raise RuntimeError("Conversation changed during compaction.")
         if summary:
+            references = reference_state(
+                self.history,
+                protected,
+                self.state.get("references", {}).get("record_ids", []),
+            )
+            summary = without_mechanical_sections(summary)
+            reference_index = render_reference_index(
+                references,
+                min(7000, max(0, (window - output) // 5)),
+                _redact_compaction_text,
+            )
+            # Keep the policy from replacing an empty bounded index with its larger index.
+            summary += "\n\n" + (reference_index or ANCHOR_HEADING)
+            summary = policy._augment_summary_lean(summary, wire_messages(self.history))
             # Protected head decays after the first compression; the system prefix is rebuilt each call.
             head = [r for r in pruned[:start] if not policy._is_context_summary_message(r)]
             tail = pruned[end:]
@@ -388,16 +441,13 @@ class LeanModel:
             working = [*head, {"role": "assistant", "content": summary}, *tail]
             candidate = ModelRequest(restore_rows(working), request.tools, request.options)
             if request_size(candidate) < current:
-                self.commit(working, summary)
-                self.state["ineffective"] = 0
-                self.state.pop("ineffective_probe_at", None)
-                self.state["last_compaction"] = {
+                committed = {
                     "before": current,
                     "after": request_size(candidate),
                     "method": reason,
                     **coverage,
                 }
-                await self.checkpoint()
+                await self.publish(working, summary, references, committed)
                 yield ContextCompaction(
                     "completed",
                     before_tokens=current,

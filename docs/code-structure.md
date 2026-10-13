@@ -40,6 +40,11 @@ All source paths below start at `src/theos`.
 
 ## Follow one turn
 
+The owned harness keeps the pinned summary template in `src/harness/compression_policy.py`.
+`src/harness/summary_references.py` extracts exact identifiers independently of model prose.
+`src/harness/lean_context.py` bounds their request index and commits working memory through the runtime callback.
+Application research ownership remains in `services/research/`.
+
 1. Read `Telegram.handle()` or the browser chat route to see how the transport identifies the owner.
 2. Read `Runtime.start()` to see the ownership checks and conversation reservation.
 3. Read `Runtime.run()` to follow its five numbered steps.
