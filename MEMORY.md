@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-12.
+Updated: 2026-10-14.
 
 ## Confirmed decisions
 
@@ -427,3 +427,23 @@ Save parent working memory in SQLite before the next answer request. Child summa
 Keep Theos call budgets and research deadlines disabled by default. Summary calls retain usage accounting.
 Retain lean tails as the recovery default. Allow `current` tails and one through twenty recent user messages.
 The new implementation replaces the older JSON summary compressor. It does not add another compression pipeline or runtime dependency.
+
+
+## Full request fit and readable activity, 2026-10-14
+
+Keep this work on `fix/context-overflow-recovery` and PR #55.
+After summary generation, cut and check the full request until input plus reserved output fits.
+Use the same fit loop after failed or oversized summaries. Do not impose a fixed cut or provider-overflow retry count.
+A recovery request must reduce estimated tokens, or serialized bytes when token estimates stay equal.
+Retain current instructions, active user steering, pending tool batches, and tool validation contracts.
+Keep complete call/result groups. Preserve full transcripts, saved sources, reference indexes, and uncertain outcomes.
+Publish fitted memory through the existing checkpoint transaction. Never retry an identical request or repeat completed tools.
+Required content can still exceed a provider window. Report that limit without fabricating a successful answer.
+
+Emit scoped compaction events without private summary prose. Show them in browser chat and Telegram.
+Show one editable Telegram activity per tool call with an emoji and readable action name.
+Group approval fields by item, use short labels, and place exact request details in expandable disclosures.
+Retain the immutable approval snapshot and complete large reviews.
+Zepto cart price and maximum retail price use paise. Display `3900` as `₹39.00` and retain raw values in exact details.
+Apply this conversion only to known cart price fields. Tool arguments and approval checks remain unchanged.
+These changes add no runtime dependency and remain undeployed until the release process runs.

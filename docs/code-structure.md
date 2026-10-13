@@ -154,4 +154,6 @@ Run the [acceptance checks](runtime/acceptance.md) after changing a service boun
 
 The generic compression policy lives in `src/harness/compression_policy.py`.
 `src/harness/lean_context.py` connects it to model calls and durable working context.
+`src/harness/context_fit.py` reduces full working requests without changing the transcript or tool validation contracts.
+Runtime events expose scoped compaction activity. Transport renderers own its display and readable approval reviews.
 Assistant storage and sandbox dependencies stay under `src/theos/services`.

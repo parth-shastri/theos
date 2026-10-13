@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 
 from harness.types import (
     AssistantMessage,
@@ -16,8 +16,6 @@ from harness.types import (
     View,
 )
 
-
-
 # Task-local ownership survives nested agent streams and parallel tool calls.
 _tool_scope: ContextVar[str | None] = ContextVar("harness_tool_scope", default=None)
 
@@ -25,7 +23,6 @@ _tool_scope: ContextVar[str | None] = ContextVar("harness_tool_scope", default=N
 @dataclass(frozen=True, kw_only=True)
 class _ScopedEvent:
     parent_call_id: str | None = field(default_factory=_tool_scope.get)
-
 
 
 def _at() -> float:
@@ -116,6 +113,7 @@ ModelEvent = ModelDelta | GenerationComplete
 @dataclass(frozen=True)
 class ContextCompaction(_ScopedEvent):
     """Progress metadata only. The private summary stays in conversation state."""
+
     status: str
     before_tokens: int
     after_tokens: int | None = None
@@ -124,6 +122,7 @@ class ContextCompaction(_ScopedEvent):
     model_calls: int = 0
     usage: dict[str, int] = field(default_factory=dict)
     at: float = _at()
+    compaction_id: str | None = None
 
 
 Event = ContextCompaction | ModelDelta | ModelCalled | ModelResponded | ToolStarted | ToolFinished

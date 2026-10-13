@@ -9,6 +9,7 @@ import time
 from contextlib import aclosing, asynccontextmanager
 from copy import deepcopy
 from dataclasses import replace
+from uuid import uuid4
 
 from harness.compaction import ContextMemory
 from harness.compression_policy import (
@@ -17,6 +18,7 @@ from harness.compression_policy import (
     _redact_compaction_text,
 )
 from harness.compression_support import parse_context_limit_from_error
+from harness.context_fit import _protected, cut_request, smaller_request
 from harness.context_size import ContextOverflowError, request_size
 from harness.events import ContextCompaction, GenerationComplete
 from harness.model import collect_model_stream
@@ -233,6 +235,101 @@ class LeanModel:
         self.state.pop("usage_anchor", None)
 
     async def prepare(self, request, *, force=False):
+        """Publish and send only a complete request that fits, with progress-based reductions."""
+        before = await self.estimate_tokens(request)
+        window = min(self.window, self.state.get("learned_window", self.window))
+        output = requested_output_tokens(request)
+        threshold = ContextCompressor(window, output, self.config.trigger_ratio).threshold_tokens
+        if not force and before < threshold and before + output <= window:
+            yield request
+            return
+        compaction_id = uuid4().hex
+        yield ContextCompaction("started", before_tokens=before, compaction_id=compaction_id)
+        active_memory, active_state, active_config = self.memory, self.state, self.config
+        candidate_memory = ContextMemory.from_dict(deepcopy(active_memory.to_dict()))
+        self.memory, self.state = candidate_memory, candidate_memory.state
+        self.config = replace(active_config, on_commit=None, checkpoint=None)
+        selected = request
+        try:
+            async for event in self._compress_once(request, force=force):
+                if isinstance(event, ModelRequest):
+                    selected = event
+                elif event.status != "started":
+                    yield replace(event, status="progress", compaction_id=compaction_id)
+            target = window - output
+            if force:
+                target = min(target, max(0, int(request_size(request) * 0.80)))
+            while await self.estimate_tokens(selected) > target:
+                reduced = cut_request(selected, self.history)
+                if reduced is None:
+                    if await self.estimate_tokens(selected) + output <= window and smaller_request(
+                        selected, request
+                    ):
+                        break  # The retry goal is soft. Any smaller fitting request can proceed.
+                    raise ContextOverflowError(
+                        "The required instructions, current task, pending calls, and tool schemas "
+                        "cannot fit with the requested output. No safe context reduction remains."
+                    )
+                selected, reason = reduced
+                yield ContextCompaction(
+                    "progress",
+                    before_tokens=before,
+                    after_tokens=request_size(selected),
+                    reason=reason,
+                    compaction_id=compaction_id,
+                )
+            # A forced retry must change the rejected request, even when its estimate fits.
+            if force and not smaller_request(selected, request):
+                raise ContextOverflowError("No smaller safe request remains for context recovery.")
+            self.commit(wire_messages(selected.messages))
+            summaries = [
+                m.text
+                for m in selected.messages
+                if isinstance(m, AssistantMessage)
+                and ContextCompressor._is_context_summary_message(
+                    {"role": "assistant", "content": m.text or ""}
+                )
+            ]
+            if summaries:
+                candidate_memory.summary = summaries[-1]
+            candidate_memory.state["references"] = reference_state(
+                self.history,
+                active_config.summary_context() if active_config.summary_context else {},
+                candidate_memory.state.get("references", {}).get("record_ids", []),
+            )
+            self.memory, self.state, self.config = active_memory, active_state, active_config
+            previous = deepcopy(active_memory.to_dict())
+            try:
+                active_memory.__dict__.update(candidate_memory.__dict__)
+                self.state = active_memory.state
+                await self.checkpoint()
+            except BaseException:
+                active_memory.__dict__.update(ContextMemory.from_dict(previous).__dict__)
+                self.state = active_memory.state
+                raise
+            yield ContextCompaction(
+                "completed",
+                before_tokens=before,
+                after_tokens=request_size(selected),
+                reason="request_fitted",
+                compaction_id=compaction_id,
+            )
+            yield selected
+        except Exception as error:
+            yield ContextCompaction(
+                "failed",
+                before_tokens=before,
+                reason="no_safe_fit"
+                if isinstance(error, ContextOverflowError)
+                else "preparation_failed",
+                compaction_id=compaction_id,
+            )
+            raise
+        finally:
+            self.memory, self.config = active_memory, active_config
+            self.state = active_memory.state
+
+    async def _compress_once(self, request, *, force=False):
         before = await self.estimate_tokens(request)
         window = min(self.window, self.state.get("learned_window", self.window))
         output = requested_output_tokens(request)
@@ -271,6 +368,11 @@ class LeanModel:
             yield projected if changed else request
             return
         start, end = policy._compress_window(pruned)
+        active_users = [
+            i for i in _protected(request.messages) if isinstance(request.messages[i], UserMessage)
+        ]
+        if active_users:
+            end = min(end, min(active_users))
         # The upstream structural guard protects a small conversation instead of deleting its head.
         if len(pruned) <= policy._protect_head_size(pruned) + 4 or start >= end:
             yield projected if changed else request
@@ -296,13 +398,27 @@ class LeanModel:
         content, coverage = policy._sample_summary_records(records)
         protected = self.config.summary_context() if self.config.summary_context else {}
         target = policy._compute_summary_budget(middle)
-        prompt = policy._build_summary_prompt(
-            content,
-            target,
-            None,
-            json.dumps(protected) if protected else "",
-            any(r["role"] == "user" for r in rows),
+        retained = ModelRequest(
+            restore_rows([*pruned[:start], *pruned[end:]]), request.tools, request.options
         )
+        summary_room = max(128, window - output - request_size(retained) - 256)
+
+        def build_prompt(sample):
+            value = policy._build_summary_prompt(
+                sample,
+                target,
+                None,
+                json.dumps(protected) if protected else "",
+                any(r["role"] == "user" for r in rows),
+            )
+            log = 4000 if self.config.tail_mode == "lean" else 0
+            total = min(target + log, summary_room)
+            value = value.replace(f"Target ~{target + log} tokens", f"Target ~{total} tokens")
+            return value.replace(
+                "Spend up to ~4000 tokens here", f"Spend up to ~{min(log, total // 2)} tokens here"
+            )
+
+        prompt = build_prompt(content)
         # Use the auxiliary model's own capacity. Sampling never starts a chain of summary calls.
         summary_window = self.config.summary_window or window
         options = {
@@ -325,17 +441,7 @@ class LeanModel:
                 "AuxiliarySample", (ContextCompressor,), {"_SUMMARY_INPUT_MAX_CHARS": cap}
             )
             content, coverage = sample_policy._sample_summary_records(records)
-            summary_request.messages = [
-                SystemMessage(
-                    policy._build_summary_prompt(
-                        content,
-                        target,
-                        None,
-                        json.dumps(protected) if protected else "",
-                        any(r["role"] == "user" for r in rows),
-                    )
-                )
-            ]
+            summary_request.messages = [SystemMessage(build_prompt(content))]
         summary = None
         reason = "llm_summary"
         usage = {}
@@ -463,7 +569,7 @@ class LeanModel:
 
     async def stream(self, request):
         current = request
-        for attempt in range(3):
+        while True:
             try:
                 async with aclosing(self.model.stream(current)) as events:
                     async for event in events:
@@ -481,13 +587,13 @@ class LeanModel:
                 return
             except ContextOverflowError as error:
                 self.state.pop("usage_anchor", None)
-                if attempt == 2:
-                    raise
                 cause = error
                 while cause.__cause__ is not None:
                     cause = cause.__cause__
                 reported = parse_context_limit_from_error(str(cause))
-                if reported is not None and reported < self.window:
+                if reported is not None and reported < min(
+                    self.window, self.state.get("learned_window", self.window)
+                ):
                     self.state["learned_window"] = reported
                 next_request = None
                 async for event in self.prepare(current, force=True):
@@ -495,6 +601,6 @@ class LeanModel:
                         next_request = event
                     else:
                         yield event
-                if next_request is None or request_size(next_request) >= request_size(current):
+                if next_request is None or not smaller_request(next_request, current):
                     raise
                 current = next_request

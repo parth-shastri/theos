@@ -1196,23 +1196,74 @@ button.speech-button.is-playing {
   margin-right: 8px;
 }
 .approval-action {
-  text-transform: capitalize;
   color: var(--text-soft);
 }
 .approval-fields {
   margin: 16px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px 16px;
+}
+.approval-group {
+  font-size: 14px;
+  margin: 20px 0 4px;
+}
+.approval-technical dl {
+  font-size: 12px;
+}
+.context-activity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px 16px;
+  color: var(--text-soft);
+  font-size: 13px;
+  border-left: 2px solid var(--accent);
+}
+.context-activity::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.context-activity.is-organizing::before {
+  animation: context-pulse 1.4s ease-in-out infinite;
+}
+@keyframes context-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .context-activity.is-organizing::before {
+    animation: none;
+  }
 }
 .approval-fields dt {
   font-size: 12px;
   font-weight: 600;
-  margin-top: 12px;
+  margin-top: 0;
 }
 .approval-fields dd {
-  margin: 4px 0 0;
+  margin: 0;
   overflow-wrap: anywhere;
 }
 .approval-value {
   white-space: pre-wrap;
+}
+.approval-wide,
+.approval-technical .approval-group {
+  grid-column: 1 / -1;
+}
+.approval-hint {
+  display: block;
+  color: var(--text-soft);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 4px;
 }
 #approvals details {
   margin: 12px 0;

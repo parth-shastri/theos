@@ -107,7 +107,10 @@ async def test_irreducible_context_error_never_claims_a_useful_answer(runtime):
     row = session(runtime)
     events = await collect(runtime.start("alice", row["id"], "Explain this."))
     assert events[-1]["status"] == "failed"
-    assert len(model.requests) == 1  # Do not repeat an identical rejected request.
+    from harness.context_size import request_size
+
+    sizes = [request_size(request) for request in model.requests]
+    assert all(a > b for a, b in zip(sizes, sizes[1:], strict=False))
     assert "context" in runtime.db.load_history("alice", row["id"])[-1].text
 
 

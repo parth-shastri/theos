@@ -36,7 +36,10 @@ Telegram reply formatting uses `markdown-it-py` 4.x from the `server` extra.
 The renderer converts Markdown into text and explicit Telegram message entities.
 It uses UTF-16 offsets and splits long replies while retaining formatting.
 Raw HTML remains literal text. Only HTTP, HTTPS, mail, and Telegram links become link entities.
-Commands and approval previews bypass Markdown conversion.
+Commands remain literal text. Approval reviews use labeled fields, formatted prose, and literal code.
+Telegram uses one editable status per tool call and per compaction, with readable action names and tool icons.
+Expandable quotes retain exact identifiers and raw price units. Long reviews retain complete details in splits or a file.
+Zepto cart reviews show paise prices in rupees, while approval snapshots retain the original values.
 This renderer adds no model tool.
 
 Source: [Telegram formatter](../src/theos/transports/telegram/formatting.py).
@@ -499,7 +502,9 @@ The runtime accepts the legacy `AGENT_MAX_RECOVERY_CALLS` setting, but always pe
 Call, research-time, or context exhaustion stops new research and requests one final response without tools.
 That request retains the task, corrections, complete available context, and a limit notice.
 Final responses use the model window after reserving the requested output and compact only when necessary to fit.
-If complete context cannot fit and compaction cannot finish, the runtime preserves it and returns a clear failure.
+Failed or oversized summaries trigger further cuts until the full request fits.
+There is no fixed cut or provider-overflow retry count. Recovery retries only smaller requests and never repeats tools.
+If mandatory content cannot fit, the runtime preserves it and returns a clear failure.
 A failed final response never triggers a second attempt or repeats tools.
 Research deadlines do not cancel active answer generation or final responses.
 Provider connection idle timeouts and explicit cancellation remain active.

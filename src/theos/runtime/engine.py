@@ -27,7 +27,7 @@ from . import approvals, checkpoints, context, hooks, recovery, titles, tools
 from .budgets import TurnBudget
 from .errors import CheckedModel
 from .events import publish_event
-from .reviews import approval_fields
+from .reviews import approval_review, tool_label
 from .text import WRITING_RULES, reply_text
 from .turn import Turn
 from .usage import record_usage
@@ -99,7 +99,14 @@ class Runtime:
             "SELECT id,call_id,tool,arguments,preview,expires FROM approvals WHERE session=? AND status='pending' ORDER BY created",
             (session_id,),
         )
-        return [{**row, "review": approval_fields(json.loads(row["preview"]))} for row in rows]
+        return [
+            {
+                **row,
+                "label": tool_label(row["tool"]),
+                "review": approval_review(row["tool"], json.loads(row["preview"])),
+            }
+            for row in rows
+        ]
 
     def start(
         self,

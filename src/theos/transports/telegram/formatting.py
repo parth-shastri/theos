@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 from markdown_it import MarkdownIt
 
+from theos.runtime.reviews import tool_icon, tool_label
 from theos.runtime.text import reply_text
 
 _markdown = MarkdownIt("commonmark", {"html": False}).enable(["table", "strikethrough"])
@@ -187,13 +188,42 @@ def plain_messages(text):
 
 def format_approval(tool, fields):
     """Render labels and prose while preserving commands as literal code."""
-    text = "Approval needed\n" + tool.replace("_", " ") + "\n\n"
-    entities = [{"type": "bold", "offset": 0, "length": 15}]
-    for field in fields:
+    title = tool_icon(tool) + " Approval needed"
+    text = title + "\n" + tool_label(tool) + "\n\n"
+    entities = [{"type": "bold", "offset": 0, "length": utf16_length(title)}]
+    primary = [field for field in fields if not field.get("technical")]
+    technical = [field for field in fields if field.get("technical")]
+    group, technical_start = None, None
+    for field in [*primary, *technical]:
+        if field.get("technical") and technical_start is None:
+            text += "Exact request details (expand to inspect)\n"
+            technical_start = utf16_length(text)
+            group = None
+        if field.get("group") and field["group"] != group:
+            group = field["group"]
+            entities.append(
+                {"type": "bold", "offset": utf16_length(text), "length": utf16_length(group)}
+            )
+            text += group + "\n"
+        if (
+            not field.get("technical")
+            and field.get("group", "").startswith("Cart item ")
+            and field["label"] in {"Product", "Product / Label", "Label / Product"}
+        ):
+            entities.append(
+                {
+                    "type": "bold",
+                    "offset": utf16_length(text),
+                    "length": utf16_length(field["text"]),
+                }
+            )
+            text += field["text"] + "\n"
+            continue
         entities.append(
             {"type": "bold", "offset": utf16_length(text), "length": utf16_length(field["label"])}
         )
-        text += field["label"] + "\n"
+        inline = field["kind"] == "text" and "\n" not in field["text"] and len(field["text"]) <= 160
+        text += field["label"] + (": " if inline else "\n")
         offset = utf16_length(text)
         if field["kind"] == "markdown":
             for part in format_reply(field["text"]):
@@ -206,5 +236,22 @@ def format_approval(tool, fields):
                 entities.append(
                     {"type": "pre", "offset": offset, "length": utf16_length(field["text"])}
                 )
-        text += "\n\n"
+        text += "\n" if inline else "\n\n"
+        if field.get("hint"):
+            entities.append(
+                {
+                    "type": "italic",
+                    "offset": utf16_length(text),
+                    "length": utf16_length(field["hint"]),
+                }
+            )
+            text += field["hint"] + "\n"
+    if technical_start is not None:
+        entities.append(
+            {
+                "type": "expandable_blockquote",
+                "offset": technical_start,
+                "length": utf16_length(text.rstrip("\n")) - technical_start,
+            }
+        )
     return _chunks(text.rstrip("\n"), entities, 3900)

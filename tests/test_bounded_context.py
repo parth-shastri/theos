@@ -164,7 +164,8 @@ async def test_access_failure_retains_transcript_and_arms_cooldown():
         history, budget=Budget(inf), memory=memory
     )
     assert result.message.text == "Answer from available evidence."
-    assert not memory.summary and memory.state["failures"]["access"] == 1
+    assert memory.summary and memory.state["failures"]["access"] == 1
+    assert request_size(raw.requests[-1]) + 8192 <= 100000
     assert memory.state["cooldown_until"] > 0
 
 
@@ -211,7 +212,7 @@ async def test_distinct_auxiliary_failure_retries_main_once():
     assert len(auxiliary.requests) == 1 and len(main.requests) == 2 and memory.summary
 
 
-async def test_truncated_summary_preserves_middle_instead_of_committing_partial_handoff():
+async def test_truncated_summary_keeps_original_middle_and_fits_a_recovery_handoff():
     history = transcript()
     memory = ContextMemory()
     auxiliary = FakeModel([AssistantMessage("Incomplete handoff", stop_reason="length")])
@@ -224,8 +225,9 @@ async def test_truncated_summary_preserves_middle_instead_of_committing_partial_
     await Agent(
         main, context_window=100000, compaction=CompactionConfig("", summary_model=summaries)
     ).run(history, memory=memory, budget=Budget(inf))
-    assert not memory.summary and memory.working_messages is None
-    assert "Finding 10:" in str(main.requests[0].messages)
+    assert memory.summary and "Incomplete handoff" not in memory.summary
+    assert "Finding 10:" in str(history)
+    assert request_size(main.requests[0]) + 8192 <= 100000
     assert memory.state["failures"]["truncated"] == 1
 
 
@@ -248,7 +250,7 @@ async def test_repeated_timeout_uses_recoverable_deterministic_handoff():
     )
     request = ModelRequest(history)
     _ = [event async for event in model.prepare(request, force=True)]
-    assert not memory.summary
+    assert memory.summary and request_size(_[-1]) + 8192 <= 100000
     _ = [event async for event in model.prepare(request, force=True)]
     assert memory.summary and memory.state["last_compaction"]["method"] == "deterministic_fallback"
     assert "history_read" in memory.summary

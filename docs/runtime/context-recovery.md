@@ -33,13 +33,20 @@ Open the [editable context and workspace diagram](context-workspace.excalidraw).
    Use the scaled summary target in the prompt, without a hard summary output cap.
 9. Reject empty, refused, or truncated summaries.
    A distinct auxiliary model gets one retry through the main model.
-   Access, network, empty-content, and truncation failures preserve the previous context and apply a cooldown.
-   Repeated timeouts or sustained overload can produce the upstream deterministic continuity summary.
-10. Commit a summary only when the resulting request is smaller.
-    Save the summary, protected messages, transcript boundary, usage anchor, and recovery state together.
-    Continue the task with the same tools and saved sources.
-11. Save another checkpoint after the model response, after tools, and when the turn ends.
-    Provider context recovery never repeats a completed tool.
+   These failures discard the rejected output and apply a cooldown to later summary calls.
+   Repeated timeouts or sustained overload can produce a deterministic continuity summary.
+10. Check the complete candidate against the window after reserving output space.
+    If necessary, cut tool results, optional replay data, summary text, old complete exchanges, and optional tool documentation.
+    Check again after each cut until the request fits. This loop has no fixed retry count.
+    If a summary fails, apply the same cuts to the remaining request.
+    Preserve current instructions, active user messages, pending tool batches, and tool validation contracts.
+11. Save the fitted working context, full reference index, transcript boundary, and recovery state together.
+    Publish the candidate only after its checkpoint succeeds. A failed transaction restores previous active memory.
+    Continue the task with the same tool names and saved sources.
+12. Save another checkpoint after the model response, after tools, and when the turn ends.
+    If the provider rejects context, reduce the rejected request before another attempt. There is no fixed retry count.
+    A retry must reduce estimated tokens, or serialized bytes when the token estimate stays equal.
+    Recovery never repeats a completed tool or retries an identical request.
     Only a provider-reported limit can lower the saved model capacity. Recovery does not guess a smaller window.
 
 The check happens immediately before each main model call, after application hooks finish building the request.
@@ -85,6 +92,10 @@ Existing history tools recover omitted details by original message index or tool
 Set it to `current` for a larger recent tail without the detailed session log.
 `AGENT_COMPACTION_MIN_TAIL_USER_MESSAGES` defaults to one and accepts values from one through twenty.
 Both modes preserve complete tool exchanges and the active request.
+Further cuts can replace verbose results with retrieval notes or remove old complete exchanges from working context.
+A short handoff records missing evidence and uncertain actions when a summary cannot supply enough space.
+The full transcript and reference index remain in storage, even if their request copy needs further cuts.
+A request without retrieval tools must state missing evidence rather than invent omitted details.
 
 ## Scaled allocations
 
@@ -94,14 +105,15 @@ Both modes preserve complete tool exchanges and the active request.
 | Trigger fraction | Default 0.5, with a 0.75 floor for windows below 512,000 tokens |
 | Threshold floor | 64,000 tokens, bounded by 85 percent of effective input when the floor binds |
 | Recent tail | 2.5 percent of the window, normally 10,000–25,000 tokens, capped at 20 percent of the window |
-| Summary target | 20 percent of middle tokens, with a 2,000-token minimum and a ceiling derived from 5 percent of context, up to 10,000 |
+| Summary target | Nominally 20 percent of middle tokens, with the pinned minimum and ceiling, further reduced to fit retained input and output |
 | Summary input | Distributed record sample, at most 160,000 characters, further reduced for auxiliary capacity |
 | Summary timeout | 120 seconds per attempt |
-| Provider overflow | At most two retries, each requiring a smaller request |
+| Fit cuts and provider overflow | No fixed retry count. Every recovery request must be smaller |
 
 At the Pi's 100,000-token window and 8,192-token output reservation, the default threshold is 68,856 input tokens.
 The tail allocation is 10,000 tokens. The nominal summary ceiling is 5,000 tokens.
-The summary prompt adds room for the structured continuation log.
+The summary prompt includes the structured continuation log within the available request space.
+The model can exceed this target. The fit loop checks its actual returned text and cuts further when needed.
 These are context allocations, not fixed numbers of research calls.
 
 `AGENT_COMPACTION_MODEL` selects the auxiliary model. OpenAI and OpenRouter default to `gpt-6-luna`.
@@ -162,9 +174,27 @@ Title generation retains its separate attempt policy.
 There is no configured dollar-spend or cumulative token-spend ceiling.
 See [optional call budgets](call-budgets.md) for bounded mode.
 
+Summary failure and oversized summary output do not stop a task when safe cuts can make the request fit.
 Compression cannot guarantee an answer for an unavailable provider or an irreducible request.
 If a provider rejects the smallest safe request, the runtime preserves the evidence and reports failure.
 A fixed failure message does not count as a useful answer in replay tests.
+
+## Visible activity and approval reviews
+
+Compaction emits started, progress, completed, and failed events with a separate identifier for each compression.
+Events include token estimates and scope, without private summary prose.
+Browser chat shows a live context indicator. Telegram edits one status message for each compression.
+Both clear active indicators when the turn stops. Browser disconnects also clear the local indicator.
+Telegram shows a tool icon, readable action name, and status for each call.
+Protected actions show requested or waiting for approval before execution.
+
+Approval reviews group cart items and show short labels before exact request details.
+Repeated aliases share a field. The original approval snapshot still controls execution.
+Browser disclosures and Telegram expandable quotes retain technical identifiers and raw price values.
+Long Telegram reviews retain all details through message splits or an attached review file.
+For `zepto_update_cart`, cart price and maximum retail price use paise.
+The review shows `3900` as `₹39.00` and retains `3900` in exact request details.
+The display conversion never changes approved arguments. Other tool prices retain their supplied units.
 
 ## Validation
 

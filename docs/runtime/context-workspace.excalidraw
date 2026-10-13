@@ -357,8 +357,8 @@
       "y": 180,
       "width": 280,
       "height": 90,
-      "text": "3. Auxiliary summary\nUpdate the middle\nProtect head and tail",
-      "originalText": "3. Auxiliary summary\nUpdate the middle\nProtect head and tail",
+      "text": "3. Summary + fit\nKeep the active task\nCut and check until fit",
+      "originalText": "3. Summary + fit\nKeep the active task\nCut and check until fit",
       "fontSize": 24,
       "fontFamily": 1,
       "textAlign": "center",
@@ -838,7 +838,7 @@
       "x": 60,
       "y": 620,
       "width": 1080,
-      "height": 145,
+      "height": 175,
       "roundness": {
         "type": 3
       }
@@ -865,9 +865,9 @@
       "x": 70,
       "y": 632.5,
       "width": 1060,
-      "height": 120,
-      "text": "R2 stores immutable source and file versions.\nSQLite keeps the local journal and pending transfers.\nThe model can choose the sandbox without an explicit sandbox request.\nTheos counts calls, but fixed call allocations remain disabled.",
-      "originalText": "R2 stores immutable source and file versions.\nSQLite keeps the local journal and pending transfers.\nThe model can choose the sandbox without an explicit sandbox request.\nTheos counts calls, but fixed call allocations remain disabled.",
+      "height": 150,
+      "text": "R2 keeps full sources, journals, and file versions.\nSQLite keeps the local journal and pending transfers.\nFailed summary? Cut working context until the full request fits.\nNo safe cut? Preserve evidence and report the limit.\nTheos counts calls. Fit cuts and overflow retries have no fixed cap.",
+      "originalText": "R2 keeps full sources, journals, and file versions.\nSQLite keeps the local journal and pending transfers.\nFailed summary? Cut working context until the full request fits.\nNo safe cut? Preserve evidence and report the limit.\nTheos counts calls. Fit cuts and overflow retries have no fixed cap.",
       "fontSize": 24,
       "fontFamily": 1,
       "textAlign": "center",

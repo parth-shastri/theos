@@ -685,3 +685,30 @@ The context guide's prose lint reports 1.17 findings per 100 words.
 
 The prior recovery replay and workspace results above belong to the baseline recovery implementation.
 This summary integration did not repeat those live checks. It is not deployed.
+
+
+## Full request fit and approval display, 2026-10-14
+
+This update stays on the existing recovery branch and PR #55.
+The full local suite passed 1,025 tests, with three credential-dependent tests excluded.
+The tests cover successful, oversized, truncated, and failed summaries followed by full request checks.
+Four consecutive provider overflows recover with smaller requests and one tool execution.
+Other checks cover opaque replay cuts, pending parallel calls, active user corrections, required schemas, and irreducible inputs.
+Saved transcript, uncertain outcomes, source ownership, transaction rollback, and checkpoint restoration tests still pass.
+
+Compaction events reach parent and research clients without private summary prose.
+Browser tests cover separate compression identifiers, cancellation, and stream disconnects.
+Telegram tests check editable tool status, compaction status, complete reviews, topic routing, and Unicode entity offsets.
+Zepto cart tests show `3900` as `₹39.00` while preserving raw prices, quantities, identifiers, and approval snapshots.
+
+Changed Python files and CI style targets pass Ruff lint and formatting checks.
+JavaScript syntax, Prettier, lock validation, package builds, and whitespace checks pass.
+The context guide's prose lint reports 1.14 findings per 100 words.
+A local mock preview used the real approval fields, browser component, stylesheet, and Telegram text/entities.
+Desktop and 390-pixel phone layouts passed visual inspection. Expandable details expose raw paise and identifiers.
+This preview did not send Telegram messages, call Zepto, or approve an action.
+
+No fixed count stops fit cuts or provider context retries.
+Recovery stops when no smaller safe request remains. Required content can still exceed a provider window.
+Unavailable providers, canceled turns, and failed persistence remain distinct failure conditions.
+These changes remain undeployed. Live Telegram approval and provider acceptance checks remain pending.
