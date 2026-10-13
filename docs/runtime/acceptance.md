@@ -740,3 +740,9 @@ The release draft's prose lint reports 0.76 findings per 100 words.
 Version 0.1.11 prepares the current recovery, summary, workspace, and approval changes for promotion.
 The existing private local Pi environment needs no changes. Context, output, and trigger settings remain 100,000, 8,192, and 0.7.
 Deployment confirmation belongs to the tagged release workflow. The replay does not establish live Telegram delivery.
+
+
+The first Pi promotion CI run exposed a timing race in the bounded write-timeout test on Python 3.12.
+Setup could exceed 150 milliseconds before the tool started, which correctly records failed rather than unknown status.
+The corrected test expires research after the write starts and uses a separate 50-millisecond tool timeout.
+It patches application clocks only, leaving the event loop clock intact. Production behavior does not change.
