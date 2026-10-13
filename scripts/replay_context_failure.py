@@ -22,7 +22,8 @@ from harness import (
     ToolResultMessage,
 )
 from harness.context_size import ContextOverflowError, request_size
-from harness.events import GenerationComplete
+from harness.events import ContextCompaction, GenerationComplete
+from harness.loop import TurnFinished
 from harness.output import requested_output_tokens
 from harness.types import message_from_dict, message_to_dict
 from theos.runtime.budgets import TurnBudget
@@ -74,6 +75,21 @@ def visible_history_reads(request):
     return indices
 
 
+def source_was_read(reads, original, index):
+    """Accept both history selectors and the resolved original message index."""
+    call_id = original[index].get("call_id")
+    return any(
+        entry["name"] == "history_read"
+        and entry["status"] == "completed"
+        and (
+            entry.get("message_index") == index
+            or entry["arguments"].get("message_index") == index
+            or (call_id and entry["arguments"].get("call_id") == call_id)
+        )
+        for entry in reads
+    )
+
+
 async def replay(args):
     saved = json.loads(args.session.read_text())
     messages = json.loads(saved["history"])
@@ -88,7 +104,7 @@ async def replay(args):
     settings.max_model_calls = 1
     settings.max_compaction_calls = 0
     budgets = TurnBudget(settings, enforce=False)
-    requests, reads, injections = [], [], []
+    requests, reads, injections, compactions = [], [], [], []
     args.output.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     async def options(request, ctx):
@@ -105,7 +121,15 @@ async def replay(args):
             for c in m.tool_calls
             if c.id == result.call_id
         )
-        reads.append({"name": call.name, "arguments": call.arguments, "status": result.status})
+        entry = {"name": call.name, "arguments": call.arguments, "status": result.status}
+        if call.name == "history_read":
+            try:
+                value = json.loads(result.content)
+            except ValueError:
+                value = {}
+            if isinstance(value, dict):
+                entry["message_index"] = value.get("message_index")
+        reads.append(entry)
         write_private(args.output / "reads.json", json.dumps(reads, indent=2))
         return result
 
@@ -125,16 +149,31 @@ async def replay(args):
             record = {
                 "summary": summary,
                 "input_estimate": request_size(request),
+                "request_bytes": len(
+                    json.dumps(
+                        [
+                            [message_to_dict(m) for m in request.messages],
+                            [vars(t) for t in request.tools],
+                        ],
+                        ensure_ascii=False,
+                        default=str,
+                    ).encode()
+                ),
                 "output_reserved": requested_output_tokens(request),
                 "usage": {},
                 "visible_history_reads": visible_history_reads(request),
             }
             requests.append(record)
+            write_private(args.output / "requests.json", json.dumps(requests, indent=2))
             if args.mode == "summary-failure" and summary:
                 injections.append("unusable_summary")
                 yield GenerationComplete(AssistantMessage("Unusable summary", stop_reason="length"))
                 return
-            if args.mode == "overflow" and not summary and injections.count("overflow") < 2:
+            if (
+                args.mode == "overflow"
+                and not summary
+                and injections.count("overflow") < args.overflow_count
+            ):
                 injections.append("overflow")
                 raise ContextOverflowError()
             async for event in self.model.stream(request):
@@ -165,12 +204,30 @@ async def replay(args):
         )
         # This deadline belongs to the manual test, not the Theos harness.
         async with asyncio.timeout(args.timeout):
-            result = await agent.run(
+            result = None
+            async for event in agent.run_stream(
                 history,
                 memory=memory,
                 budget=budgets.research,
                 compaction_budget=budgets.compaction,
-            )
+            ):
+                if isinstance(event, ContextCompaction):
+                    compactions.append(
+                        {
+                            "status": event.status,
+                            "reason": event.reason,
+                            "before_tokens": event.before_tokens,
+                            "after_tokens": event.after_tokens,
+                            "compaction_id": event.compaction_id,
+                        }
+                    )
+                    write_private(
+                        args.output / "compactions.json", json.dumps(compactions, indent=2)
+                    )
+                elif isinstance(event, TurnFinished):
+                    result = event.result
+            if result is None:
+                raise RuntimeError("Replay ended without a turn result.")
     answer = result.message.text if result.message else ""
     expected = json.loads(args.expectations.read_text()) if args.expectations else {}
     checks = {
@@ -181,15 +238,20 @@ async def replay(args):
             r["input_estimate"] + r["output_reserved"] <= args.window for r in requests
         ),
     }
+    if args.mode == "overflow":
+        checks["overflow_injected"] = injections.count("overflow") == args.overflow_count
+        retries = [r for r in requests if not r["summary"]][: args.overflow_count + 1]
+        checks["overflow_requests_shrink"] = len(retries) == args.overflow_count + 1 and all(
+            (after["input_estimate"], after["request_bytes"])
+            < (before["input_estimate"], before["request_bytes"])
+            for before, after in zip(retries, retries[1:], strict=False)
+        )
+    elif args.mode == "summary-failure":
+        checks["summary_failure_injected"] = "unusable_summary" in injections
     for pattern in expected.get("required_patterns", []):
         checks[f"answer_matches:{pattern}"] = bool(re.search(pattern, answer, re.IGNORECASE))
     for index in expected.get("required_reads", []):
-        checks[f"read:{index}"] = any(
-            r["name"] == "history_read"
-            and r["arguments"].get("message_index") == index
-            and r["status"] == "completed"
-            for r in reads
-        )
+        checks[f"read:{index}"] = source_was_read(reads, original, index)
     report = {
         "mode": args.mode,
         "stop_reason": result.message.stop_reason if result.message else None,
@@ -198,6 +260,7 @@ async def replay(args):
         "checks": checks,
         "requests": requests,
         "injections": injections,
+        "compactions": compactions,
         "history_tool_calls": len(reads),
         "budget_enforced": False,
         "logical_calls": budgets.total.used,
@@ -234,10 +297,13 @@ def main():
     parser.add_argument(
         "--mode", choices=("normal", "summary-failure", "overflow"), default="normal"
     )
+    parser.add_argument("--overflow-count", type=int, default=4)
     parser.add_argument("--window", type=int, default=100000)
     parser.add_argument("--output-tokens", type=int, default=8192)
     parser.add_argument("--timeout", type=int, default=600)
     args = parser.parse_args()
+    if args.overflow_count < 1:
+        parser.error("--overflow-count must be positive")
     os.umask(0o077)
     asyncio.run(replay(args))
 

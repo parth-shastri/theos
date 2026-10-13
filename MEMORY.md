@@ -447,3 +447,18 @@ Retain the immutable approval snapshot and complete large reviews.
 Zepto cart price and maximum retail price use paise. Display `3900` as `₹39.00` and retain raw values in exact details.
 Apply this conversion only to known cart price fields. Tool arguments and approval checks remain unchanged.
 These changes add no runtime dependency and remain undeployed until the release process runs.
+
+
+## Live fit replay and release 0.1.11 preparation, 2026-10-14
+
+The operator authorized live replay, integration into `dev`, promotion PRs for `main` and `rpi`, and a new Pi release tag.
+The stricter normal replay passed all 21 checks. Four injected context rejections passed all 23 checks with live model continuation.
+Both recovered nine original purchases with separate currency totals and retained the original transcript.
+The overflow run completed five compactions without a failed event. It needed no auxiliary summary call.
+The initial normal run reused older summary facts, so the repeated normal run explicitly required original receipt reads before totals.
+Replay evidence checks accept both supported history selectors. Seven deterministic checks protect that validation contract.
+
+Prepare package version 0.1.11 and tag `rpi-v0.1.11`. Preserve immutable older tags.
+No new private environment setting is required. Keep the existing local Pi context, output, and trigger values.
+All related remote topic branches already belong to `dev`, except `fix/context-overflow-recovery` and its current PR #55.
+Promote through separate PRs and merge commits. Confirm the tagged pipeline before claiming deployment.

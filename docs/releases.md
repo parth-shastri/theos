@@ -15,6 +15,23 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.11
+
+This release adds full request fitting, Markdown summaries with exact references, durable workspaces, and readable action reviews.
+Package version 0.1.11 uses the deployment tag `rpi-v0.1.11`.
+
+- Failed or oversized summaries trigger more cuts until the complete request fits with reserved output space.
+- Fit cuts and context overflow retries have no fixed count. Recovery retries only smaller requests and never repeats completed tools.
+- The original transcript, full reference index, uncertain outcomes, and versioned workspace files remain recoverable.
+- Browser chat and Telegram show scoped compaction activity. Telegram tool status includes readable action names and icons.
+- Approval reviews group items and keep exact request details expandable. Zepto cart prices display paise as rupees without changing approval snapshots.
+
+No new private environment setting is required.
+Retain the existing Pi context cap of 100,000, output limit of 8,192, and trigger ratio of 0.7.
+The default tail remains `lean`, with at least one recent user message. Call budgets and research deadlines remain disabled.
+The example environment documents optional tail settings. Existing explicit conversation output settings retain precedence.
+Promote the release through PRs before tagging. Confirm activation through the tagged release workflow.
+
 ## Release 0.1.10
 
 This release contains the Pi configuration, provider failure, and approval review updates.

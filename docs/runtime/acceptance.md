@@ -712,3 +712,31 @@ No fixed count stops fit cuts or provider context retries.
 Recovery stops when no smaller safe request remains. Required content can still exceed a provider window.
 Unavailable providers, canceled turns, and failed persistence remain distinct failure conditions.
 These changes remain undeployed. Live Telegram approval and provider acceptance checks remain pending.
+
+
+## Latest fit loop live replay and 0.1.11 preparation, 2026-10-14
+
+The replay used the original captured Pi session with the latest request fit implementation.
+It used the configured live model and local history tools, without production database writes, new connector queries, or Telegram delivery.
+Theos call budgets remained disabled. Every attempted request fit the configured 100,000-token window with 8,192 tokens reserved for output.
+Both successful runs preserved the original transcript and recovered all nine expected purchases with separate currency totals.
+
+The first normal run returned the expected facts but did not reread all earlier receipts.
+The replay checker also failed to recognize two original reads made by tool call ID.
+The corrected checker accepts message indices, tool call IDs, and resolved original indices, while requiring successful history reads.
+A stricter normal repeat explicitly required original evidence before totals. All 21 checks passed, with seven model requests and 17 history calls.
+
+The fault-injection run rejected four consecutive requests without reporting a smaller provider window.
+All 23 checks passed, with 21 model attempts and 36 history calls.
+The five requests across those rejections decreased from 4,054 estimated input tokens to 804.
+The runtime completed five compaction operations without a failed compaction event.
+The run read all nine required original receipts. Only local history tools executed.
+These replays needed no auxiliary summary call. Deterministic tests still cover failed and oversized summary output.
+Private sessions, instructions, answers, logs, and expectations remain outside the repository.
+
+The full release preparation suite passed 1,032 tests, with three credential-dependent tests excluded.
+Python style, browser syntax, lock validation, package builds, and whitespace checks passed.
+The release draft's prose lint reports 0.76 findings per 100 words.
+Version 0.1.11 prepares the current recovery, summary, workspace, and approval changes for promotion.
+The existing private local Pi environment needs no changes. Context, output, and trigger settings remain 100,000, 8,192, and 0.7.
+Deployment confirmation belongs to the tagged release workflow. The replay does not establish live Telegram delivery.
