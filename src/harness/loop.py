@@ -9,7 +9,7 @@ from contextlib import aclosing, suppress
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
-from harness.compaction import CompactionConfig, ContextMemory, compact_context
+from harness.compaction import CompactionConfig, ContextMemory
 from harness.context import (
     ContextLimitError,
     RunContext,
@@ -22,7 +22,7 @@ from harness.events import Event, GenerationComplete, ModelCalled, ModelResponde
 from harness.hooks import Hooks
 from harness.inbox import Inbox
 from harness.limits import DEFAULT_EXECUTION_LIMITS, ExecutionLimits, validate_assistant_message
-from harness.model import ChatModel, default_estimate_tokens
+from harness.model import ChatModel
 from harness.output import DEFAULT_OUTPUT_RESERVATION, requested_output_tokens
 from harness.tools import Tool, execute_tools
 from harness.types import (
@@ -188,44 +188,10 @@ async def _build_request(
         raise ValueError("context_window must be positive and output reservation non-negative")
 
     if compaction is not None:
-        async def count(messages: Sequence[Message]) -> int:
-            exact = getattr(model, "count_tokens", None)
-            if exact is not None and estimate_tokens is default_estimate:
-                return await exact(messages)
-            return estimate_tokens(messages)
-
-        async def count_request(request: ModelRequest) -> int:
-            counter = getattr(model, "count_request_tokens", None) or getattr(model, "estimate_tokens", None)
-            return await counter(request) if counter else default_estimate_tokens(request)
-
-        for _ in range(4):
-            selected = ctx.memory.view(history)
-            request = await prepare(selected)
-            # Reserve the full requested output before summarizing input. Never shorten the answer.
-            output = requested_output_tokens(request, reserved_output_tokens)
-            selected_tokens = await count(selected)
-            request_tokens = await count_request(request)
-            over = max(request_tokens + output - context_window,
-                       request_tokens - int(context_window * compaction.trigger_ratio))
-            if max_context_tokens is not None:
-                over = max(over, selected_tokens - max_context_tokens)
-            if over <= 0:
-                yield request
-                return
-            fixed = request_tokens - selected_tokens
-            allowance = (selected_tokens - over - 64 if compaction.trigger_ratio == 1.0 else
-                         min(context_window - output - fixed - 64,
-                             int(context_window * compaction.target_ratio) - fixed - 64))
-            async with aclosing(compact_context(
-                history=history, memory=ctx.memory, config=compaction, model=model,
-                budget=compaction_budget if compaction_budget is not None else ctx.budget,
-                reserved_model_calls=0 if compaction_budget is not None else 1,
-                count=count, count_request=count_request,
-                max_tokens=allowance, context_window=context_window,
-            )) as events:
-                async for event in events:
-                    yield event
-        raise ContextLimitError("summarized request still exceeds the context window")
+        request = await prepare(ctx.memory.view(history))
+        async for event in model.prepare(request):
+            yield event
+        return
 
     fixed = await model.estimate_tokens(build([]))
     # Read the output setting from the prepared request before reducing history.
@@ -261,7 +227,7 @@ async def run_turn_stream(
     history: list[Message],
     *,
     deps: Any = None,
-    hooks: Hooks = Hooks(),
+    hooks: Hooks | None = None,
     instructions: Instructions | None = None,
     inbox: Inbox | None = None,
     budget: Budget | None = None,
@@ -276,8 +242,25 @@ async def run_turn_stream(
 ) -> AsyncIterator[RunEvent]:
     """Yield events until the model answers, pauses, or uses the budget."""
     budget = budget or Budget(max_model_calls=10)
-    ctx = RunContext(deps=deps, history=history, budget=budget, inbox=inbox,
-                     memory=memory if memory is not None else ContextMemory())
+    ctx = RunContext(
+        deps=deps,
+        history=history,
+        budget=budget,
+        inbox=inbox,
+        memory=memory if memory is not None else ContextMemory(),
+    )
+    hooks = hooks or Hooks()
+    if compaction is not None and context_window is not None:
+        from harness.lean_context import LeanModel
+
+        model = LeanModel(
+            model,
+            context_window,
+            compaction,
+            ctx.memory,
+            history,
+            compaction_budget if compaction_budget is not None else ctx.budget,
+        )
     log_detail(
         "turn start run_id=%s model=%s/%s tools=%r history=%r deps=%r budget=%r "
         "instructions=%r max_context_tokens=%r",
@@ -313,6 +296,7 @@ async def run_turn_stream(
                     else:
                         yield event
             history.extend(r for r in results if isinstance(r, ToolResultMessage))
+
             pending = [r for r in results if isinstance(r, PendingApproval)]
             if pending:
                 finished = TurnFinished(TurnResult("waiting_for_approval", pending))
@@ -337,20 +321,22 @@ async def run_turn_stream(
         # 4. Build a fresh request. Instructions stay out of saved history.
         prefix = [SystemMessage(await _resolve(instructions, ctx))] if instructions else []
         request = None
-        async with aclosing(_build_request(
-            model,
-            prefix=prefix,
-            history=history,
-            tools=tools,
-            ctx=ctx,
-            hooks=hooks,
-            max_context_tokens=max_context_tokens,
-            estimate_tokens=estimate_tokens,
-            context_window=context_window,
-            reserved_output_tokens=reserved_output_tokens,
-            compaction=compaction,
-            compaction_budget=compaction_budget,
-        )) as events:
+        async with aclosing(
+            _build_request(
+                model,
+                prefix=prefix,
+                history=history,
+                tools=tools,
+                ctx=ctx,
+                hooks=hooks,
+                max_context_tokens=max_context_tokens,
+                estimate_tokens=estimate_tokens,
+                context_window=context_window,
+                reserved_output_tokens=reserved_output_tokens,
+                compaction=compaction,
+                compaction_budget=compaction_budget,
+            )
+        ) as events:
             async for event in events:
                 if isinstance(event, ModelRequest):
                     request = event
@@ -422,7 +408,7 @@ async def run_turn(
     history: list[Message],
     *,
     deps: Any = None,
-    hooks: Hooks = Hooks(),
+    hooks: Hooks | None = None,
     instructions: Instructions | None = None,
     inbox: Inbox | None = None,
     budget: Budget | None = None,

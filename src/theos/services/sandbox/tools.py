@@ -9,9 +9,15 @@ from typing import Literal
 
 from harness import tool
 
+from .workspace import ROOT
+
 
 def sandbox_tools(client, owner, session_id):
     """Build execution and file tools for one conversation sandbox."""
+
+    def workspace_path(path):
+        parsed = PurePosixPath(path)
+        return str(parsed if parsed.is_absolute() else PurePosixPath(ROOT) / parsed)
 
     @tool
     async def sandbox_run_command(command: str, timeout: int = 60):
@@ -20,7 +26,10 @@ def sandbox_tools(client, owner, session_id):
 
         sandbox = await client.get(owner, session_id)
         result = await sandbox.commands.run(
-            command, opts=RunCommandOpts(timeout=timedelta(seconds=min(120, max(1, timeout))))
+            command,
+            opts=RunCommandOpts(
+                working_directory="/workspace", timeout=timedelta(seconds=min(120, max(1, timeout)))
+            ),
         )
         return result.model_dump(mode="json")
 
@@ -31,7 +40,10 @@ def sandbox_tools(client, owner, session_id):
 
         interpreter = await CodeInterpreter.create(sandbox=await client.get(owner, session_id))
         result = await asyncio.wait_for(
-            interpreter.codes.run(code, language=SupportedLanguage.PYTHON), timeout=60
+            interpreter.codes.run(
+                "import os; os.chdir('/workspace')\n" + code, language=SupportedLanguage.PYTHON
+            ),
+            timeout=60,
         )
         return result.model_dump(mode="json")
 
@@ -39,22 +51,22 @@ def sandbox_tools(client, owner, session_id):
     async def sandbox_write_file(path: str, content: str):
         """Write a text file in the remote sandbox."""
         sandbox = await client.get(owner, session_id)
-        await sandbox.files.write_file(path, content)
+        await sandbox.files.write_file(workspace_path(path), content)
         return {"path": path}
 
     @tool
     async def sandbox_read_file(path: str):
         """Read a text file from the remote sandbox."""
         sandbox = await client.get(owner, session_id)
-        return {"content": await sandbox.files.read_file(path, limit=64000)}
+        return {"content": await sandbox.files.read_file(workspace_path(path), limit=64000)}
 
     @tool
-    async def sandbox_list_files(path: str = "/tmp"):
+    async def sandbox_list_files(path: str = "/workspace"):
         """List files in a remote sandbox directory."""
         sandbox = await client.get(owner, session_id)
         from opensandbox.models.filesystem import DirectoryListEntry
 
-        result = await sandbox.files.list_directory(DirectoryListEntry(path=path))
+        result = await sandbox.files.list_directory(DirectoryListEntry(path=workspace_path(path)))
         return (
             result.model_dump(mode="json")
             if hasattr(result, "model_dump")
@@ -65,7 +77,9 @@ def sandbox_tools(client, owner, session_id):
     async def sandbox_send_file_to_user(path: str):
         """Download a generated sandbox file and deliver it to the user."""
         sandbox = await client.get(owner, session_id)
-        data = await sandbox.files.read_bytes(path, limit=client.settings.max_upload_bytes + 1)
+        data = await sandbox.files.read_bytes(
+            workspace_path(path), limit=client.settings.max_upload_bytes + 1
+        )
         media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
         row = client.files.save(owner, PurePosixPath(path).name, media_type, data)
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
@@ -74,7 +88,9 @@ def sandbox_tools(client, owner, session_id):
     async def sandbox_view_image(path: str):
         """Read a sandbox image and attach it to the next model request."""
         sandbox = await client.get(owner, session_id)
-        data = await sandbox.files.read_bytes(path, limit=client.settings.max_upload_bytes + 1)
+        data = await sandbox.files.read_bytes(
+            workspace_path(path), limit=client.settings.max_upload_bytes + 1
+        )
         media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
         if not media_type.startswith("image/"):
             raise ValueError("Select an image file.")
@@ -86,7 +102,7 @@ def sandbox_tools(client, owner, session_id):
         """Copy one of your uploaded files into the remote sandbox."""
         row = client.files.get(owner, file_id)
         sandbox = await client.get(owner, session_id)
-        await sandbox.files.write_file(path, Path(row["path"]).read_bytes())
+        await sandbox.files.write_file(workspace_path(path), Path(row["path"]).read_bytes())
         return {"path": path}
 
     @tool

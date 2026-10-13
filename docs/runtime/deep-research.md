@@ -51,5 +51,6 @@ Delegates return full model-written findings and caveats, not just links.
 Deep research delegates also save their own transcripts, reports, evidence, and notes.
 They cannot create nested delegates or change account data.
 
-The [call budget map](call-budgets.md) applies to both normal delegation and deep research.
+Normal delegation and deep research use [context recovery without fixed call allocations](context-recovery.md).
+The [call budget map](call-budgets.md) applies only when a caller explicitly enables bounded mode.
 Deep research does not add another model-call pool.

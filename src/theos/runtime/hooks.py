@@ -48,6 +48,7 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             runtime.research.checkpoint(
                 owner, session_id, turn.research_id, ctx.history, ctx.memory
             )
+        await runtime.checkpoints.save(owner, session_id, ctx.history, ctx.memory, "before_model")
         started = time.monotonic()
         created_at = time.time()
         return request
@@ -68,6 +69,9 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
                 owner, session_id, [*ctx.history, message], ctx.memory.to_dict()
             )
             runtime.record_usage(session, message.usage)
+        await runtime.checkpoints.save(
+            owner, session_id, [*ctx.history, message], ctx.memory, "after_model"
+        )
         return message
 
     async def before_tool(tool, args, ctx):
@@ -111,6 +115,9 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
                 result.status,
                 json.dumps(message_to_dict(result)),
             ),
+        )
+        await runtime.checkpoints.save(
+            owner, session_id, [*ctx.history, result], ctx.memory, "after_tool"
         )
         return result
 

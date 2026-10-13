@@ -5,7 +5,13 @@ import time
 from dataclasses import replace
 
 from harness import PendingApproval, TextDelta, ToolFinished, TurnFinished
-from harness.events import ModelCalled, ModelResponded, ReasoningDelta, ToolStarted
+from harness.events import (
+    ContextCompaction,
+    ModelCalled,
+    ModelResponded,
+    ReasoningDelta,
+    ToolStarted,
+)
 from theos.storage.messages import display_metadata
 
 from .text import reply_text
@@ -17,6 +23,18 @@ def publish_event(runtime, turn, event, status):
         event = replace(event, text=reply_text(event.text))
     if turn.raw_events:
         turn.emit({"type": "harness", "event": event})
+    if isinstance(event, ContextCompaction) and not turn.raw_events:
+        turn.emit(
+            {
+                "type": "compaction",
+                "status": event.status,
+                "before_tokens": event.before_tokens,
+                "after_tokens": event.after_tokens,
+                "reason": event.reason,
+                "parent_call_id": event.parent_call_id,
+                "compaction_id": event.compaction_id,
+            }
+        )
     # Child progress belongs to its tool. It cannot finish or supply the parent answer.
     if getattr(event, "parent_call_id", None) is not None:
         return status

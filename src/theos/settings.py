@@ -144,6 +144,8 @@ class Settings(ClientSettings):
     reasoning: Literal["default", "none", "low", "medium", "high", "xhigh", "max"] = "default"
     auto_titles: bool = True
     max_concurrent_turns: int = Field(default=4, ge=1, le=32)
+    # Retained for bounded harness callers. Theos disables call and turn-time
+    # budget enforcement in Runtime, while context and output limits still apply.
     max_model_calls: int = Field(default=30, ge=1, le=100)
     # Omitted counts derive from these ratios when a turn starts.
     max_compaction_calls: int | None = Field(default=None, ge=0, le=100)
@@ -155,7 +157,11 @@ class Settings(ClientSettings):
     max_scheduled_tasks: int = Field(default=50, ge=1, le=200)
     turn_timeout: int = Field(default=300, ge=10, le=3600)
     context_tokens: int | None = Field(default=None, ge=4096)
-    compaction_trigger_ratio: float = Field(default=0.7, ge=0.5, le=0.7)
+    compaction_trigger_ratio: float = Field(default=0.5, gt=0, le=1)
+    compaction_model: str = "gpt-6-luna"
+    compaction_context_tokens: int | None = Field(default=None, ge=1024)
+    compaction_tail_mode: Literal["current", "lean"] = "lean"
+    compaction_min_tail_user_messages: int = Field(default=1, ge=1, le=20)
     max_output_tokens: int = Field(default=8192, ge=1, le=1_000_000)
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=25 * 1024 * 1024)
     timezone: str = "UTC"

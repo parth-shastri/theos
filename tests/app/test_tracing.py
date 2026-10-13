@@ -25,6 +25,7 @@ from harness import (
     tool,
 )
 from harness.testing import FakeModel
+from tests.context_fixtures import long_history
 from theos.operations.tracing import Tracing
 from theos.settings import TracingSettings
 
@@ -64,11 +65,12 @@ async def test_turn_models_and_tool_are_siblings(runtime, scripted_models, expor
     output = await spans(runtime, exporter)
     root = next(s for s in output if s.parent is None)
     assert root.attributes["theos.turn.status"] == "completed"
-    assert root.attributes["theos.budget.total.limit"] == 12
+    assert root.attributes["theos.budget.total.limit"] == -1
+    assert root.attributes["theos.budget.enforced"] is False
     assert root.attributes["theos.budget.total.used"] == 2
-    assert root.attributes["theos.budget.research.limit"] == 9
+    assert root.attributes["theos.budget.research.limit"] == -1
     assert root.attributes["theos.budget.research.used"] == 2
-    assert root.attributes["theos.budget.compaction.limit"] == 2
+    assert root.attributes["theos.budget.compaction.limit"] == -1
     assert root.attributes["theos.budget.compaction.used"] == 0
     assert root.attributes["theos.budget.recovery.used"] == 0
     assert root.attributes["gen_ai.conversation.id"] == row["id"]
@@ -315,6 +317,7 @@ async def test_model_failure_has_sanitized_error_and_closed_root(
 async def test_budget_recovery_exports_partial_status_and_final_model_parent(
     runtime, scripted_models, exporter
 ):
+    runtime.enforce_budgets = True
     runtime.settings.max_model_calls = 2
     scripted_models.responses.extend(
         [
@@ -452,15 +455,14 @@ async def test_compaction_model_calls_remain_in_turn_trace(runtime, exporter):
         FakeModel(
             [
                 AssistantMessage("First summary"),
-                AssistantMessage("Combined summary"),
                 AssistantMessage("Final reply"),
             ]
         )
     )
-    history = [UserMessage("a" * 5600), AssistantMessage("b" * 5600), UserMessage("Continue")]
+    history = [*long_history(), UserMessage("Continue")]
     agent = Agent(
         model,
-        context_window=2000,
+        context_window=100000,
         reserved_output_tokens=256,
         compaction=CompactionConfig("Summarize", {"max_tokens": 256}, 128),
     )
@@ -469,7 +471,7 @@ async def test_compaction_model_calls_remain_in_turn_trace(runtime, exporter):
     output = await spans(runtime, exporter)
     root = next(s for s in output if s.parent is None)
     models = [s for s in output if s.name.startswith("chat ")]
-    assert len(models) == 3
+    assert len(models) == 2
     assert all(s.parent.span_id == root.context.span_id for s in models)
 
 
