@@ -17,7 +17,13 @@ def test_browser_replacement_handles_streaming_and_completed_drafts():
 const assert = require('node:assert/strict');
 let selected = 'session', rows = [], input = [];
 const me = {id: 'alice'}, speechControls = new Set();
-const status = {classList: {remove() {}}, querySelectorAll() {return [];}};
+let activityRows = [];
+function node(tag, text, className) {
+  const row = {textContent: text, className, setAttribute() {}};
+  row.classList = {contains(name) {return row.className.split(' ').includes(name);}};
+  return row;
+}
+const status = {classList: {remove() {}}, querySelectorAll() {return [];}, append(row) {activityRows.push(row);}};
 const $ = () => status;
 function bubble() {
   const row = {visible: true, remove() {this.visible = false;}, querySelector() {return null;}};
@@ -45,7 +51,10 @@ const api = async () => {
   }}}}};
 };
 """
-    script += handler
+    activity = source[
+        source.index("function compactionActivity(") : source.index("function approvals(")
+    ]
+    script += activity + handler
     script += r"""
 (async () => {
   const final = 'Full source evidence. '.repeat(2000) + 'FINAL URL';
@@ -62,6 +71,25 @@ const api = async () => {
     await stream('/turn', {text: 'Research'});
     assert.deepEqual(rows.filter(row => row.visible).map(row => row.body.textContent), [final]);
   }
+  rows = [];
+  activityRows = [];
+  input = [
+    {type: 'compaction', status: 'started', compaction_id: 'one', parent_call_id: 'delegate'},
+    {type: 'compaction', status: 'progress', compaction_id: 'one', parent_call_id: 'delegate'},
+    {type: 'compaction', status: 'started', compaction_id: 'two', parent_call_id: 'delegate'},
+    {type: 'compaction', status: 'completed', compaction_id: 'one', parent_call_id: 'delegate'},
+    {type: 'done', status: 'interrupted'},
+  ];
+  await stream('/turn', {});
+  assert.equal(activityRows.length, 2);
+  assert.equal(activityRows[0].textContent, 'Context ready. Continuing.');
+  assert.match(activityRows[1].textContent, /stopped/);
+  assert.ok(activityRows.every(row => !row.classList.contains('is-organizing')));
+  activityRows = [];
+  input = [{type: 'compaction', status: 'started', compaction_id: 'disconnected'}];
+  await assert.rejects(stream('/turn', {}), /connection ended/);
+  assert.match(activityRows[0].textContent, /stopped/);
+  assert.ok(!activityRows[0].classList.contains('is-organizing'));
 })().catch(error => {console.error(error); process.exitCode = 1;});
 """
     result = subprocess.run(["node"], input=script, text=True, capture_output=True, timeout=10)

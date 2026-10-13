@@ -1447,15 +1447,60 @@ async function openSession(id) {
   await listSessions();
   await refreshCosts(session);
 }
+function compactionActivity(event, rows) {
+  const key = event.compaction_id || event.parent_call_id || "parent";
+  let row = rows.get(key);
+  if (!row || event.status === "started") {
+    row = node("div", "", "context-activity");
+    row.setAttribute("role", "status");
+    row.setAttribute("aria-live", "polite");
+    $("messages").append(row);
+    rows.set(key, row);
+  }
+  const active = ["started", "progress"].includes(event.status);
+  row.className = "context-activity" + (active ? " is-organizing" : "");
+  row.textContent = active
+    ? event.parent_call_id
+      ? "Organizing research context…"
+      : "Organizing earlier conversation…"
+    : event.status === "completed"
+      ? "Context ready. Continuing."
+      : "Context preparation stopped. Your conversation is saved.";
+  scrollChat();
+}
+
 function approvals(items) {
   $("approvals").replaceChildren();
   for (const item of items) {
     const card = node("article", "");
     card.append(node("strong", "Approval needed"));
-    card.append(node("p", item.tool.replaceAll("_", " "), "approval-action"));
-    const fields = node("dl", "", "approval-fields");
+    card.append(
+      node(
+        "p",
+        item.label || item.tool.replaceAll("_", " "),
+        "approval-action",
+      ),
+    );
+    let fields = null;
+    let group = null;
+    const technical = node("details", "", "approval-technical");
+    technical.append(node("summary", "Exact request details"));
+    const technicalFields = node("dl", "", "approval-fields");
+    let technicalGroup = null;
     for (const field of item.review || []) {
-      fields.append(node("dt", field.label));
+      if (field.technical && field.group && field.group !== technicalGroup) {
+        technicalGroup = field.group;
+        technicalFields.append(node("dt", technicalGroup, "approval-group"));
+      }
+      if (!field.technical && (!fields || group !== field.group)) {
+        group = field.group;
+        if (group) card.append(node("h3", group, "approval-group"));
+        fields = node("dl", "", "approval-fields");
+        card.append(fields);
+      }
+      const destination = field.technical ? technicalFields : fields;
+      const label = node("dt", field.label);
+      destination.append(label);
       const value = node("dd", "");
       if (field.kind === "markdown") {
         const content = node("div", "", "markdown");
@@ -1470,9 +1515,17 @@ function approvals(items) {
           ),
         );
       }
-      fields.append(value);
+      destination.append(value);
+      if (field.kind !== "text" || field.text.includes("\n")) {
+        label.classList.add("approval-wide");
+        value.classList.add("approval-wide");
+      }
+      if (field.hint) value.append(node("small", field.hint, "approval-hint"));
     }
-    card.append(fields);
+    if (technicalFields.childElementCount) {
+      technical.append(technicalFields);
+      card.append(technical);
+    }
     const exact = node("details", "");
     exact.append(node("summary", "Exact tool arguments"));
     exact.append(
@@ -1538,6 +1591,7 @@ async function stream(path, payload, onAccepted = null) {
   let buffer = "";
   let finished = false;
   let approvalsSynced = false;
+  const compactionRows = new Map();
   try {
     const response = await api(path, {
       method: "POST",
@@ -1555,6 +1609,15 @@ async function stream(path, payload, onAccepted = null) {
         buffer = buffer.slice(index + 2);
         if (!line.startsWith("data: ")) continue;
         const event = JSON.parse(line.slice(6));
+        if (event.type === "compaction") {
+          compactionActivity(event, compactionRows);
+          $("status").textContent = ["started", "progress"].includes(
+            event.status,
+          )
+            ? "Organizing context…"
+            : "Continuing…";
+          $("status").classList.remove("thinking-status");
+        }
         if (event.type === "title") {
           $("session-title").textContent = event.title;
         }
@@ -1673,6 +1736,13 @@ async function stream(path, payload, onAccepted = null) {
     )
       finalReply.click();
   } finally {
+    for (const row of compactionRows.values()) {
+      if (row.classList.contains("is-organizing")) {
+        row.className = "context-activity";
+        row.textContent =
+          "Context preparation stopped. Your conversation is saved.";
+      }
+    }
     if (!approvalsSynced && selected === sessionId) {
       try {
         const session = await json(`/api/sessions/${sessionId}`);

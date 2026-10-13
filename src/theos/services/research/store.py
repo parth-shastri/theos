@@ -81,12 +81,14 @@ class Research:
         )
         return item_id
 
-    def checkpoint(self, owner, session, run_id, history, memory):
+    def checkpoint(self, owner, session, run_id, history, memory, *, save_session=False):
         self.get(owner, session, run_id)
         saved = json.dumps([message_to_dict(m) for m in history], ensure_ascii=False)
         summary = json.dumps(memory.to_dict(), ensure_ascii=False)
         now = time.time()
         with self.db.transaction():
+            if save_session:
+                self.db.save_history(owner, session, history, memory.to_dict())
             self.db.execute(
                 "UPDATE research_runs SET history=?,memory=?,updated=? WHERE id=?",
                 (saved, summary, now, run_id),
@@ -144,20 +146,3 @@ class Research:
                 + json.dumps(context, ensure_ascii=False)
             ),
         )
-
-
-def valid_summary(text, protected):
-    """Check known references, not the truth of the model's prose."""
-    try:
-        value = json.loads(text)
-        expected = {record["id"] for record in protected["records"]}
-        return (
-            isinstance(value, dict)
-            and isinstance(value.get("summary"), str)
-            and bool(value["summary"].strip())
-            and isinstance(value.get("record_ids"), list)
-            and all(isinstance(ref, str) for ref in value["record_ids"])
-            and set(value["record_ids"]) == expected
-        )
-    except (ValueError, TypeError, KeyError):
-        return False

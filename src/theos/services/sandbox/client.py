@@ -38,10 +38,13 @@ class Sandboxes:
             try:
                 sandbox = await Sandbox.connect(saved["sandbox_id"], connection_config=connection)
             except SandboxException as error:
-                raise ServiceError(
-                    "The saved sandbox is unavailable. Reset its lifecycle before creating another sandbox."
-                ) from error
-        else:
+                if getattr(error, "status_code", None) not in {404, 410}:
+                    raise ServiceError(
+                        "The saved sandbox is unavailable. Retry its connection before restoring work."
+                    ) from error
+                # A confirmed expired sandbox can be recreated from saved workspace objects.
+                saved = None
+        if not saved:
             sandbox = await Sandbox.create(
                 config.image,
                 # The SDK default keeps the container alive without starting the interpreter.

@@ -1,5 +1,9 @@
 # Call budgets
 
+Theos disables these allocations and research deadlines in its default harness.
+The settings, diagrams, and rules below describe the retained bounded mode only.
+Read [context recovery and active limits](context-recovery.md) for the default behavior.
+
 Each user message starts one shared call budget. Normal questions and explicit deep research use the same budget rules.
 A delegate does not receive an extra pool of calls.
 Open the [Excalidraw overview](call-budgets.excalidraw) for a 50-call example using the default ratios.
@@ -42,59 +46,18 @@ A final response uses its held summary first, then any unheld summary calls stil
 
 ## Before every request
 
-```mermaid
-flowchart TD
-    Next["Agent needs another model call"] --> Local{"Local call allowance remains?"}
-    Local -->|No| Stop["Stop research and enter final response path"]
-    Local -->|Yes| Prepare["Build request with instructions, tools, evidence, and output setting"]
-    Prepare --> Fits{"Input plus full requested output fits?"}
-    Fits -->|No| Summary{"Available summary allowance?"}
-    Summary -->|No| Stop
-    Summary -->|Yes| ChargeSummary["Charge summary allowance and shared total<br/>before calling the model"]
-    ChargeSummary --> Summarize["Summarize complete evidence chunks<br/>Keep original transcript"]
-    Summarize --> Valid{"Summary complete and valid?"}
-    Valid -->|No| Stop
-    Valid -->|Yes| Prepare
-    Fits -->|Yes| Charge{"Charge local allowance and shared total<br/>Did the charge succeed?"}
-    Charge -->|No| Stop
-    Charge -->|Yes| Provider["Call provider with max output tokens"]
-    Provider --> Result["Keep all returned text<br/>Run requested tools or return answer"]
-    Result --> Next
-```
-
-Ordinary research also summarizes at 70 percent of context capacity, with a configurable threshold from 50 to 70 percent.
-The diagram's size check is the additional requirement that input plus the full requested output fits.
-After a summary, the harness rebuilds the complete request and checks it again, up to four passes.
-The final response summarizes only when its input plus requested output cannot fit.
-The application never lowers the output setting to force a request to fit.
-
-The loop checks the local allowance before preparing a request.
-It charges the allowance immediately before the provider call.
-Both checks matter because concurrent delegates can consume shared calls between those steps.
-The charge updates the local allowance and shared total together, without an asynchronous gap.
-Each summary chunk charges the summary allowance and shared total immediately before its provider call.
-An attempted provider call counts even if the provider fails.
+The bounded mode checks its call allowance before building the request.
+Both modes then use the same [context and workspace algorithm](context-recovery.md).
+The context check prunes old tool results and, when needed, summarizes the middle once.
+It does not split complete evidence into a chain of summary calls.
 
 ## When research stops
 
-```mermaid
-flowchart TD
-    Limit["Call allowance, research deadline,<br/>or context capacity exhausted"] --> Close["Stop new research and settle unfinished tool calls"]
-    Close --> HeldReply{"Held response available?"}
-    HeldReply -->|Yes| Space{"Collected context fits final request?"}
-    Space -->|No| HeldSummary["Use protected summary capacity<br/>and available unheld summary calls"]
-    HeldSummary --> Fit{"Complete summary fits?"}
-    Fit -->|Yes| Reply["One response call with no tools<br/>Include findings and a limit notice"]
-    Space -->|Yes| Reply
-    HeldReply -->|No| Saved["Return a clear failure; retain evidence in the transcript"]
-    Fit -->|No| Saved
-    Reply --> Success{"Provider returned an answer?"}
-    Success -->|No| Saved
-    Success -->|Yes| Return["Return full answer to parent or user<br/>Mark any provider cut-off as incomplete"]
-```
+The final-response path uses the same compression policy before calling the model.
+
 
 The held summary is a protected opportunity, not a promise that any amount of evidence will fit.
-Several chunks can need several summary calls. Large original requirements can also exceed the model window.
+A distinct auxiliary model can require one main-model retry. Large original requirements can still exceed the model window.
 If summaries fail or cannot fit, the application retains the evidence and returns a clear failure.
 It does not retry the final response or cut the text to force a fit.
 Provider failures return a clear explanation without another research attempt.
@@ -113,8 +76,8 @@ Explicit cancellation interrupts the turn instead of starting a final response.
 | `AGENT_TURN_TIMEOUT` | `300` seconds | Before new main-agent model calls and tools |
 | Delegate research deadline | `85` seconds | Before new delegate model calls and tools, also bounded by the parent's research deadline |
 | Ordinary tool timeout | `90` seconds | Tool execution. Delegation groups permit active final responses to finish |
-| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.7` | Ordinary context preparation. Summaries target 45 percent of capacity |
-| Conversation `max_output_tokens` | Provider maximum when known | Provider generation parameter, including answer and summary requests |
+| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.5` | Upstream floors and scaled summary allocations apply |
+| Conversation `max_output_tokens` | 8,192 by default | Main generation parameter. Auxiliary summaries use a prompt target without a hard output cap |
 
 Explicit counts override their ratios independently. Remove old explicit counts from `.env` to enable derivation.
 For example, keeping `AGENT_DELEGATE_MAX_MODEL_CALLS=10` keeps that ceiling at ten when the total becomes 50.

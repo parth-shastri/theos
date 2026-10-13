@@ -66,6 +66,7 @@ async def test_failed_title_keeps_completed_reply(runtime, scripted_models):
 
 
 async def test_title_cannot_spend_reserved_compaction_or_recovery_calls(runtime, scripted_models):
+    runtime.enforce_budgets = True
     runtime.settings.auto_titles = True
     runtime.settings.max_model_calls = 4
     runtime.settings.max_compaction_calls = 2
