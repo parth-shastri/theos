@@ -612,3 +612,57 @@ Approval checks cover unchanged snapshots, nested fields, multiline code, Markdo
 An isolated browser with synthetic approvals passed desktop light and dark checks and a 390px mobile check without horizontal overflow.
 Python style, browser syntax, Prettier, lock validation, and package builds passed.
 Live provider and Telegram checks and deployment to Pi were pending at release preparation.
+
+
+## Unified context and workspace validation, 2026-10-12
+
+This section supersedes the earlier local context-recovery prototype and its test results.
+The implementation uses one pinned compression policy, with Theos adapters for model calls, saved sources, and workspaces.
+The old complete-evidence chunk compressor, tokenizer preview policy, and fixed repeated-retrieval cutoff are removed.
+Theos call allocations and research deadlines remain disabled. Their configuration and optional bounded mode remain available.
+
+The full suite passed 990 tests, with three credential-dependent tests excluded.
+The checks cover protected head and tail, tool-call pairing, distributed samples, iterative summaries, provider usage anchors, and summary failures.
+They also cover provider capacity parsing, native output requirements, source ownership, pending transfers, uncertain actions, and workspace restoration.
+The suite replaces obsolete chunk-count assertions with tests for the single-summary policy.
+Changed Python files pass Ruff and formatting checks. Lock validation and package builds pass.
+The compression license and source manifest ship in the wheel.
+
+### Actual Pi failure replay
+
+The replay used the captured Pi conversation and the live configured model through the existing OpenRouter adapter.
+It preserved every original message and used only local history retrieval tools.
+It made no new Gmail queries and sent no Telegram messages.
+With one configured total call and zero configured summary calls, enforcement remained disabled.
+
+The final replay completed 10 model requests and 37 history tool calls.
+It recovered all nine expected purchases for September 12 through October 12, with correct separate currency totals.
+All expected source reads, named merchants, and selected individual amounts passed.
+Estimated input plus reserved output remained within 100,000 tokens for every request.
+Tool-output pruning supplied enough space, so this replay needed no auxiliary summary call.
+Separate deterministic tests exercise successful iterative summaries and failed auxiliary calls.
+
+An additional fault-injection replay rejected the already-pruned request without reporting a smaller provider capacity.
+It did not produce a useful answer. The compressor could not safely make that small request smaller.
+The runtime now preserves this failure category and does not retry the same rejected request through a second response path.
+The pinned upstream recovery also stops when compression cannot reduce a rejected request.
+This test does not support a universal no-failure claim.
+
+### Live R2 and sandbox checks
+
+A disposable workspace calculated the expected total and saved nested input/output files in R2.
+The first check exposed the SDK's shallow default directory listing. The recursive traversal fix passed the repeated check.
+A separate live model task received the recovered report and a request for a PDF, without an explicit sandbox instruction.
+The model chose the sandbox, copied the complete source, ran calculations, and produced a two-page PDF.
+All expected totals, selected amounts, and named merchants passed text extraction checks.
+The source, script, and PDF had saved R2 object states.
+
+After sandbox destruction, a replacement sandbox restored the PDF byte-for-byte from saved workspace objects.
+An independent PDF reader detected an incorrect cross-reference pointer in the generated file.
+The validation step normalized that table, checked the corrected file with strict parsing, and saved another R2 version.
+This artifact correction does not establish that every generated document will pass independent validation without repair.
+
+Private exports, reports, expectations, credentials, and service-test outputs remain outside the repository.
+These checks cover saved-evidence recovery and report creation. They do not cover new account consent, fresh Gmail queries, or Telegram delivery.
+The Pi was last confirmed on `rpi-v0.1.10` at revision `67cccab0add9249a564790e1edaee54ebf9531ba`.
+The current changes remain local and are not deployed.

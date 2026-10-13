@@ -5,6 +5,32 @@ from contextlib import aclosing
 import httpx
 
 
+def is_context_overflow(error):
+    """Recognize explicit size errors without retrying unrelated provider failures."""
+    if getattr(error, "context_overflow", False):
+        return True
+    body = getattr(error, "body", None)
+    if isinstance(error, httpx.HTTPStatusError):
+        body = error.response.text
+    text = str(body if body is not None else error).lower()
+    return any(
+        marker in text
+        for marker in (
+            "context_length_exceeded",
+            "context_window_exceeded",
+            "maximum context length",
+            "exceeds the context window",
+            "exceed the context window",
+            "context window exceeded",
+            "prompt is too long",
+            "input is too long",
+            "too many input tokens",
+            "input token count exceeds",
+            "request exceeds the available context",
+        )
+    )
+
+
 class ProviderFailure(RuntimeError):
     """A failure at the model boundary with a safe explanation for the user."""
 
@@ -66,6 +92,8 @@ class ProviderFailure(RuntimeError):
         self.public_message = (
             f"I could not finish your request. {name} {detail}{suffix}. {next_step}"
         )
+        # Keep only the classification, never the provider body, on public failures.
+        self.context_overflow = is_context_overflow(error)
         super().__init__(self.public_message)
 
 
@@ -94,9 +122,15 @@ class CheckedModel:
                         yield event
             if not any(isinstance(event, GenerationComplete) for event in pending):
                 raise RuntimeError("The provider stream ended without a complete response.")
-        except (ProviderFailure, ResearchStopped):
+        except ResearchStopped:
             raise
         except Exception as error:
+            from harness.context_size import ContextOverflowError
+
+            if isinstance(error, ContextOverflowError) or is_context_overflow(error):
+                raise ContextOverflowError("The provider context window is full.") from error
+            if isinstance(error, ProviderFailure):
+                raise
             raise ProviderFailure(self.provider, error) from error
         for event in pending:
             yield event

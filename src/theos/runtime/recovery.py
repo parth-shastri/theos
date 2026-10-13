@@ -4,7 +4,6 @@ import json
 import logging
 import time
 from contextlib import asynccontextmanager
-from dataclasses import replace
 
 from harness import (
     AssistantMessage,
@@ -33,6 +32,10 @@ REASONS = {
 
 
 def failure_reason(error):
+    from harness.context_size import ContextOverflowError
+
+    if isinstance(error, ContextOverflowError):
+        return "context_limit"
     if isinstance(error, ProviderFailure):
         return "provider_error"
     if isinstance(error, TimeoutError):
@@ -165,9 +168,7 @@ async def response_call(
             "Do not call tools, repeat research, or claim uncertain actions succeeded.",
             hooks=Hooks(before_model=prepare, after_model=record),
             context_window=limits.context,
-            compaction=replace(
-                context.compaction(runtime, session, limits, research_id), trigger_ratio=1.0
-            ),
+            compaction=context.compaction(runtime, session, limits, research_id),
         )
         # Use a copy so a failed final call cannot replace the durable transcript.
         working = list(history)
@@ -181,7 +182,11 @@ async def response_call(
                 )
             ) as stream:
                 async for event in stream:
-                    if isinstance(event, ContextCompaction) and event.status == "progress":
+                    if (
+                        isinstance(event, ContextCompaction)
+                        and event.status == "progress"
+                        and event.model_calls
+                    ):
                         runtime.record_usage(session, event.usage)
                     yield event
 
@@ -204,7 +209,7 @@ async def finish(
     with runtime.tracing.span("finalize answer", {"theos.recovery.reason": reason}) as span:
         if (
             answer is None
-            and reason != "provider_error"
+            and reason not in {"provider_error", "context_limit"}
             and instructions
             and budget.used < budget.max_model_calls
         ):

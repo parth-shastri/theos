@@ -24,7 +24,9 @@ All source paths below start at `src/theos`.
 | Checkpoints | Save tool attempts and recover results | `runtime/checkpoints.py`, `runtime/hooks.py` |
 | Final answers and failures | Reserve a final model call after runtime limits. Explain failures without exposing raw findings | `runtime/recovery.py`, `runtime/errors.py` |
 | Context and output | Resolve provider capacities and share compaction rules across agents | `runtime/context.py` |
-| Call budgets | Separate research, compaction, and recovery allowances under one total ceiling | `runtime/budgets.py` |
+| Call budgets | Count calls without enforcement by default. Retain optional bounded allocations | `runtime/budgets.py` |
+| Connector wrappers | Page verbose account results and retain complete sources | `runtime/connector_wrappers.py` |
+| History retrieval | Read bounded pages of original evidence after compaction | `runtime/history_tools.py`, `runtime/history_content.py` |
 | Deep research | Gate explicit mode and persist research evidence, notes, reports, and checkpoints | `runtime/research_mode.py`, `services/research/`, migration 010 |
 | Delivery events | Turn harness events into transport events | `runtime/events.py`, `runtime/turn.py` |
 | Providers and usage | Build model clients, retain OpenRouter reasoning and costs, and record usage | `runtime/models.py`, `runtime/model_catalog.py`, `runtime/openrouter.py`, `runtime/usage.py` |
@@ -73,9 +75,9 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `custom_tables/` | Private SQLite tables and bounded query templates |
 | `memory/` | Mem0 HTTP client, ownership checks, bounded retrieval, consented consolidation, and explicit tools |
 | `search/`, `weather/`, `skills/` | Search fallback, forecasts, and bounded skill resources |
-| `files/` | Private catalog, image validation, R2 transfers, and file tools |
+| `files/` | Private catalog, image validation, R2 transfers, source objects, model checkpoints, and file tools |
 | `voice/` | Transcription and Kokoro clients with audio tools |
-| `sandbox/` | Remote lifecycle client and execution tools |
+| `sandbox/` | Remote lifecycle client, execution tools, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `gmail/` | Gmail requests, draft previews, and account tools |
 | `health/` | Imports, normalization, records, nutrition exports, job retries, and tools |
@@ -144,3 +146,7 @@ Use ordinary functions for stateless work.
 Use a small class when it owns clients, locks, or other lifecycle state.
 Keep existing entry points working when moving internal files.
 Run the [acceptance checks](runtime/acceptance.md) after changing a service boundary.
+
+The generic compression policy lives in `src/harness/compression_policy.py`.
+`src/harness/lean_context.py` connects it to model calls and durable working context.
+Assistant storage and sandbox dependencies stay under `src/theos/services`.

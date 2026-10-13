@@ -18,6 +18,7 @@ from harness import (
 )
 from harness.testing import FakeModel
 from harness.tools import execute_tool
+from tests.context_fixtures import long_history
 from theos.runtime import context, tools
 from theos.runtime.budgets import TurnBudget
 from theos.runtime.research_mode import explicit_request
@@ -326,27 +327,32 @@ async def test_repeated_summary_preserves_corrections_references_and_questions(r
             "source_ids": [source],
         },
     )
-    policy = context.compaction(runtime, row, context.ModelCapacity(10000, 500, "test"), run)
+    policy = context.compaction(runtime, row, context.ModelCapacity(100000, 500, "test"), run)
     summary = json.dumps(
         {
-            "summary": "Evidence is qualified. The opposing source remains undated.",
+            "summary": "Only primary sources from December 2025 onward. Include opposing views. Evidence is qualified. The opposing source remains undated.",
             "record_ids": [source, question],
         }
     )
     memory = ContextMemory()
-    history = [
-        UserMessage("Only primary sources from December 2025 onward."),
-        AssistantMessage("Initial evidence. " * 2000),
-        UserMessage("Include opposing views."),
-    ]
-    model = FakeModel([AssistantMessage(summary)] * 6 + [AssistantMessage("Report with caveats.")])
-    agent = Agent(model, context_window=10000, compaction=policy)
+    history = long_history()
+    history[0] = UserMessage("Only primary sources from December 2025 onward.")
+    history.append(UserMessage("Include opposing views."))
+    auxiliary = FakeModel([AssistantMessage(summary)] * 2)
+    from contextlib import asynccontextmanager
+    from dataclasses import replace
+
+    @asynccontextmanager
+    async def summaries():
+        yield auxiliary
+
+    policy = replace(policy, summary_model=summaries)
+    model = FakeModel([AssistantMessage("Report with caveats.")] * 2)
+    agent = Agent(model, context_window=100000, compaction=policy)
     await agent.run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(6))
     assert memory.summary
     assert "Only primary sources" in str(memory.view(history))
-    history.extend(
-        [AssistantMessage("Additional evidence. " * 2000), UserMessage("Verify source dates.")]
-    )
+    history.extend([*long_history(), UserMessage("Verify source dates.")])
     await agent.run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(6))
     assert "Only primary sources" in str(memory.view(history))
     assert "Include opposing views" in str(memory.view(history))
@@ -366,12 +372,13 @@ async def test_repeated_summary_preserves_corrections_references_and_questions(r
 async def test_final_reply_can_summarize_after_ordinary_summary_budget_exhaustion(
     runtime, recipient
 ):
+    runtime.enforce_budgets = True
     from harness.model import default_estimate_tokens
     from theos.runtime.recovery import response_call
 
     runtime.settings.max_model_calls = 30
     runtime.settings.max_compaction_calls = 5
-    runtime.settings.context_tokens = 10000
+    runtime.settings.context_tokens = 100000
     row = runtime.db.create_session("alice", "test-model", "default")
     row["generation"] = json.dumps({"max_output_tokens": 1000})
     budgets = TurnBudget(runtime.settings)
@@ -384,19 +391,12 @@ async def test_final_reply_can_summarize_after_ordinary_summary_budget_exhaustio
     while budgets.research.spend():
         pass
     before = budgets.total.used
-    history = [
-        UserMessage("Keep the original requirements."),
-        AssistantMessage("x" * 32000),
-        UserMessage("Answer with the evidence."),
-    ]
+    history = [*long_history(), UserMessage("Answer with the evidence.")]
     original = list(history)
     answer_text = "Complete returned answer. " * 2000 + "ANSWER END"
-    model = FakeModel(
-        [
-            AssistantMessage("Evidence and original requirements retained."),
-            AssistantMessage(answer_text),
-        ]
-    )
+    model = FakeModel([AssistantMessage(answer_text)])
+    auxiliary = FakeModel([AssistantMessage("Evidence and original requirements retained.")])
+    use_models(runtime, auxiliary)
     answer = await response_call(
         runtime,
         row,
@@ -410,13 +410,12 @@ async def test_final_reply_can_summarize_after_ordinary_summary_budget_exhaustio
     )
     assert answer.text == answer_text
     assert history == original
-    assert len(model.requests) == 2
-    assert model.requests[0].messages[0].content == context.SUMMARY_PROMPT
-    assert not model.requests[1].tools
+    assert len(model.requests) == len(auxiliary.requests) == 1
+    assert not model.requests[0].tools
     assert budgets.total.used == before + 2
     for request in model.requests:
         assert request.options["max_output_tokens"] == 1000
-        assert default_estimate_tokens(request) + 1000 <= 10000
+        assert default_estimate_tokens(request) + 1000 <= 100000
     if recipient == "parent":
         assert budgets.total.used == 30
     else:
@@ -484,8 +483,7 @@ async def test_replaced_questions_and_shared_source_references_remain_inspectabl
 
 
 async def test_invalid_research_summary_keeps_previous_summary_and_full_source(runtime):
-    from harness import HarnessError
-
+    runtime.enforce_budgets = True
     row = runtime.db.create_session("alice", "test-model", "default")
     run = runtime.research.create("alice", row["id"], "Lead", "Compare sources")
     source_text = "Full source evidence. " * 1500 + "SOURCE END"
@@ -493,7 +491,6 @@ async def test_invalid_research_summary_keeps_previous_summary_and_full_source(r
         "alice", row["id"], run, "source", {"url": "https://example.com", "text": source_text}
     )
     memory = ContextMemory("Earlier verified progress.", 2, [0])
-    before = memory.to_dict()
     history = [
         UserMessage("Check publication dates."),
         AssistantMessage("Earlier exchange."),
@@ -502,25 +499,18 @@ async def test_invalid_research_summary_keeps_previous_summary_and_full_source(r
         ToolResultMessage("read", "read_source", source_text),
     ]
     model = FakeModel(
-        [
-            AssistantMessage(
-                json.dumps(
-                    {
-                        "summary": "Evidence summarized without its source reference.",
-                        "record_ids": [],
-                    }
-                )
-            )
-        ]
+        [AssistantMessage("Earlier progress retained. The source needs date verification.")]
     )
     agent = Agent(
         model,
         context_window=10000,
         compaction=context.compaction(runtime, row, context.ModelCapacity(10000, 500, "test"), run),
     )
-    with pytest.raises(HarnessError):
-        await agent.run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(3))
-    assert memory.to_dict() == before
+    result = await agent.run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(3))
+    assert result.status == "completed"
+    assert "Earlier verified progress." in memory.summary
+    assert "Evidence summarized without" not in memory.summary
+    assert memory.summary == "Earlier verified progress."
     assert runtime.research.item("alice", row["id"], source)["content"]["text"] == source_text
     assert len(model.requests) == 1
 

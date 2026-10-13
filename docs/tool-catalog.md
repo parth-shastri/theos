@@ -454,11 +454,10 @@ The runtime caches metadata for one hour and uses verified catalog values when r
 Unknown models use a logged 24,000-token context fallback unless the operator sets a window.
 Unknown Anthropic models use the configured output default because that API requires an output maximum.
 `AGENT_CONTEXT_TOKENS` optionally selects a smaller window, within known provider capacity.
-`AGENT_COMPACTION_TRIGGER_RATIO` defaults to 0.7 and accepts 0.5 through 0.7.
-The runtime summarizes completed exchanges at that threshold and targets 45 percent of the window.
-The current task stays complete. Summaries preserve requirements, corrections, findings, source URLs, dates, conflicts, and uncertain actions.
-Oversized evidence enters consecutive summary chunks. The durable transcript retains every original message.
-Failed or incomplete summaries never replace the previous working summary.
+The shared policy prunes old tool output before summarizing middle turns.
+It protects the head and a tail selected by token cost, and updates the previous summary with an auxiliary model.
+The default trigger fraction is 0.5, with the upstream floor for small windows.
+See [compression and workspaces](runtime/context-recovery.md) for the formulas and execution boundaries.
 
 For agents, only `max_output_tokens` enforces response length, through the provider's supported parameter.
 OpenAI Responses and Gemini use `max_output_tokens`. OpenRouter and Anthropic use the equivalent `max_tokens` field.
@@ -473,7 +472,10 @@ Calls without a known output setting use one shared 8,192-token space estimate.
 Known output settings replace the estimate. The estimate never enters a generation parameter or cuts returned text.
 Provider-stopped answers remain intact and carry an incomplete notice.
 
-## Partial answers
+## Optional bounded mode and partial answers
+
+The call allocations below apply only to `Runtime(enforce_budgets=True)`.
+Theos disables them by default and retains usage accounting.
 
 `AGENT_MAX_MODEL_CALLS` sets the total ceiling, including research, compaction, titles, and final responses.
 Omitted summary and delegate counts derive from the total, rounded up, using configurable one-sixth and one-third ratios.
@@ -567,3 +569,23 @@ Approvals expire after 15 minutes and bind to the saved arguments.
 Gmail also binds approval to the draft preview and rechecks it before sending.
 An uncertain external write requires review before another attempt.
 Source: [approval policy](../src/theos/runtime/approvals.py).
+
+
+## Context compression and durable workspaces
+
+The generic policy lives in `src/harness/compression_policy.py` and its asynchronous adapter in `src/harness/lean_context.py`.
+The source manifest pins the upstream revision and preserves its MIT license.
+Request sizing uses provider usage anchors and the upstream UTF-8-aware rough estimator. No tokenizer package is required.
+
+The runtime owns `history_read` and `history_search` for bounded access to original agent history.
+The Gmail and Health wrappers add `source_read` and `source_to_workspace` for complete saved connector responses.
+They preserve raw results in R2 and return readable pages with source IDs, offsets, and pagination tokens.
+MIME text views identify unread attachments and do not download them.
+MCP tools and connector implementations remain unchanged.
+
+`services/files/checkpoints.py` uses the existing boto3 dependency for R2 objects and the SQLite transfer index.
+`services/sandbox/workspace.py` uses the existing OpenSandbox SDK for `/workspace` files and restoration.
+The agent can choose this workspace without an explicit sandbox request from the user.
+Changed files, including nested files and output from failed commands, receive versioned checkpoints.
+Sources and model checkpoints require the authenticated owner and conversation.
+See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
