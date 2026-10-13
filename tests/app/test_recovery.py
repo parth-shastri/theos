@@ -10,7 +10,7 @@ import pytest
 
 from harness import AssistantMessage, ToolCall, ToolResultMessage, tool
 from harness.testing import FakeModel
-from theos.runtime import hooks, tools
+from theos.runtime import checkpoints, hooks, tools
 from theos.runtime.context import ResearchStopped
 
 from .conftest import collect
@@ -331,17 +331,28 @@ async def test_turn_timeout_during_delegation_preserves_completed_sibling(runtim
     assert not final.requests[0].tools
 
 
-async def test_timed_out_write_is_unknown_and_never_repeated(runtime):
+async def test_timed_out_write_is_unknown_and_never_repeated(runtime, monkeypatch):
     runtime.settings.turn_timeout = 0.15
     attempts = []
+    clock = [time.monotonic()]
+    # Let the write start regardless of setup speed. Expire research only after it starts.
+    monkeypatch.setattr(hooks, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        checkpoints,
+        "time",
+        SimpleNamespace(monotonic=lambda: runtime.active[row["id"]].research_deadline - 0.05),
+    )
 
     @tool
     async def write_action():
         """Attempt a write."""
         attempts.append(1)
+        clock[0] = runtime.active[row["id"]].research_deadline + 1
         await asyncio.Event().wait()
 
     async def registry(current):
+        # Reproduce CI setup that outlasts the nominal research deadline.
+        await asyncio.sleep(0.2)
         return [runtime.journal_tool(write_action, current)]
 
     runtime.tools = registry
@@ -360,6 +371,7 @@ async def test_timed_out_write_is_unknown_and_never_repeated(runtime):
     )
     assert next(m for m in history if isinstance(m, ToolResultMessage)).status == "unknown"
     assert attempts == [1]
+    clock[0] = time.monotonic()
     use_models(runtime, FakeModel([AssistantMessage("Please check the service first.")]))
     await collect(runtime.start("alice", row["id"], "What happened?"))
     assert attempts == [1]

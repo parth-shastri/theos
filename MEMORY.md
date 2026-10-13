@@ -462,3 +462,13 @@ Prepare package version 0.1.11 and tag `rpi-v0.1.11`. Preserve immutable older t
 No new private environment setting is required. Keep the existing local Pi context, output, and trigger values.
 All related remote topic branches already belong to `dev`, except `fix/context-overflow-recovery` and its current PR #55.
 Promote through separate PRs and merge commits. Confirm the tagged pipeline before claiming deployment.
+
+
+## Pi promotion timeout-test correction, 2026-10-14
+
+Pi promotion CI exposed a race in the bounded write-timeout test on Python 3.12.
+The 150-millisecond deadline could expire during setup, before the write started. That outcome correctly has failed status.
+The test now advances only application deadline clocks after the write starts and gives the tool a separate 50-millisecond timeout.
+Keep the event loop clock real. Preserve unknown outcomes for started writes and never repeat them.
+This correction changes test timing only. Production runtime behavior and the successful live replay remain unchanged.
+Integrate it through a topic PR into `dev` before the Pi promotion and release tag.
