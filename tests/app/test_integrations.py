@@ -248,6 +248,7 @@ async def test_health_import_normalizes_and_paginates(runtime):
 
 
 async def test_delegated_tasks_share_budget(runtime, scripted_models):
+    runtime.enforce_budgets = True
     session = runtime.db.create_session("alice", "fake", "default")
     scripted_models.responses.extend(
         [

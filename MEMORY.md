@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-12.
+Updated: 2026-10-14.
 
 ## Confirmed decisions
 
@@ -46,11 +46,11 @@ Updated: 2026-10-12.
 | Browser conversation titles | Generate from the first completed exchange with the selected model and refine once after three user messages. Bound title calls, include their usage in costs, preserve custom titles, and retain a fallback on failure. Migration 007 tracks automatic titles |
 | Configuration | Pydantic settings with the `AGENT_` prefix |
 | Deployment | One application worker and scheduler per SQLite database |
-| Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. All spans share the existing conversation ID and a separate turn ID. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata by default. Optional bounded content capture includes model messages, tool arguments/results, and delegate tasks/results. Use OTel GenAI roles, parts, and descriptive agent names inherited by child spans. Retain legacy string delegate tasks. Theos chooses descriptive agent names from task scope without user-supplied names. Delegate substantial independent research when useful, and handle simple or dependent lookups directly. Instruct research delegates to use at most two focused search calls with three results each, then return findings and unverified facts. These search limits are guidance. After delegation, instruct the parent to use findings and caveats, with at most two focused verification searches before answering. Retain the enforced shared model-call budget and 90-second tool timeout. Capture limits default to 8,192 UTF-8 JSON bytes per field and 32,768 per span. Exclude reasoning, binary payloads, provider state, and exception payloads. Keep SQLite events and usage. Use optional Jaeger v2 with single-node Badger storage for waterfalls |
+| Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. All spans share the existing conversation ID and a separate turn ID. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata by default. Optional bounded content capture includes model messages, tool arguments/results, and delegate tasks/results. Use OTel GenAI roles, parts, and descriptive agent names inherited by child spans. Retain legacy string delegate tasks. Theos chooses descriptive agent names from task scope without user-supplied names. Delegate substantial independent research when useful, and handle simple or dependent lookups directly. Instruct research delegates to use at most two focused search calls with three results each, then return findings and unverified facts. These search limits are guidance. After delegation, instruct the parent to use findings and caveats, with at most two focused verification searches before answering. Retain call usage accounting and the 90-second tool timeout. Capture limits default to 8,192 UTF-8 JSON bytes per field and 32,768 per span. Exclude reasoning, binary payloads, provider state, and exception payloads. Keep SQLite events and usage. Use optional Jaeger v2 with single-node Badger storage for waterfalls |
 | Trace access | The optional Jaeger viewer and OTLP receiver bind to host loopback. The Pi uses persistent Tailscale Serve on HTTPS port 8443 to proxy the viewer. Restrict Pi TCP 8443 to `group:theos-operators` in the tailnet policy. Exclude this endpoint from broader grants across both IP families. The group currently contains `parth-shastri@github`. Keep Funnel disabled for this endpoint. Jaeger has no configured password or per-user trace isolation. Theos authentication does not protect it. Operators can also use local access or authenticated SSH tunnels. Anyone with Jaeger access can inspect all stored traces. Per-user trace access requires a separate ownership-checking layer and is not implemented |
 | Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. Use seven-day Jaeger span expiry, a 512 MiB container limit, and memory pressure guards. Do not impose a 1 GB disk quota. Jaeger storage retains traces across restarts. Monitor disk growth separately |
-| Turn recovery | Reserve one tool-free response call for the parent. Reserve each delegate handoff before research starts. On call, time, or context exhaustion, stop new research and request one final response with a limit notice. Keep the full task, corrections, summary, findings, and sources. Do not retry failed final responses or repeat tools. Show a clear failure if final generation fails. Never assemble replies from raw saved findings. Preserve uncertain actions and completed siblings. Pause incomplete schedules. Explicit cancellation retains interrupted status |
-| Model-call allowances | Keep AGENT_MAX_MODEL_CALLS as the total ceiling, default 30. When counts are omitted, derive compaction calls from a configurable one-sixth ratio and each delegate research/handoff ceiling from a configurable one-third ratio, rounded up. Explicit counts override their own ratios, including zero summaries. Resolve once per turn in TurnBudget. Bound summaries to retain research capacity and bound delegates by the shared research pool. At 30 total, allocate 24 research, five compaction, and one parent response; at 50, allocate 40 research, nine compaction, and one parent response. Delegate handoffs consume reserved research slots. The derived delegate ceiling includes its handoff and excludes shared summary calls: ten at 30 total, 17 at 50. Hold one summary call for the parent final response and one per active delegate when available. Ordinary summaries use unheld calls. Release unused delegate holds when they finish. Unused compaction slots stay separate from research. Each summary chunk consumes a compaction call and enters usage records. A total of one reserves only the parent response. Accept AGENT_MAX_RECOVERY_CALLS for old configurations, but always reserve one response call. Export allowance limits and consumed calls on turn traces |
+| Turn recovery | Preserve the transcript and uncertain actions. Retry provider context rejection only with a smaller request, without repeating tools. An irreducible request remains a failure, never a fabricated successful answer |
+| Model-call allowances | Theos disables call allocations and research deadlines by default through `Runtime(enforce_budgets=False)`. Preserve all budget fields and their validation for callers that explicitly enable bounded mode. Parent, delegate, summary, and recovery calls retain usage accounting without enforced call ceilings. Root traces mark enforcement false and limits as -1. Provider, context, output, tool, concurrency, approval, and cancellation limits remain active. See `docs/runtime/context-recovery.md` |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
 | Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials use the enrolled Telegram owner's private account access. No automatic merging of existing browser and Telegram accounts |
@@ -60,8 +60,8 @@ Updated: 2026-10-12.
 | Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user approved opt-in for future user-message consolidation through Mem0 inference |
 | Scheduled agent tasks | Durable one-time and cron schedules run through the normal conversation runtime and approval policy. Interrupted or uncertain runs pause the schedule |
 | Remote sandbox | Keep the Mac mini configuration, database, and server logs under `/Volumes/extssd/opensandbox`. Pin the native server to `1.1.1`. Use server proxy mode with `resolve_internal=false`. Keep launchd console logs under the user's Library because macOS blocks its removable-volume access. Docker storage remains on the SSD |
-| Model context | Use advertised provider context capacities. Refresh OpenRouter metadata hourly and retain verified catalog fallbacks. Unknown models retain a logged 24,000-token fallback unless explicitly configured. Compact at 70 percent by default, configurable from 50 to 70 percent. Pi caps context at 100,000 tokens. Target 45 percent after compaction. Preserve full transcripts and the current task. Summarize completed exchanges and split oversized evidence into complete consecutive chunks. Final responses reserve the requested output before using the remaining context. Never silently discard old context to force a request |
-| Reply generation requirement | Enforce agent response limits only through max_output_tokens, translated to the supported provider parameter. Default to 8,192 output tokens through AGENT_MAX_OUTPUT_TOKENS, bounded by the provider maximum. Explicit conversation output values override this default. Reserve the full requested output before summarizing input for answers and summary calls. Do not silently lower the output parameter to fit input. Calls without a known output value use DEFAULT_OUTPUT_RESERVATION, defined once as 8,192 tokens in harness/output.py. Agents, turn entry points, and summary requests share that estimate. It never sets a provider output parameter. Never use application code to clip or reject generated answer text by size. Research deadlines stop new calls and tools, without canceling active answers or final responses. Preserve provider-truncated text and mark it incomplete. Provider connection idle timeouts and explicit cancellation remain |
+| Model context | Use the pinned middle-turn compression policy in `src/harness/compression_policy.py`: tool-output pruning first, protected head, token-budget tail, iterative auxiliary summaries, distributed samples, and scaled budgets. One async adapter in `lean_context.py` serves all agents. Default fraction 0.5 with the upstream small-window floor. Pi 100,000 context and 8,192 output imply a 68,856-token trigger. Keep raw sources outside model context and checkpoint working state in R2 |
+| Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. The auxiliary summary uses a scaled prompt target without a hard output cap. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
@@ -395,3 +395,70 @@ Preserve all other Pi settings and retain a private backup before changing the e
 After both promotions, tag the current `rpi` revision as `rpi-v0.1.10` to start deployment.
 The release workflow creates the GitHub release after successful Pi activation.
 Deployment remains unconfirmed until the workflow and active Pi manifest agree.
+
+## Unified compression and workspace policy, 2026-10-12
+
+This decision replaces the earlier local chunked-summary and bounded-request prototypes.
+Use one pinned compression policy with a cheap auxiliary summary model, protected head and tail, tool pruning, and scaled budgets.
+Keep Theos call allocations and research deadlines disabled. Retain their configuration and explanatory comments.
+Remove the separate chunk compressor, tokenizer preview policy, and fixed repeated-retrieval cutoff.
+Use provider usage for matching prefixes and the upstream rough estimator for added content.
+
+Wrap Gmail and Health read tools at the runtime boundary. Do not change their connector implementations or MCP tools.
+Save complete raw responses in R2 and return readable pages with source IDs.
+Use the sandbox as a normal task workspace whenever computation or files help.
+Keep task files under `/workspace`. Save nested files, versions, progress, and model checkpoints in R2.
+Preserve newer live workspace files when reconnecting. Restore missing files when the sandbox is replaced.
+SQLite remains the local journal and transfer index. Pending R2 uploads retry without repeating tools.
+
+The live replay of the captured Pi failure produced all nine expected purchases and correct separate currency totals.
+The live workspace check saved nested input/output files in R2 and calculated the expected total.
+See `docs/runtime/acceptance.md` for the current test evidence and remaining limits.
+These changes remain in the topic worktree and are not deployed to the Pi.
+
+## Text summaries on the recovery branch, 2026-10-13
+
+The operator requested integration on `fix/context-overflow-recovery` and removal of the separate structured-summary branch.
+Use the pinned Markdown summary template for fresh and iterative summaries. Do not request or parse generated JSON summaries.
+Replace model-written mechanical sections with original transcript data.
+Keep exact anchors, saved research IDs, and unknown tool outcomes in `ContextMemory.state.references`.
+Bound the request index while retaining the full index and transcript in storage.
+Save parent working memory in SQLite before the next answer request. Child summaries cannot replace that session.
+Keep Theos call budgets and research deadlines disabled by default. Summary calls retain usage accounting.
+Retain lean tails as the recovery default. Allow `current` tails and one through twenty recent user messages.
+The new implementation replaces the older JSON summary compressor. It does not add another compression pipeline or runtime dependency.
+
+
+## Full request fit and readable activity, 2026-10-14
+
+Keep this work on `fix/context-overflow-recovery` and PR #55.
+After summary generation, cut and check the full request until input plus reserved output fits.
+Use the same fit loop after failed or oversized summaries. Do not impose a fixed cut or provider-overflow retry count.
+A recovery request must reduce estimated tokens, or serialized bytes when token estimates stay equal.
+Retain current instructions, active user steering, pending tool batches, and tool validation contracts.
+Keep complete call/result groups. Preserve full transcripts, saved sources, reference indexes, and uncertain outcomes.
+Publish fitted memory through the existing checkpoint transaction. Never retry an identical request or repeat completed tools.
+Required content can still exceed a provider window. Report that limit without fabricating a successful answer.
+
+Emit scoped compaction events without private summary prose. Show them in browser chat and Telegram.
+Show one editable Telegram activity per tool call with an emoji and readable action name.
+Group approval fields by item, use short labels, and place exact request details in expandable disclosures.
+Retain the immutable approval snapshot and complete large reviews.
+Zepto cart price and maximum retail price use paise. Display `3900` as `₹39.00` and retain raw values in exact details.
+Apply this conversion only to known cart price fields. Tool arguments and approval checks remain unchanged.
+These changes add no runtime dependency and remain undeployed until the release process runs.
+
+
+## Live fit replay and release 0.1.11 preparation, 2026-10-14
+
+The operator authorized live replay, integration into `dev`, promotion PRs for `main` and `rpi`, and a new Pi release tag.
+The stricter normal replay passed all 21 checks. Four injected context rejections passed all 23 checks with live model continuation.
+Both recovered nine original purchases with separate currency totals and retained the original transcript.
+The overflow run completed five compactions without a failed event. It needed no auxiliary summary call.
+The initial normal run reused older summary facts, so the repeated normal run explicitly required original receipt reads before totals.
+Replay evidence checks accept both supported history selectors. Seven deterministic checks protect that validation contract.
+
+Prepare package version 0.1.11 and tag `rpi-v0.1.11`. Preserve immutable older tags.
+No new private environment setting is required. Keep the existing local Pi context, output, and trigger values.
+All related remote topic branches already belong to `dev`, except `fix/context-overflow-recovery` and its current PR #55.
+Promote through separate PRs and merge commits. Confirm the tagged pipeline before claiming deployment.

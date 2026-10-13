@@ -366,6 +366,7 @@ async def test_memory_consolidation_interval_and_restart_recovery(runtime):
 async def test_scheduled_budget_or_uncertain_action_pauses_schedule(
     runtime, scripted_models, unknown
 ):
+    runtime.enforce_budgets = True
     session = session_for(runtime)
     await schedule(runtime, session, recurrence="0 9 * * *")
 

@@ -175,6 +175,12 @@ async def test_browser_sandbox_approval_cannot_cross_user_or_conversation(
         return SimpleNamespace(commands=SimpleNamespace(run=run))
 
     monkeypatch.setattr(runtime.sandboxes, "get", get)
+
+    async def workspace_noop(*args):
+        pass
+
+    monkeypatch.setattr(runtime.workspaces, "prepare", workspace_noop)
+    monkeypatch.setattr(runtime.workspaces, "save", workspace_noop)
     scripted_models.responses.append(
         [
             AssistantMessage(

@@ -7,6 +7,7 @@ import pytest
 from harness import Agent, AssistantMessage, CompactionConfig, JsonlStore, MemoryStore, UserMessage
 from harness.testing import FakeModel
 from renderer import AgentSession
+from tests.context_fixtures import long_history
 
 
 @pytest.mark.parametrize("persistent", [False, True])
@@ -37,26 +38,34 @@ async def test_session_metadata_timestamps_and_manual_title_survive_restart(tmp_
 
 async def test_resumed_session_uses_saved_compaction_memory(tmp_path):
     store = JsonlStore(tmp_path)
-    history = [UserMessage("Compare both options. " + "x" * 5600),
-               AssistantMessage(text="First option examined. " + "y" * 5600)]
+    history = long_history()
     await store.save("research", history)
     config = CompactionConfig("Summarize the conversation.", {"max_tokens": 256}, 128)
     model = FakeModel([AssistantMessage(text="Compare both options; first option examined.")] * 3)
-    session = AgentSession(Agent(model, context_window=2000, reserved_output_tokens=256,
-                                 compaction=config), store)
-    _ = [event async for event in session.stream("Continue with the other option.", session_id="research")]
+    session = AgentSession(
+        Agent(model, context_window=100000, reserved_output_tokens=256, compaction=config), store
+    )
+    _ = [
+        event
+        async for event in session.stream("Continue with the other option.", session_id="research")
+    ]
     state = await store.load_state("research")
-    assert state["memory"]["covered_messages"] == 2
+    assert state["memory"]["covered_messages"] == len(history) + 1
     assert state["memory"]["summary"]
-    assert (await store.load("research"))[:2] == history
+    assert (await store.load("research"))[: len(history)] == history
 
     next_model = FakeModel([AssistantMessage(text="Here is the comparison.")])
-    resumed = AgentSession(Agent(next_model, context_window=2000, reserved_output_tokens=256,
-                                 compaction=config), JsonlStore(tmp_path))
+    resumed = AgentSession(
+        Agent(next_model, context_window=100000, reserved_output_tokens=256, compaction=config),
+        JsonlStore(tmp_path),
+    )
     _ = [event async for event in resumed.stream("Explain further.", session_id="research")]
     assert len(next_model.requests) == 1
-    assert state["memory"]["summary"] in str(next_model.requests[0].messages)
-    assert "x" * 5600 not in str(next_model.requests[0].messages)
+    assert any(
+        isinstance(m, AssistantMessage) and m.text == state["memory"]["summary"]
+        for m in next_model.requests[0].messages
+    )
+    assert "Finding 10: " + "Evidence text. " * 5000 not in str(next_model.requests[0].messages)
 
 
 async def test_legacy_histories_and_state_isolation(tmp_path):

@@ -612,3 +612,131 @@ Approval checks cover unchanged snapshots, nested fields, multiline code, Markdo
 An isolated browser with synthetic approvals passed desktop light and dark checks and a 390px mobile check without horizontal overflow.
 Python style, browser syntax, Prettier, lock validation, and package builds passed.
 Live provider and Telegram checks and deployment to Pi were pending at release preparation.
+
+
+## Unified context and workspace validation, 2026-10-12
+
+This section supersedes the earlier local context-recovery prototype and its test results.
+The implementation uses one pinned compression policy, with Theos adapters for model calls, saved sources, and workspaces.
+The old complete-evidence chunk compressor, tokenizer preview policy, and fixed repeated-retrieval cutoff are removed.
+Theos call allocations and research deadlines remain disabled. Their configuration and optional bounded mode remain available.
+
+The full suite passed 990 tests, with three credential-dependent tests excluded.
+The checks cover protected head and tail, tool-call pairing, distributed samples, iterative summaries, provider usage anchors, and summary failures.
+They also cover provider capacity parsing, native output requirements, source ownership, pending transfers, uncertain actions, and workspace restoration.
+The suite replaces obsolete chunk-count assertions with tests for the single-summary policy.
+Changed Python files pass Ruff and formatting checks. Lock validation and package builds pass.
+The compression license and source manifest ship in the wheel.
+
+### Actual Pi failure replay
+
+The replay used the captured Pi conversation and the live configured model through the existing OpenRouter adapter.
+It preserved every original message and used only local history retrieval tools.
+It made no new Gmail queries and sent no Telegram messages.
+With one configured total call and zero configured summary calls, enforcement remained disabled.
+
+The final replay completed 10 model requests and 37 history tool calls.
+It recovered all nine expected purchases for September 12 through October 12, with correct separate currency totals.
+All expected source reads, named merchants, and selected individual amounts passed.
+Estimated input plus reserved output remained within 100,000 tokens for every request.
+Tool-output pruning supplied enough space, so this replay needed no auxiliary summary call.
+Separate deterministic tests exercise successful iterative summaries and failed auxiliary calls.
+
+An additional fault-injection replay rejected the already-pruned request without reporting a smaller provider capacity.
+It did not produce a useful answer. The compressor could not safely make that small request smaller.
+The runtime now preserves this failure category and does not retry the same rejected request through a second response path.
+The pinned upstream recovery also stops when compression cannot reduce a rejected request.
+This test does not support a universal no-failure claim.
+
+### Live R2 and sandbox checks
+
+A disposable workspace calculated the expected total and saved nested input/output files in R2.
+The first check exposed the SDK's shallow default directory listing. The recursive traversal fix passed the repeated check.
+A separate live model task received the recovered report and a request for a PDF, without an explicit sandbox instruction.
+The model chose the sandbox, copied the complete source, ran calculations, and produced a two-page PDF.
+All expected totals, selected amounts, and named merchants passed text extraction checks.
+The source, script, and PDF had saved R2 object states.
+
+After sandbox destruction, a replacement sandbox restored the PDF byte-for-byte from saved workspace objects.
+An independent PDF reader detected an incorrect cross-reference pointer in the generated file.
+The validation step normalized that table, checked the corrected file with strict parsing, and saved another R2 version.
+This artifact correction does not establish that every generated document will pass independent validation without repair.
+
+Private exports, reports, expectations, credentials, and service-test outputs remain outside the repository.
+These checks cover saved-evidence recovery and report creation. They do not cover new account consent, fresh Gmail queries, or Telegram delivery.
+The Pi was last confirmed on `rpi-v0.1.10` at revision `67cccab0add9249a564790e1edaee54ebf9531ba`.
+The current changes remain local and are not deployed.
+
+## Text summaries integrated with recovery, 2026-10-13
+
+The integration stays on `fix/context-overflow-recovery` and uses the pinned Markdown summary template.
+Generated summaries do not use JSON. The obsolete research JSON validator is removed.
+Code supplies exact anchors, owned research IDs, and recorded unknown outcomes independently of summary prose.
+Requests receive a bounded index. Saved memory retains the full index across context updates and provider changes.
+Lean remains the default tail. The larger current tail and recent user count are configurable.
+Theos call budgets and research deadlines remain disabled by default. Summary calls still enter usage records.
+
+The full local suite passed 1,006 tests, with three credential-dependent tests excluded.
+New checks cover fresh and iterative text templates, model-written reference replacement, missing IDs, and 350-record indexes.
+They also cover both tail modes, retained user messages, credential redaction, and excluded opaque provider data.
+Storage checks cover publication before answer generation, SQLite rollback, delegate isolation, and full references after R2 restoration.
+Changed Python files and CI style targets pass Ruff and formatting checks. Lock validation and package builds pass.
+The context guide's prose lint reports 1.17 findings per 100 words.
+
+The prior recovery replay and workspace results above belong to the baseline recovery implementation.
+This summary integration did not repeat those live checks. It is not deployed.
+
+
+## Full request fit and approval display, 2026-10-14
+
+This update stays on the existing recovery branch and PR #55.
+The full local suite passed 1,025 tests, with three credential-dependent tests excluded.
+The tests cover successful, oversized, truncated, and failed summaries followed by full request checks.
+Four consecutive provider overflows recover with smaller requests and one tool execution.
+Other checks cover opaque replay cuts, pending parallel calls, active user corrections, required schemas, and irreducible inputs.
+Saved transcript, uncertain outcomes, source ownership, transaction rollback, and checkpoint restoration tests still pass.
+
+Compaction events reach parent and research clients without private summary prose.
+Browser tests cover separate compression identifiers, cancellation, and stream disconnects.
+Telegram tests check editable tool status, compaction status, complete reviews, topic routing, and Unicode entity offsets.
+Zepto cart tests show `3900` as `₹39.00` while preserving raw prices, quantities, identifiers, and approval snapshots.
+
+Changed Python files and CI style targets pass Ruff lint and formatting checks.
+JavaScript syntax, Prettier, lock validation, package builds, and whitespace checks pass.
+The context guide's prose lint reports 1.14 findings per 100 words.
+A local mock preview used the real approval fields, browser component, stylesheet, and Telegram text/entities.
+Desktop and 390-pixel phone layouts passed visual inspection. Expandable details expose raw paise and identifiers.
+This preview did not send Telegram messages, call Zepto, or approve an action.
+
+No fixed count stops fit cuts or provider context retries.
+Recovery stops when no smaller safe request remains. Required content can still exceed a provider window.
+Unavailable providers, canceled turns, and failed persistence remain distinct failure conditions.
+These changes remain undeployed. Live Telegram approval and provider acceptance checks remain pending.
+
+
+## Latest fit loop live replay and 0.1.11 preparation, 2026-10-14
+
+The replay used the original captured Pi session with the latest request fit implementation.
+It used the configured live model and local history tools, without production database writes, new connector queries, or Telegram delivery.
+Theos call budgets remained disabled. Every attempted request fit the configured 100,000-token window with 8,192 tokens reserved for output.
+Both successful runs preserved the original transcript and recovered all nine expected purchases with separate currency totals.
+
+The first normal run returned the expected facts but did not reread all earlier receipts.
+The replay checker also failed to recognize two original reads made by tool call ID.
+The corrected checker accepts message indices, tool call IDs, and resolved original indices, while requiring successful history reads.
+A stricter normal repeat explicitly required original evidence before totals. All 21 checks passed, with seven model requests and 17 history calls.
+
+The fault-injection run rejected four consecutive requests without reporting a smaller provider window.
+All 23 checks passed, with 21 model attempts and 36 history calls.
+The five requests across those rejections decreased from 4,054 estimated input tokens to 804.
+The runtime completed five compaction operations without a failed compaction event.
+The run read all nine required original receipts. Only local history tools executed.
+These replays needed no auxiliary summary call. Deterministic tests still cover failed and oversized summary output.
+Private sessions, instructions, answers, logs, and expectations remain outside the repository.
+
+The full release preparation suite passed 1,032 tests, with three credential-dependent tests excluded.
+Python style, browser syntax, lock validation, package builds, and whitespace checks passed.
+The release draft's prose lint reports 0.76 findings per 100 words.
+Version 0.1.11 prepares the current recovery, summary, workspace, and approval changes for promotion.
+The existing private local Pi environment needs no changes. Context, output, and trigger settings remain 100,000, 8,192, and 0.7.
+Deployment confirmation belongs to the tagged release workflow. The replay does not establish live Telegram delivery.

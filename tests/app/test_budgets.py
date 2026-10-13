@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from harness import AssistantMessage, ToolResultMessage, UserMessage
 from harness.testing import FakeModel
+from tests.context_fixtures import long_history
 from theos.runtime.budgets import TurnBudget
 from theos.settings import Settings
 
@@ -113,48 +114,22 @@ def test_invalid_allowances_are_rejected(field, value):
 async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(runtime, allowance):
     runtime.settings.max_model_calls = 6
     runtime.settings.max_compaction_calls = allowance
-    runtime.settings.context_tokens = 4096
+    runtime.settings.context_tokens = 100000
     await install_read(runtime)
     row = session(runtime)
-    runtime.db.execute(
-        "UPDATE sessions SET generation=? WHERE id=?",
-        ('{"max_output_tokens":512}', row["id"]),
-    )
-    original = [
-        UserMessage("Earlier preferences " + "a" * 10000),
-        AssistantMessage("Earlier findings " + "b" * 10000),
-    ]
+    original = long_history()
+    original[0] = UserMessage("Do not send email.")
     runtime.db.save_history("alice", row["id"], original)
-    summaries = [
-        AssistantMessage(
-            "Keep the preferences and the earlier findings.",
-            usage={"input_tokens": 10, "output_tokens": 5},
-        )
-    ] * max(0, allowance - 1)
-    model = FakeModel(
-        [*summaries, read_call("source"), AssistantMessage("The park opens at 7 AM.")]
-    )
-    final = FakeModel([AssistantMessage("Earlier preferences are saved; more work is needed.")])
-    use_models(runtime, model, final)
+    main = FakeModel([read_call("source"), AssistantMessage("The park opens at 7 AM.")])
+    auxiliary = FakeModel([AssistantMessage("Earlier findings retained.")])
+    use_models(runtime, main, auxiliary)
     events = await collect(runtime.start("alice", row["id"], "Check the opening time."))
     history = runtime.db.load_history("alice", row["id"])
-    assert history[:2] == original
-    assert len(model.requests) + len(final.requests) <= 6
-    if allowance == 3:
-        assert events[-1]["status"] == "completed"
-        assert len(model.requests) == 4
-        assert not final.requests
-        assert history[-1].text == "The park opens at 7 AM."
-        assert runtime.db.one("SELECT SUM(output_tokens) n FROM usage")["n"] == 10
-        assert runtime.db.one("SELECT COUNT(*) n FROM usage")["n"] == 4
-    else:
-        assert events[-1]["status"] == "failed"
-        assert len(model.requests) == max(0, allowance - 1)
-        assert len(final.requests) == int(allowance > 0)
-        assert "model context" in history[-1].text
-        assert runtime.db.one("SELECT COALESCE(SUM(output_tokens),0) n FROM usage")["n"] == 5 * max(
-            0, allowance - 1
-        )
+    assert history[: len(original)] == original
+    assert events[-1]["status"] == "completed" and history[-1].text == "The park opens at 7 AM."
+    assert len(main.requests) == 2 and len(auxiliary.requests) <= allowance
+    assert runtime.db.one("SELECT COUNT(*) n FROM usage")["n"] == 2 + len(auxiliary.requests)
+    assert "Do not send email." in str(main.requests[-1].messages)
 
 
 @pytest.mark.parametrize(
@@ -298,3 +273,9 @@ async def test_fifty_calls_with_derived_delegate_limit_is_enforced(runtime, monk
     assert all(not child.requests[-1].tools for child in children)
     assert len(parent.requests) == 2
     assert sum(len(model.requests) for model in [parent, *children]) == 36
+
+
+@pytest.fixture(autouse=True)
+def use_bounded_harness_for_limit_contracts(runtime):
+    """Retain checks for the optional bounded harness, not Theos defaults."""
+    runtime.enforce_budgets = True

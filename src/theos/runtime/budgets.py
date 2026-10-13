@@ -1,6 +1,6 @@
 """Separate call allowances under one turn ceiling."""
 
-from math import ceil
+from math import ceil, inf
 
 from harness import Budget
 
@@ -80,7 +80,18 @@ class FinalSummaryBudget:
 class TurnBudget:
     """Keep research, compaction, and recovery within the configured total."""
 
-    def __init__(self, settings):
+    def __init__(self, settings, *, enforce=True):
+        self.enforced = enforce
+        # Theos runs long tasks without call allocations. Keep the configuration
+        # and bounded mode for other callers, but count every call in both modes.
+        if not enforce:
+            self.total = Budget(inf)
+            self.research = CallAllowance(inf, self.total)
+            self.compaction = CallAllowance(inf, self.total)
+            self.recovery = CallAllowance(inf, self.total)
+            self.delegate_limit = inf
+            self.final_compaction = self.reserve_final_summary()
+            return
         self.total = Budget(settings.max_model_calls)
         final = 1
         # Resolve once per turn. An explicit zero disables summaries rather than using the ratio.
@@ -111,9 +122,12 @@ class TurnBudget:
             "recovery": self.recovery,
         }
         return {
-            "theos.budget.delegate.limit": self.delegate_limit,
+            "theos.budget.enforced": self.enforced,
+            "theos.budget.delegate.limit": self.delegate_limit if self.enforced else -1,
             **{
-                f"theos.budget.{name}.{field}": getattr(budget, source, 0)
+                f"theos.budget.{name}.{field}": (
+                    -1 if field == "limit" and not self.enforced else getattr(budget, source, 0)
+                )
                 for name, budget in values.items()
                 for field, source in (
                     ("limit", "max_model_calls"),
