@@ -53,7 +53,7 @@ async def test_browser_chat_upload_settings_dashboard_and_isolation(runtime):
 
 
 @pytest.mark.parametrize("approved", [True, False])
-async def test_browser_approval_workflow(runtime, scripted_models, approved):
+async def test_browser_approval_workflow(runtime, scripted_models, approved, checkout_tool):
     app = create_app(runtime.settings, runtime)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
@@ -64,7 +64,7 @@ async def test_browser_approval_workflow(runtime, scripted_models, approved):
         scripted_models.responses.append(
             [
                 AssistantMessage(
-                    tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "notes"})]
+                    tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})]
                 )
             ]
         )
@@ -163,7 +163,10 @@ async def test_telegram_private_group_topics_and_commands(runtime):
         await telegram.handle([telegram_message(chat=-999, kind="group")])
 
 
-async def test_telegram_approval_buttons_and_wrong_chat(runtime, scripted_models):
+@pytest.mark.parametrize("approved", [True, False])
+async def test_telegram_approval_buttons_and_wrong_chat(
+    runtime, scripted_models, approved, checkout_tool
+):
     runtime.settings.telegram_users = {123, 456}
     telegram = Telegram(runtime)
     calls = []
@@ -175,16 +178,28 @@ async def test_telegram_approval_buttons_and_wrong_chat(runtime, scripted_models
     telegram.api = api
     await onboard(telegram)
     await onboard(telegram, 456)
+    from theos.services.custom_tables.tools import custom_tools
+
+    from .conftest import call_tool
+
+    await call_tool(
+        custom_tools(runtime.db, "telegram:123", runtime.settings.data_dir / "tables"),
+        "create_custom_table",
+        name="notes",
+        columns={"text": "TEXT"},
+    )
     scripted_models.responses.append(
-        [
-            AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "notes"})]
-            )
-        ]
+        [AssistantMessage(tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})])]
     )
     await telegram.handle([telegram_message("Delete notes")])
     approval_message = next(p for m, p in calls if m == "sendMessage" and "reply_markup" in p)
-    data = approval_message["reply_markup"]["inline_keyboard"][0][1]["callback_data"]
+    assert approval_message["disable_notification"] is False
+    data = approval_message["reply_markup"]["inline_keyboard"][0][0 if approved else 1][
+        "callback_data"
+    ]
+    references = runtime.db.rows("SELECT * FROM telegram_approval_messages")
+    assert len(references) >= 2  # Review and the separate waiting message.
+    deleted_before = {p["message_id"] for m, p in calls if m == "deleteMessage"}
     callback = {
         "update_id": 2,
         "callback_query": {
@@ -196,11 +211,23 @@ async def test_telegram_approval_buttons_and_wrong_chat(runtime, scripted_models
     }
     with pytest.raises(ValueError):
         await telegram.handle([callback])
+    assert {p["message_id"] for m, p in calls if m == "deleteMessage"} == deleted_before
     callback["callback_query"]["from"]["id"] = 123
     callback["callback_query"]["message"]["chat"]["id"] = 123
-    await telegram.handle([callback])
-    assert (
-        runtime.db.one("SELECT status FROM tool_runs WHERE call_id='delete'")["status"] == "denied"
+    # A new bot instance reads the saved review references after a restart.
+    restarted = Telegram(runtime)
+    restarted.api = api
+    await restarted.handle([callback])
+    assert all(
+        any(m == "deleteMessage" and p["message_id"] == row["message_id"] for m, p in calls)
+        for row in references
+    )
+    assert not runtime.db.rows("SELECT * FROM telegram_approval_messages")
+    assert runtime.db.one("SELECT status FROM approvals WHERE id=?", (data[2:],))["status"] == (
+        "approved" if approved else "denied"
+    )
+    assert runtime.db.one("SELECT status FROM tool_runs WHERE call_id='delete'")["status"] == (
+        "completed" if approved else "denied"
     )
 
 

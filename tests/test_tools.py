@@ -244,8 +244,8 @@ async def test_unknown_tool_name_fails_without_starting_anything():
         call_of("missing", {}), [get_order_status], ctx=make_ctx(events)
     )
     assert isinstance(result, ToolResultMessage)
-    assert result.status == "failed"
-    assert result.content == "Unknown tool: missing"
+    assert result.status == "not_started"
+    assert "unknown tool missing" in result.content and "No tool executed" in result.content
     assert result.call_id == "c1"
     assert result.name == "missing"
     assert result.view is None
@@ -257,7 +257,7 @@ async def test_invalid_input_fails_with_the_pydantic_message():
     result = await execute_tool(
         call_of("get_order_status", {"wrong": 1}), [get_order_status], ctx=make_ctx(events)
     )
-    assert result.status == "failed"
+    assert result.status == "not_started"
     assert "get_order_status_input" in result.content
     assert "wrong" in result.content
     assert result.view is None
@@ -460,7 +460,7 @@ async def test_after_tool_runs_on_denied_and_failed_results_and_replaces_them():
         ctx=make_ctx(),
         hooks=Hooks(after_tool=after_tool),
     )
-    assert seen == ["denied", "failed", "failed"]
+    assert seen == ["denied", "failed", "not_started"]
     assert [r.content for r in (denied, failed, unknown_name)] == ["redacted"] * 3
 
 
@@ -622,7 +622,7 @@ async def test_execute_tools_returns_results_in_call_order():
         calls, [get_order_status, get_order_history], ctx=make_ctx()
     )
     assert [r.call_id for r in results] == ["a", "b", "c", "d"]
-    assert [r.status for r in results] == ["completed", "failed", "failed", "completed"]
+    assert [r.status for r in results] == ["completed", "not_started", "not_started", "completed"]
 
 
 async def test_a_batch_of_parallel_safe_calls_overlaps():
@@ -699,7 +699,7 @@ async def test_an_inline_failure_does_not_make_the_batch_sequential():
     ]
     results = await execute_tools(calls, [touch], ctx=make_ctx())
     assert [r.call_id for r in results] == ["a", "b", "c"]
-    assert results[0].status == "failed"
+    assert results[0].status == "not_started"
     assert order == ["start /a", "start /b", "finish /a", "finish /b"]
 
 

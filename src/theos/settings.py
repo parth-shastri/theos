@@ -56,7 +56,7 @@ class SandboxSettings(BaseModel):
     api_key: SecretStr = SecretStr("")
     use_server_proxy: bool = False
     image: str = "opensandbox/code-interpreter:v1.0.1"
-    timeout_seconds: int = Field(default=600, ge=60, le=3600)
+    timeout_seconds: int = Field(default=3600, ge=60, le=3600)
 
 
 class StorageSettings(BaseModel):

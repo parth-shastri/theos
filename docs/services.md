@@ -48,6 +48,10 @@ Each skill uses a subdirectory containing `SKILL.md`.
 A skill can include text resources below that directory.
 The loader rejects paths that escape the skill directory.
 A skill supplies model instructions. It does not grant additional application permissions.
+`services/skills/context.py` supplies installed descriptions before the first model request.
+The model selects workflows from the task intent and reads relevant instructions before work.
+Document requests also receive installed report-style and format instructions before drafting.
+Explicit user formats and existing document styles take precedence.
 
 ## Live acceptance
 

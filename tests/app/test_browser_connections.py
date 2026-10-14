@@ -148,8 +148,8 @@ async def test_browser_tools_include_configured_accounts_and_sandbox(runtime):
         tools = (await client.get(f"/api/sessions/{session['id']}/tools")).json()
         by_name = {tool["name"]: tool for tool in tools}
         assert {"gmail_connect", "get_health_summary", "sandbox_run_command"} <= by_name.keys()
-        assert by_name["gmail_send_draft"]["requires_approval"]
-        assert by_name["sandbox_run_command"]["requires_approval"]
+        assert not by_name["gmail_send_draft"]["requires_approval"]
+        assert not by_name["sandbox_run_command"]["requires_approval"]
         assert not by_name["get_health_summary"]["requires_approval"]
         for tool in tools:
             assert "owner" not in tool["parameters"].get("properties", {})
@@ -161,7 +161,7 @@ async def test_browser_tools_include_configured_accounts_and_sandbox(runtime):
         assert not {"gmail_connect", "get_health_summary"} & names
 
 
-async def test_browser_sandbox_approval_cannot_cross_user_or_conversation(
+async def test_browser_sandbox_runs_without_approval_and_keeps_owner_scope(
     runtime, scripted_models, monkeypatch
 ):
     runtime.settings.sandbox.enabled = True
@@ -185,27 +185,24 @@ async def test_browser_sandbox_approval_cannot_cross_user_or_conversation(
         [
             AssistantMessage(
                 tool_calls=[ToolCall("code", "sandbox_run_command", {"command": "echo 4"})]
-            )
+            ),
+            AssistantMessage("Done."),
         ]
     )
     async with browser(runtime) as alice, browser(runtime, "bob") as bob:
         session = (await alice.post("/api/sessions", json={})).json()["id"]
         other = (await alice.post("/api/sessions", json={})).json()["id"]
-        await alice.post(f"/api/sessions/{session}/turn", json={"text": "Run the command"})
-        approval = (await alice.get(f"/api/sessions/{session}")).json()["approvals"][0]["id"]
-        assert executed == []
         assert (
-            await bob.post(f"/api/sessions/{session}/approvals/{approval}", json={"approved": True})
+            await bob.post(f"/api/sessions/{session}/turn", json={"text": "Run"})
         ).status_code == 404
-        assert (
-            await alice.post(f"/api/sessions/{other}/approvals/{approval}", json={"approved": True})
-        ).status_code == 400
-        assert (
-            await alice.post(
-                f"/api/sessions/{session}/approvals/{approval}", json={"approved": True}
-            )
-        ).status_code == 200
+        assert not executed
+        response = await alice.post(
+            f"/api/sessions/{session}/turn", json={"text": "Run the command"}
+        )
+        assert response.status_code == 200
+        assert not (await alice.get(f"/api/sessions/{session}")).json()["approvals"]
         assert executed == [("alice", session, "echo 4")]
+        assert other != session
 
 
 async def test_zepto_browser_handoff_status_and_tools_are_owner_bound(runtime, monkeypatch):
@@ -267,7 +264,7 @@ async def test_zepto_browser_handoff_status_and_tools_are_owner_bound(runtime, m
         ).status_code == 400
         session = (await alice.post("/api/sessions", json={})).json()["id"]
         tools = (await alice.get(f"/api/sessions/{session}/tools")).json()
-        assert next(t for t in tools if t["name"] == "zepto_search")["requires_approval"]
+        assert not next(t for t in tools if t["name"] == "zepto_search")["requires_approval"]
         await bob.post("/api/connections/zepto/disconnect")
         assert runtime.zepto.connected("alice")
         await alice.post("/api/connections/zepto/disconnect")

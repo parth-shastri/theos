@@ -49,7 +49,7 @@ async def test_search_explains_store_setup_and_does_not_retry(name):
     tools = await zepto_tools(client, "alice")
     assert "zepto_select_saved_address" in tools[0].description
     assert "Ask which address" in tools[0].description
-    assert "own approval" in tools[0].description
+    assert "do not require approval" in tools[0].description
     with pytest.raises(ServiceError, match="chosen address") as failure:
         await call_tool(tools, "zepto_" + name, arguments={"query": "milk"})
     assert "retry the search" in str(failure.value)

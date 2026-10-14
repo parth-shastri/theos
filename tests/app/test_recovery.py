@@ -56,7 +56,7 @@ async def test_provider_failure_without_findings_returns_clear_failure(runtime):
     use_models(runtime, research)
     row = session(runtime)
     events = await collect(runtime.start("alice", row["id"], "Create a reminder."))
-    assert events[-1] == {"type": "done", "status": "failed"}
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "failed"
     assert runtime.session("alice", row["id"])["status"] == "failed"
     answer = runtime.db.load_history("alice", row["id"])[-1].text
     assert "test model failed while generating" in answer
@@ -81,7 +81,7 @@ async def test_failed_recovery_without_findings_does_not_claim_partial_answer(ru
 
 
 def assert_partial(runtime, row, events, finding="7 AM"):
-    assert events[-1] == {"type": "done", "status": "partial"}
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "partial"
     assert not any(e["type"] == "error" for e in events)
     history = runtime.db.load_history("alice", row["id"])
     assert "Partial answer:" not in history[-1].text

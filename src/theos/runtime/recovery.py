@@ -79,7 +79,7 @@ def settle_calls(runtime, turn, history):
                 "The action outcome is unknown. Check the external service before repeating it."
                 if row
                 else "The turn stopped before this tool started.",
-                "unknown" if row else "failed",
+                "unknown" if row else "not_started",
             )
         previous = next(
             (
