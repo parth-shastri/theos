@@ -322,7 +322,10 @@ class Checkpoints:
                 response["Body"].close()
         if snapshot["owner"] != owner or snapshot["session"] != session:
             raise PermissionError("Checkpoint owner mismatch.")
-        from harness import message_from_dict
+        from harness import ToolResultMessage, message_from_dict, unanswered_calls
+
+        restored = [message_from_dict(m) for m in snapshot["history"]]
+        memory = snapshot["memory"]
 
         with self.db.transaction():
             for row in snapshot["objects"]:
@@ -353,6 +356,32 @@ class Checkpoints:
                     "INSERT OR REPLACE INTO tool_runs VALUES (?,?,?,?,?)",
                     (session, row["call_id"], row["tool"], status, row["result"]),
                 )
+            # A remote snapshot can predate external effects, even without an attempt row.
+            for call in unanswered_calls(restored):
+                row = self.db.one(
+                    "SELECT * FROM tool_runs WHERE session=? AND call_id=?", (session, call.id)
+                )
+                if row and row["result"]:
+                    result = message_from_dict(json.loads(row["result"]))
+                else:
+                    result = ToolResultMessage(
+                        call.id,
+                        call.name,
+                        "The remote checkpoint may predate this action. "
+                        "Check the external service before repeating it.",
+                        "unknown",
+                    )
+                    self.db.execute(
+                        "INSERT OR REPLACE INTO tool_runs VALUES (?,?,?,?,?)",
+                        (
+                            session,
+                            call.id,
+                            call.name,
+                            "unknown",
+                            json.dumps(message_to_dict(result)),
+                        ),
+                    )
+                restored.append(result)
             if snapshot.get("workspace"):
                 self.db.put_record(
                     owner, "workspace", session, json.loads(snapshot["workspace"]["value"])
@@ -360,8 +389,22 @@ class Checkpoints:
             self.db.save_history(
                 owner,
                 session,
-                [message_from_dict(m) for m in snapshot["history"]],
-                snapshot["memory"],
+                restored,
+                memory,
                 "interrupted",
             )
+            # The snapshot may omit actions that started after it was uploaded.
+            self.db.put_record(owner, "remote_recovery_review", session, {"checkpoint": identity})
+        snapshot["history"] = [message_to_dict(m) for m in restored]
+        snapshot["tool_runs"] = self.db.rows("SELECT * FROM tool_runs WHERE session=?", (session,))
         return snapshot
+
+    def confirm_restore_review(self, owner, session):
+        """Let operator recovery code confirm external reconciliation, never an agent tool."""
+        current = self.db.session(owner, session)
+        if current["status"] == "running":
+            raise ValueError("Wait for the restored turn to stop before confirming recovery.")
+        self.db.execute(
+            "DELETE FROM records WHERE owner=? AND kind='remote_recovery_review' AND id=?",
+            (owner, session),
+        )

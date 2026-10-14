@@ -502,3 +502,14 @@ The guard checks each minute and restarts only Connect above 512 MiB.
 Theos was about 55 MiB resident after host memory pressure ended.
 Connect currently requires operator sign-in. SSH and Tailscale remain available.
 The application changes still require the branch promotion and tagged release gates.
+
+## Remote snapshot reconciliation, 2026-10-14
+
+A remote checkpoint can predate external actions, including actions without captured call intents.
+Remote restore resolves captured unanswered calls from saved results or records them as uncertain.
+It also saves a separate owner-bound review marker that compaction cannot remove.
+Restored conversations expose no tools until the operator checks and reconciles external effects.
+The approval boundary also denies execution if a caller bypasses the empty tool registry.
+Operator recovery code clears the marker through `confirm_restore_review` after reconciliation.
+This method is not an agent tool and rejects confirmation while the session is running.
+Local process recovery retains its existing journal behavior and does not create this review marker.
