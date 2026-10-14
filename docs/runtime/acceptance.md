@@ -795,3 +795,14 @@ Skill checks expose installed descriptions for selection by task intent without 
 Document requests receive actual installed report-style and format instructions before the first model request.
 This validation does not establish real-model workflow selection or a completed styled document.
 Tag deployment still must pass the ARM64 image, backup, readiness, restart, and rollback gates.
+
+## Gmail send approval correction, 2026-10-14
+
+Version 0.1.13 restores explicit Gmail send approval after the 0.1.12 policy change.
+The full local suite passed 1,095 tests, with three credential-dependent tests excluded. Python lint, formatting, and whitespace checks passed.
+The focused account, policy, browser catalog, and regression checks passed 54 tests.
+They verify no send before approval, one unchanged approved send, denial, and rejection after a draft edit.
+A separate check verifies that the service guard rejects a send without the active approved call.
+The final draft check also rejects edits between approval resumption and send execution.
+Duplicate approval decisions cannot send the email again.
+These checks use HTTP mocks and send no real email. No environment change or migration is required.

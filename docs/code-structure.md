@@ -115,9 +115,9 @@ For Google Health, read these files in order:
 ## Check approvals and recovery
 
 The approval policy matches the saved call, arguments, decision, expiry, and review contents.
-Only Zepto payment, cart confirmation, checkout, and order placement tools require approval.
-Gmail sends the current owner-owned draft without an approval prompt.
-The preview read cannot lock the draft against edits from another client.
+Gmail sending and Zepto payment, cart confirmation, checkout, and order placement tools require approval.
+Gmail checks the reviewed draft during approval and immediately before sending.
+The final read cannot lock the draft against edits from another client.
 
 A tool attempt enters SQLite before execution starts.
 The after-tool hook saves its result before the next model request.

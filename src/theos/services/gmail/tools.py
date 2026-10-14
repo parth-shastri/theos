@@ -1,9 +1,11 @@
 """Gmail tools bound to one owner and current draft approval."""
 
 import base64
+import json
 from email.message import EmailMessage
 
 from harness import tool
+from harness.events import _tool_scope
 
 from .client import decode_raw, resource_id
 
@@ -133,8 +135,14 @@ def gmail_tools(client, owner):
 
     @tool
     async def gmail_send_draft(draft_id: str):
-        """Send the current draft from your connected Gmail account."""
-        await client.preview(owner, draft_id)
+        """Send a reviewed draft only after explicit approval of its current contents."""
+        row = client.oauth.db.one(
+            "SELECT a.preview FROM approvals a JOIN sessions s ON s.id=a.session WHERE s.owner=? AND a.call_id=? AND a.tool='gmail_send_draft' AND a.status='approved'",
+            (owner, _tool_scope.get()),
+        )
+        # Another client can edit the draft after the runtime approval check.
+        if not row or json.loads(row["preview"]) != await client.preview(owner, draft_id):
+            raise PermissionError("The draft is not approved or its contents changed.")
         # A connection failure remains unknown. The runtime must not repeat the send.
         return await client.request(owner, "POST", "drafts/send", json={"id": draft_id})
 
