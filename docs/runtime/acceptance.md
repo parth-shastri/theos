@@ -838,3 +838,24 @@ Additional restore checks cover snapshots with unanswered calls and snapshots be
 Saved working context and ordinary history both retain one uncertain result per unresolved call.
 Tool access stays paused until explicit operator reconciliation, even if a caller bypasses the empty registry.
 Other owners cannot confirm that review. Local process recovery keeps its existing behavior.
+
+## Provider routing and latency, 2026-10-14
+
+The provider records attribute the 143.049-second and 378.893-second calls to one Azure endpoint generation each.
+Their reasoning usage was 199 and 808 tokens. Their native input usage was 20,575 and 40,952 tokens.
+Both used the default service tier and completed with tool calls.
+The provider catalog currently reports medium default effort. Pi does not request a higher effort.
+
+The 51,079-token synthetic probe kept medium reasoning and the 8,192-token output allowance.
+Automatic routing took 2.94 seconds. The preferred Azure EU profile took 2.96 seconds.
+The same request forced to the base Azure endpoint took 38.46 seconds with a cache hit and only 27 output tokens.
+The probe executed no tools and wrote no production records.
+A separate saved-history probe retained all 39 messages and signed reasoning, then returned the expected marker in 9.65 seconds.
+It generated no tool calls and executed no actions.
+
+Routing tests preserve ZDR, signed state, tool results, output limits, and explicit endpoint allowlists.
+Trace tests expose fixed request controls and counts without private bodies or arbitrary options.
+Reasoning usage remains part of total output usage. It does not increase cost accounting.
+Existing tests retain single execution across provider retries and paused tools after remote restore.
+The full local suite passed 1,116 tests, with three credential-dependent checks excluded.
+Tagged deployment and the active Pi manifest must confirm application activation.

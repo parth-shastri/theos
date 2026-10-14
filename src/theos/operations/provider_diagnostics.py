@@ -1,5 +1,6 @@
 """Bounded provider classifications and request timing, without remote error prose."""
 
+import json
 import logging
 import re
 import time
@@ -196,6 +197,66 @@ async def request_hook(request):
     ):
         state["diagnostics"].pop(key, None)
     annotate({"attempt": attempt, "provider_stage": "request"})
+    # Read only fixed controls and counts. Never retain messages, tools, or arbitrary options.
+    try:
+        body = request.content
+        payload = json.loads(body)
+    except (ValueError, httpx.RequestNotRead):
+        body = b""
+        payload = {}
+    if isinstance(payload, dict) and state["span"] is not None:
+        span = state["span"]
+        span.set_attribute("theos.model.request_bytes", len(body))
+        messages = payload.get("messages", payload.get("input"))
+        if isinstance(messages, list):
+            span.set_attribute("theos.model.input_message_count", len(messages))
+        if isinstance(payload.get("tools"), list):
+            span.set_attribute("theos.model.tool_schema_count", len(payload["tools"]))
+        for key in ("max_tokens", "max_completion_tokens", "max_output_tokens"):
+            limit = payload.get(key)
+            if type(limit) is int and 0 < limit <= 1_000_000:
+                span.set_attribute("gen_ai.request.max_tokens", limit)
+                break
+        reasoning = payload.get("reasoning") or {}
+        effort = reasoning.get("effort") if isinstance(reasoning, dict) else None
+        if isinstance(effort, str) and effort in {
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+        }:
+            span.set_attribute("gen_ai.request.reasoning_effort", effort)
+        else:
+            span.set_attribute("gen_ai.request.reasoning_effort", "provider_default")
+        routing = payload.get("provider") or {}
+        if isinstance(routing, dict):
+            if isinstance(routing.get("sort"), str) and routing["sort"] in {
+                "latency",
+                "throughput",
+                "price",
+            }:
+                span.set_attribute("theos.provider.routing.sort", routing["sort"])
+            if type(routing.get("zdr")) is bool:
+                span.set_attribute("theos.provider.routing.zdr", routing["zdr"])
+            order = routing.get("order")
+            if (
+                isinstance(order, list)
+                and len(order) <= 16
+                and all(
+                    isinstance(tag, str) and re.fullmatch(r"[a-z0-9][a-z0-9_/-]{0,99}", tag)
+                    for tag in order
+                )
+            ):
+                span.set_attribute("theos.provider.routing.order", order)
+            for key in ("preferred_max_latency", "preferred_min_throughput"):
+                thresholds = routing.get(key)
+                if isinstance(thresholds, dict):
+                    value = thresholds.get("p90")
+                    if type(value) in {int, float} and 0 < value <= 10000:
+                        span.set_attribute("theos.provider.routing." + key + ".p90", value)
     if state["tracing"].tracer:
         from opentelemetry.trace import SpanKind
 
