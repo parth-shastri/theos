@@ -12,7 +12,7 @@ from openai.types.chat import ChatCompletion
 from harness import AssistantMessage
 from harness.events import GenerationComplete, ReasoningDelta, TextDelta, ToolCallDelta
 from harness.providers.openai import OpenAIChatModel, accumulate_chunks
-from theos.operations.provider_diagnostics import annotate, chunk, diagnostics, failure
+from theos.operations.provider_diagnostics import annotate, chunk, diagnostics, failure, recovered
 
 OPENAI_REASONING_FORMATS = {
     "openai-responses-v1",
@@ -125,6 +125,8 @@ class OpenRouterChatModel(OpenAIChatModel):
                 async for event in self._stream_chat_once(retry):
                     emitted = True
                     yield event
+                if transient_retries:
+                    recovered(transient_retries)
                 return
             except (NotFoundError, BadRequestError) as error:
                 body = error.body if isinstance(error.body, dict) else {}

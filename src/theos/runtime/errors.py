@@ -38,6 +38,7 @@ class ProviderFailure(RuntimeError):
         from theos.operations.provider_diagnostics import diagnostics
 
         self.diagnostics = diagnostics(error)
+        self.diagnostics_logged = getattr(error, "diagnostics_logged", False)
         names = {
             "openai": "OpenAI",
             "openrouter": "OpenRouter",

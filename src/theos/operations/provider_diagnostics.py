@@ -132,13 +132,32 @@ def failure(error):
     observation = OBSERVATION.get()
     values = clean({**(observation["diagnostics"] if observation else {}), **diagnostics(error)})
     annotate(values)
+    if observation:
+        observation["last_failure"] = values
     if not getattr(error, "diagnostics_logged", False):
+        if observation and observation["span"] is not None and values.get("provider_stage"):
+            observation["span"].add_event("provider request failure", values)
         logger.warning(
             "provider_request_failed", extra={"error_type": type(error).__name__, **values}
         )
         if not isinstance(error, dict):
             error.diagnostics_logged = True
+            error.diagnostics = values
     return values
+
+
+def recovered(retries):
+    state = OBSERVATION.get()
+    if state and state["span"] is not None:
+        state["span"].set_attribute("theos.provider.recovered", True)
+        state["span"].set_attribute("theos.provider.transient_retries", retries)
+        state["span"].set_attribute("theos.provider.status_code", 200)
+        for key in ("provider_error_type", "provider_code"):
+            last = state.get("last_failure", {}).get(key)
+            if last:
+                state["span"].set_attribute("theos.provider.last_failure_" + key, last)
+            state["span"].set_attribute("theos.provider." + key, "")
+            state["diagnostics"].pop(key, None)
 
 
 @contextmanager

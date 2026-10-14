@@ -676,3 +676,58 @@ async def test_provider_headers_span_and_redacted_error_classification(runtime, 
     assert parent.attributes["theos.provider.provider_error_type"] == "invalid_request"
     assert "PRIVATE" not in repr([dict(s.attributes) for s in output])
     assert parent.events[0].name == "provider response headers"
+
+
+async def test_recovered_provider_span_does_not_report_a_failed_final_attempt(
+    runtime, exporter, monkeypatch
+):
+    from openai import AsyncOpenAI
+
+    from harness.types import ModelRequest
+    from theos.runtime.openrouter import OpenRouterChatModel
+
+    async def no_delay(seconds):
+        pass
+
+    monkeypatch.setattr(asyncio, "sleep", no_delay)
+    attempts = []
+    gid = "gen-1791970172-H2H3UnsPNxCqHKMmHtkD"
+
+    def respond(request):
+        attempts.append(request)
+        if len(attempts) < 3:
+            data = {"error": {"code": 502, "metadata": {"error_type": "provider_unavailable"}}}
+        else:
+            data = {
+                "id": gid,
+                "created": 1,
+                "model": "openai/gpt-6-luna",
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"content": "OK"}, "finish_reason": "stop"}],
+            }
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream", "x-generation-id": gid},
+            text="data: " + json.dumps(data) + "\n\ndata: [DONE]\n\n",
+        )
+
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = runtime.tracing.model(
+            OpenRouterChatModel(client, "openai/gpt-6-luna", api="chat_completions")
+        )
+        assert (await model.generate(ModelRequest([UserMessage("OK")]))).text == "OK"
+    await asyncio.to_thread(runtime.tracing.provider.force_flush)
+    span = next(s for s in exporter.get_finished_spans() if s.name.startswith("chat "))
+    assert span.attributes["theos.provider.recovered"] is True
+    assert span.attributes["theos.provider.transient_retries"] == 2
+    assert span.attributes["theos.provider.status_code"] == 200
+    assert span.attributes["theos.provider.provider_error_type"] == ""
+    assert (
+        span.attributes["theos.provider.last_failure_provider_error_type"] == "provider_unavailable"
+    )
+    assert len([event for event in span.events if event.name == "provider request failure"]) == 2
