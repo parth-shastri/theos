@@ -550,6 +550,12 @@ This host dependency does not change the application image or expose the OTLP re
 See [observability](base-infra/observability.md) for setup and trace contents.
 Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
 The [content serializer](../src/theos/operations/trace_content.py) uses the OTel GenAI role and parts schema without new dependencies.
+Runtime phase spans measure queue waits, history restoration, model capacity, tool registration, memory retrieval, and local checkpoint persistence.
+HTTPX hooks measure each OpenAI-compatible HTTP request through response headers.
+Model spans retain first-chunk and complete generation timing separately.
+The [provider diagnostics](../src/theos/operations/provider_diagnostics.py) retain validated identifiers and allowlisted classifications.
+Raw provider errors, prompts, authentication headers, and unknown metadata never enter diagnostic fields.
+OpenRouter can retry a transient accepted stream twice before any output, without repeating tools or weakening ZDR.
 
 ## Scheduled agent tasks
 
@@ -600,11 +606,15 @@ Request sizing uses provider usage anchors and the upstream UTF-8-aware rough es
 
 The runtime owns `history_read` and `history_search` for bounded access to original agent history.
 The Gmail and Health wrappers add `source_read` and `source_to_workspace` for complete saved connector responses.
-They preserve raw results in R2 and return readable pages with source IDs, offsets, and pagination tokens.
+They preserve raw results in fsynced local objects and queue R2 replication.
+Returned pages include source IDs, offsets, and pagination tokens.
 MIME text views identify unread attachments and do not download them.
 MCP tools and connector implementations remain unchanged.
 
 `services/files/checkpoints.py` uses the existing boto3 dependency for R2 objects and the SQLite transfer index.
+One background worker uploads bounded batches and publishes only complete recovery pointers.
+Checkpoint persistence and connector reads do not wait for those uploads.
+The storage client is reused and has bounded connection, read, and retry settings.
 `services/sandbox/workspace.py` uses the existing OpenSandbox SDK for `/workspace` files and restoration.
 The agent can choose this workspace without an explicit sandbox request from the user.
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.

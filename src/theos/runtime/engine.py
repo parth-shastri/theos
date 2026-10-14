@@ -60,7 +60,8 @@ class Runtime:
         from theos.services.files.checkpoints import Checkpoints
         from theos.services.sandbox.workspace import Workspaces
 
-        self.checkpoints = Checkpoints(self.files)
+        self.checkpoints = Checkpoints(self.files, self.tracing)
+        self.checkpoints.start()
         self.workspaces = Workspaces(self)
         from theos.services.research.store import Research
 
@@ -240,7 +241,14 @@ class Runtime:
     async def _run(self, turn, session, message, *, scheduled=False):
         # Recovery retains the same conversation lock and application concurrency slot.
         try:
-            async with self.lock(turn.session_id), self.semaphore:
+            from contextlib import AsyncExitStack
+
+            self.checkpoints.tracing = self.tracing
+            self.checkpoints.start()
+            async with AsyncExitStack() as stack:
+                with self.tracing.span("runtime wait"):
+                    await stack.enter_async_context(self.lock(turn.session_id))
+                    await stack.enter_async_context(self.semaphore)
                 await self._run_reserved(turn, session, message, scheduled=scheduled)
         except asyncio.CancelledError:
             if self.active.pop(turn.session_id, None) is not None:
@@ -262,7 +270,8 @@ class Runtime:
         reason = None
         failure = None
         # 1. Restore saved results so a restart does not repeat completed or uncertain actions.
-        history = self.recover_history(turn.owner, turn.session_id)
+        with self.tracing.span("runtime restore"):
+            history = self.recover_history(turn.owner, turn.session_id)
         history_offset = len(history)
         memory = ContextMemory.from_dict(json.loads(session["memory"]))
         source_text = message.content if message and not scheduled else ""
@@ -289,8 +298,10 @@ class Runtime:
                     self.settings, session["model"], session["reasoning"]
                 ) as model:
                     model = CheckedModel(model, self.settings.provider)
-                    limits = await context.capacity(self, session)
-                    tools = await self.tools(session)
+                    with self.tracing.span("runtime model capacity"):
+                        limits = await context.capacity(self, session)
+                    with self.tracing.span("runtime tool registry"):
+                        tools = await self.tools(session)
                     user_preferences = preferences(self.db, turn.owner, self.settings.timezone)
                     query = (
                         message.content
@@ -300,7 +311,8 @@ class Runtime:
                             "",
                         )
                     )
-                    retrieved = await self.memory_automation.retrieve(session, query)
+                    with self.tracing.span("runtime memory retrieval"):
+                        retrieved = await self.memory_automation.retrieve(session, query)
                     instructions = (
                         f"You are {self.settings.name}, a private personal assistant. "
                         f"Current UTC time: {datetime.now(UTC).isoformat()}. "
@@ -503,6 +515,7 @@ class Runtime:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        await self.checkpoints.close()
         await self.zepto.close()
         await self.sandboxes.close()
         await self.http.aclose()

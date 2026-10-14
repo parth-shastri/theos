@@ -332,3 +332,41 @@ It also implements optional per-turn OpenTelemetry spans and an OTLP/HTTP export
 The complete evaluation cycle remains planned.
 
 Source: [tracing](../../src/theos/operations/tracing.py), [logging](../../src/theos/operations/logging.py), [usage](../../src/theos/runtime/usage.py), and [browser APIs](../../src/theos/transports/browser/app.py).
+
+## Diagnose turn latency and provider failures
+
+A short HTTP request does not establish a short model generation.
+OpenRouter can return headers before the first model token.
+Compare the complete model span with `gen_ai.response.time_to_first_chunk` and each `provider HTTP request` span.
+
+| Span | Measurement |
+| --- | --- |
+| `runtime wait` | Conversation lock and application concurrency wait |
+| `runtime restore` | Local history and saved-result restoration |
+| `runtime model capacity` | Cached or remote model capacity lookup |
+| `runtime tool registry` | Tool schemas and optional connector discovery |
+| `runtime memory retrieval` | Bounded Mem0 retrieval |
+| `checkpoint persist` | Durable local checkpoint, with its stage |
+| `provider HTTP request` | One HTTP attempt through response headers |
+| `chat <model>` | Complete generation and first model event |
+| `checkpoint upload`, `checkpoint publish` | Background object transfer and recovery-pointer publication |
+
+Background checkpoint spans have separate traces and the conversation ID.
+They do not inherit the turn that first queued storage work.
+Application logs record `provider_request_failed`, `provider_stream_retry`, and `checkpoint_replication_failed`.
+Provider fields include validated request IDs, status codes, known provider names, and allowlisted error classifications.
+Unknown fields and raw provider prose are excluded, even when content capture is enabled.
+
+OpenRouter may accept an HTTP request with 200 and later report 502 inside its stream.
+Read `theos.provider.http_status` and `theos.provider.status_code` separately.
+A valid generation ID supports a provider-side lookup, but failed generations may have no retained record.
+A 502 alone does not prove overload, disconnection, or timeout.
+The old Pi failure lost its detailed error metadata and cannot establish that distinction.
+
+Transient accepted OpenRouter streams receive at most two additional attempts before any model event.
+Additional attempts start only within the first 30 seconds, so a long failed generation does not start more long waits.
+The runtime sends the same unfinished request, preserves ZDR, and keeps completed tool results.
+Partial text, reasoning, and tool arguments stop this retry path.
+Authentication, invalid requests, quota failures, and context errors retain their separate recovery paths.
+
+![Durable local recovery and background replication](../architecture/theos-runtime-recovery.png)

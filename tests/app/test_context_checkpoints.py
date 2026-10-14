@@ -75,13 +75,14 @@ async def test_gmail_wrapper_preserves_raw_source_pages_and_owner_boundary(runti
         wrapped.input_model(message_id="receipt-1"), RunContext(deps=None)
     )
     assert (
-        calls == ["receipt-1"] and result["next_offset"] == 12000 and result["storage"] == "saved"
+        calls == ["receipt-1"] and result["next_offset"] == 12000 and result["storage"] == "pending"
     )
     assert (
         "Invoice USD 42.00" in result["content"]
         and raw["payload"]["body"]["data"] not in result["content"]
     )
     source = result["source_id"]
+    assert await runtime.checkpoints.drain()
     record = runtime.db.one("SELECT * FROM context_objects WHERE id=?", (source,))
     Path(record["path"]).unlink()
     saved = await runtime.checkpoints.get("alice", row["id"], source)
@@ -130,11 +131,13 @@ async def test_pending_transfer_retries_without_repeating_connector(runtime, sto
     )
     memory = ContextMemory()
     await runtime.checkpoints.save("alice", row["id"], [UserMessage("task")], memory, "after_tool")
+    assert not await runtime.checkpoints.flush()
     assert runtime.checkpoints.key("alice", row["id"], "latest.json") not in storage.objects
     storage.fail = False
     await runtime.checkpoints.save(
         "alice", row["id"], [UserMessage("task")], memory, "before_model"
     )
+    assert await runtime.checkpoints.drain()
     assert runtime.checkpoints.key("alice", row["id"], "latest.json") in storage.objects
 
 
@@ -156,6 +159,7 @@ async def test_r2_restore_recovers_model_state_and_uncertain_actions(runtime, st
         },
     )
     await runtime.checkpoints.save("alice", sid, [UserMessage("task")], memory, "after_model")
+    assert await runtime.checkpoints.drain()
     runtime.db.execute("DELETE FROM tool_runs WHERE session=?", (sid,))
     await runtime.checkpoints.restore("alice", sid)
     restored = runtime.session("alice", sid)
@@ -280,3 +284,123 @@ async def test_wrappers_preserve_execution_metadata_and_save_failed_command_file
     with pytest.raises(RuntimeError):
         await wrapped.execute(wrapped.input_model(command="example"), RunContext(None))
     assert saved == [True]
+
+
+async def test_slow_replication_never_blocks_local_checkpoint_or_recovery(runtime, storage):
+    import asyncio
+    import threading
+
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    started = asyncio.Event()
+    release = threading.Event()
+    loop = asyncio.get_running_loop()
+    upload = storage.upload_file
+
+    def blocked(*args):
+        loop.call_soon_threadsafe(started.set)
+        if not release.wait(3):
+            raise TimeoutError("blocked diagnostic storage")
+        return upload(*args)
+
+    storage.upload_file = blocked
+    try:
+        identity = await runtime.checkpoints.save(
+            "alice", row["id"], [UserMessage("saved task")], ContextMemory(), "before_model"
+        )
+        await asyncio.wait_for(started.wait(), 1)
+        second = await asyncio.wait_for(
+            runtime.checkpoints.save(
+                "alice",
+                row["id"],
+                [UserMessage("saved correction")],
+                ContextMemory(),
+                "after_model",
+            ),
+            1,
+        )
+        assert identity != second
+        assert (await runtime.checkpoints.get("alice", row["id"], second))["history"][0][
+            "content"
+        ] == "saved correction"
+        assert runtime.checkpoints.key("alice", row["id"], "latest.json") not in storage.objects
+        assert len([t for t in asyncio.all_tasks() if t is runtime.checkpoints.worker]) == 1
+    finally:
+        release.set()
+    assert await runtime.checkpoints.drain()
+    pointer = json.loads(
+        storage.objects[runtime.checkpoints.key("alice", row["id"], "latest.json")]
+    )
+    assert pointer["id"] == second
+
+
+async def test_replication_restarts_from_local_journal_without_replaying_actions(runtime, storage):
+    from theos.services.files.checkpoints import Checkpoints
+
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    storage.fail = True
+    runtime.db.execute(
+        "INSERT INTO tool_runs VALUES (?,?,?,?,?)",
+        (row["id"], "sent-once", "gmail_send_draft", "unknown", None),
+    )
+    identity = await runtime.checkpoints.save(
+        "alice", row["id"], [UserMessage("task")], ContextMemory(), "turn_end"
+    )
+    assert not await runtime.checkpoints.flush()
+    await runtime.checkpoints.close()
+    storage.fail = False
+    runtime.checkpoints = Checkpoints(runtime.files, runtime.tracing)
+    assert await runtime.checkpoints.drain()
+    assert (
+        runtime.db.one("SELECT status FROM context_objects WHERE id=?", (identity,))["status"]
+        == "saved"
+    )
+    assert (
+        runtime.db.one("SELECT status FROM tool_runs WHERE call_id=?", ("sent-once",))["status"]
+        == "unknown"
+    )
+
+
+async def test_failed_pointer_is_retried_even_when_objects_are_saved(runtime, storage):
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    put = storage.put_object
+
+    def fail_pointer(**kw):
+        raise OSError("storage outage")
+
+    storage.put_object = fail_pointer
+    await runtime.checkpoints.save(
+        "alice", row["id"], [UserMessage("task")], ContextMemory(), "turn_end"
+    )
+    assert not await runtime.checkpoints.flush()
+    assert (
+        runtime.db.one("SELECT COUNT(*) AS count FROM context_objects WHERE status='pending'")[
+            "count"
+        ]
+        == 0
+    )
+    storage.put_object = put
+    assert await runtime.checkpoints.drain()
+    assert runtime.checkpoints.key("alice", row["id"], "latest.json") in storage.objects
+
+
+async def test_failed_transfer_batch_does_not_starve_another_owner(runtime, storage):
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    other = runtime.db.create_session("bob", "gpt-6-luna", "none")
+    for i in range(20):
+        identity = await runtime.checkpoints.put("alice", row["id"], "source", {"raw": i})
+        Path(
+            runtime.db.one("SELECT path FROM context_objects WHERE id=?", (identity,))["path"]
+        ).unlink()
+    identity = await runtime.checkpoints.save(
+        "bob", other["id"], [UserMessage("safe task")], ContextMemory(), "turn_end"
+    )
+    assert not await runtime.checkpoints.flush()
+    await runtime.checkpoints.flush()
+    assert (
+        runtime.db.one("SELECT status FROM context_objects WHERE id=?", (identity,))["status"]
+        == "saved"
+    )
+    pointer = json.loads(
+        storage.objects[runtime.checkpoints.key("bob", other["id"], "latest.json")]
+    )
+    assert pointer["id"] == identity

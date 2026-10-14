@@ -77,12 +77,22 @@ class SafeFormatter(logging.Formatter):
                 "trace_export_failed",
                 "started",
                 "stopped",
+                "provider_request_failed",
+                "provider_stream_retry",
+                "checkpoint_replication_failed",
             }
             else "application_event",
         }
         for key in ("error_type", "session_id"):
             if hasattr(record, key):
-                result[key] = getattr(record, key)
+                value = getattr(record, key)
+                if key != "error_type" or (
+                    isinstance(value, str) and len(value) <= 64 and value.isidentifier()
+                ):
+                    result[key] = value
+        from .provider_diagnostics import clean
+
+        result.update(clean(record.__dict__))
         from harness.limits import HarnessErrorCode
 
         code = getattr(record, "error_code", None)
