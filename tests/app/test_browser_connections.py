@@ -148,7 +148,7 @@ async def test_browser_tools_include_configured_accounts_and_sandbox(runtime):
         tools = (await client.get(f"/api/sessions/{session['id']}/tools")).json()
         by_name = {tool["name"]: tool for tool in tools}
         assert {"gmail_connect", "get_health_summary", "sandbox_run_command"} <= by_name.keys()
-        assert not by_name["gmail_send_draft"]["requires_approval"]
+        assert by_name["gmail_send_draft"]["requires_approval"]
         assert not by_name["sandbox_run_command"]["requires_approval"]
         assert not by_name["get_health_summary"]["requires_approval"]
         for tool in tools:

@@ -15,6 +15,15 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.13
+
+Package version 0.1.13 uses tag `rpi-v0.1.13` from the promoted `rpi` tip.
+This correction restores explicit approval for Gmail sending.
+Gmail checks the reviewed draft during approval and immediately before sending.
+A changed draft requires a new review. An uncertain send does not replay automatically.
+Sandbox actions remain ungated, and the one-hour lifetime remains fixed from creation.
+No private environment edits or new migration are required.
+
 ## Release 0.1.12
 
 Package version 0.1.12 uses tag `rpi-v0.1.12` from the promoted `rpi` tip.

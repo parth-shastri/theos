@@ -1,4 +1,4 @@
-"""Only Zepto confirmation, checkout, and payment actions require approval."""
+"""Gmail sends and Zepto confirmation, checkout, and payments require approval."""
 
 import pytest
 
@@ -11,7 +11,8 @@ from theos.runtime.approvals import requires_approval
         "sandbox_run_command",
         "sandbox_execute_code",
         "sandbox_browser",
-        "gmail_send_draft",
+        "gmail_create_draft",
+        "gmail_get_draft",
         "delete_user_file",
         "delete_custom_table",
         "configure_memory_automation",
@@ -29,6 +30,7 @@ def test_ordinary_tools_do_not_require_approval(name):
 @pytest.mark.parametrize(
     "name",
     [
+        "gmail_send_draft",
         "zepto_confirm_cart",
         "zepto_create_order",
         "zepto_place_order",

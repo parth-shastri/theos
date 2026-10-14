@@ -76,7 +76,8 @@ async def test_oauth_state_one_use_expiry_service_binding_and_encryption(setting
             await oauth.callback("gmail", state, "code")
 
 
-async def test_gmail_sends_current_draft_without_approval(runtime, scripted_models):
+@pytest.mark.parametrize("decision", ["changed", "changed_before_send", "denied"])
+async def test_gmail_requires_approval_and_unchanged_draft(runtime, scripted_models, decision):
     configure(runtime.settings)
     message = EmailMessage()
     message["To"] = "friend@example.com"
@@ -84,11 +85,17 @@ async def test_gmail_sends_current_draft_without_approval(runtime, scripted_mode
     message.set_content("Hello")
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     sent = []
+    reads = 0
 
     def endpoint(request):
+        nonlocal reads, raw
         if request.url.path.endswith("/drafts/send"):
             sent.append(request)
             return httpx.Response(200, json={"id": "sent"})
+        reads += 1
+        if decision == "changed_before_send" and reads == 3:
+            message.replace_header("Subject", "Changed before send")
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
         return httpx.Response(
             200, json={"id": "draft1", "message": {"raw": raw, "labelIds": ["DRAFT"]}}
         )
@@ -108,21 +115,29 @@ async def test_gmail_sends_current_draft_without_approval(runtime, scripted_mode
         [
             AssistantMessage(
                 tool_calls=[ToolCall("send", "gmail_send_draft", {"draft_id": "draft1"})]
-            ),
-            AssistantMessage("Sent."),
+            )
         ]
     )
-    message.replace_header("Subject", "Changed subject")
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     events = await collect(runtime.start("telegram:123", session["id"], "send the draft"))
-    assert events[-1]["status"] == "completed" and len(sent) == 1
-    assert not runtime.pending("telegram:123", session["id"])
+    assert events[-1]["status"] == "waiting_for_approval" and not sent
+    approval = runtime.pending("telegram:123", session["id"])[0]
+    assert "Approved subject" in approval["preview"]
+    if decision == "changed":
+        message.replace_header("Subject", "Changed subject")
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    scripted_models.responses.append([AssistantMessage("The draft was not sent.")])
+    await collect(
+        runtime.start(
+            "telegram:123", session["id"], approval=(approval["id"], decision != "denied")
+        )
+    )
+    assert not sent
     result = next(
         m
         for m in runtime.db.load_history("telegram:123", session["id"])
         if isinstance(m, ToolResultMessage)
     )
-    assert result.status == "completed"
+    assert result.status == ("failed" if decision == "changed_before_send" else "denied")
     await http.aclose()
 
 
