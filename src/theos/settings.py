@@ -89,16 +89,11 @@ class OpenRouterSettings(BaseModel):
     """Prefer responsive endpoints while retaining ZDR and provider fallback."""
 
     sort: Literal["latency", "throughput", "price"] = "latency"
-    order: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_/-]{0,99}$")]] = Field(
-        default_factory=list, max_length=16
-    )
     latency_p90: float | None = Field(default=15, gt=0, le=600)
     throughput_p90: float | None = Field(default=10, gt=0, le=10000)
 
     def preferences(self):
         result = {"sort": self.sort}
-        if self.order:
-            result["order"] = list(self.order)
         if self.latency_p90 is not None:
             result["preferred_max_latency"] = {"p90": self.latency_p90}
         if self.throughput_p90 is not None:

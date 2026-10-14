@@ -859,3 +859,7 @@ Reasoning usage remains part of total output usage. It does not increase cost ac
 Existing tests retain single execution across provider retries and paused tools after remote restore.
 The full local suite passed 1,116 tests, with three credential-dependent checks excluded.
 Tagged deployment and the active Pi manifest must confirm application activation.
+
+The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
+Every request retains ZDR and generic performance preferences without an endpoint order.
+Runtime configuration contains no model-specific order map. No provider call is required for these checks.
