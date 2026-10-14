@@ -15,6 +15,12 @@ The call budget counts harness model calls. SDK retries and this bounded routing
 The application log formatter excludes prompts, credentials, and remote error bodies.
 Conversation history remains private data in SQLite and needs separate protection.
 
+Model spans also record the actual output allowance and explicit reasoning effort, or `provider_default` when omitted.
+They record serialized request bytes, input message count, tool schema count, and validated routing controls.
+These fields exclude prompt text, tool schemas, credentials, and arbitrary request options.
+OpenRouter reasoning-token usage appears as `gen_ai.usage.reasoning.output_tokens` when reported.
+Reasoning tokens are part of total output tokens. They are not billed or counted again.
+
 ## Outputs
 
 | Output | Location | Contents |

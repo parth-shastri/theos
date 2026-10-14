@@ -123,6 +123,10 @@ OpenRouter aliases and parameter support live in [the model catalog](../src/theo
 Microphone input uses browser MediaRecorder and the existing transcription client.
 Speech playback uses the existing Kokoro client and authenticated file catalog.
 The [OpenRouter adapter](../src/theos/runtime/openrouter.py) retains streamed reasoning, signed reasoning blocks, and provider-reported costs.
+Runtime settings prefer low latency and minimum throughput among eligible endpoints.
+Endpoint preferences apply to all model paths and preserve explicit request constraints.
+`scripts/check_provider_latency.py` compares routes with synthetic records and a tool schema that never executes.
+The probe uses existing OpenAI, HTTPX, and tracing dependencies. It writes no production conversation records.
 It enforces `provider.zdr=true` for every OpenRouter request, including delegated research, compaction, and titles.
 This uses the existing OpenAI SDK and adds no dependency or model tool.
 

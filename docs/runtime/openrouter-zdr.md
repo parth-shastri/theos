@@ -58,3 +58,33 @@ The completed run used the supported `low` effort instead.
 These checks establish request acceptance and routing behavior, not independent verification of provider retention practices.
 They do not verify tools, image input, streaming, or external Mem0 and voice services.
 See [OpenRouter's ZDR policy](https://openrouter.ai/docs/guides/features/zdr) for retention scope and in-memory caching rules.
+
+## Pi latency investigation, 2026-10-14
+
+The two slow generations each show one successful Azure endpoint response and the default service tier.
+The provider times closely match Theos model spans. They do not show a provider fallback or retry chain.
+
+| Generation suffix | Input tokens | Cached input | Reasoning tokens | Total output | First output seconds | Generation seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `AY0noKYNiAx8ONjTEpqZ` | 20,575 | 18,064 | 199 | 302 | 93.526 | 143.049 |
+| `8eHy9lK8TxRLmeAJmCTL` | 40,952 | 27,608 | 808 | 940 | 80.470 | 378.893 |
+| `pyE7Q6rUlTCI88SfRWts` | 41,960 | 40,949 | 16 | 148 | 12.374 | 12.972 |
+
+Pi uses default reasoning, 100,000 context tokens, and an 8,192-token output allowance.
+The current model catalog reports medium default effort. Both slow requests ended with tool calls, not output truncation.
+Their context remains below the compaction trigger. Similar context can complete much faster, as the third row shows.
+
+The current [ZDR endpoint list](https://openrouter.ai/api/v1/endpoints/zdr) permits only Azure variants for this model.
+The base Azure endpoint has a much slower latency tail than Azure EU in the public endpoint statistics.
+The former routing policy supplied only `zdr=true`, leaving price-based load balancing active.
+
+A synthetic 51,079-token request with medium effort returned the correct tool arguments in 2.94 seconds through automatic routing.
+The responsive profile with Azure EU first took 2.96 seconds.
+Forcing the base Azure endpoint with the same cached context took 38.46 seconds.
+The probe advertised one inert tool and executed none.
+These observations establish intermittent endpoint stalls. They do not establish Azure's internal queue or hardware cause.
+
+Runtime routing now prefers latency with p90 latency and throughput thresholds.
+Pi puts `azure/eu` first while preserving eligible fallbacks and mandatory ZDR.
+These are routing preferences, not hard latency guarantees. Reasoning and recovery protections remain intact.
+See [OpenRouter provider selection](https://openrouter.ai/docs/guides/routing/provider-selection) for threshold and fallback behavior.

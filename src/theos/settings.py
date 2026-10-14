@@ -85,6 +85,27 @@ class ModelCosts(BaseModel):
     output: float = Field(ge=0)
 
 
+class OpenRouterSettings(BaseModel):
+    """Prefer responsive endpoints while retaining ZDR and provider fallback."""
+
+    sort: Literal["latency", "throughput", "price"] = "latency"
+    order: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_/-]{0,99}$")]] = Field(
+        default_factory=list, max_length=16
+    )
+    latency_p90: float | None = Field(default=15, gt=0, le=600)
+    throughput_p90: float | None = Field(default=10, gt=0, le=10000)
+
+    def preferences(self):
+        result = {"sort": self.sort}
+        if self.order:
+            result["order"] = list(self.order)
+        if self.latency_p90 is not None:
+            result["preferred_max_latency"] = {"p90": self.latency_p90}
+        if self.throughput_p90 is not None:
+            result["preferred_min_throughput"] = {"p90": self.throughput_p90}
+        return result
+
+
 class TracingSettings(BaseModel):
     """Optional OTLP/HTTP export with explicit, bounded content capture."""
 
@@ -140,6 +161,7 @@ class Settings(ClientSettings):
     model: str = DEFAULT_MODEL
     api_key: SecretStr = SecretStr("")
     model_base_url: str = ""
+    openrouter: OpenRouterSettings = Field(default_factory=OpenRouterSettings)
     allowed_models: list[str] = Field(default_factory=list)
     reasoning: Literal["default", "none", "low", "medium", "high", "xhigh", "max"] = "default"
     auto_titles: bool = True

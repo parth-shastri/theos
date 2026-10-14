@@ -15,6 +15,15 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.15
+
+Package version 0.1.15 uses tag `rpi-v0.1.15` from the promoted `rpi` tip.
+OpenRouter prefers responsive endpoints instead of its default price-based routing.
+Pi prefers Azure EU while retaining ZDR and eligible fallback providers.
+Reasoning, context, output limits, retry bounds, and tool recovery rules remain unchanged.
+Spans record request controls, request size, routing preferences, and reported reasoning tokens.
+The synthetic provider probe never executes its advertised tool.
+
 ## Release 0.1.14
 
 Package version 0.1.14 uses tag `rpi-v0.1.14` from the promoted `rpi` tip.

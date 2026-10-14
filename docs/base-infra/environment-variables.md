@@ -143,6 +143,10 @@ The delegate deadline remains 85 seconds. The turn deadline remains 300 seconds 
 | `AGENT_MODEL_BASE_URL` | Empty | Base URL override for the OpenAI client path |
 | `AGENT_ALLOWED_MODELS` | `[]` | Explicit model allowlist. Empty uses the provider's built-in choices and `AGENT_MODEL` |
 | `AGENT_REASONING` | `default` | `default`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`, where supported |
+| `AGENT_OPENROUTER__SORT` | `latency` | Prefer latency, throughput, or price among eligible endpoints |
+| `AGENT_OPENROUTER__ORDER` | `[]` | Preferred endpoint slugs in order. Other eligible providers remain fallbacks |
+| `AGENT_OPENROUTER__LATENCY_P90` | `15` | Prefer endpoints whose recent p90 latency is at most this many seconds |
+| `AGENT_OPENROUTER__THROUGHPUT_P90` | `10` | Prefer endpoints whose recent p90 throughput is at least this many tokens per second |
 | `AGENT_AUTO_TITLES` | `true` | Generate browser conversation titles from opening exchanges. Title usage contributes to conversation costs |
 | `AGENT_INPUT_COST_PER_MILLION` | Unset | Nonnegative input rate in USD per million tokens |
 | `AGENT_OUTPUT_COST_PER_MILLION` | Unset | Nonnegative output rate in USD per million tokens |
@@ -158,6 +162,13 @@ The fake provider needs no credential.
 The llama client uses a local placeholder when the key is empty.
 A model must support the requested reasoning option.
 Use `default` when the provider rejects an explicit effort.
+
+OpenRouter preferences apply to chat, research, compaction, and title requests.
+They retain `provider.zdr=true`, saved signed reasoning, and explicit request preferences.
+Performance thresholds deprioritize slow endpoints. They are not request deadlines or hard exclusions.
+Pi prefers `AGENT_OPENROUTER__ORDER=["azure/eu"]` after its measured base Azure stalls.
+An incompatible preferred endpoint does not disable other eligible providers.
+Do not disable ZDR to reach a faster endpoint.
 
 OpenRouter-reported costs take precedence over configured estimates.
 Both cost rates must exist before Theos records a token-rate estimate.
