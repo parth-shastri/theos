@@ -145,6 +145,7 @@ The delegate deadline remains 85 seconds. The turn deadline remains 300 seconds 
 | `AGENT_REASONING` | `default` | `default`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`, where supported |
 | `AGENT_OPENROUTER__SORT` | `latency` | Prefer latency, throughput, or price among eligible endpoints |
 | `AGENT_OPENROUTER__ORDER` | `[]` | Preferred endpoint slugs in order. Other eligible providers remain fallbacks |
+| `AGENT_OPENROUTER__MODEL_ORDERS` | `{}` | Per-model endpoint orders keyed by complete OpenRouter wire IDs. Overrides the global order |
 | `AGENT_OPENROUTER__LATENCY_P90` | `15` | Prefer endpoints whose recent p90 latency is at most this many seconds |
 | `AGENT_OPENROUTER__THROUGHPUT_P90` | `10` | Prefer endpoints whose recent p90 throughput is at least this many tokens per second |
 | `AGENT_AUTO_TITLES` | `true` | Generate browser conversation titles from opening exchanges. Title usage contributes to conversation costs |
@@ -166,7 +167,8 @@ Use `default` when the provider rejects an explicit effort.
 OpenRouter preferences apply to chat, research, compaction, and title requests.
 They retain `provider.zdr=true`, saved signed reasoning, and explicit request preferences.
 Performance thresholds deprioritize slow endpoints. They are not request deadlines or hard exclusions.
-Pi prefers `AGENT_OPENROUTER__ORDER=["azure/eu"]` after its measured base Azure stalls.
+Pi keeps the global order empty and sets `AGENT_OPENROUTER__MODEL_ORDERS={"openai/gpt-6-luna":["azure/eu"]}`.
+That preference applies only to the measured Luna model. Other models select eligible endpoints using performance preferences.
 An incompatible preferred endpoint does not disable other eligible providers.
 Do not disable ZDR to reach a faster endpoint.
 

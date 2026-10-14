@@ -15,6 +15,13 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.16
+
+Package version 0.1.16 uses tag `rpi-v0.1.16` from the promoted `rpi` tip.
+Scope the Pi Azure EU preference to `openai/gpt-6-luna` through a per-model order map.
+Other OpenRouter models retain generic performance preferences without that endpoint order.
+Direct provider clients, reasoning, and safe recovery retain their existing behavior.
+
 ## Release 0.1.15
 
 Package version 0.1.15 uses tag `rpi-v0.1.15` from the promoted `rpi` tip.

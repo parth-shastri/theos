@@ -115,7 +115,7 @@ async def model_client(settings, model_id, reasoning):
                     model_id,
                     api="chat_completions" if settings.provider == "openrouter" else "responses",
                     **(
-                        {"provider_preferences": settings.openrouter.preferences()}
+                        {"provider_preferences": settings.openrouter.preferences(model_id)}
                         if settings.provider == "openrouter"
                         else {}
                     ),

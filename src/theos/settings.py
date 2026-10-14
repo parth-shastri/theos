@@ -92,13 +92,17 @@ class OpenRouterSettings(BaseModel):
     order: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_/-]{0,99}$")]] = Field(
         default_factory=list, max_length=16
     )
+    model_orders: dict[
+        str, list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_/-]{0,99}$")]]
+    ] = Field(default_factory=dict)
     latency_p90: float | None = Field(default=15, gt=0, le=600)
     throughput_p90: float | None = Field(default=10, gt=0, le=10000)
 
-    def preferences(self):
+    def preferences(self, model=None):
         result = {"sort": self.sort}
-        if self.order:
-            result["order"] = list(self.order)
+        order = self.model_orders.get(model, self.order)
+        if order:
+            result["order"] = list(order)
         if self.latency_p90 is not None:
             result["preferred_max_latency"] = {"p90": self.latency_p90}
         if self.throughput_p90 is not None:

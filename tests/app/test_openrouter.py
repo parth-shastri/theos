@@ -201,6 +201,39 @@ async def test_runtime_client_applies_configured_routing(settings):
     assert settings.openrouter.order == ["azure/eu"]
 
 
+@pytest.mark.parametrize(
+    "choice",
+    [
+        "gpt-6-luna",
+        "gpt-5.6-luna",
+        "sonnet-5.5",
+        "deepseek-flash-v4.1",
+        "gemini-3.8-flash",
+        "glm-5.3-flash",
+        "qwen-3.8-27b",
+    ],
+)
+async def test_model_specific_route_does_not_reach_other_models(settings, choice):
+    from pydantic import SecretStr
+
+    from theos.runtime.models import model_client
+    from theos.settings import OpenRouterSettings
+
+    settings.provider = "openrouter"
+    settings.api_key = SecretStr("test")
+    settings.openrouter = OpenRouterSettings(model_orders={"openai/gpt-6-luna": ["azure/eu"]})
+    async with model_client(settings, choice, "default") as model:
+        provider = model.encode_request(ModelRequest([UserMessage("Synthetic probe")]))[
+            "extra_body"
+        ]["provider"]
+    assert provider["zdr"] is True
+    assert provider["sort"] == "latency"
+    if choice == "gpt-6-luna":
+        assert provider["order"] == ["azure/eu"]
+    else:
+        assert "order" not in provider
+
+
 @pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("retry_fails", [False, True])
 @pytest.mark.parametrize("status", [400, 404])
