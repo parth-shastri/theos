@@ -12,6 +12,7 @@ import httpx
 from harness import (
     Agent,
     ContextCompaction,
+    HarnessError,
     ToolResultMessage,
     UserMessage,
 )
@@ -406,6 +407,7 @@ class Runtime:
                     "turn_incomplete",
                     extra={
                         "error_type": type(error).__name__,
+                        "error_code": error.code.value if isinstance(error, HarnessError) else None,
                         "reason": reason,
                         "session_id": turn.session_id,
                     },

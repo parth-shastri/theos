@@ -759,3 +759,19 @@ Approved and denied cards disappear after decisions. A replacement bot reads sav
 Polling removes expired cards and cards resolved by another client. Failed deletion removes buttons and retains references for another attempt.
 SQLite retains original approval snapshots and decisions. Existing recovery and transcript checks still pass.
 Python lint, formatting, and whitespace checks passed. These changes have not deployed or sent live Telegram messages.
+
+## Recoverable tool batches and model feedback, 2026-10-14
+
+The local suite passed 1,063 tests, with three credential-dependent tests excluded.
+A 35-call response completed with batch sizes of one, eight, and sixteen. All call IDs and result order remained intact.
+The direct executor also bounded parallel groups. Model requests included explicit oversized-batch feedback and instructions against resubmitting completed or uncertain calls.
+Cancellation in a later batch retained earlier results and one unknown outcome. Resumption completed remaining calls without repeating that uncertain action.
+
+A 17-action application check created every required approval. One approved action executed once while the other sixteen were denied.
+Approval arguments and saved results retained their original identities. Invalid calls produced saved `not_started` results and allowed correction with new IDs.
+Argument size, nesting, list size, schema, and unknown-tool checks stopped affected calls before execution.
+Executed failures and uncertain outcomes retained distinct statuses. Duplicate IDs still stopped before any tool executed.
+
+Trace checks retained the full 35-call count while content capture included only the first sixteen calls.
+Log checks accepted only fixed harness error codes and excluded private values.
+These checks used local fixtures. They did not query Gmail, send Telegram messages, or deploy the change.

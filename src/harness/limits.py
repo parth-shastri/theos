@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
-from harness.types import AssistantMessage
+from harness.types import AssistantMessage, ToolCall
 
 __all__ = [
     "DEFAULT_EXECUTION_LIMITS",
@@ -15,10 +15,11 @@ __all__ = [
     "HarnessError",
     "HarnessErrorCode",
     "validate_assistant_message",
+    "validate_tool_arguments",
 ]
 
 
-class HarnessErrorCode(str, Enum):
+class HarnessErrorCode(StrEnum):
     CONTEXT_LIMIT_EXCEEDED = "context_limit_exceeded"
     MALFORMED_MODEL_OUTPUT = "malformed_model_output"
     OUTPUT_LIMIT_EXCEEDED = "output_limit_exceeded"
@@ -40,23 +41,27 @@ class HarnessError(ValueError):
 
 @dataclass(frozen=True)
 class ExecutionLimits:
-    """Upper bounds on one complete assistant response."""
+    """Argument bounds and the size of each tool execution batch."""
 
     max_output_bytes: int | None = None
     max_argument_bytes: int = 64 * 1024
     max_nesting_depth: int = 32
-    max_tool_calls: int = 16
+    tool_batch_size: int = 16
     max_batch_size: int = 64
 
     def __post_init__(self) -> None:
-        if min(
-            self.max_output_bytes if self.max_output_bytes is not None else 0,
-            self.max_argument_bytes,
-            self.max_nesting_depth,
-            self.max_tool_calls,
-            self.max_batch_size,
-        ) < 0:
+        if (
+            min(
+                self.max_output_bytes if self.max_output_bytes is not None else 0,
+                self.max_argument_bytes,
+                self.max_nesting_depth,
+                self.max_batch_size,
+            )
+            < 0
+        ):
             raise ValueError("execution limits cannot be negative")
+        if self.tool_batch_size < 1:
+            raise ValueError("tool_batch_size must be positive")
 
 
 DEFAULT_EXECUTION_LIMITS = ExecutionLimits()
@@ -84,8 +89,10 @@ def _shape(value: Any) -> tuple[int, int]:
 def validate_assistant_message(
     message: AssistantMessage,
     limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS,
+    *,
+    validate_arguments: bool = True,
 ) -> None:
-    """Reject malformed or oversized output before any requested tool runs."""
+    """Check response identity. Executors can answer argument errors per call."""
     if (message.text is not None and not isinstance(message.text, str)) or (
         message.reasoning is not None and not isinstance(message.reasoning, str)
     ):
@@ -96,8 +103,6 @@ def validate_assistant_message(
     output_bytes += len((message.reasoning or "").encode("utf-8"))
     if limits.max_output_bytes is not None and output_bytes > limits.max_output_bytes:
         raise HarnessError(HarnessErrorCode.OUTPUT_LIMIT_EXCEEDED)
-    if len(message.tool_calls) > limits.max_tool_calls:
-        raise HarnessError(HarnessErrorCode.TOO_MANY_TOOL_CALLS)
 
     ids: set[str] = set()
     for call in message.tool_calls:
@@ -112,22 +117,40 @@ def validate_assistant_message(
         if call.id in ids:
             raise HarnessError(HarnessErrorCode.DUPLICATE_TOOL_CALL_ID)
         ids.add(call.id)
-        try:
-            argument_bytes = len(
-                json.dumps(
-                    call.arguments,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    ensure_ascii=False,
-                    allow_nan=False,
-                ).encode("utf-8")
-            )
-        except (TypeError, ValueError, RecursionError) as error:
-            raise HarnessError(HarnessErrorCode.MALFORMED_MODEL_OUTPUT) from error
-        if argument_bytes > limits.max_argument_bytes:
-            raise HarnessError(HarnessErrorCode.TOOL_ARGUMENTS_TOO_LARGE)
-        depth, largest_list = _shape(call.arguments)
-        if depth > limits.max_nesting_depth:
-            raise HarnessError(HarnessErrorCode.TOOL_ARGUMENTS_TOO_DEEP)
-        if largest_list > limits.max_batch_size:
-            raise HarnessError(HarnessErrorCode.BATCH_SIZE_EXCEEDED)
+        if validate_arguments:
+            validate_tool_arguments(call, limits)
+
+
+def validate_tool_arguments(call: ToolCall, limits: ExecutionLimits) -> None:
+    """Bound one call before schema validation, approval, or execution."""
+    try:
+        argument_bytes = len(
+            json.dumps(
+                call.arguments,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        )
+    except (TypeError, ValueError, RecursionError) as error:
+        raise HarnessError(
+            HarnessErrorCode.MALFORMED_MODEL_OUTPUT,
+            "Tool arguments must contain valid JSON values.",
+        ) from error
+    if argument_bytes > limits.max_argument_bytes:
+        raise HarnessError(
+            HarnessErrorCode.TOOL_ARGUMENTS_TOO_LARGE,
+            f"Tool arguments exceed {limits.max_argument_bytes} bytes. Reduce the argument text.",
+        )
+    depth, largest_list = _shape(call.arguments)
+    if depth > limits.max_nesting_depth:
+        raise HarnessError(
+            HarnessErrorCode.TOOL_ARGUMENTS_TOO_DEEP,
+            f"Tool arguments exceed {limits.max_nesting_depth} nested levels. Use a shallower structure.",
+        )
+    if largest_list > limits.max_batch_size:
+        raise HarnessError(
+            HarnessErrorCode.BATCH_SIZE_EXCEEDED,
+            f"An argument list exceeds {limits.max_batch_size} items. Split it into smaller calls.",
+        )

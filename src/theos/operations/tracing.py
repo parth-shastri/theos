@@ -275,6 +275,9 @@ class TracedModel:
                         )
                         first = False
                     if isinstance(event, GenerationComplete):
+                        span.set_attribute(
+                            "theos.model.tool_call_count", len(event.message.tool_calls)
+                        )
                         self.tracing.content(
                             span, "gen_ai.output.messages", [message_content(event.message)]
                         )

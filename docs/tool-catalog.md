@@ -5,6 +5,13 @@ The harness supplies bounded exact references from the original transcript and o
 The full reference index stays in saved memory. Existing `history_read`, `history_search`, and research tools recover omitted details.
 This extension adds no tool or runtime dependency.
 
+Tool responses can contain more than 16 calls. The harness processes valid calls in ordered batches of at most 16.
+It preserves call IDs, approval checks, and completed results. Only tools declared safe may overlap.
+The model receives batching guidance and explicit feedback after oversized groups.
+Invalid arguments and unknown tools receive `not_started` results before execution, with correction instructions.
+Executed failures retain `failed`. Uncertain actions retain `unknown` and cannot repeat automatically.
+Trace metadata retains the complete generated call count even when content capture includes only the first 16 calls.
+
 The runtime binds tools to the authenticated owner and conversation.
 A model cannot supply another owner ID through tool arguments.
 Optional account tools appear only after configuration and transport checks.

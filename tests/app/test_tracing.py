@@ -87,6 +87,22 @@ async def test_turn_models_and_tool_are_siblings(runtime, scripted_models, expor
         assert private not in serialized
 
 
+async def test_trace_keeps_the_actual_tool_count_when_content_keeps_only_sixteen(runtime, exporter):
+    from harness import ModelRequest
+
+    runtime.tracing.settings.capture_content = True
+    model = runtime.tracing.model(
+        FakeModel([AssistantMessage(tool_calls=[ToolCall(str(i), "read", {}) for i in range(35)])])
+    )
+    events = [event async for event in model.stream(ModelRequest([UserMessage("Read records.")]))]
+    assert events
+    output = await spans(runtime, exporter)
+    span = output[-1]
+    assert span.attributes["theos.model.tool_call_count"] == 35
+    content = json.loads(span.attributes["gen_ai.output.messages"])
+    assert len(content[0]["parts"]) == 16
+
+
 async def test_parallel_delegates_keep_separate_model_and_tool_parents(runtime, exporter):
     both_started = asyncio.Event()
     count = 0

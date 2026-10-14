@@ -83,6 +83,11 @@ class SafeFormatter(logging.Formatter):
         for key in ("error_type", "session_id"):
             if hasattr(record, key):
                 result[key] = getattr(record, key)
+        from harness.limits import HarnessErrorCode
+
+        code = getattr(record, "error_code", None)
+        if isinstance(code, str) and code in {item.value for item in HarnessErrorCode}:
+            result["error_code"] = code
         return json.dumps(result)
 
 

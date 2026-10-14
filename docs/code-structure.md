@@ -157,3 +157,9 @@ The generic compression policy lives in `src/harness/compression_policy.py`.
 `src/harness/context_fit.py` reduces full working requests without changing the transcript or tool validation contracts.
 Runtime events expose scoped compaction activity. Transport renderers own its display and readable approval reviews.
 Assistant storage and sandbox dependencies stay under `src/theos/services`.
+
+`src/harness/limits.py` defines tool argument bounds and the execution batch size, default 16.
+`loop.py` processes every valid call in ordered batches and retains each batch's results before the next batch.
+`tools.py` preserves approval checks and bounds parallel groups. Tools without a parallel safety declaration remain serial.
+Invalid calls receive `not_started` results with correction instructions. Executed failures and uncertain outcomes retain separate statuses.
+Model instructions request smaller groups and explain when an oversized group was split. Call IDs and saved transcripts remain unchanged.

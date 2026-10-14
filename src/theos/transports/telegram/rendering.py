@@ -31,6 +31,7 @@ def format_stats(stats, status):
             ("failed", "failed"),
             ("unknown", "outcome unknown"),
             ("denied", "denied"),
+            ("not_started", "not started"),
         ]
         if outcomes.get(name)
     ]

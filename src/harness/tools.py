@@ -17,6 +17,12 @@ from harness.context import RunContext
 from harness.debug import log_detail, log_event
 from harness.events import ToolFinished, ToolStarted, _tool_scope
 from harness.hooks import ALLOW, DENY, Hooks
+from harness.limits import (
+    DEFAULT_EXECUTION_LIMITS,
+    ExecutionLimits,
+    HarnessError,
+    validate_tool_arguments,
+)
 from harness.types import (
     PendingApproval,
     ToolCall,
@@ -26,7 +32,8 @@ from harness.types import (
     View,
 )
 
-Status = Literal["completed", "denied", "failed", "unknown"]
+Status = Literal["completed", "denied", "not_started", "failed", "unknown"]
+_DEFAULT_HOOKS = Hooks()
 
 __all__ = [
     "OutcomeUnknown",
@@ -79,9 +86,7 @@ def _is_context_annotation(annotation: Any) -> bool:
 def _resolve_hints(fn: Callable[..., Any]) -> dict[str, Any]:
     """Resolve parameter annotations while preserving `Annotated` metadata."""
     annotations = {
-        key: value
-        for key, value in getattr(fn, "__annotations__", {}).items()
-        if key != "return"
+        key: value for key, value in getattr(fn, "__annotations__", {}).items() if key != "return"
     }
     shim = type("_ToolAnnotations", (), {"__annotations__": annotations})
     return get_type_hints(
@@ -92,9 +97,7 @@ def _resolve_hints(fn: Callable[..., Any]) -> dict[str, Any]:
     )
 
 
-def _build_input_model(
-    fn: Callable[..., Any], name: str
-) -> tuple[type[BaseModel], str | None]:
+def _build_input_model(fn: Callable[..., Any], name: str) -> tuple[type[BaseModel], str | None]:
     """Build the input model and report which parameter takes the run context."""
     hints = _resolve_hints(fn)
     fields: dict[str, tuple[Any, Any]] = {}
@@ -182,15 +185,11 @@ def _with_default_view(
 ) -> ToolResultMessage:
     """Attach the tool's own view when the tool returned none."""
     if result.view is None and tool_obj.view is not None:
-        result.view = View(
-            tool_obj.view, {"args": args.model_dump(), "status": result.status}
-        )
+        result.view = View(tool_obj.view, {"args": args.model_dump(), "status": result.status})
     return result
 
 
-async def _finish(
-    result: ToolResultMessage, ctx: RunContext, hooks: Hooks
-) -> ToolResultMessage:
+async def _finish(result: ToolResultMessage, ctx: RunContext, hooks: Hooks) -> ToolResultMessage:
     """Run `after_tool` on every result, then announce the finished call."""
     if hooks.after_tool is not None:
         result = await hooks.after_tool(result, ctx)
@@ -203,7 +202,7 @@ def _find(name: str, tools: Sequence[Tool]) -> Tool | None:
 
 
 def _resolve(
-    call: ToolCall, tools: Sequence[Tool]
+    call: ToolCall, tools: Sequence[Tool], limits: ExecutionLimits
 ) -> tuple[Tool, BaseModel] | ToolResultMessage:
     """Find the tool and validate the arguments once, or answer the call inline.
 
@@ -211,14 +210,25 @@ def _resolve(
     predicate sees are the same object the tool body runs on.
     """
     log_detail("resolve tool call=%r available_tools=%r", call, [t.name for t in tools])
+    try:
+        validate_tool_arguments(call, limits)
+    except HarnessError as error:
+        return ToolResultMessage(
+            call.id,
+            call.name,
+            f"Not started ({error.code.value}): {error}. No tool executed. "
+            "Correct the arguments and submit a new call with a new ID.",
+            "not_started",
+        )
     tool_obj = _find(call.name, tools)
     if tool_obj is None:
         log_detail("tool resolution failed unknown_tool=%s call=%r", call.name, call)
         return ToolResultMessage(
             call_id=call.id,
             name=call.name,
-            content=f"Unknown tool: {call.name}",
-            status="failed",
+            content=f"Not started: unknown tool {call.name}. No tool executed. "
+            "Choose an available tool and submit a new call with a new ID.",
+            status="not_started",
         )
     try:
         args = tool_obj.input_model.model_validate(call.arguments)
@@ -230,7 +240,11 @@ def _resolve(
             exc,
         )
         return ToolResultMessage(
-            call_id=call.id, name=tool_obj.name, content=str(exc), status="failed"
+            call_id=call.id,
+            name=tool_obj.name,
+            content=f"Not started: invalid arguments. No tool executed.\n{exc}\n"
+            "Correct the arguments and submit a new call with a new ID.",
+            status="not_started",
         )
     log_detail("tool resolved tool=%s args=%r", tool_obj.name, args.model_dump())
     return tool_obj, args
@@ -241,12 +255,13 @@ async def execute_tool(
     tools: Sequence[Tool],
     *,
     ctx: RunContext,
-    hooks: Hooks = Hooks(),
+    hooks: Hooks = _DEFAULT_HOOKS,
+    limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS,
 ) -> ToolResultMessage | PendingApproval:
     """Validate, authorize, and run one tool call."""
     log_detail("execute_tool start call=%r", call)
     # 1. Find the tool and validate the model's arguments.
-    resolved = _resolve(call, tools)
+    resolved = _resolve(call, tools, limits)
     if isinstance(resolved, ToolResultMessage):
         return await _finish(resolved, ctx, hooks)
 
@@ -274,7 +289,9 @@ async def _run(
     approval = ctx.inbox.take_approval(call.id) if ctx.inbox is not None else None
     if approval is not None:
         decision = ALLOW if approval.approved else DENY(approval.reason or "Denied by user")
-        log_detail("tool approval response tool=%s call=%r response=%r", tool_obj.name, call, approval)
+        log_detail(
+            "tool approval response tool=%s call=%r response=%r", tool_obj.name, call, approval
+        )
     else:
         decision = await hooks.before_tool(tool_obj, args, ctx)
         log_detail("before_tool hook decision tool=%s decision=%r", tool_obj.name, decision)
@@ -295,7 +312,9 @@ async def _run(
 
     # 2. Only allowed calls reach the tool body.
     _emit(ctx, ToolStarted(call, _call_view(tool_obj, args)))
-    log_detail("tool execution started tool=%s call=%r args=%r", tool_obj.name, call, args.model_dump())
+    log_detail(
+        "tool execution started tool=%s call=%r args=%r", tool_obj.name, call, args.model_dump()
+    )
     result: ToolResultMessage | None = None
     try:
         # Let a streaming consumer render the start event before the tool does work.
@@ -370,7 +389,9 @@ async def _invoke(
         detail = str(exc)
         content = f"Outcome unknown: {detail}" if detail else "Outcome unknown"
         result = answer(content, "unknown")
-        log_detail("tool body outcome unknown tool=%s error=%r result=%r", tool_obj.name, exc, result)
+        log_detail(
+            "tool body outcome unknown tool=%s error=%r result=%r", tool_obj.name, exc, result
+        )
         return result
     except Exception as exc:
         result = answer(f"{type(exc).__name__}: {exc}", "failed")
@@ -380,25 +401,29 @@ async def _invoke(
 
 def _groups(
     scheduled: Sequence[tuple[int, ToolCall, Tool, BaseModel]],
+    batch_size: int,
 ) -> list[list[tuple[int, ToolCall, Tool, BaseModel]]]:
     """Split a batch into runs that may overlap, keeping the call order.
 
-    Neighboring parallel-safe calls form one group and run together. An unsafe
-    call is a group of its own, so it never overlaps any other call.
+    Neighboring parallel-safe calls form bounded groups and run together.
+    An unsafe call is a group of its own and never overlaps another call.
     """
     groups: list[list[tuple[int, ToolCall, Tool, BaseModel]]] = []
     open_group = False  # whether the last group still accepts safe calls
     for item in scheduled:
         _, _, tool_obj, args = item
         safe = tool_obj.is_parallel_safe(args)  # asked once, like the body runs once
-        if safe and open_group:
+        if safe and open_group and len(groups[-1]) < batch_size:
             groups[-1].append(item)
         else:
             groups.append([item])
         open_group = safe
     log_detail(
         "tool scheduling groups=%r",
-        [[(call.id, tool_obj.name, args.model_dump()) for _, call, tool_obj, args in group] for group in groups],
+        [
+            [(call.id, tool_obj.name, args.model_dump()) for _, call, tool_obj, args in group]
+            for group in groups
+        ],
     )
     return groups
 
@@ -408,7 +433,8 @@ async def execute_tools(
     tools: Sequence[Tool],
     *,
     ctx: RunContext,
-    hooks: Hooks = Hooks(),
+    hooks: Hooks = _DEFAULT_HOOKS,
+    limits: ExecutionLimits = DEFAULT_EXECUTION_LIMITS,
 ) -> list[ToolResultMessage | PendingApproval]:
     """Run a batch in call order. Neighboring parallel-safe calls overlap."""
     log_detail("execute_tools start calls=%r tool_count=%d", calls, len(tools))
@@ -416,19 +442,16 @@ async def execute_tools(
     results: list[ToolResultMessage | PendingApproval | None] = [None] * len(calls)
     scheduled: list[tuple[int, ToolCall, Tool, BaseModel]] = []
     for index, call in enumerate(calls):
-        resolved = _resolve(call, tools)
+        resolved = _resolve(call, tools, limits)
         if isinstance(resolved, ToolResultMessage):
             results[index] = await _finish(resolved, ctx, hooks)
             continue
         scheduled.append((index, call) + resolved)
 
     # 2. Run one group at a time. gather() keeps the order within a group.
-    for group in _groups(scheduled):
+    for group in _groups(scheduled, limits.tool_batch_size):
         gathered = await asyncio.gather(
-            *(
-                _run(call, tool_obj, args, ctx=ctx, hooks=hooks)
-                for _, call, tool_obj, args in group
-            )
+            *(_run(call, tool_obj, args, ctx=ctx, hooks=hooks) for _, call, tool_obj, args in group)
         )
         for (index, _, _, _), result in zip(group, gathered, strict=True):
             results[index] = result

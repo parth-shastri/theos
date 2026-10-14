@@ -106,6 +106,7 @@ async def _stream_tools(
     tools: Sequence[Tool],
     ctx: RunContext,
     hooks: Hooks,
+    limits: ExecutionLimits,
 ) -> AsyncIterator[Event | _ToolBatchFinished]:
     """Bridge the tool executor's events into an async iterator."""
     log_detail("tool stream start calls=%r tool_count=%d", calls, len(tools))
@@ -116,7 +117,7 @@ async def _stream_tools(
 
     async def execute() -> list[ToolResultMessage | PendingApproval]:
         try:
-            return await execute_tools(calls, tools, ctx=ctx, hooks=hooks)
+            return await execute_tools(calls, tools, ctx=ctx, hooks=hooks, limits=limits)
         finally:
             queue.put_nowait(done)
 
@@ -288,14 +289,18 @@ async def run_turn_stream(
         )
         if calls:
             results: list[ToolResultMessage | PendingApproval] = []
-            # Closing the public stream must also cancel its active tool task.
-            async with aclosing(_stream_tools(calls, tools, ctx, hooks)) as events:
-                async for event in events:
-                    if isinstance(event, _ToolBatchFinished):
-                        results = event.results
-                    else:
-                        yield event
-            history.extend(r for r in results if isinstance(r, ToolResultMessage))
+            for start in range(0, len(calls), limits.tool_batch_size):
+                batch = calls[start : start + limits.tool_batch_size]
+                # Closing the public stream also cancels its active execution batch.
+                async with aclosing(_stream_tools(batch, tools, ctx, hooks, limits)) as events:
+                    async for event in events:
+                        if isinstance(event, _ToolBatchFinished):
+                            results.extend(event.results)
+                            history.extend(
+                                r for r in event.results if isinstance(r, ToolResultMessage)
+                            )
+                        else:
+                            yield event
 
             pending = [r for r in results if isinstance(r, PendingApproval)]
             if pending:
@@ -320,6 +325,24 @@ async def run_turn_stream(
 
         # 4. Build a fresh request. Instructions stay out of saved history.
         prefix = [SystemMessage(await _resolve(instructions, ctx))] if instructions else []
+        if tools:
+            guidance = (
+                f"Request at most {limits.tool_batch_size} tool calls per response. "
+                "Wait for their results before requesting the next group. "
+                "A not_started result means no tool executed. Correct the stated problem "
+                "before submitting a new call with a new ID. A failed result means the tool "
+                "ran and failed. An unknown result means the action may have happened. "
+                "Never repeat completed or unknown actions merely because a batch was split."
+            )
+            previous = _last_assistant(history)
+            if previous and len(previous.tool_calls) > limits.tool_batch_size:
+                guidance += (
+                    f" Your last response requested {len(previous.tool_calls)} calls, above the "
+                    f"recommended {limits.tool_batch_size}. They were processed in bounded batches "
+                    "with their original IDs and approval checks. Read each result and keep future "
+                    f"responses within {limits.tool_batch_size} calls. Do not resubmit this batch."
+                )
+            prefix.append(SystemMessage(guidance))
         request = None
         async with aclosing(
             _build_request(
@@ -381,7 +404,8 @@ async def run_turn_stream(
             log_detail("after_model hook start run_id=%s message=%r", ctx.run_id, msg)
             msg = await hooks.after_model(msg, ctx)
             log_detail("after_model hook complete run_id=%s message=%r", ctx.run_id, msg)
-        validate_assistant_message(msg, limits)
+        # Keep identity errors fatal. Argument errors receive a result for the affected call.
+        validate_assistant_message(msg, limits, validate_arguments=False)
         responded = ModelResponded(msg)
         log_event(responded, phase="model-responded")
         yield responded

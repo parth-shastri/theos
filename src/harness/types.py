@@ -217,7 +217,7 @@ class ToolResultMessage:
     call_id: str
     name: str
     content: str
-    status: Literal["completed", "denied", "failed", "unknown"] = "completed"
+    status: Literal["completed", "denied", "not_started", "failed", "unknown"] = "completed"
     view: View | None = None
 
 
