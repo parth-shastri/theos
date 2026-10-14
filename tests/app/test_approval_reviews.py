@@ -88,6 +88,20 @@ async def test_telegram_review_buttons_follow_complete_unicode_review(runtime):
     bot.api = api
     code = "😀" * 2500 + "\nFINAL LINE"
     preview = json.dumps({"code": code})
+    row = runtime.db.create_session("alice", "test", "none")
+    runtime.db.execute(
+        "INSERT INTO approvals(id,session,call_id,tool,arguments,preview,created,expires) VALUES (?,?,?,?,?,?,?,?)",
+        (
+            "approval",
+            row["id"],
+            "call",
+            "sandbox_execute_code",
+            preview,
+            preview,
+            time.time(),
+            time.time() + 900,
+        ),
+    )
 
     async def events():
         yield {

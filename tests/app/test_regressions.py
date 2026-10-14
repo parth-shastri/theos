@@ -283,7 +283,9 @@ async def test_telegram_shutdown_and_long_stream(runtime):
         yield {"type": "done", "status": "completed"}
 
     await telegram.render(SimpleNamespace(events=events), 123, None)
-    assert "".join(messages.values()) == "x" * 12000
+    displayed = list(messages.values())
+    assert "".join(displayed[:-1]) == "x" * 12000
+    assert "0 tool calls · Complete" in displayed[-1]
 
 
 async def test_slow_health_work_does_not_delay_reminders(runtime):

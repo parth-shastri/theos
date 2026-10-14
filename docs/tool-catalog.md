@@ -38,6 +38,12 @@ It uses UTF-16 offsets and splits long replies while retaining formatting.
 Raw HTML remains literal text. Only HTTP, HTTPS, mail, and Telegram links become link entities.
 Commands remain literal text. Approval reviews use labeled fields, formatted prose, and literal code.
 Telegram uses one editable status per tool call and per compaction, with readable action names and tool icons.
+Finished activities disappear. A final message shows elapsed time, call count, failed or uncertain outcomes, and successfully loaded skills.
+The runtime counts parent and delegate activity before display queues can discard events.
+Approval cards notify once and stay visible until a decision or expiry. Saved message references survive restarts.
+Telegram decisions remove complete reviews immediately. Polling also removes reviews resolved elsewhere and retries failed cleanup every ten seconds.
+If deletion fails, cleanup removes approval buttons while retaining references for another attempt.
+SQLite retains approval snapshots, decisions, tool results, and conversation history.
 Expandable quotes retain exact identifiers and raw price units. Long reviews retain complete details in splits or a file.
 Zepto cart reviews show paise prices in rupees, while approval snapshots retain the original values.
 This renderer adds no model tool.

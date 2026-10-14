@@ -84,7 +84,7 @@ def test_compaction_events_reach_clients_without_private_summary_content(runtime
 
 
 async def test_telegram_updates_each_tool_and_compaction_in_place(runtime):
-    bot, sent, edited = Telegram(runtime), [], []
+    bot, sent, edited, deleted = Telegram(runtime), [], [], []
 
     async def api(method, payload=None, files=None):
         if method == "sendMessage":
@@ -92,6 +92,8 @@ async def test_telegram_updates_each_tool_and_compaction_in_place(runtime):
             return {"message_id": len(sent)}
         if method == "editMessageText":
             edited.append(payload)
+        if method == "deleteMessage":
+            deleted.append(payload["message_id"])
         return {}
 
     bot.api = api
@@ -105,20 +107,21 @@ async def test_telegram_updates_each_tool_and_compaction_in_place(runtime):
         yield {"type": "done", "status": "completed"}
 
     await bot.render(SimpleNamespace(events=events, owner="alice"), 123, 42)
-    assert len(sent) == 3
+    assert len(sent) == 4
     assert "🗂" in sent[1]["text"] and "Organizing" in sent[1]["text"]
     assert "🔎" in sent[2]["text"] and "Search the web" in sent[2]["text"]
-    assert any(p["message_id"] == 2 and "Context ready" in p["text"] for p in edited)
-    assert any(p["message_id"] == 3 and "Complete" in p["text"] for p in edited)
+    assert deleted == [2, 3]
+    assert "1 tool call · Complete" in sent[-1]["text"]
+    assert sent[1]["disable_notification"] and sent[2]["disable_notification"]
     assert all(p["message_thread_id"] == 42 for p in sent)
 
 
 async def test_interrupted_compaction_does_not_leave_a_running_telegram_indicator(runtime):
-    bot, edited = Telegram(runtime), []
+    bot, deleted = Telegram(runtime), []
 
     async def api(method, payload=None, files=None):
-        if method == "editMessageText":
-            edited.append(payload)
+        if method == "deleteMessage":
+            deleted.append(payload["message_id"])
         return {"message_id": 1}
 
     bot.api = api
@@ -128,7 +131,7 @@ async def test_interrupted_compaction_does_not_leave_a_running_telegram_indicato
         yield {"type": "done", "status": "interrupted"}
 
     await bot.render(SimpleNamespace(events=events, owner="alice"), 123, 42)
-    assert any("Context preparation stopped" in p["text"] for p in edited)
+    assert deleted == [1]
 
 
 @pytest.mark.parametrize(

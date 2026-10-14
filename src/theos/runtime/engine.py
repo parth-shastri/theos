@@ -238,7 +238,7 @@ class Runtime:
         except asyncio.CancelledError:
             if self.active.pop(turn.session_id, None) is not None:
                 self.tracing.finish_turn("interrupted")
-                turn.emit({"type": "done", "status": "interrupted"})
+                turn.emit({"type": "done", "status": "interrupted", "stats": turn.stats()})
             raise
 
     async def _run_reserved(self, turn, session, message, *, scheduled=False):
@@ -476,7 +476,7 @@ class Runtime:
                         (run["task_id"],),
                     )
             self.active.pop(turn.session_id, None)
-            turn.emit({"type": "done", "status": status})
+            turn.emit({"type": "done", "status": status, "stats": turn.stats()})
 
     async def close(self):
         """Stop new work, cancel active turns, and close owned clients."""

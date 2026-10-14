@@ -26,7 +26,10 @@ async def test_stream_and_persist(runtime, scripted_models):
     )
     events = await collect(runtime.start("alice", session["id"], "Hello"))
     assert any(e["type"] == "text" for e in events)
-    assert events[-1] == {"type": "done", "status": "completed"}
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "completed"
+    assert events[-1]["stats"]["tool_calls"] == 0
+    assert events[-1]["stats"]["skills"] == []
+    assert events[-1]["stats"]["elapsed_seconds"] >= 0
     history = runtime.db.load_history("alice", session["id"])
     assert history[-1].text == "Saved answer"
     assert runtime.db.one("SELECT input_tokens FROM usage")["input_tokens"] == 7
@@ -160,7 +163,7 @@ def test_database_reopen_migrations_backup_and_single_worker(settings, tmp_path)
     db.close()
     db = Database(settings.data_dir)
     assert db.load_history("alice", session["id"])[0].content == "durable"
-    assert db.one("PRAGMA user_version")["user_version"] == 11
+    assert db.one("PRAGMA user_version")["user_version"] == 12
     db.close()
 
 

@@ -50,8 +50,10 @@ async def test_recovery_replaces_all_telegram_draft_chunks(runtime):
         yield {"type": "done", "status": "partial"}
 
     await bot.render(SimpleNamespace(events=events), 123, None)
-    assert [p["text"] for p in messages.values()] == [p["text"] for p in format_reply(final)]
-    assert "FINAL SOURCE" in list(messages.values())[-1]["text"]
+    displayed = list(messages.values())
+    assert [p["text"] for p in displayed[:-1]] == [p["text"] for p in format_reply(final)]
+    assert "FINAL SOURCE" in displayed[-2]["text"]
+    assert "0 tool calls · Partial" in displayed[-1]["text"]
 
 
 def test_literal_html_and_links_are_safe():
@@ -141,7 +143,9 @@ async def test_stream_recovers_split_markdown_and_preserves_topics(runtime, monk
     expected = format_reply(
         "**Title**\n\n```python\n" + "😀x\n" * 1300 + "```\n\n[Link](https://example.com)"
     )
-    assert [{k: p.get(k, []) for k in ("text", "entities")} for p in messages.values()] == expected
+    displayed = list(messages.values())
+    assert [{k: p.get(k, []) for k in ("text", "entities")} for p in displayed[:-1]] == expected
+    assert "Skills used: None" in displayed[-1]["text"]
     assert all(p["message_thread_id"] == 42 for method, p in calls if method == "sendMessage")
     assert all("parse_mode" not in p for _, p in calls)
 

@@ -746,3 +746,16 @@ The first Pi promotion CI run exposed a timing race in the bounded write-timeout
 Setup could exceed 150 milliseconds before the tool started, which correctly records failed rather than unknown status.
 The corrected test expires research after the write starts and uses a separate 50-millisecond tool timeout.
 It patches application clocks only, leaving the event loop clock intact. Production behavior does not change.
+
+## Temporary Telegram activity and approval notifications, 2026-10-14
+
+The local suite passed 1,045 tests, with three credential-dependent tests excluded.
+Finished tool and compaction messages disappear. Final stats include elapsed time, call count, outcomes, and successfully loaded skills.
+Runtime checks include delegate calls and display queue overflow without losing counters.
+Transport checks cover complete answers, partial answers, failures, cancellation, topics, and failed message deletion.
+
+Approval checks cover one notification per card, complete multipart reviews, attached reviews, and duplicate progress events.
+Approved and denied cards disappear after decisions. A replacement bot reads saved message references and removes the complete review.
+Polling removes expired cards and cards resolved by another client. Failed deletion removes buttons and retains references for another attempt.
+SQLite retains original approval snapshots and decisions. Existing recovery and transcript checks still pass.
+Python lint, formatting, and whitespace checks passed. These changes have not deployed or sent live Telegram messages.
