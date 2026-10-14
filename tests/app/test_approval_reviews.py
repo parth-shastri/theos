@@ -63,7 +63,7 @@ async def test_pending_review_keeps_exact_snapshot(runtime):
             "review",
             row["id"],
             "call",
-            "sandbox_execute_code",
+            "zepto_confirm_cart",
             arguments,
             arguments,
             time.time(),

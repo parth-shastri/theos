@@ -74,7 +74,7 @@ async def test_tools_view_matches_registry_without_executing_tools(runtime):
         expected = await runtime.tools(session)
         assert {tool["name"] for tool in tools} == {tool.name for tool in expected}
         by_name = {tool["name"]: tool for tool in tools}
-        assert by_name["delete_custom_table"]["requires_approval"]
+        assert not by_name["delete_custom_table"]["requires_approval"]
         assert not by_name["get_preferences"]["requires_approval"]
         assert by_name["delete_custom_table"]["parameters"]["type"] == "object"
         assert not any(tool["name"].startswith(("gmail_", "health_", "zepto_")) for tool in tools)

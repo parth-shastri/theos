@@ -53,7 +53,7 @@ async def test_browser_chat_upload_settings_dashboard_and_isolation(runtime):
 
 
 @pytest.mark.parametrize("approved", [True, False])
-async def test_browser_approval_workflow(runtime, scripted_models, approved):
+async def test_browser_approval_workflow(runtime, scripted_models, approved, checkout_tool):
     app = create_app(runtime.settings, runtime)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
@@ -64,7 +64,7 @@ async def test_browser_approval_workflow(runtime, scripted_models, approved):
         scripted_models.responses.append(
             [
                 AssistantMessage(
-                    tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "notes"})]
+                    tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})]
                 )
             ]
         )
@@ -164,7 +164,9 @@ async def test_telegram_private_group_topics_and_commands(runtime):
 
 
 @pytest.mark.parametrize("approved", [True, False])
-async def test_telegram_approval_buttons_and_wrong_chat(runtime, scripted_models, approved):
+async def test_telegram_approval_buttons_and_wrong_chat(
+    runtime, scripted_models, approved, checkout_tool
+):
     runtime.settings.telegram_users = {123, 456}
     telegram = Telegram(runtime)
     calls = []
@@ -187,11 +189,7 @@ async def test_telegram_approval_buttons_and_wrong_chat(runtime, scripted_models
         columns={"text": "TEXT"},
     )
     scripted_models.responses.append(
-        [
-            AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "notes"})]
-            )
-        ]
+        [AssistantMessage(tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})])]
     )
     await telegram.handle([telegram_message("Delete notes")])
     approval_message = next(p for m, p in calls if m == "sendMessage" and "reply_markup" in p)

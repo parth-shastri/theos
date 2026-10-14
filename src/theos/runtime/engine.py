@@ -100,6 +100,12 @@ class Runtime:
             "SELECT id,call_id,tool,arguments,preview,expires FROM approvals WHERE session=? AND status='pending' ORDER BY created",
             (session_id,),
         )
+        for row in rows:
+            if not approvals.requires_approval(row["tool"]):
+                self.db.execute(
+                    "UPDATE approvals SET status='not_required' WHERE id=?", (row["id"],)
+                )
+        rows = [row for row in rows if approvals.requires_approval(row["tool"])]
         return [
             {
                 **row,
@@ -329,6 +335,16 @@ class Runtime:
                         from theos.services.sandbox.workspace import INSTRUCTIONS
 
                         instructions += "\n" + INSTRUCTIONS
+                    from theos.services.skills.context import skill_context
+
+                    skill_instructions, loaded = skill_context(
+                        self.settings,
+                        "\n".join(m.content for m in history if isinstance(m, UserMessage))[
+                            -12000:
+                        ],
+                    )
+                    instructions += "\n" + skill_instructions
+                    turn.loaded_skills.update(loaded)
                     if turn.research_id:
                         from theos.services.research.tools import RESEARCH_INSTRUCTIONS
 

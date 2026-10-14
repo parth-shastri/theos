@@ -130,7 +130,7 @@ async def test_remote_titles_and_archive_state_persist_without_cwd_filter(remote
 
 
 async def test_remote_approval_batch_is_atomic_and_browser_can_finish_it(
-    remote, runtime, scripted_models
+    remote, runtime, scripted_models, checkout_tool
 ):
     from theos.services.custom_tables.tools import custom_tools
 
@@ -142,8 +142,8 @@ async def test_remote_approval_batch_is_atomic_and_browser_can_finish_it(
         [
             AssistantMessage(
                 tool_calls=[
-                    ToolCall("delete-notes", "delete_custom_table", {"name": "notes"}),
-                    ToolCall("delete-keep", "delete_custom_table", {"name": "keep"}),
+                    ToolCall("delete-notes", "zepto_confirm_cart", {"name": "notes"}),
+                    ToolCall("delete-keep", "zepto_confirm_cart", {"name": "keep"}),
                 ]
             )
         ]
@@ -180,7 +180,7 @@ async def test_remote_approval_batch_is_atomic_and_browser_can_finish_it(
     scripted_models.responses.append(
         [
             AssistantMessage(
-                tool_calls=[ToolCall("delete-again", "delete_custom_table", {"name": "keep"})]
+                tool_calls=[ToolCall("delete-again", "zepto_confirm_cart", {"name": "keep"})]
             )
         ]
     )
@@ -423,14 +423,12 @@ async def test_remote_tui_loads_shared_picker_settings_options_and_usage(remote,
         assert (await remote.history(row["id"]))[-1].text == "Hello from the test model."
 
 
-async def test_remote_tui_restores_browser_approval(remote, runtime, scripted_models):
+async def test_remote_tui_restores_browser_approval(
+    remote, runtime, scripted_models, checkout_tool
+):
     await remote.create_session("restore")
     scripted_models.responses.append(
-        [
-            AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "notes"})]
-            )
-        ]
+        [AssistantMessage(tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})])]
     )
     response = await remote.http.post("api/sessions/restore/turn", json={"text": "Delete notes"})
     assert response.status_code == 200

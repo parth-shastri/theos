@@ -170,16 +170,13 @@ async def test_gmail_confirmed_send_attachment_and_labels(runtime, scripted_mode
             [
                 AssistantMessage(
                     tool_calls=[ToolCall("send", "gmail_send_draft", {"draft_id": "draft1"})]
-                )
+                ),
+                AssistantMessage("Sent."),
             ]
         )
         await collect(runtime.start("telegram:123", session["id"], "Send this draft"))
-        assert not any(r.url.path.endswith("drafts/send") for r in calls)
-        approval = runtime.pending("telegram:123", session["id"])[0]
-        await collect(runtime.start("telegram:123", session["id"], approval=(approval["id"], True)))
+        assert not runtime.pending("telegram:123", session["id"])
         assert sum(r.url.path.endswith("drafts/send") for r in calls) == 1
-        with pytest.raises(ValueError):
-            runtime.start("telegram:123", session["id"], approval=(approval["id"], True))
 
 
 async def test_zepto_schema_account_scope_and_order_confirmation(

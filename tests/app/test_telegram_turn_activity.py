@@ -157,7 +157,7 @@ def add_approval(runtime, owner, approval_id):
             approval_id,
             row["id"],
             "call",
-            "delete_custom_table",
+            "zepto_confirm_cart",
             args,
             args,
             time.time(),

@@ -138,7 +138,7 @@ Composer `@` suggestions use these same owner-bound connection statuses.
 Mentions remain user text and do not grant tool access or approve actions.
 Provider icons are local assets. The [provider manifest](browser-provider-provenance.json) records their sources and hashes.
 These controls add no Python dependency or model tool.
-Configured sandbox tools work in browser conversations and retain execution approvals.
+Configured sandbox tools work in browser conversations without execution approval prompts.
 
 Source: [connection routes](../src/theos/transports/browser/connections.py), [account access](../src/theos/storage/account_access.py), and [browser controls](../src/theos/transports/browser/static/app.js).
 
@@ -282,6 +282,8 @@ The operator sets `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and inst
 The deployment script retains this mount during release and rollback.
 Manual Compose commands must include the shared-skills file explicitly.
 Host skill updates appear without a copy or application restart.
+The runtime includes installed skill descriptions and requires purpose-based skill selection before work.
+It supplies report-style and format instructions automatically for document requests, with explicit user formats taking precedence.
 The [skills.sh CLI](https://skills.sh/docs) installed code review, Papers with Code, arXiv, Hugging Face papers, DOCX, XLSX, and PDF skills.
 It runs through a temporary Node 22 runtime because the Pi's system Node 20 is incompatible with `skills@1.7.2`.
 Source licenses, installation metadata, hashes, and local corrections remain with the installation.
@@ -361,7 +363,7 @@ This uses the existing SDK and lets remote clients connect without access to con
 
 | Callable | Action |
 | --- | --- |
-| `sandbox_run_command` | Run a shell command in your remote sandbox after confirmation. |
+| `sandbox_run_command` | Run a shell command in your remote sandbox without an approval prompt. |
 | `sandbox_execute_code` | Run Python in your remote sandbox's persistent interpreter. |
 | `sandbox_write_file` | Write a text file in the remote sandbox. |
 | `sandbox_read_file` | Read a text file from the remote sandbox. |
@@ -370,7 +372,7 @@ This uses the existing SDK and lets remote clients connect without access to con
 | `sandbox_view_image` | Read a sandbox image and attach it to the next model request. |
 | `sandbox_upload_file` | Copy one of your uploaded files into the remote sandbox. |
 | `sandbox_browser` | Run agent-browser in the sandbox. Use snapshot, open, click, fill, or screenshot commands. |
-| `sandbox_lifecycle` | Inspect, extend, destroy, or forget an expired sandbox. |
+| `sandbox_lifecycle` | Inspect, restart, destroy, or forget a sandbox. Expiry remains fixed from creation. |
 
 ## Gmail
 
@@ -388,8 +390,8 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | `gmail_download_attachment` | Download an attachment from one of your accessible messages. |
 | `gmail_list_drafts` | List your Gmail drafts. |
 | `gmail_get_draft` | Read a draft with its recipients, subject, body, and content hash. |
-| `gmail_create_draft` | Create a draft. Sending requires a separate user approval. |
-| `gmail_send_draft` | Send a reviewed draft only after explicit approval of its current contents. |
+| `gmail_create_draft` | Create a draft in your connected account. |
+| `gmail_send_draft` | Send the current draft from your connected account without a separate approval prompt. |
 | `gmail_list_labels` | List Gmail labels. |
 | `gmail_create_label` | Create a Gmail label. |
 | `gmail_modify_labels` | Add or remove labels on a message or thread. |
@@ -418,7 +420,8 @@ Source: [service tools](../src/theos/services/zepto/tools.py).
 Each user connects Zepto from the browser Connections view or a private Telegram chat.
 The client discovers remote tools and registers them with the `zepto_` prefix.
 It excludes the `zepto_shop` wrapper and validates arguments against each remote schema.
-All exposed Zepto calls require approval, including order and payment actions.
+Only Zepto cart confirmation, checkout, order placement, and payment tools require approval.
+Searches, reads, store setup, and ordinary cart updates run without approval.
 Product search needs a selected delivery store.
 Use `zepto_list_saved_addresses` and `zepto_select_saved_address` for the user's chosen address.
 Use `zepto_get_location_serviceability` for a new delivery location's coordinates.
@@ -572,25 +575,19 @@ Source: [memory automation](../src/theos/services/memory/automation.py).
 
 | Tool | Action |
 | --- | --- |
-| `configure_memory_automation` | Set retrieval and consolidation policy after approval |
+| `configure_memory_automation` | Set retrieval and consolidation policy at the user's request |
 | `get_memory_automation_status` | Read owner policy and batch status counts |
 
 ## Approval boundary
 
-The runtime requires approval for these actions:
+The global policy requires approval only for Zepto cart confirmation, checkout, order placement, and payment-related tools.
+This includes online payments, UPI, wallet payments, and payment status tools.
+Searches, cart updates, delivery-store setup, and account reads do not prompt.
+Sandbox execution, email sending, file and table deletion, and memory settings do not prompt.
+Account ownership, tool validation, transcript checkpoints, and uncertain-action recovery remain active.
+Each approval still binds one user, conversation, call ID, and exact arguments, with a 15-minute expiry.
+Old pending cards for tools that no longer need approval are retired without changing their saved snapshots.
 
-- `gmail_send_draft`
-- `delete_custom_table`
-- `delete_user_file`
-- `sandbox_run_command`
-- `sandbox_execute_code`
-- `sandbox_browser`
-- `configure_memory_automation`
-- Every registered `zepto_` tool
-
-Approvals expire after 15 minutes and bind to the saved arguments.
-Gmail also binds approval to the draft preview and rechecks it before sending.
-An uncertain external write requires review before another attempt.
 Source: [approval policy](../src/theos/runtime/approvals.py).
 
 

@@ -23,6 +23,7 @@ class Turn:
     delegate_results: dict[str, dict[str, dict]] = field(default_factory=dict)
     started_at: float = field(default_factory=time.monotonic)
     tool_activity: dict[tuple, dict] = field(default_factory=dict)
+    loaded_skills: set[str] = field(default_factory=set)
 
     def observe_tool(self, event):
         """Count parent and delegate calls before display queues can drop events."""
@@ -54,7 +55,8 @@ class Turn:
 
         outcomes = Counter(item["status"] for item in self.tool_activity.values())
         skills = sorted(
-            {
+            self.loaded_skills
+            | {
                 " ".join(item["skill"].split())[:128]
                 for item in self.tool_activity.values()
                 if item["status"] == "completed" and isinstance(item["skill"], str)

@@ -53,7 +53,7 @@ async def test_large_batch_keeps_all_approvals_and_never_repeats_a_completed_wri
 ):
     attempts = []
 
-    @tool(name="delete_custom_table")
+    @tool(name="zepto_confirm_cart")
     async def guarded_write(name: str):
         attempts.append(name)
         return {"name": name}
@@ -64,7 +64,7 @@ async def test_large_batch_keeps_all_approvals_and_never_repeats_a_completed_wri
     runtime.tools = registry
     row = runtime.db.create_session("alice", "test-model", "none")
     calls = [
-        ToolCall(f"write-{i}", "delete_custom_table", {"name": f"notes_{i}"}) for i in range(17)
+        ToolCall(f"write-{i}", "zepto_confirm_cart", {"name": f"notes_{i}"}) for i in range(17)
     ]
     scripted_models.responses.append([AssistantMessage(tool_calls=calls)])
     events = await collect(runtime.start("alice", row["id"], "Delete these test tables."))

@@ -21,7 +21,7 @@ def sandbox_tools(client, owner, session_id):
 
     @tool
     async def sandbox_run_command(command: str, timeout: int = 60):
-        """Run a shell command in your remote sandbox after confirmation."""
+        """Run a shell command in your remote sandbox without an approval prompt."""
         from opensandbox.models.execd import RunCommandOpts
 
         sandbox = await client.get(owner, session_id)
@@ -113,23 +113,21 @@ def sandbox_tools(client, owner, session_id):
         return result.model_dump(mode="json")
 
     @tool
-    async def sandbox_lifecycle(action: Literal["status", "renew", "destroy", "forget"]):
-        """Inspect, extend, destroy, or forget an expired sandbox."""
+    async def sandbox_lifecycle(action: Literal["status", "renew", "restart", "destroy", "forget"]):
+        """Inspect or restart your sandbox. Expiry is fixed from creation. Execution tools replace expired sandboxes automatically."""
         if action == "forget":
-            old = client.clients.pop((owner, session_id), None)
-            if old:
-                await old.close()
-            return client.db.delete_record(owner, "sandbox", session_id)
+            return await client.forget(owner, session_id)
+        if action in {"destroy", "restart"}:
+            await client.destroy(owner, session_id)
+            if action == "destroy":
+                return {"destroyed": True}
         sandbox = await client.get(owner, session_id)
-        if action == "destroy":
-            await sandbox.kill()
-            await sandbox.close()
-            client.clients.pop((owner, session_id), None)
-            return client.db.delete_record(owner, "sandbox", session_id)
-        if action == "renew":
-            await sandbox.renew(timedelta(seconds=client.settings.sandbox.timeout_seconds))
         info = await sandbox.get_info()
-        return info.model_dump(mode="json")
+        result = info.model_dump(mode="json")
+        if action == "renew":
+            result["renewed"] = False
+            result["reason"] = "Sandbox expiry is fixed from creation and cannot be extended."
+        return result
 
     return [
         sandbox_run_command,

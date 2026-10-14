@@ -106,13 +106,15 @@ async def test_task_controls_validation_and_owner_isolation(runtime):
     await scheduler.close()
 
 
-async def test_scheduled_tool_requires_normal_approval_and_resumes(runtime, scripted_models):
+async def test_scheduled_checkout_requires_approval_and_resumes(
+    runtime, scripted_models, checkout_tool
+):
     session = session_for(runtime)
     _, _ = await schedule(runtime, session)
     scripted_models.responses.append(
         [
             AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_user_file", {"file_id": "missing"})]
+                tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "missing"})]
             )
         ]
     )
@@ -311,7 +313,7 @@ async def test_consolidation_failure_is_unknown_and_disable_discards_pending(run
     assert not any(r["content"] for r in runtime.db.rows("SELECT * FROM memory_batches"))
 
 
-async def test_memory_automation_consent_requires_approval(runtime, scripted_models):
+async def test_memory_automation_changes_at_user_request_without_approval(runtime, scripted_models):
     runtime.settings.memory.enabled = True
     session = session_for(runtime)
     scripted_models.responses.append(
@@ -324,14 +326,13 @@ async def test_memory_automation_consent_requires_approval(runtime, scripted_mod
                         {"retrieval": True, "consolidation": True},
                     )
                 ]
-            )
+            ),
+            AssistantMessage("Memory enabled."),
         ]
     )
     events = await collect(runtime.start("alice", session["id"], "Enable automatic memory"))
-    assert events[-1]["status"] == "waiting_for_approval"
-    assert not runtime.memory_automation.policy("alice")["consolidation"]
-    approval = runtime.pending("alice", session["id"])[0]
-    await collect(runtime.start("alice", session["id"], approval=(approval["id"], True)))
+    assert events[-1]["status"] == "completed"
+    assert not runtime.pending("alice", session["id"])
     assert runtime.memory_automation.policy("alice")["consolidation"]
 
 

@@ -207,7 +207,7 @@ async def test_workspace_saves_changed_versions_and_restores_after_loss(
     assert second["workspace"]["files"]["/workspace/purchases.csv"]["version"] == 2
     data.clear()
     sandbox.id = "sandbox-2"
-    await runtime.workspaces.prepare("alice", sid)
+    await runtime.workspaces.save("alice", sid)
     assert b"84,USD" in data["/workspace/purchases.csv"]
     with pytest.raises(ValueError):
         await runtime.workspaces.write("alice", sid, "../escape", "bad")

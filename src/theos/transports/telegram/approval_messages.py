@@ -2,6 +2,7 @@
 
 import time
 
+from theos.runtime.approvals import requires_approval
 from theos.services.errors import ServiceError
 
 
@@ -15,6 +16,9 @@ def remember(bot, approval_id, chat, posted):
 
 async def cleanup(bot):
     """Collect decisions from other clients and expired cards after restart."""
+    for row in bot.db.rows("SELECT id,tool FROM approvals WHERE status='pending'"):
+        if not requires_approval(row["tool"]):
+            bot.db.execute("UPDATE approvals SET status='not_required' WHERE id=?", (row["id"],))
     sessions = bot.db.rows(
         "SELECT DISTINCT s.owner,s.id FROM telegram_approval_messages m "
         "JOIN approvals a ON a.id=m.approval_id JOIN sessions s ON s.id=a.session "

@@ -9,15 +9,31 @@ from harness import ALLOW, ASK, DENY, unanswered_calls
 
 def requires_approval(name):
     """Share the approval rule with the browser tool catalog."""
-    return name in {
-        "gmail_send_draft",
-        "delete_custom_table",
-        "delete_user_file",
-        "sandbox_run_command",
-        "sandbox_execute_code",
-        "sandbox_browser",
-        "configure_memory_automation",
-    } or name.startswith("zepto_")
+    if not name.startswith("zepto_"):
+        return False
+    words = set(name.removeprefix("zepto_").lower().split("_"))
+    if words & {
+        "payment",
+        "payments",
+        "pay",
+        "upi",
+        "wallet",
+        "checkout",
+        "purchase",
+        "buy",
+        "reorder",
+    }:
+        return True
+    return (
+        bool(
+            (words & {"cart", "order"})
+            and (
+                words
+                & {"confirm", "confirmation", "place", "submit", "finalize", "complete", "execute"}
+            )
+        )
+        or name == "zepto_create_order"
+    )
 
 
 async def approval_preview(runtime, session, name, arguments):

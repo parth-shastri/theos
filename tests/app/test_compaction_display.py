@@ -165,7 +165,9 @@ async def test_pending_cart_snapshot_keeps_paise_and_ids(runtime):
             time.time() + 900,
         ),
     )
-    item = runtime.pending("alice", row["id"])[0]
+    assert not runtime.pending("alice", row["id"])
+    item = runtime.db.one("SELECT * FROM approvals WHERE id='cart-review'")
+    item["review"] = approval_review(item["tool"], json.loads(item["preview"]))
     assert item["arguments"] == item["preview"] == arguments
     assert any(f["text"] == "₹39.00" for f in item["review"])
     assert json.loads(item["arguments"])["arguments"]["cartItems"][0]["price"] == 3900
