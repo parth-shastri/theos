@@ -1,7 +1,10 @@
 """Purpose-based skill catalog and automatic report instructions before generation."""
 
+from contextlib import asynccontextmanager
+
 from harness import AssistantMessage
-from theos.services.skills.context import skill_context
+from harness.testing import FakeModel
+from theos.services.skills.context import skill_context, skill_description
 
 from .conftest import collect
 
@@ -31,15 +34,27 @@ def test_catalog_describes_skills_without_loading_unrelated_workflows(settings, 
 
 
 async def test_report_style_is_present_before_first_model_call_without_explicit_skill_request(
-    runtime, scripted_models, tmp_path
+    runtime, tmp_path
 ):
     install(runtime.settings, tmp_path)
-    scripted_models.responses.append([AssistantMessage("Prepared report.")])
+    model = FakeModel([AssistantMessage("Prepared report.")])
+
+    @asynccontextmanager
+    async def models(*args):
+        yield model
+
+    runtime.models = models
     row = runtime.db.create_session("alice", "test", "none")
     turn = runtime.start("alice", row["id"], "Generate a report about my receipts")
     events = await collect(turn)
     assert events[-1]["stats"]["skills"] == ["pdf", "report-style"]
-    content, loaded = skill_context(runtime.settings, "Generate a report")
+    content = str(model.requests[0])
     assert "Instruction body for report-style" in content and "Instruction body for pdf" in content
     assert "styled PDF by default" in content and "Explicit user formats" in content
-    assert loaded == ["report-style", "pdf"]
+
+
+def test_multiline_skill_descriptions_preserve_task_selection_guidance():
+    content = "---\nname: analysis\ndescription: >-\n  Compare evidence from multiple sources.\n  Use when assessing conflicting research.\nother: value\n---\nBody"
+    assert skill_description(content) == (
+        "Compare evidence from multiple sources. Use when assessing conflicting research."
+    )

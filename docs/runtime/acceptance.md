@@ -775,3 +775,23 @@ Executed failures and uncertain outcomes retained distinct statuses. Duplicate I
 Trace checks retained the full 35-call count while content capture included only the first sixteen calls.
 Log checks accepted only fixed harness error codes and excluded private values.
 These checks used local fixtures. They did not query Gmail, send Telegram messages, or deploy the change.
+
+## Sandbox recovery, approval policy, and skill selection, 2026-10-14
+
+The final full local suite passed 1,091 tests, with three credential-dependent tests excluded.
+Skill checks passed with multiline descriptions and captured first-request instructions. Python lint and whitespace checks passed.
+Approval checks cover the global Zepto-only policy and retirement of old pending cards without execution.
+Sandbox checks cover fixed creation deadlines, concurrent replacement, reconnect, transient failures, and explicit lifecycle actions.
+Workspace checks restore saved files before scanning a replacement instance.
+Transient failures retain the saved sandbox reference and do not replay commands.
+
+The Pi preflight passed on revision `363c4aa` before merge.
+It changed the private deployment environment to a 3,600-second sandbox lifetime and updated installed document styles.
+The disposable live probe verified remote creation, unchanged cached expiry, confirmed missing-instance replacement, and a successful command afterward.
+The probe removed its temporary sandbox. It did not change production conversation records or send Telegram messages.
+See [the preflight run](https://github.com/parth-shastri/theos/actions/runs/38507638730).
+
+Skill checks expose installed descriptions for selection by task intent without loading unrelated workflows.
+Document requests receive actual installed report-style and format instructions before the first model request.
+This validation does not establish real-model workflow selection or a completed styled document.
+Tag deployment still must pass the ARM64 image, backup, readiness, restart, and rollback gates.
