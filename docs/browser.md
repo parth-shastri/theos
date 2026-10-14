@@ -313,7 +313,7 @@ Personal records, files, and credentials belong to that owner across private con
 Conversation history, approvals, tool checkpoints, and sandbox references remain separate for each conversation.
 An approval cannot authorize another conversation's action.
 Google and Zepto callbacks bind consent to the owner who started setup.
-Gmail sending retains draft review and approval. All Zepto tool calls retain approval.
+Gmail sending retains draft review and approval. Zepto payment, cart confirmation, checkout, and order placement tools require approval.
 
 Telegram-confirmed browser access uses the same owner as the enrolled private Telegram sender.
 Existing configured browser accounts remain separate unless a future explicit account migration links them.

@@ -9,6 +9,8 @@ from harness import ALLOW, ASK, DENY, unanswered_calls
 
 def requires_approval(name):
     """Share the approval rule with the browser tool catalog."""
+    if name == "gmail_send_draft":
+        return True
     if not name.startswith("zepto_"):
         return False
     words = set(name.removeprefix("zepto_").lower().split("_"))

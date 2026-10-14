@@ -55,7 +55,7 @@ The scheduler checks current owner access before starting a run.
 It pauses schedules for removed or unauthorized users.
 
 Scheduled execution does not grant approval for external actions.
-Sandbox execution, Gmail sending, and other protected tools still require the normal approval.
+Gmail sending and Zepto payment and checkout actions require the normal approval. Sandbox execution does not require approval.
 Approval results resume the saved tool call rather than creating another scheduled occurrence.
 
 ## Downtime and uncertain outcomes

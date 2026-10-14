@@ -391,7 +391,7 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | `gmail_list_drafts` | List your Gmail drafts. |
 | `gmail_get_draft` | Read a draft with its recipients, subject, body, and content hash. |
 | `gmail_create_draft` | Create a draft in your connected account. |
-| `gmail_send_draft` | Send the current draft from your connected account without a separate approval prompt. |
+| `gmail_send_draft` | Send after explicit approval of the current draft. Recheck its contents immediately before sending. |
 | `gmail_list_labels` | List Gmail labels. |
 | `gmail_create_label` | Create a Gmail label. |
 | `gmail_modify_labels` | Add or remove labels on a message or thread. |
@@ -580,10 +580,11 @@ Source: [memory automation](../src/theos/services/memory/automation.py).
 
 ## Approval boundary
 
-The global policy requires approval only for Zepto cart confirmation, checkout, order placement, and payment-related tools.
+The global policy requires approval for Gmail sending and Zepto cart confirmation, checkout, order placement, and payment-related tools.
 This includes online payments, UPI, wallet payments, and payment status tools.
 Searches, cart updates, delivery-store setup, and account reads do not prompt.
-Sandbox execution, email sending, file and table deletion, and memory settings do not prompt.
+Sandbox execution, draft creation, file and table deletion, and memory settings do not prompt.
+Gmail checks the recipients, subject, body, attachments, and raw draft hash against the approved preview before sending.
 Account ownership, tool validation, transcript checkpoints, and uncertain-action recovery remain active.
 Each approval still binds one user, conversation, call ID, and exact arguments, with a 15-minute expiry.
 Old pending cards for tools that no longer need approval are retired without changing their saved snapshots.
