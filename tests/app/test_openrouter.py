@@ -576,3 +576,188 @@ async def test_openrouter_stream_error_does_not_complete_partial_text(with_error
     if with_error_body:
         assert "502" in str(failure.value)
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("recover", [True, False])
+async def test_transient_stream_retry_is_bounded_and_keeps_request(recover, monkeypatch):
+    import asyncio
+
+    from theos.runtime.errors import ProviderFailure
+
+    async def no_delay(seconds):
+        pass
+
+    monkeypatch.setattr(asyncio, "sleep", no_delay)
+    calls = []
+    gid = "gen-1791970172-H2H3UnsPNxCqHKMmHtkD"
+
+    def respond(request):
+        calls.append(json.loads(request.content))
+        if len(calls) < 3 or not recover:
+            data = {
+                "error": {
+                    "code": 502,
+                    "message": "PRIVATE BODY sk-SECRET123456789",
+                    "metadata": {
+                        "provider_name": "Azure",
+                        "error_type": "provider_unavailable",
+                        "raw": "PRIVATE PROVIDER RESPONSE",
+                    },
+                }
+            }
+        else:
+            data = {
+                "id": gid,
+                "created": 1,
+                "model": "openai/gpt-6-luna",
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {"index": 0, "delta": {"content": "Completed"}, "finish_reason": "stop"}
+                ],
+            }
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream", "x-generation-id": gid},
+            text="data: " + json.dumps(data) + "\n\ndata: [DONE]\n\n",
+        )
+
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = OpenRouterChatModel(client, "openai/gpt-6-luna", api="chat_completions")
+        request = ModelRequest(
+            [UserMessage("Continue after saved results.")], options={"max_tokens": 8192}
+        )
+        if recover:
+            assert (await model.generate(request)).text == "Completed"
+        else:
+            with pytest.raises(ProviderFailure) as problem:
+                await model.generate(request)
+            assert problem.value.diagnostics == {
+                "status_code": 502,
+                "http_status": 200,
+                "generation_id": gid,
+                "provider_name": "Azure",
+                "provider_error_type": "provider_unavailable",
+                "provider_stage": "stream",
+            }
+            assert "PRIVATE" not in str(problem.value)
+    assert len(calls) == 3
+    assert calls[0] == calls[1] == calls[2]
+    assert calls[0]["provider"]["zdr"] is True
+
+
+async def test_retry_after_completed_tool_never_repeats_that_tool(runtime, monkeypatch):
+    import asyncio
+    from contextlib import asynccontextmanager
+
+    from harness import tool
+
+    from .conftest import collect
+
+    async def no_delay(seconds):
+        pass
+
+    monkeypatch.setattr(asyncio, "sleep", no_delay)
+    performed = []
+    requests = []
+    gid = "gen-1791970172-H2H3UnsPNxCqHKMmHtkD"
+
+    @tool
+    async def save_once(value: int):
+        performed.append(value)
+        return {"saved": value}
+
+    async def registry(session):
+        return [runtime.journal_tool(save_once, session)]
+
+    runtime.tools = registry
+    runtime.settings.provider = "openrouter"
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        data = {
+            "id": gid,
+            "created": 1,
+            "model": "openai/gpt-6-luna",
+            "object": "chat.completion.chunk",
+        }
+        if len(requests) == 1:
+            data["choices"] = [
+                {
+                    "index": 0,
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call-once",
+                                "type": "function",
+                                "function": {"name": "save_once", "arguments": '{"value":42}'},
+                            }
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        elif len(requests) < 4:
+            data["error"] = {"code": 502, "metadata": {"error_type": "provider_unavailable"}}
+        else:
+            data["choices"] = [
+                {"index": 0, "delta": {"content": "Saved once."}, "finish_reason": "stop"}
+            ]
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream", "x-generation-id": gid},
+            text="data: " + json.dumps(data) + "\n\ndata: [DONE]\n\n",
+        )
+
+    @asynccontextmanager
+    async def factory(*args):
+        async with AsyncOpenAI(
+            api_key="test",
+            base_url="https://openrouter.test/v1",
+            max_retries=0,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+        ) as client:
+            yield runtime.tracing.model(
+                OpenRouterChatModel(client, "openai/gpt-6-luna", api="chat_completions")
+            )
+
+    runtime.models = factory
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    events = await collect(runtime.start("alice", row["id"], "Save the value."))
+    assert events[-1]["status"] == "completed"
+    assert performed == [42]
+    assert len(requests) == 4
+    assert requests[1] == requests[2] == requests[3]
+    assert (
+        runtime.db.one(
+            "SELECT status FROM tool_runs WHERE session=? AND call_id=?", (row["id"], "call-once")
+        )["status"]
+        == "completed"
+    )
+
+
+async def test_long_failed_stream_does_not_start_more_provider_waits(monkeypatch):
+    from theos.runtime import openrouter
+    from theos.runtime.errors import ProviderFailure
+
+    clock = iter([0, 31])
+    monkeypatch.setattr(openrouter, "monotonic", lambda: next(clock))
+    attempts = []
+    model = OpenRouterChatModel(SimpleNamespace(), "openai/gpt-6-luna", api="chat_completions")
+
+    async def stalled(payload):
+        attempts.append(payload)
+        error = ProviderFailure("openrouter", {"code": 502})
+        error.diagnostics["http_status"] = 200
+        raise error
+        yield
+
+    model._stream_chat_once = stalled
+    with pytest.raises(ProviderFailure):
+        await model.generate(ModelRequest([UserMessage("Answer")]))
+    assert len(attempts) == 1

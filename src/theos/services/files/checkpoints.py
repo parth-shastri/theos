@@ -4,19 +4,169 @@ import asyncio
 import gzip
 import hashlib
 import json
+import logging
 import os
 import time
+from contextlib import nullcontext
+from contextvars import Context
 from pathlib import Path
 
 from harness import message_to_dict
 
+logger = logging.getLogger("theos")
+
 
 class Checkpoints:
-    def __init__(self, files):
+    def __init__(self, files, tracing=None):
         self.files, self.db, self.settings = files, files.db, files.settings
         self.directory = self.settings.data_dir / "checkpoints"
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.locks = {}
+        self.tracing = tracing
+        self.worker = None
+        self.wake = asyncio.Event()
+        self.stop = asyncio.Event()
+        self.replication_lock = asyncio.Lock()
+        self.client = None
+        self.client_lock = asyncio.Lock()
+        self.closed = False
+
+    def span(self, name, attributes=None, *, root=False):
+        return self.tracing.span(name, attributes, root=root) if self.tracing else nullcontext(None)
+
+    def start(self):
+        """Resume the durable transfer journal with one background worker."""
+        if self.closed or not self.settings.storage.endpoint:
+            return
+        if self.worker is None or self.worker.done():
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                return
+            # Background replication must not inherit the first caller's turn trace.
+            self.worker = loop.create_task(self.replicate(), context=Context())
+        self.wake.set()
+
+    async def storage_client(self):
+        async with self.client_lock:
+            if self.client is None:
+                self.client = await asyncio.to_thread(self.files.storage_client)
+        return self.client
+
+    async def replicate(self):
+        while not self.closed:
+            self.wake.clear()
+            try:
+                complete = await self.flush()
+            except Exception as error:
+                logger.warning(
+                    "checkpoint_replication_failed", extra={"error_type": type(error).__name__}
+                )
+                complete = False
+            if self.closed:
+                return
+            if complete:
+                await self.wake.wait()
+            else:
+                # Back off storage failures. The local journal remains authoritative.
+                try:
+                    await asyncio.wait_for(self.stop.wait(), 5)
+                except TimeoutError:
+                    pass
+
+    async def flush(self):
+        """Replicate bounded batches without executing any assistant tool."""
+        if not self.settings.storage.endpoint:
+            return True
+        async with self.replication_lock:
+            rows = self.db.rows(
+                "SELECT objects.* FROM context_objects objects "
+                "LEFT JOIN records retry ON retry.owner=objects.owner "
+                "AND retry.kind='context_replication_retry' AND retry.id=objects.id "
+                "WHERE objects.status='pending' "
+                "ORDER BY COALESCE(retry.updated,objects.created) LIMIT 20"
+            )
+            failed = False
+            for row in rows:
+                if self.closed:
+                    return False
+                failed = not await self.flush_one(row["owner"], row["id"]) or failed
+            pointers = self.db.rows(
+                "SELECT local.owner,local.id,local.value FROM records local "
+                "LEFT JOIN records remote ON remote.owner=local.owner "
+                "AND remote.kind='context_checkpoint_remote' AND remote.id=local.id "
+                "WHERE local.kind='context_checkpoint' "
+                "AND (remote.value IS NULL OR "
+                "json_extract(remote.value,'$.id')!=json_extract(local.value,'$.id')) "
+                "ORDER BY local.updated LIMIT 20"
+            )
+            for pointer in pointers:
+                if self.closed:
+                    return False
+                failed = not await self.publish(pointer) or failed
+            pending = self.db.one("SELECT id FROM context_objects WHERE status='pending' LIMIT 1")
+            if not failed and (pending or len(pointers) == 20):
+                self.wake.set()
+            return not failed
+
+    async def publish(self, pointer):
+        owner, session = pointer["owner"], pointer["id"]
+        identity = json.loads(pointer["value"])["id"]
+        # Never publish a recovery pointer before its snapshot and all sources exist remotely.
+        pending = self.db.one(
+            "SELECT id FROM context_objects WHERE owner=? AND session=? AND status!='saved' LIMIT 1",
+            (owner, session),
+        )
+        if pending:
+            return True
+        with self.span(
+            "checkpoint publish", {"gen_ai.conversation.id": session}, root=True
+        ) as span:
+            client = await self.storage_client()
+            try:
+                await asyncio.to_thread(
+                    client.put_object,
+                    Bucket=self.settings.storage.bucket,
+                    Key=self.key(owner, session, "latest.json"),
+                    Body=json.dumps({"id": identity}).encode(),
+                )
+            except Exception as error:
+                if self.tracing:
+                    self.tracing.failed(span, type(error).__name__)
+                logger.warning(
+                    "checkpoint_replication_failed", extra={"error_type": type(error).__name__}
+                )
+                return False
+            self.db.put_record(owner, "context_checkpoint_remote", session, {"id": identity})
+        return True
+
+    async def drain(self):
+        """Wait for successful replication, primarily for backup and acceptance checks."""
+        self.start()
+        while True:
+            if not await self.flush():
+                return False
+            if not self.settings.storage.endpoint:
+                return True
+            pending = self.db.one("SELECT id FROM context_objects WHERE status='pending' LIMIT 1")
+            if not pending:
+                return True
+
+    async def close(self):
+        """Stop the worker. Unfinished transfers remain in the durable journal."""
+        self.closed = True
+        self.wake.set()
+        self.stop.set()
+        if self.worker:
+            # Finish the current storage operation before a replacement worker can publish.
+            try:
+                await asyncio.wait_for(asyncio.shield(self.worker), 35)
+            except TimeoutError:
+                self.worker.cancel()
+            await asyncio.gather(self.worker, return_exceptions=True)
+        if self.client:
+            await asyncio.to_thread(self.client.close)
+            self.client = None
 
     def key(self, owner, session, suffix):
         scope = hashlib.sha256(owner.encode()).hexdigest()
@@ -36,6 +186,11 @@ class Checkpoints:
                 stream.flush()
                 os.fsync(stream.fileno())
             temporary.replace(path)
+            directory_fd = os.open(self.directory, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
         self.db.execute(
             "INSERT OR IGNORE INTO context_objects VALUES (?,?,?,?,?,?,?,?,?)",
             (
@@ -50,24 +205,37 @@ class Checkpoints:
                 time.time(),
             ),
         )
-        await self.flush_one(owner, identity)
+        self.start()
         return identity
 
     async def flush_one(self, owner, identity):
         row = self.db.one("SELECT * FROM context_objects WHERE id=? AND owner=?", (identity, owner))
         if not row or row["status"] == "saved" or not self.settings.storage.endpoint:
-            return
-        client = self.files.storage_client()
-        try:
-            await asyncio.to_thread(
-                client.upload_file, row["path"], self.settings.storage.bucket, row["object_key"]
-            )
-            self.db.execute("UPDATE context_objects SET status='saved' WHERE id=?", (identity,))
-        except Exception:
-            # The durable local spool remains pending. Never repeat the connector action to retry a transfer.
-            self.db.execute("UPDATE context_objects SET status='pending' WHERE id=?", (identity,))
-        finally:
-            client.close()
+            return True
+        with self.span(
+            "checkpoint upload",
+            {"gen_ai.conversation.id": row["session"], "theos.checkpoint.kind": row["kind"]},
+            root=True,
+        ) as span:
+            client = await self.storage_client()
+            try:
+                await asyncio.to_thread(
+                    client.upload_file, row["path"], self.settings.storage.bucket, row["object_key"]
+                )
+                self.db.execute("UPDATE context_objects SET status='saved' WHERE id=?", (identity,))
+                self.db.execute(
+                    "DELETE FROM records WHERE owner=? AND kind='context_replication_retry' AND id=?",
+                    (owner, identity),
+                )
+                return True
+            except Exception as error:
+                if self.tracing:
+                    self.tracing.failed(span, type(error).__name__)
+                logger.warning(
+                    "checkpoint_replication_failed", extra={"error_type": type(error).__name__}
+                )
+                self.db.put_record(owner, "context_replication_retry", identity, {"pending": True})
+                return False
 
     async def get(self, owner, session, identity):
         row = self.db.one(
@@ -78,13 +246,12 @@ class Checkpoints:
             raise LookupError("Source not found in this conversation.")
         path = Path(row["path"])
         if not path.exists():
-            client = self.files.storage_client()
-            try:
-                await asyncio.to_thread(
-                    client.download_file, self.settings.storage.bucket, row["object_key"], str(path)
-                )
-            finally:
-                client.close()
+            if row["status"] != "saved":
+                raise FileNotFoundError("The pending source is missing from local storage.")
+            client = await self.storage_client()
+            await asyncio.to_thread(
+                client.download_file, self.settings.storage.bucket, row["object_key"], str(path)
+            )
             path.chmod(0o600)
         data = gzip.decompress(path.read_bytes())
         if hashlib.sha256(data).hexdigest() != row["digest"]:
@@ -94,58 +261,40 @@ class Checkpoints:
     async def save(self, owner, session, history, memory, stage):
         lock = self.locks.setdefault(session, asyncio.Lock())
         async with lock:
-            for row in self.db.rows(
-                "SELECT id FROM context_objects WHERE owner=? AND session=? AND status='pending' ORDER BY created LIMIT 20",
-                (owner, session),
-            ):
-                await self.flush_one(owner, row["id"])
-            checkpoint = {
-                "schema": 1,
-                "session": session,
-                "owner": owner,
-                "stage": stage,
-                "history": [message_to_dict(m) for m in history],
-                "memory": memory.to_dict(),
-                "tool_runs": self.db.rows("SELECT * FROM tool_runs WHERE session=?", (session,)),
-                "objects": self.db.rows(
-                    "SELECT * FROM context_objects WHERE owner=? AND session=? AND kind!='checkpoint'",
-                    (owner, session),
-                ),
-                "workspace": self.db.one(
-                    "SELECT value FROM records WHERE owner=? AND kind='workspace' AND id=?",
-                    (owner, session),
-                ),
-            }
-            identity = await self.put(owner, session, "checkpoint", checkpoint)
-            self.db.put_record(
-                owner, "context_checkpoint", session, {"id": identity, "stage": stage}
-            )
-            # Publish the recovery pointer only after every referenced object is durable in R2.
-            pending = self.db.one(
-                "SELECT id FROM context_objects WHERE owner=? AND session=? AND status!='saved' LIMIT 1",
-                (owner, session),
-            )
-            if self.settings.storage.endpoint and not pending:
-                client = self.files.storage_client()
-                try:
-                    await asyncio.to_thread(
-                        client.put_object,
-                        Bucket=self.settings.storage.bucket,
-                        Key=self.key(owner, session, "latest.json"),
-                        Body=json.dumps({"id": identity}).encode(),
-                    )
-                except Exception:
-                    return identity
-                finally:
-                    client.close()
-            return identity
+            with self.span("checkpoint persist", {"theos.checkpoint.stage": stage}):
+                checkpoint = {
+                    "schema": 1,
+                    "session": session,
+                    "owner": owner,
+                    "stage": stage,
+                    "history": [message_to_dict(m) for m in history],
+                    "memory": memory.to_dict(),
+                    "tool_runs": self.db.rows(
+                        "SELECT * FROM tool_runs WHERE session=?", (session,)
+                    ),
+                    "objects": self.db.rows(
+                        "SELECT * FROM context_objects WHERE owner=? AND session=? AND kind!='checkpoint'",
+                        (owner, session),
+                    ),
+                    "workspace": self.db.one(
+                        "SELECT value FROM records WHERE owner=? AND kind='workspace' AND id=?",
+                        (owner, session),
+                    ),
+                }
+                identity = await self.put(owner, session, "checkpoint", checkpoint)
+                self.db.put_record(
+                    owner, "context_checkpoint", session, {"id": identity, "stage": stage}
+                )
+                self.start()
+                return identity
 
     async def restore(self, owner, session):
         """Restore an interrupted conversation into an existing owned, empty session."""
         current = self.db.session(owner, session)
         if json.loads(current["history"]) or current["status"] == "running":
             raise ValueError("Restore requires an empty, inactive conversation.")
-        client = self.files.storage_client()
+        client = await self.storage_client()
+        response = None
         try:
             response = await asyncio.to_thread(
                 client.get_object,
@@ -153,6 +302,7 @@ class Checkpoints:
                 Key=self.key(owner, session, "latest.json"),
             )
             pointer = json.loads(await asyncio.to_thread(response["Body"].read))
+            response["Body"].close()
             identity = pointer["id"]
             if len(identity) != 64 or any(c not in "0123456789abcdef" for c in identity):
                 raise ValueError("Invalid checkpoint reference.")
@@ -168,7 +318,8 @@ class Checkpoints:
                 raise ValueError("Checkpoint checksum mismatch.")
             snapshot = json.loads(data)
         finally:
-            client.close()
+            if response is not None:
+                response["Body"].close()
         if snapshot["owner"] != owner or snapshot["session"] != session:
             raise PermissionError("Checkpoint owner mismatch.")
         from harness import message_from_dict

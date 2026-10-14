@@ -1,0 +1,6 @@
+[Unit]
+Description=Bound Raspberry Pi Connect resident memory
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/rpi-connect-memory-guard

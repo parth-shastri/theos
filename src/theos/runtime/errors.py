@@ -35,6 +35,9 @@ class ProviderFailure(RuntimeError):
     """A failure at the model boundary with a safe explanation for the user."""
 
     def __init__(self, provider, error):
+        from theos.operations.provider_diagnostics import diagnostics
+
+        self.diagnostics = diagnostics(error)
         names = {
             "openai": "OpenAI",
             "openrouter": "OpenRouter",
@@ -66,7 +69,11 @@ class ProviderFailure(RuntimeError):
             status = error.response.status_code
         kind = type(error).__name__
         next_step = "Please try again after the issue is resolved."
-        if isinstance(error, (TimeoutError, httpx.TimeoutException)) or kind == "APITimeoutError":
+        if (
+            self.diagnostics.get("provider_error_type") == "timeout"
+            or isinstance(error, (TimeoutError, httpx.TimeoutException))
+            or kind == "APITimeoutError"
+        ):
             detail = "did not respond before the connection timed out"
         elif isinstance(error, httpx.NetworkError) or kind == "APIConnectionError":
             detail = "could not be reached over the network"
@@ -126,9 +133,11 @@ class CheckedModel:
             raise
         except Exception as error:
             from harness.context_size import ContextOverflowError
+            from theos.operations.provider_diagnostics import failure
 
             if isinstance(error, ContextOverflowError) or is_context_overflow(error):
                 raise ContextOverflowError("The provider context window is full.") from error
+            failure(error)
             if isinstance(error, ProviderFailure):
                 raise
             raise ProviderFailure(self.provider, error) from error

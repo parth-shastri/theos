@@ -212,3 +212,46 @@ This command retains the named data volume.
 Do not add `--volumes` or remove the data volume unless you intend to delete the stored state.
 
 Source: [backup](../src/theos/backup.py), [database recovery](../src/theos/storage/database.py), and [scheduler](../src/theos/runtime/scheduler.py).
+
+## Check Pi memory and Raspberry Pi Connect
+
+Inspect process memory before attributing host pressure to Theos:
+
+```sh
+ssh neuralbox-pi 'ps -eo pid,comm,rss,pcpu --sort=-rss | head -n 10; free -m'
+```
+
+On 2026-10-14, `rpi-connectd` occupied about 6.7 GiB resident memory and 1 GiB of swap.
+Theos occupied about 41 MiB resident memory and 105 MiB of swap during that snapshot.
+Restarting Connect restored more than 7 GiB of available memory without restarting Theos.
+The host package was then upgraded from 2.12.2 to 2.13.0.
+Its changelog includes a correction for repeated sign-in service restarts from an unused authentication key.
+That correction does not prove the original allocation cause.
+
+The [host guard](../config/rpi-connect/memory-guard.sh) checks Connect resident memory each minute.
+It restarts only `rpi-connect.service` above 512 MiB.
+The service also has a 192 MiB Go memory target. This target is not a hard kernel limit.
+A guard restart interrupts active Connect sessions. SSH, Tailscale, and Theos continue independently.
+
+Install the supplied files as the Pi service user:
+
+```sh
+mkdir -p ~/.local/bin ~/.config/systemd/user/rpi-connect.service.d
+cp config/rpi-connect/memory-guard.sh ~/.local/bin/rpi-connect-memory-guard
+chmod 755 ~/.local/bin/rpi-connect-memory-guard
+cp config/rpi-connect/rpi-connect-memory-guard.service config/rpi-connect/rpi-connect-memory-guard.timer ~/.config/systemd/user/
+cp config/rpi-connect/memory.conf ~/.config/systemd/user/rpi-connect.service.d/memory.conf
+systemctl --user daemon-reload
+systemctl --user restart rpi-connect.service
+systemctl --user enable --now rpi-connect-memory-guard.timer
+```
+
+Check the service, guard, and account separately:
+
+```sh
+systemctl --user status rpi-connect.service rpi-connect-memory-guard.timer
+XDG_RUNTIME_DIR=/run/user/$(id -u) rpi-connect status
+```
+
+The current Pi Connect account requires operator sign-in through `rpi-connect signin`.
+Theos access through SSH and Tailscale does not require that sign-in.
