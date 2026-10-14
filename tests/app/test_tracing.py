@@ -678,6 +678,51 @@ async def test_provider_headers_span_and_redacted_error_classification(runtime, 
     assert parent.events[0].name == "provider response headers"
 
 
+@pytest.mark.parametrize("malformed", [False, True])
+async def test_request_controls_are_visible_without_private_body(runtime, exporter, malformed):
+    from theos.operations.provider_diagnostics import observe, request_hook, response_hook
+
+    payload = {
+        "messages": [{"role": "user", "content": "PRIVATE PROMPT"}],
+        "tools": [{"function": {"description": "PRIVATE TOOL"}}],
+        "max_tokens": 8192,
+        "reasoning": {"effort": ["PRIVATE"] if malformed else "medium"},
+        "provider": {
+            "zdr": True,
+            "sort": {"PRIVATE": "VALUE"} if malformed else "latency",
+            "order": ["PRIVATE secret"] if malformed else ["azure/eu"],
+            "preferred_max_latency": {"p90": 15},
+            "preferred_min_throughput": {"p90": 10},
+            "unrecognized": "PRIVATE METADATA",
+        },
+    }
+    request = httpx.Request("POST", "https://provider.test", json=payload)
+    with runtime.tracing.span("chat control probe", client=True) as span:
+        with observe(runtime.tracing, span):
+            await request_hook(request)
+            await response_hook(httpx.Response(200, request=request))
+    await asyncio.to_thread(runtime.tracing.provider.force_flush)
+    output = exporter.get_finished_spans()
+    parent = next(s for s in output if s.name == "chat control probe")
+    attrs = parent.attributes
+    assert attrs["theos.model.request_bytes"] == len(request.content)
+    assert attrs["theos.model.input_message_count"] == 1
+    assert attrs["theos.model.tool_schema_count"] == 1
+    assert attrs["gen_ai.request.max_tokens"] == 8192
+    assert attrs["gen_ai.request.reasoning_effort"] == (
+        "provider_default" if malformed else "medium"
+    )
+    assert attrs["theos.provider.routing.zdr"] is True
+    assert attrs["theos.provider.routing.preferred_max_latency.p90"] == 15
+    if malformed:
+        assert "theos.provider.routing.sort" not in attrs
+        assert "theos.provider.routing.order" not in attrs
+    else:
+        assert attrs["theos.provider.routing.sort"] == "latency"
+        assert attrs["theos.provider.routing.order"] == ("azure/eu",)
+    assert "PRIVATE" not in repr([dict(s.attributes) for s in output])
+
+
 async def test_recovered_provider_span_does_not_report_a_failed_final_attempt(
     runtime, exporter, monkeypatch
 ):

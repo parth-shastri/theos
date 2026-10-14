@@ -67,11 +67,24 @@ class OpenRouterChatModel(OpenAIChatModel):
 
     provider = "openrouter"
 
+    def __init__(self, *args, provider_preferences=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.provider_preferences = copy.deepcopy(provider_preferences or {})
+
     def _encode_chat(self, request):
         payload = super()._encode_chat(request)
         # Apply the retention policy after request options, including internal calls.
         extra = dict(payload.get("extra_body") or {})
-        extra["provider"] = {**(extra.get("provider") or {}), "zdr": True}
+        preferences = dict(self.provider_preferences)
+        requested = extra.get("provider") or {}
+        if "only" in requested and "order" not in requested:
+            # An explicit allowlist must not conflict with the deployment's preferred route.
+            preferences.pop("order", None)
+        extra["provider"] = {
+            **preferences,
+            **requested,
+            "zdr": True,
+        }
         payload["extra_body"] = extra
         for message, wire in zip(request.messages, payload["messages"], strict=True):
             if not isinstance(message, AssistantMessage):
@@ -100,6 +113,11 @@ class OpenRouterChatModel(OpenAIChatModel):
                 "reasoning_details": copy.deepcopy(value.get("reasoning_details") or []),
             }
         cost = getattr(raw.usage, "cost", None)
+        details = getattr(raw.usage, "completion_tokens_details", None)
+        reasoning_tokens = getattr(details, "reasoning_tokens", None)
+        if type(reasoning_tokens) is int and reasoning_tokens >= 0:
+            # This is a subset of output_tokens. Do not count or bill it again.
+            message.usage["reasoning_tokens"] = reasoning_tokens
         if cost is not None and not isinstance(cost, bool):
             try:
                 amount = Decimal(str(cost))

@@ -100,6 +100,107 @@ async def test_openrouter_unavailable_zdr_route_does_not_retry_without_policy():
     assert calls[0]["provider"] == {"zdr": True}
 
 
+def test_performance_routing_keeps_zdr_and_saved_signed_state():
+    from theos.settings import OpenRouterSettings
+
+    preferences = OpenRouterSettings(order=["azure/eu"]).preferences()
+    saved = AssistantMessage(
+        tool_calls=[ToolCall("saved-call", "read", {})],
+        provider_data={
+            "openrouter": {
+                "model": "openai/gpt-6-luna",
+                "reasoning_details": [
+                    {
+                        "type": "reasoning.encrypted",
+                        "format": "azure-openai-responses-v1",
+                        "data": "unchanged-signed-state",
+                    }
+                ],
+            }
+        },
+    )
+    request = ModelRequest(
+        [saved, ToolResultMessage("saved-call", "read", "already completed")],
+        options={
+            "max_tokens": 8192,
+            "extra_body": {"reasoning": {"effort": "medium"}, "provider": {"zdr": False}},
+        },
+    )
+    original = copy.deepcopy(request)
+    model = OpenRouterChatModel(
+        SimpleNamespace(),
+        "openai/gpt-6-luna",
+        api="chat_completions",
+        provider_preferences=preferences,
+    )
+    wire = model.encode_request(request)
+    provider = wire["extra_body"]["provider"]
+    assert provider == {**preferences, "zdr": True}
+    assert wire["extra_body"]["reasoning"] == {"effort": "medium"}
+    assert wire["max_tokens"] == 8192
+    assert wire["messages"][0]["reasoning_details"][0]["data"] == "unchanged-signed-state"
+    assert wire["messages"][1]["tool_call_id"] == "saved-call"
+    assert wire["messages"][1]["content"] == "already completed"
+    assert request == original
+    assert preferences == OpenRouterSettings(order=["azure/eu"]).preferences()
+    request.options["extra_body"]["provider"] = {"only": ["azure/us"], "allow_fallbacks": False}
+    explicit = model.encode_request(request)["extra_body"]["provider"]
+    assert explicit["only"] == ["azure/us"]
+    assert explicit["allow_fallbacks"] is False
+    assert "order" not in explicit
+    assert explicit["zdr"] is True
+
+
+def test_reasoning_usage_is_a_subset_of_total_output():
+    raw = ChatCompletion.model_validate(
+        {
+            "id": "chat-usage",
+            "created": 1,
+            "model": "openai/gpt-6-luna",
+            "object": "chat.completion",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {
+                        "role": "assistant",
+                        "content": "OK",
+                    },
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 40952,
+                "completion_tokens": 940,
+                "total_tokens": 41892,
+                "completion_tokens_details": {"reasoning_tokens": 808},
+            },
+        }
+    )
+    model = OpenRouterChatModel(SimpleNamespace(), "openai/gpt-6-luna", api="chat_completions")
+    usage = model.decode_response(raw).usage
+    assert usage["reasoning_tokens"] == 808
+    assert usage["output_tokens"] == 940
+    assert usage["total_tokens"] == 41892
+
+
+async def test_runtime_client_applies_configured_routing(settings):
+    from pydantic import SecretStr
+
+    from theos.runtime.models import model_client
+    from theos.settings import OpenRouterSettings
+
+    settings.provider = "openrouter"
+    settings.api_key = SecretStr("test")
+    settings.openrouter = OpenRouterSettings(order=["azure/eu"])
+    async with model_client(settings, "gpt-6-luna", "default") as model:
+        wire = model.encode_request(ModelRequest([UserMessage("Private prompt")]))
+        assert wire["extra_body"]["provider"] == {
+            **settings.openrouter.preferences(),
+            "zdr": True,
+        }
+    assert settings.openrouter.order == ["azure/eu"]
+
+
 @pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("retry_fails", [False, True])
 @pytest.mark.parametrize("status", [400, 404])

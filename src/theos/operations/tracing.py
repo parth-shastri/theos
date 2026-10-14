@@ -293,6 +293,7 @@ class TracedModel:
                                 "output_tokens": "output_tokens",
                                 "cache_read_tokens": "cache_read.input_tokens",
                                 "cache_write_tokens": "cache_write.input_tokens",
+                                "reasoning_tokens": "reasoning.output_tokens",
                             }.items():
                                 span.set_attribute(
                                     f"gen_ai.usage.{attribute}", event.message.usage.get(key, 0)
