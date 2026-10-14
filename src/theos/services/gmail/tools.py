@@ -23,7 +23,7 @@ def gmail_tools(client, owner):
         """Disconnect your Gmail account and revoke its grant."""
         return await client.oauth.disconnect(owner, "gmail")
 
-    @tool
+    @tool(parallel_safe=True)
     async def gmail_search_messages(query: str, page_token: str | None = None):
         """Search Gmail messages outside Spam and Trash."""
         params = {"q": f"({query}) -in:spam -in:trash", "maxResults": 50}
@@ -39,12 +39,12 @@ def gmail_tools(client, owner):
             raise PermissionError("Messages in Spam or Trash are unavailable.")
         return message
 
-    @tool
+    @tool(parallel_safe=True)
     async def gmail_get_message(message_id: str):
         """Read a Gmail message, including its MIME body and attachment IDs."""
         return await get_message(message_id)
 
-    @tool
+    @tool(parallel_safe=True)
     async def gmail_get_thread(thread_id: str):
         """Read a Gmail thread outside Spam and Trash."""
         thread = await client.request(
@@ -87,7 +87,7 @@ def gmail_tools(client, owner):
         )
         return {"file_id": row["id"], "name": row["name"]}
 
-    @tool
+    @tool(parallel_safe=True)
     async def gmail_list_drafts(page_token: str | None = None):
         """List your Gmail drafts."""
         return await client.request(
@@ -97,7 +97,7 @@ def gmail_tools(client, owner):
             params={"maxResults": 50, **({"pageToken": page_token} if page_token else {})},
         )
 
-    @tool
+    @tool(parallel_safe=True)
     async def gmail_get_draft(draft_id: str):
         """Read a draft with its recipients, subject, body, and content hash."""
         return await client.preview(owner, draft_id)
@@ -146,7 +146,7 @@ def gmail_tools(client, owner):
         # A connection failure remains unknown. The runtime must not repeat the send.
         return await client.request(owner, "POST", "drafts/send", json={"id": draft_id})
 
-    @tool
+    @tool(parallel_safe=True)
     async def gmail_list_labels():
         """List Gmail labels."""
         return await client.request(owner, "GET", "labels")

@@ -806,3 +806,35 @@ A separate check verifies that the service guard rejects a send without the acti
 The final draft check also rejects edits between approval resumption and send execution.
 Duplicate approval decisions cannot send the email again.
 These checks use HTTP mocks and send no real email. No environment change or migration is required.
+
+## Runtime latency and safe replication, 2026-10-14
+
+The complete local suite passed 1,106 tests, with three credential-dependent tests excluded before the final retry-window test.
+Focused checks also passed after that test and the diagnostic changes.
+Storage tests cover blocked uploads, unavailable storage, worker restart, failed pointer publication, and transfer fairness across owners.
+A blocked upload does not delay a newer local checkpoint.
+Pending objects retain their local files and journal entries.
+Remote pointers advance only after the corresponding objects are uploaded.
+Recovery preserves unknown external actions and never repeats tools to repair storage.
+
+Three mocked Gmail thread reads overlap while preserving their owner, result order, call IDs, and durable results.
+Writes and approved sends retain sequential execution and existing approval checks.
+Transient provider retries preserve the exact request and ZDR.
+A completed tool executes once across two injected provider failures.
+Partial output and a long failed stream do not restart generation through this path.
+Diagnostic tests reject private provider prose, raw metadata, and malformed identifiers.
+Timing tests check phase ownership, HTTP headers, first-chunk timing, and request identifiers.
+
+The Pi preflight used the edited code under a temporary source path and a separate temporary database.
+Five synthetic checkpoints took 16.9 to 17.7 milliseconds each. R2 replication completed in 4.11 seconds afterward.
+The bucket contained no remaining probe objects after cleanup.
+A live provider request with no tools returned the expected marker in 12.10 seconds.
+It sent no Telegram messages and changed no production session records.
+The Pi Connect package is 2.13.0 and its resident-memory guard is active.
+Application deployment confirmation still requires the tagged release workflow and active Pi manifest.
+
+The final source PR passed 1,108 tests on Python 3.12 and 3.13 before the remote-restore correction.
+Additional restore checks cover snapshots with unanswered calls and snapshots before any call intent.
+Saved working context and ordinary history both retain one uncertain result per unresolved call.
+Tool access stays paused until explicit operator reconciliation, even if a caller bypasses the empty registry.
+Other owners cannot confirm that review. Local process recovery keeps its existing behavior.

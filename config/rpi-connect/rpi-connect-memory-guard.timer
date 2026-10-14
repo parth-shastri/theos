@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Raspberry Pi Connect resident memory
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Unit=rpi-connect-memory-guard.service
+
+[Install]
+WantedBy=timers.target

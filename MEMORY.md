@@ -51,6 +51,10 @@ Updated: 2026-10-14.
 | Trace access | The optional Jaeger viewer and OTLP receiver bind to host loopback. The Pi uses persistent Tailscale Serve on HTTPS port 8443 to proxy the viewer. Restrict Pi TCP 8443 to `group:theos-operators` in the tailnet policy. Exclude this endpoint from broader grants across both IP families. The group currently contains `parth-shastri@github`. Keep Funnel disabled for this endpoint. Jaeger has no configured password or per-user trace isolation. Theos authentication does not protect it. Operators can also use local access or authenticated SSH tunnels. Anyone with Jaeger access can inspect all stored traces. Per-user trace access requires a separate ownership-checking layer and is not implemented |
 | Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. Use seven-day Jaeger span expiry, a 512 MiB container limit, and memory pressure guards. Do not impose a 1 GB disk quota. Jaeger storage retains traces across restarts. Monitor disk growth separately |
 | Turn recovery | Preserve the transcript and uncertain actions. Retry provider context rejection only with a smaller request, without repeating tools. An irreducible request remains a failure, never a fabricated successful answer |
+| Checkpoint latency | Commit SQLite state and fsynced local objects before work proceeds. Use one background R2 worker with bounded batches, connection reuse, storage backoff, and a durable transfer journal. Publish remote recovery pointers only after their snapshots and sources are uploaded. Remote recovery can lag local recovery. Restart replication without repeating assistant tools |
+| Parallel Gmail reads | Mark search, message, thread, draft-list, draft-read, and label-list tools safe for parallel execution. Preserve that declaration and view metadata through journal wrappers. Keep writes and approved sends ordered. Preserve each call ID, completed result, ownership check, and uncertain outcome |
+| Provider diagnostics and retries | Separate HTTP response headers from first-chunk and full-generation timing. Retain validated request IDs, HTTP and provider status codes, known provider names, and allowlisted error classifications. Exclude raw error bodies and credentials. Retry transient accepted OpenRouter streams at most twice before any event, within the same model call. Start additional attempts only during the first 30 seconds. Do not retry partial output, invalid requests, authentication, quotas, or context errors through this path |
+| Pi Connect memory | Upgrade the host package to 2.13.0. Set its Go memory target to 192 MiB and check resident memory each minute. Restart only `rpi-connect.service` above 512 MiB. This is a service guard, not a hard kernel limit. Preserve SSH, Tailscale, Theos, and account isolation. Browser Connect access currently requires operator sign-in |
 | Tool execution batches | Replace the hard 16-call response rejection with `ExecutionLimits.tool_batch_size`, default 16. Process every valid call in ordered batches. Only tools declared safe may overlap. Keep each call ID and approval check. Append each batch's results before the next batch. Tell the model to request at most 16 calls per response and provide explicit feedback after larger groups. Reject invalid arguments per call as `not_started` before approval or execution, with correction instructions and a new call ID. Keep `failed`, `denied`, and `unknown` outcomes distinct. Duplicate IDs and malformed response identities remain fatal before execution. Retain transcript and checkpoint guarantees. Record exact generated call counts in trace metadata and only fixed harness error codes in logs |
 | Approval policy | Global approval prompts apply to Gmail draft sending and Zepto cart confirmation, checkout, order placement, and payment-related tools. Gmail approval binds the draft contents and checks them again immediately before sending. Search, read, draft creation, delivery-store setup, ordinary cart updates, all sandbox actions, deletion, and memory settings do not prompt. Keep owner isolation, validation, durable attempts, exact approval snapshots, and unknown-outcome recovery. Retire old pending cards for ungated tools without executing anything during cleanup |
 | Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity and the legacy renew action cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. Status and explicit restart remain available. Destroying an absent sandbox does not create one |
@@ -477,3 +481,35 @@ The test now advances only application deadline clocks after the write starts an
 Keep the event loop clock real. Preserve unknown outcomes for started writes and never repeat them.
 This correction changes test timing only. Production runtime behavior and the successful live replay remain unchanged.
 Integrate it through a topic PR into `dev` before the Pi promotion and release tag.
+
+## Checkpoint latency, provider diagnostics, and Pi memory, 2026-10-14
+
+The operator requested latency fixes, safe parallel Gmail reads, provider diagnostics, and a Pi Connect memory correction.
+The isolated Pi preflight used synthetic data, a temporary database, and the existing configured storage and model services.
+Five local checkpoints took 16.9 to 17.7 milliseconds each. Background replication completed in 4.11 seconds.
+All six synthetic remote objects were removed and the probe prefix was empty afterward.
+A live model request with no tools returned the expected marker in 12.10 seconds.
+The probe changed no production conversation records and sent no Telegram messages.
+
+The old provider failure occurred after an accepted Azure stream and remains unclassified beyond its 502 code.
+Its detailed payload was discarded. Provider-side disconnection, timeout, and overload are not established causes.
+New diagnostics keep safe classifications and identifiers for later failures.
+They cannot guarantee provider availability or recreate missing historical evidence.
+
+The Pi Connect restart restored more than 7 GiB of available memory.
+Package 2.13.0 and the service memory guard are installed. Connect resident memory was about 18 MiB afterward.
+The guard checks each minute and restarts only Connect above 512 MiB.
+Theos was about 55 MiB resident after host memory pressure ended.
+Connect currently requires operator sign-in. SSH and Tailscale remain available.
+The application changes still require the branch promotion and tagged release gates.
+
+## Remote snapshot reconciliation, 2026-10-14
+
+A remote checkpoint can predate external actions, including actions without captured call intents.
+Remote restore resolves captured unanswered calls from saved results or records them as uncertain.
+It also saves a separate owner-bound review marker that compaction cannot remove.
+Restored conversations expose no tools until the operator checks and reconciles external effects.
+The approval boundary also denies execution if a caller bypasses the empty tool registry.
+Operator recovery code clears the marker through `confirm_restore_review` after reconciliation.
+This method is not an agent tool and rejects confirmation while the session is running.
+Local process recovery retains its existing journal behavior and does not create this review marker.

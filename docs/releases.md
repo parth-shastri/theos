@@ -15,6 +15,18 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.14
+
+Package version 0.1.14 uses tag `rpi-v0.1.14` from the promoted `rpi` tip.
+Local checkpoints remain durable before model requests and tool execution.
+One background worker uploads R2 objects and publishes complete recovery pointers.
+Independent Gmail reads can overlap. Writes and approved sends retain their existing order and checks.
+Phase spans separate queue waits, setup, local persistence, HTTP response headers, and model generation.
+Provider diagnostics retain validated request IDs and error classifications without raw provider bodies.
+Transient OpenRouter stream errors can retry twice before any output, during the first 30 seconds.
+Retries never execute saved tools again.
+The Pi host guard checks Raspberry Pi Connect memory independently of the application release.
+
 ## Release 0.1.13
 
 Package version 0.1.13 uses tag `rpi-v0.1.13` from the promoted `rpi` tip.

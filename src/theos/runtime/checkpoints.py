@@ -3,11 +3,11 @@
 import asyncio
 import json
 import time
+from dataclasses import replace
 
 import httpx
 
 from harness import (
-    Tool,
     ToolResultMessage,
     unanswered_calls,
 )
@@ -55,9 +55,7 @@ def journal_tool(runtime, original, session):
 
     # A research handoff contains model generation. Do not time out its active response.
     timeout = None if original.name in {"delegate_tasks", "deep_research"} else 90
-    return Tool(
-        original.name, original.description, original.input_model, execute, timeout_s=timeout
-    )
+    return replace(original, execute=execute, timeout_s=timeout)
 
 
 def recover_history(runtime, owner, session_id):

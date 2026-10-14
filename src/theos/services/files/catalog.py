@@ -108,6 +108,7 @@ class Files:
     def storage_client(self):
         """Create an R2 client from explicit storage configuration."""
         import boto3
+        from botocore.config import Config
 
         config = self.settings.storage
         if not config.endpoint:
@@ -118,6 +119,7 @@ class Files:
             aws_access_key_id=config.access_key.get_secret_value(),
             aws_secret_access_key=config.secret_key.get_secret_value(),
             region_name="auto",
+            config=Config(connect_timeout=5, read_timeout=10, retries={"max_attempts": 2}),
         )
 
     async def archive(self, owner, file_id):

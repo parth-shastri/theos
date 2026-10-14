@@ -240,12 +240,17 @@ class TracedModel:
         return getattr(self.model, name)
 
     async def stream(self, request):
+        from .provider_diagnostics import failure, observe
+
         attrs = {
             "gen_ai.operation.name": "chat",
             "gen_ai.provider.name": self.model.provider,
             "gen_ai.request.model": self.model.model_id,
         }
-        with self.tracing.span(f"chat {self.model.model_id}", attrs, client=True) as span:
+        with (
+            self.tracing.span(f"chat {self.model.model_id}", attrs, client=True) as span,
+            observe(self.tracing, span),
+        ):
             if self.tracing.settings.capture_content and span.is_recording():
                 messages = request.messages[-32:]
                 self.tracing.content(
@@ -267,35 +272,39 @@ class TracedModel:
             started = time.monotonic()
             first = True
             complete = False
-            async with aclosing(self.model.stream(request)) as stream:
-                async for event in stream:
-                    if first:
-                        span.set_attribute(
-                            "gen_ai.response.time_to_first_chunk", time.monotonic() - started
-                        )
-                        first = False
-                    if isinstance(event, GenerationComplete):
-                        span.set_attribute(
-                            "theos.model.tool_call_count", len(event.message.tool_calls)
-                        )
-                        self.tracing.content(
-                            span, "gen_ai.output.messages", [message_content(event.message)]
-                        )
-                        complete = True
-                        for key, attribute in {
-                            "input_tokens": "input_tokens",
-                            "output_tokens": "output_tokens",
-                            "cache_read_tokens": "cache_read.input_tokens",
-                            "cache_write_tokens": "cache_write.input_tokens",
-                        }.items():
+            try:
+                async with aclosing(self.model.stream(request)) as stream:
+                    async for event in stream:
+                        if first:
                             span.set_attribute(
-                                f"gen_ai.usage.{attribute}", event.message.usage.get(key, 0)
+                                "gen_ai.response.time_to_first_chunk", time.monotonic() - started
                             )
-                        if event.message.stop_reason:
+                            first = False
+                        if isinstance(event, GenerationComplete):
                             span.set_attribute(
-                                "gen_ai.response.finish_reasons", [event.message.stop_reason]
+                                "theos.model.tool_call_count", len(event.message.tool_calls)
                             )
-                    yield event
+                            self.tracing.content(
+                                span, "gen_ai.output.messages", [message_content(event.message)]
+                            )
+                            complete = True
+                            for key, attribute in {
+                                "input_tokens": "input_tokens",
+                                "output_tokens": "output_tokens",
+                                "cache_read_tokens": "cache_read.input_tokens",
+                                "cache_write_tokens": "cache_write.input_tokens",
+                            }.items():
+                                span.set_attribute(
+                                    f"gen_ai.usage.{attribute}", event.message.usage.get(key, 0)
+                                )
+                            if event.message.stop_reason:
+                                span.set_attribute(
+                                    "gen_ai.response.finish_reasons", [event.message.stop_reason]
+                                )
+                        yield event
+            except Exception as error:
+                failure(error)
+                raise
             if not complete:
                 self.tracing.failed(span, "IncompleteModelStream")
 
