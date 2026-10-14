@@ -404,3 +404,115 @@ async def test_failed_transfer_batch_does_not_starve_another_owner(runtime, stor
         storage.objects[runtime.checkpoints.key("bob", other["id"], "latest.json")]
     )
     assert pointer["id"] == identity
+
+
+@pytest.mark.parametrize("working_view", [False, True])
+async def test_remote_restore_never_executes_calls_that_lack_attempt_records(
+    runtime, storage, working_view
+):
+    from contextlib import asynccontextmanager
+
+    from harness import AssistantMessage, ToolCall, ToolResultMessage, message_to_dict
+    from harness.testing import FakeModel
+
+    from .conftest import collect
+
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    call = ToolCall("old-call", "save_once", {"value": 42})
+    history = [UserMessage("Save this value."), AssistantMessage(tool_calls=[call])]
+    memory = ContextMemory(
+        "Keep the task and uncertain outcomes.",
+        len(history) if working_view else 0,
+        working_messages=[message_to_dict(m) for m in history] if working_view else None,
+        state={"usage_anchor": {"tokens": 42000}},
+    )
+    await runtime.checkpoints.save("alice", row["id"], history, memory, "after_model")
+    assert await runtime.checkpoints.drain()
+    # The actual effect occurred after the uploaded snapshot. Local state was then lost.
+    effects = [42]
+
+    @tool
+    async def save_once(value: int):
+        effects.append(value)
+        return {"saved": value}
+
+    async def registry(session):
+        return [runtime.journal_tool(save_once, session)]
+
+    runtime.tools = registry
+    restored = await runtime.checkpoints.restore("alice", row["id"])
+    assert (
+        json.loads(runtime.session("alice", row["id"])["memory"])["state"]["usage_anchor"]["tokens"]
+        == 42000
+    )
+    model = FakeModel([AssistantMessage("Check the external service before another write.")])
+
+    @asynccontextmanager
+    async def factory(*args):
+        yield model
+
+    runtime.models = factory
+    result = await collect(runtime.start("alice", row["id"], "Continue safely."))
+    assert result[-1]["status"] == "completed"
+    assert effects == [42]
+    record = runtime.db.one(
+        "SELECT status FROM tool_runs WHERE session=? AND call_id=?", (row["id"], call.id)
+    )
+    assert record["status"] == "unknown"
+    replies = [
+        m
+        for m in model.requests[0].messages
+        if isinstance(m, ToolResultMessage) and m.call_id == call.id
+    ]
+    assert len(replies) == 1 and replies[0].status == "unknown"
+    assert restored["history"][-1]["status"] == "unknown"
+
+
+async def test_remote_snapshot_without_call_intents_requires_explicit_reconciliation(
+    runtime, storage, scripted_models
+):
+    from harness import AssistantMessage, ToolCall
+
+    from .conftest import collect
+
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    await runtime.checkpoints.save(
+        "alice", row["id"], [UserMessage("Create an entry.")], ContextMemory(), "before_model"
+    )
+    assert await runtime.checkpoints.drain()
+    await runtime.checkpoints.restore("alice", row["id"])
+    assert await runtime.tools(runtime.session("alice", row["id"])) == []
+    effects = []
+
+    @tool
+    async def write_entry(value: int):
+        effects.append(value)
+        return {"saved": value}
+
+    async def registry(session):
+        return [runtime.journal_tool(write_entry, session)]
+
+    runtime.tools = registry
+    scripted_models.responses.append(
+        [
+            AssistantMessage(tool_calls=[ToolCall("new-call", "write_entry", {"value": 42})]),
+            AssistantMessage("Operator review is required."),
+        ]
+    )
+    result = await collect(runtime.start("alice", row["id"], "Continue."))
+    assert result[-1]["status"] == "completed"
+    assert effects == []
+    assert runtime.db.one("SELECT id FROM records WHERE kind='remote_recovery_review'") is not None
+    with pytest.raises(LookupError):
+        runtime.checkpoints.confirm_restore_review("bob", row["id"])
+    runtime.checkpoints.confirm_restore_review("alice", row["id"])
+    scripted_models.responses.append(
+        [
+            AssistantMessage(tool_calls=[ToolCall("reviewed-call", "write_entry", {"value": 42})]),
+            AssistantMessage("New action completed after review."),
+        ]
+    )
+    await collect(
+        runtime.start("alice", row["id"], "I reconciled the external service. Make a new entry.")
+    )
+    assert effects == [42]

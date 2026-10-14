@@ -832,3 +832,9 @@ A live provider request with no tools returned the expected marker in 12.10 seco
 It sent no Telegram messages and changed no production session records.
 The Pi Connect package is 2.13.0 and its resident-memory guard is active.
 Application deployment confirmation still requires the tagged release workflow and active Pi manifest.
+
+The final source PR passed 1,108 tests on Python 3.12 and 3.13 before the remote-restore correction.
+Additional restore checks cover snapshots with unanswered calls and snapshots before any call intent.
+Saved working context and ordinary history both retain one uncertain result per unresolved call.
+Tool access stays paused until explicit operator reconciliation, even if a caller bypasses the empty registry.
+Other owners cannot confirm that review. Local process recovery keeps its existing behavior.

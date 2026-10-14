@@ -220,3 +220,11 @@ Independent Gmail reads can overlap within the existing bounded tool batches.
 Each call retains its ownership check, journal entry, result, and original result order.
 Writes and approved sends remain sequential. An unfinished action remains uncertain after interruption.
 See [the recovery diagram](../architecture/theos-runtime-recovery.excalidraw) and [latency diagnostics](../base-infra/observability.md#diagnose-turn-latency-and-provider-failures).
+
+Remote restore also pauses tool access for that conversation until operator reconciliation.
+A snapshot can omit calls and actions that occurred after its upload.
+Captured unanswered calls become saved results or uncertain outcomes before the runtime resumes.
+The separate owner-bound review record survives context compaction and later checkpoints.
+After checking external effects, operator recovery code calls `checkpoints.confirm_restore_review(owner, session)`.
+This method cannot run as an agent tool and rejects confirmation during a running turn.
+Uncertain call records remain intact after review. The runtime never executes them automatically.
