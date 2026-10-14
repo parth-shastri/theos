@@ -85,6 +85,7 @@ The probe advertised one inert tool and executed none.
 These observations establish intermittent endpoint stalls. They do not establish Azure's internal queue or hardware cause.
 
 Runtime routing now prefers latency with p90 latency and throughput thresholds.
-Pi puts `azure/eu` first while preserving eligible fallbacks and mandatory ZDR.
+Release 0.1.15 put Azure EU first globally. Release 0.1.16 removes that order for all models.
+The runtime now supplies only generic performance preferences while preserving eligible fallbacks and mandatory ZDR.
 These are routing preferences, not hard latency guarantees. Reasoning and recovery protections remain intact.
 See [OpenRouter provider selection](https://openrouter.ai/docs/guides/routing/provider-selection) for threshold and fallback behavior.

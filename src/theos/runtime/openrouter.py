@@ -77,9 +77,6 @@ class OpenRouterChatModel(OpenAIChatModel):
         extra = dict(payload.get("extra_body") or {})
         preferences = dict(self.provider_preferences)
         requested = extra.get("provider") or {}
-        if "only" in requested and "order" not in requested:
-            # An explicit allowlist must not conflict with the deployment's preferred route.
-            preferences.pop("order", None)
         extra["provider"] = {
             **preferences,
             **requested,

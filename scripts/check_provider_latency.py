@@ -64,7 +64,6 @@ async def check(args):
             if profile == "responsive":
                 provider.update(
                     {
-                        "order": ["azure/eu"],
                         "sort": "latency",
                         "preferred_max_latency": {"p90": 15},
                         "preferred_min_throughput": {"p90": 10},

@@ -103,7 +103,7 @@ async def test_openrouter_unavailable_zdr_route_does_not_retry_without_policy():
 def test_performance_routing_keeps_zdr_and_saved_signed_state():
     from theos.settings import OpenRouterSettings
 
-    preferences = OpenRouterSettings(order=["azure/eu"]).preferences()
+    preferences = OpenRouterSettings().preferences()
     saved = AssistantMessage(
         tool_calls=[ToolCall("saved-call", "read", {})],
         provider_data={
@@ -142,7 +142,7 @@ def test_performance_routing_keeps_zdr_and_saved_signed_state():
     assert wire["messages"][1]["tool_call_id"] == "saved-call"
     assert wire["messages"][1]["content"] == "already completed"
     assert request == original
-    assert preferences == OpenRouterSettings(order=["azure/eu"]).preferences()
+    assert preferences == OpenRouterSettings().preferences()
     request.options["extra_body"]["provider"] = {"only": ["azure/us"], "allow_fallbacks": False}
     explicit = model.encode_request(request)["extra_body"]["provider"]
     assert explicit["only"] == ["azure/us"]
@@ -183,7 +183,19 @@ def test_reasoning_usage_is_a_subset_of_total_output():
     assert usage["total_tokens"] == 41892
 
 
-async def test_runtime_client_applies_configured_routing(settings):
+@pytest.mark.parametrize(
+    "choice",
+    [
+        "gpt-6-luna",
+        "gpt-5.6-luna",
+        "sonnet-5.5",
+        "deepseek-flash-v4.1",
+        "gemini-3.8-flash",
+        "glm-5.3-flash",
+        "qwen-3.8-27b",
+    ],
+)
+async def test_runtime_client_uses_automatic_routing_for_every_model(settings, choice):
     from pydantic import SecretStr
 
     from theos.runtime.models import model_client
@@ -191,14 +203,16 @@ async def test_runtime_client_applies_configured_routing(settings):
 
     settings.provider = "openrouter"
     settings.api_key = SecretStr("test")
-    settings.openrouter = OpenRouterSettings(order=["azure/eu"])
-    async with model_client(settings, "gpt-6-luna", "default") as model:
+    settings.openrouter = OpenRouterSettings()
+    async with model_client(settings, choice, "default") as model:
         wire = model.encode_request(ModelRequest([UserMessage("Private prompt")]))
         assert wire["extra_body"]["provider"] == {
             **settings.openrouter.preferences(),
             "zdr": True,
         }
-    assert settings.openrouter.order == ["azure/eu"]
+        assert "order" not in wire["extra_body"]["provider"]
+    assert "order" not in OpenRouterSettings.model_fields
+    assert "model_orders" not in OpenRouterSettings.model_fields
 
 
 @pytest.mark.parametrize("streaming", [False, True])
