@@ -12,7 +12,7 @@ from theos.services.errors import ServiceError
 from theos.services.zepto.auth import prepare_telegram_update as prepare_zepto_update
 from theos.storage.telegram_access import prepare_update as prepare_access_update
 
-from . import client, commands, media, onboarding, rendering, web_access
+from . import approval_messages, client, commands, media, onboarding, rendering, web_access
 
 logger = logging.getLogger("theos")
 
@@ -178,6 +178,7 @@ class Telegram:
                 turn = self.runtime.start(
                     owner, session["id"], approval=(data[2:], data.startswith("a:"))
                 )
+                await approval_messages.remove_resolved(self, owner, session["id"])
                 await self.api(
                     "answerCallbackQuery",
                     {"callback_query_id": callback["id"], "text": "Decision saved."},
@@ -321,6 +322,7 @@ class Telegram:
 
     async def run(self):
         """Poll, persist, and dispatch updates until shutdown."""
+        last_cleanup = float("-inf")
         while not self.stopping.is_set():
             try:
                 # 1. Read from the saved offset so a restart can recover accepted messages.
@@ -329,6 +331,9 @@ class Telegram:
                 self.save_updates(updates)
                 # 3. Start bounded work from the inbox, including messages saved before restart.
                 self.dispatch_updates()
+                if time.monotonic() - last_cleanup >= 10:
+                    last_cleanup = time.monotonic()
+                    await approval_messages.cleanup(self)
             except (ServiceError, httpx.HTTPError):
                 # Delay connection retries without repeating an uncertain tool or reply.
                 await asyncio.sleep(2)

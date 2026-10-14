@@ -68,3 +68,22 @@ async def call_tool(tools, tool_name, **arguments):
 
 async def collect(turn):
     return [event async for event in turn.events()]
+
+
+@pytest.fixture
+def checkout_tool(monkeypatch):
+    """Use a local table write as the side effect of a protected checkout stub."""
+    from dataclasses import replace
+
+    from theos.runtime import tools as registry
+
+    original = registry.custom_tools
+
+    def with_checkout(*args, **kwargs):
+        tools = original(*args, **kwargs)
+        deletion = next(tool for tool in tools if tool.name == "delete_custom_table")
+        return tools + [
+            replace(deletion, name="zepto_confirm_cart", description="Confirm a test cart.")
+        ]
+
+    monkeypatch.setattr(registry, "custom_tools", with_checkout)

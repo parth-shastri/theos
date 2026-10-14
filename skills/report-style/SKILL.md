@@ -86,7 +86,7 @@ Copy required files into the remote sandbox with `sandbox_write_file` before exe
 The assistant-host skill path is not a sandbox path.
 Check dependencies in the sandbox. Never assume that the host's libraries are installed there.
 Render, inspect with `sandbox_view_image`, and deliver through `sandbox_send_file_to_user`.
-The normal sandbox execution approval policy still applies.
+Sandbox execution does not require approval in Theos.
 If dependencies or rendering are unavailable, report the limitation without claiming a verified result.
 
 ## Writing the prose

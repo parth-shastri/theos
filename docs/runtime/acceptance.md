@@ -746,3 +746,52 @@ The first Pi promotion CI run exposed a timing race in the bounded write-timeout
 Setup could exceed 150 milliseconds before the tool started, which correctly records failed rather than unknown status.
 The corrected test expires research after the write starts and uses a separate 50-millisecond tool timeout.
 It patches application clocks only, leaving the event loop clock intact. Production behavior does not change.
+
+## Temporary Telegram activity and approval notifications, 2026-10-14
+
+The local suite passed 1,045 tests, with three credential-dependent tests excluded.
+Finished tool and compaction messages disappear. Final stats include elapsed time, call count, outcomes, and successfully loaded skills.
+Runtime checks include delegate calls and display queue overflow without losing counters.
+Transport checks cover complete answers, partial answers, failures, cancellation, topics, and failed message deletion.
+
+Approval checks cover one notification per card, complete multipart reviews, attached reviews, and duplicate progress events.
+Approved and denied cards disappear after decisions. A replacement bot reads saved message references and removes the complete review.
+Polling removes expired cards and cards resolved by another client. Failed deletion removes buttons and retains references for another attempt.
+SQLite retains original approval snapshots and decisions. Existing recovery and transcript checks still pass.
+Python lint, formatting, and whitespace checks passed. These changes have not deployed or sent live Telegram messages.
+
+## Recoverable tool batches and model feedback, 2026-10-14
+
+The local suite passed 1,063 tests, with three credential-dependent tests excluded.
+A 35-call response completed with batch sizes of one, eight, and sixteen. All call IDs and result order remained intact.
+The direct executor also bounded parallel groups. Model requests included explicit oversized-batch feedback and instructions against resubmitting completed or uncertain calls.
+Cancellation in a later batch retained earlier results and one unknown outcome. Resumption completed remaining calls without repeating that uncertain action.
+
+A 17-action application check created every required approval. One approved action executed once while the other sixteen were denied.
+Approval arguments and saved results retained their original identities. Invalid calls produced saved `not_started` results and allowed correction with new IDs.
+Argument size, nesting, list size, schema, and unknown-tool checks stopped affected calls before execution.
+Executed failures and uncertain outcomes retained distinct statuses. Duplicate IDs still stopped before any tool executed.
+
+Trace checks retained the full 35-call count while content capture included only the first sixteen calls.
+Log checks accepted only fixed harness error codes and excluded private values.
+These checks used local fixtures. They did not query Gmail, send Telegram messages, or deploy the change.
+
+## Sandbox recovery, approval policy, and skill selection, 2026-10-14
+
+The final full local suite passed 1,091 tests, with three credential-dependent tests excluded.
+Skill checks passed with multiline descriptions and captured first-request instructions. Python lint and whitespace checks passed.
+Approval checks cover the global Zepto-only policy and retirement of old pending cards without execution.
+Sandbox checks cover fixed creation deadlines, concurrent replacement, reconnect, transient failures, and explicit lifecycle actions.
+Workspace checks restore saved files before scanning a replacement instance.
+Transient failures retain the saved sandbox reference and do not replay commands.
+
+The Pi preflight passed on revision `363c4aa` before merge.
+It changed the private deployment environment to a 3,600-second sandbox lifetime and updated installed document styles.
+The disposable live probe verified remote creation, unchanged cached expiry, confirmed missing-instance replacement, and a successful command afterward.
+The probe removed its temporary sandbox. It did not change production conversation records or send Telegram messages.
+See [the preflight run](https://github.com/parth-shastri/theos/actions/runs/38507638730).
+
+Skill checks expose installed descriptions for selection by task intent without loading unrelated workflows.
+Document requests receive actual installed report-style and format instructions before the first model request.
+This validation does not establish real-model workflow selection or a completed styled document.
+Tag deployment still must pass the ARM64 image, backup, readiness, restart, and rollback gates.

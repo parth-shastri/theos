@@ -1287,8 +1287,8 @@ if TEXTUAL_AVAILABLE:
             block.name = name or block.name
             block.output = output
             block.status = status
-            symbol = {"completed": "✓", "denied": "⊘", "failed": "✗"}.get(status, "?")
-            self.activity.append(f"  {symbol} {block.name} {status}")
+            symbol = {"completed": "✓", "denied": "⊘", "not_started": "○", "failed": "✗"}.get(status, "?")
+            self.activity.append(f"  {symbol} {block.name} {status.replace('_', ' ')}")
             if output:
                 self.activity.append(f"    {_limit(output, 4000)}")
             self._update_tool(block)
@@ -1310,6 +1310,7 @@ if TEXTUAL_AVAILABLE:
                 "requested": "○",
                 "completed": "✓",
                 "denied": "⊘",
+                "not_started": "○",
                 "failed": "✗",
                 "unknown": "?",
             }
@@ -1318,7 +1319,7 @@ if TEXTUAL_AVAILABLE:
                         style=Style(color=_DETAIL_COLOR, bold=False,
                                     underline=False, meta=clickable.meta))
             text.append(" " + block.name.replace("_", " "), style=clickable)
-            text.append(f"  {symbols.get(block.status, '·')} {block.status}", style=_DETAIL_STYLE)
+            text.append(f"  {symbols.get(block.status, '·')} {block.status.replace('_', ' ')}", style=_DETAIL_STYLE)
             text.append("  " + _clock_label(block.timestamp), style=_DETAIL_STYLE)
             if block.arguments and not block.expanded:
                 text.append(f"  · {_one_line(_arguments(block.arguments), 100)}", style=_DETAIL_STYLE)

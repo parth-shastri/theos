@@ -87,6 +87,22 @@ async def test_turn_models_and_tool_are_siblings(runtime, scripted_models, expor
         assert private not in serialized
 
 
+async def test_trace_keeps_the_actual_tool_count_when_content_keeps_only_sixteen(runtime, exporter):
+    from harness import ModelRequest
+
+    runtime.tracing.settings.capture_content = True
+    model = runtime.tracing.model(
+        FakeModel([AssistantMessage(tool_calls=[ToolCall(str(i), "read", {}) for i in range(35)])])
+    )
+    events = [event async for event in model.stream(ModelRequest([UserMessage("Read records.")]))]
+    assert events
+    output = await spans(runtime, exporter)
+    span = output[-1]
+    assert span.attributes["theos.model.tool_call_count"] == 35
+    content = json.loads(span.attributes["gen_ai.output.messages"])
+    assert len(content[0]["parts"]) == 16
+
+
 async def test_parallel_delegates_keep_separate_model_and_tool_parents(runtime, exporter):
     both_started = asyncio.Event()
     count = 0
@@ -368,18 +384,20 @@ async def test_cancellation_closes_running_model_and_turn(runtime, exporter):
     assert all(s.status.status_code == StatusCode.ERROR for s in output)
 
 
-async def test_approval_pauses_without_executing_tool(runtime, scripted_models, exporter):
+async def test_approval_pauses_without_executing_tool(
+    runtime, scripted_models, exporter, checkout_tool
+):
     scripted_models.responses.append(
         [
             AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "secret-table"})]
+                tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "secret-table"})]
             )
         ]
     )
     result = await collect(runtime.start("alice", session(runtime)["id"], "Delete"))
     assert result[-1]["status"] == "waiting_for_approval"
     output = await spans(runtime, exporter)
-    tool = next(s for s in output if s.name == "execute_tool delete_custom_table")
+    tool = next(s for s in output if s.name == "execute_tool zepto_confirm_cart")
     assert tool.attributes["theos.tool.status"] == "waiting_for_approval"
     assert not runtime.db.rows("SELECT * FROM tool_runs")
     assert "secret-table" not in repr([dict(s.attributes) for s in output])

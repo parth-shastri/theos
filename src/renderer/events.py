@@ -77,7 +77,7 @@ class ToolFinished(_ScopedEvent):
     call_id: str
     name: str
     output: str
-    status: Literal["completed", "denied", "failed", "unknown"] = "completed"
+    status: Literal["completed", "denied", "not_started", "failed", "unknown"] = "completed"
 
 
 @dataclass(frozen=True)

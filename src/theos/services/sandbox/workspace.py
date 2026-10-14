@@ -16,7 +16,10 @@ INSTRUCTIONS = (
     "Use source_to_workspace to transfer complete connector results without copying them through chat. "
     "Read selected rows or file sections and keep exact source IDs in derived data. "
     "Check your calculations and generated files before delivery. "
-    "Existing approval requirements still apply. Never claim an R2 save succeeded while its status is pending."
+    "Sandbox execution does not require approval. Expiry is fixed at one hour from creation by default. "
+    "Execution tools replace confirmed expired sandboxes and restore saved workspace files automatically. "
+    "Do not renew, destroy, or forget a sandbox merely because a command failed. "
+    "Never claim an R2 save succeeded while its status is pending."
 )
 
 
@@ -93,7 +96,7 @@ class Workspaces:
     async def save(self, owner, session):
         lock = self.locks.setdefault((owner, session), asyncio.Lock())
         async with lock:
-            sandbox = await self.runtime.sandboxes.get(owner, session)
+            sandbox = await self.prepare(owner, session)
             try:
                 previous = self.runtime.db.record(owner, "workspace", session)
             except LookupError:

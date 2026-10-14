@@ -15,6 +15,28 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.12
+
+Package version 0.1.12 uses tag `rpi-v0.1.12` from the promoted `rpi` tip.
+
+- Large tool responses continue in execution batches, retain all call IDs, and receive model feedback.
+- Telegram removes temporary activity and resolved approval cards, then sends measured final stats.
+- Approval prompts apply only to Zepto confirmation, checkout, order placement, and payment tools.
+- Sandboxes expire one hour from creation. Cached expiry is checked and confirmed missing instances are replaced without replaying operations.
+- Installed skill descriptions guide task selection. Document requests receive default report and format instructions before drafting.
+
+Prepare private configuration and installed skills before merging the release:
+
+```sh
+gh workflow run release-rpi.yml --ref fix/telegram-turn-progress
+```
+
+Manual dispatch runs configuration preparation and a disposable live sandbox probe. It does not publish or deploy an image.
+It sets the private Pi environment lifetime to 3,600 seconds and updates installed report assets through the existing Pi runner.
+SSH access is not required. Logs exclude credentials and private conversation content.
+Keep context, output, compaction, and call-budget settings unchanged.
+Promote through PRs and merge commits before tagging. Confirm activation in the tagged release workflow.
+
 ## Release 0.1.11
 
 This release adds full request fitting, Markdown summaries with exact references, durable workspaces, and readable action reviews.

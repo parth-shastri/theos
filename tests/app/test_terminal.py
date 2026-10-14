@@ -83,7 +83,9 @@ async def test_terminal_stream_uses_application_tools_and_saves_history(terminal
     assert "gmail_send_draft" not in info.tool_names
 
 
-async def test_terminal_approval_batch_survives_adapter_restart(terminal, scripted_models):
+async def test_terminal_approval_batch_survives_adapter_restart(
+    terminal, scripted_models, checkout_tool
+):
     from theos.services.custom_tables.tools import custom_tools
 
     runtime = terminal.runtime
@@ -94,8 +96,8 @@ async def test_terminal_approval_batch_survives_adapter_restart(terminal, script
         [
             AssistantMessage(
                 tool_calls=[
-                    ToolCall("delete-notes", "delete_custom_table", {"name": "notes"}),
-                    ToolCall("delete-keep", "delete_custom_table", {"name": "keep"}),
+                    ToolCall("delete-notes", "zepto_confirm_cart", {"name": "notes"}),
+                    ToolCall("delete-keep", "zepto_confirm_cart", {"name": "keep"}),
                 ]
             )
         ]
@@ -274,12 +276,14 @@ async def test_terminal_scheduled_turn_and_reminder_notices(terminal, scripted_m
     await scheduler.close()
 
 
-async def test_terminal_tui_restores_saved_approval_and_resumes_once(terminal, scripted_models):
+async def test_terminal_tui_restores_saved_approval_and_resumes_once(
+    terminal, scripted_models, checkout_tool
+):
     scripted_models.responses.append(
         [
             AssistantMessage(
                 tool_calls=[
-                    ToolCall("delete", "delete_custom_table", {"name": "notes"}),
+                    ToolCall("delete", "zepto_confirm_cart", {"name": "notes"}),
                 ]
             )
         ]

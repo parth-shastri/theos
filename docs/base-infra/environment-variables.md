@@ -246,7 +246,7 @@ See [external services](../services.md#search-weather-and-skills).
 | `AGENT_SANDBOX__API_KEY` | Empty | Server credential |
 | `AGENT_SANDBOX__USE_SERVER_PROXY` | `false` | Route sandbox execution and file requests through the server. Enable for remote hosts over Tailscale |
 | `AGENT_SANDBOX__IMAGE` | `opensandbox/code-interpreter:v1.0.1` | Remote sandbox image |
-| `AGENT_SANDBOX__TIMEOUT_SECONDS` | `600` | Sandbox lifetime, from 60 to 3600 seconds |
+| `AGENT_SANDBOX__TIMEOUT_SECONDS` | `3600` | Lifetime from creation, from 60 to 3600 seconds. Reads and renew calls do not extend it |
 
 Container loopback refers to the assistant container.
 Set a server address that the container can reach.

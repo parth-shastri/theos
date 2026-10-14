@@ -76,7 +76,7 @@ async def test_oauth_state_one_use_expiry_service_binding_and_encryption(setting
             await oauth.callback("gmail", state, "code")
 
 
-async def test_gmail_changed_draft_is_not_sent(runtime, scripted_models):
+async def test_gmail_sends_current_draft_without_approval(runtime, scripted_models):
     configure(runtime.settings)
     message = EmailMessage()
     message["To"] = "friend@example.com"
@@ -108,23 +108,21 @@ async def test_gmail_changed_draft_is_not_sent(runtime, scripted_models):
         [
             AssistantMessage(
                 tool_calls=[ToolCall("send", "gmail_send_draft", {"draft_id": "draft1"})]
-            )
+            ),
+            AssistantMessage("Sent."),
         ]
     )
-    await collect(runtime.start("telegram:123", session["id"], "send the draft"))
-    approval = runtime.pending("telegram:123", session["id"])[0]
-    assert "Approved subject" in approval["preview"]
     message.replace_header("Subject", "Changed subject")
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    scripted_models.responses.append([AssistantMessage("The draft changed, so I did not send it.")])
-    await collect(runtime.start("telegram:123", session["id"], approval=(approval["id"], True)))
-    assert not sent
+    events = await collect(runtime.start("telegram:123", session["id"], "send the draft"))
+    assert events[-1]["status"] == "completed" and len(sent) == 1
+    assert not runtime.pending("telegram:123", session["id"])
     result = next(
         m
         for m in runtime.db.load_history("telegram:123", session["id"])
         if isinstance(m, ToolResultMessage)
     )
-    assert result.status == "denied"
+    assert result.status == "completed"
     await http.aclose()
 
 

@@ -19,6 +19,8 @@ from .text import reply_text
 
 def publish_event(runtime, turn, event, status):
     """Publish one event and return the latest turn status."""
+    if hasattr(turn, "observe_tool"):
+        turn.observe_tool(event)
     if isinstance(event, (TextDelta, ReasoningDelta)):
         event = replace(event, text=reply_text(event.text))
     if turn.raw_events:

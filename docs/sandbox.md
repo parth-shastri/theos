@@ -18,7 +18,7 @@ AGENT_SANDBOX__DOMAIN=sandbox.example.internal:8080
 AGENT_SANDBOX__API_KEY=replace-me
 AGENT_SANDBOX__USE_SERVER_PROXY=false
 AGENT_SANDBOX__IMAGE=opensandbox/code-interpreter:v1.0.1
-AGENT_SANDBOX__TIMEOUT_SECONDS=600
+AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
 The image must provide `/opt/code-interpreter/code-interpreter.sh`.
@@ -75,7 +75,7 @@ AGENT_SANDBOX__DOMAIN=100.x.y.z:8085
 AGENT_SANDBOX__API_KEY=replace-with-generated-key
 AGENT_SANDBOX__USE_SERVER_PROXY=true
 AGENT_SANDBOX__IMAGE=opensandbox/code-interpreter:v1.1.0
-AGENT_SANDBOX__TIMEOUT_SECONDS=600
+AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
 7. Permit the Theos machine to reach TCP port 8085 under the tailnet access rules.
@@ -141,7 +141,7 @@ Installing browser software in the assistant container does not install it in th
 | Browser | `sandbox_browser` |
 | Lifetime | `sandbox_lifecycle` |
 
-Shell, Python, and browser execution require approval.
+Sandbox execution does not require approval.
 Uploaded files remain bound to the authenticated owner.
 Generated files enter the local private catalog before delivery.
 The model can receive a checked sandbox image through `sandbox_view_image`.
@@ -151,12 +151,16 @@ The model can receive a checked sandbox image through `sandbox_view_image`.
 Each conversation owns a remote sandbox ID.
 The application saves the ID and reconnects after an application restart.
 A saved ID does not guarantee that the remote sandbox still exists.
-Use `sandbox_lifecycle` with `status`, `renew`, `destroy`, or `forget`.
+Use `sandbox_lifecycle` with `status`, `restart`, `destroy`, or `forget`.
+The legacy `renew` action returns status without extending expiry.
 `forget` removes the saved connection reference without destroying a remote instance.
 
-A missing sandbox requires an explicit lifecycle reset before replacement.
+The default lifetime is one hour from creation. Reconnection and activity do not reset this deadline.
+The client checks cached instances before execution and replaces confirmed missing or expired instances automatically.
+Transient connection failures retain the existing reference. They do not trigger replacement or repeat a command.
+Managed workspaces restore saved files before saving a replacement instance.
 Download important generated files before destroying the remote environment.
-The application backup does not snapshot the remote sandbox filesystem.
+SQLite and R2 retain versioned workspace checkpoints. Unsaved work in a dead sandbox cannot be recovered.
 
 ## Credential boundary
 
