@@ -84,6 +84,8 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `voice/` | Transcription and Kokoro clients with audio tools |
 | `sandbox/` | Remote lifecycle client, execution tools, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
+| github/ | Official GitHub MCP endpoint, OAuth configuration, and reviewed read-tool allowlist |
+| mcp_accounts/ | Shared encrypted account grants, PKCE state, remote sessions, and schema validation |
 | `gmail/` | Gmail requests, draft previews, and account tools |
 | `health/` | Imports, normalization, records, nutrition exports, job retries, and tools |
 | `zepto/` | OAuth, encrypted owner tokens, MCP discovery, and account-scoped sessions that serialize tool calls |

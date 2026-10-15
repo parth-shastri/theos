@@ -94,6 +94,11 @@ async def build_tools(runtime, session):
             tools += runtime.gmail.tools(owner)
         if runtime.settings.health.enabled:
             tools += runtime.health.tools(owner)
+        if runtime.settings.github.enabled and runtime.github.connected(owner):
+            try:
+                tools += await runtime.github.tools(owner)
+            except ServiceError:
+                logger.warning("integration_unavailable", extra={"error_type": "GitHubUnavailable"})
         if runtime.settings.zepto_url and runtime.zepto.connected(owner):
             from theos.services.zepto.tools import zepto_tools
 

@@ -20,6 +20,7 @@ let mentionCatalogUpdated = 0;
 let mentionRequest = null;
 let mentionsDismissed = false;
 const providerIcons = {
+  github: "/static/providers/github.svg",
   gmail: "/static/providers/gmail.svg",
   health: "/static/providers/health.png",
   zepto: "/static/providers/zepto.png",
@@ -2175,6 +2176,8 @@ $("tool-search").oninput = renderTools;
 $("back-tools").onclick = () => showView("chat-view");
 
 const accountDescriptions = {
+  github:
+    "Read repositories, issues, pull requests, and workflow results through the official GitHub MCP server.",
   gmail:
     "Search messages, manage drafts and labels. Sending a draft requires approval.",
   health:

@@ -65,6 +65,7 @@ Updated: 2026-10-15.
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
 | Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials use the enrolled Telegram owner's private account access. No automatic merging of existing browser and Telegram accounts |
+| Connector visibility | List account connectors in Connections and `@` suggestions only when deployment credentials are configured. A configured account remains visible before owner authorization. Missing credentials hide the connector |
 | Browser connection mentions | Show local provider logos for accounts and use-case SVG icons for all workspace services in Connections and `@` suggestions. Complete mentions at the composer caret with current account status and configured workspace services. Preserve draft text. Send mentions as ordinary user text without changing access or approval policy |
 | Zepto account linking | Browser and private Telegram users authorize their own accounts through MCP OAuth. Theos encrypts credentials in SQLite. Use the localhost return handoff by default, with an optional public HTTPS callback |
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
@@ -544,3 +545,27 @@ Remove the global order field and both prepared order variables from the private
 Retain generic latency and throughput preferences. OpenRouter selects compatible ZDR endpoints for the selected model.
 Reasoning, context and output limits, retries, signed state, approvals, and safe recovery retain their existing behavior.
 Prepare release 0.1.16 through a topic PR, Pi promotion, and immutable release tag.
+
+
+## GitHub connector planning, 2026-10-15
+
+The operator requested a separate topic branch and a tool-coverage and complexity review.
+Branch: `feature/github-connector`, from remote `dev` at `8a4360f`.
+Review the official remote MCP server before selecting a native API adapter. Start with an explicit read-tool allowlist.
+The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
+See [the plan](docs/connectors/github-plan.md) and its tool inventory.
+
+## GitHub official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote GitHub MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+OAuth state uses durable single-use records and PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 23 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/github-mcp.md).
