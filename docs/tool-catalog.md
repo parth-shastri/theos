@@ -299,19 +299,20 @@ See [shared skill maintenance](../skills/README.md) for installation and updates
 
 | Report helper | Dependencies |
 | --- | --- |
-| `build_doc.py` | Python 3.10 or later, Markdown, Chrome or Chromium, network access for CSS fonts |
-| `build_docx.py` | Python 3.10 or later, python-docx, Markdown, Beautiful Soup, Inter and DejaVu Sans Mono fonts |
-| DOCX diagrams | Playwright and Chrome or Chromium |
-| Visual verification | LibreOffice for DOCX conversion and Poppler for PDF page images |
+| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, local Inter and DejaVu Sans Mono fonts |
+| `build_docx.py` | python-docx, Markdown, Beautiful Soup, Playwright, Chrome or Chromium |
+| PDF and OCR skills | pypdf, pdfplumber, reportlab, pdf2image, pytesseract, Poppler, and Tesseract |
+| DOCX and XLSX skills | npm `docx`, Pandoc, openpyxl, pandas, markitdown, and LibreOffice Writer/Calc |
+| Paper skills | `arxiv` Python package and the pinned `pwc` command |
+| Browser tool | Node.js 24, `agent-browser`, and Chromium |
 
-The helper scripts declare their Python dependencies for `uv run`.
-Copy their scripts and text assets into the remote sandbox before execution.
-Skill installation does not install browser binaries, fonts, LibreOffice, or Poppler in that sandbox.
+The shared runtime image installs these dependencies and contains the report style files at `/opt/theos/report-style`.
+Other skills still supply their own scripts and text resources when loaded.
 
 Paper research uses the official `pwc-cli` skill first, with arXiv and Hugging Face as supplemental sources.
 The Pi has `pwc 0.4.3` in an isolated Python environment.
 Live search and metadata retrieval passed against the public catalog.
-The remote sandbox needs a separate CLI installation.
+The shared runtime image also installs the pinned `pwc` CLI for remote research work.
 
 On 2026-10-11, the Pi's deployed loader listed eight skills and read every instruction file.
 A temporary host-file change appeared through `load_skill` without a restart.

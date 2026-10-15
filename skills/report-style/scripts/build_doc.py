@@ -228,8 +228,9 @@ def main():
     page = build_html(a.markdown)
     html_path = a.html or os.path.join(tempfile.mkdtemp(), 'doc.html')
     open(html_path, 'w', encoding='utf-8').write(page)
-    # The virtual-time budget lets the web fonts load and edges.js draw the arrows before printing.
-    subprocess.run([find_chrome(), '--headless', '--disable-gpu', '--no-pdf-header-footer',
+    # The virtual-time budget lets edges.js draw diagram arrows before printing.
+    subprocess.run([find_chrome(), '--headless', '--no-sandbox', '--disable-dev-shm-usage',
+                    '--disable-gpu', '--no-pdf-header-footer',
                     '--virtual-time-budget=20000', '--run-all-compositor-stages-before-draw',
                     f'--print-to-pdf={os.path.abspath(a.out)}', 'file://' + os.path.abspath(html_path)],
                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

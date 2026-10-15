@@ -17,14 +17,14 @@ AGENT_SANDBOX__ENABLED=true
 AGENT_SANDBOX__DOMAIN=sandbox.example.internal:8080
 AGENT_SANDBOX__API_KEY=replace-me
 AGENT_SANDBOX__USE_SERVER_PROXY=false
-AGENT_SANDBOX__IMAGE=opensandbox/code-interpreter:v1.0.1
+AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261015
 AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
 The image must provide `/opt/code-interpreter/code-interpreter.sh`.
 Theos supplies this entrypoint because the SDK default does not start the interpreter.
 The timeout ranges from 60 to 3600 seconds.
-The client requests one CPU and 512 MiB for each new sandbox.
+The client requests one CPU and 512 MiB for each new sandbox. Live PDF, DOCX, XLSX, OCR, and browser checks passed at this limit. Existing sandboxes keep their original image and resource limit until they are replaced.
 The server, image registry, and remote network remain operator responsibilities.
 Container loopback does not reach a sandbox server on another host.
 
@@ -74,7 +74,7 @@ AGENT_SANDBOX__ENABLED=true
 AGENT_SANDBOX__DOMAIN=100.x.y.z:8085
 AGENT_SANDBOX__API_KEY=replace-with-generated-key
 AGENT_SANDBOX__USE_SERVER_PROXY=true
-AGENT_SANDBOX__IMAGE=opensandbox/code-interpreter:v1.1.0
+AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261015
 AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
@@ -123,12 +123,23 @@ A patched application client check from the Pi passed Python execution, file ret
 A separate range execution reached its deadline after interpreter readiness.
 The checks did not cover Telegram delivery or browser automation.
 
+## Shared skill runtime image
+
+Build the ARM64 image on the Mac mini. It keeps the OpenSandbox code-interpreter entrypoint and adds the tools declared by the eight shared skills: PDF and spreadsheet libraries, arXiv and Papers with Code clients, DOCX support, LibreOffice, Pandoc, Poppler, OCR, Chromium, and `agent-browser`. The report style files live at `/opt/theos/report-style`, with Python dependencies and the `theos-report` command ready to use. Local fonts remove the renderer's external font downloads.
+
+The dependency lock is `skills/sandbox-runtime/requirements.lock`. It targets Python 3.14, which the code-interpreter kernel uses. The image exposes the locked packages to both that kernel and shell commands. Update the lock from `requirements.in` with `uv pip compile` when skill dependencies change. Copy both skill directories to the Mac mini, then build the image there:
+
+```sh
+rsync -a --delete skills/sandbox-runtime/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-skill-build/skills/sandbox-runtime/
+rsync -a --delete skills/report-style/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-skill-build/skills/report-style/
+ssh parths-mac-mini 'docker build -f /Volumes/extssd/opensandbox/theos-skill-build/skills/sandbox-runtime/Dockerfile -t theos/sandbox-skills:v1.1.0-20261015 /Volumes/extssd/opensandbox/theos-skill-build/skills'
+```
+
+Update the image tag in the Pi deployment environment when the runtime changes, then recreate Theos. The image stays in the Mac mini's local Docker store because OpenSandbox and its container runtime use that Docker host. New sandboxes use the new image. Existing sandboxes retain their files and old image until they expire or are explicitly replaced.
+
 ## Browser dependencies
 
-`sandbox_browser` invokes `agent-browser` inside the remote sandbox.
-Use an image that includes that command and its browser dependencies.
-The default code-interpreter image does not guarantee those dependencies.
-Installing browser software in the assistant container does not install it in the remote sandbox.
+`sandbox_browser` invokes `agent-browser` inside the remote sandbox. The shared skill runtime image installs the CLI and Chromium. Installing browser software in the assistant container does not install it in the remote sandbox.
 
 ## Tools and approval
 
