@@ -26,22 +26,21 @@ async def test_stream_and_persist(runtime, scripted_models):
     )
     events = await collect(runtime.start("alice", session["id"], "Hello"))
     assert any(e["type"] == "text" for e in events)
-    assert events[-1] == {"type": "done", "status": "completed"}
+    assert events[-1]["type"] == "done" and events[-1]["status"] == "completed"
+    assert events[-1]["stats"]["tool_calls"] == 0
+    assert events[-1]["stats"]["skills"] == []
+    assert events[-1]["stats"]["elapsed_seconds"] >= 0
     history = runtime.db.load_history("alice", session["id"])
     assert history[-1].text == "Saved answer"
     assert runtime.db.one("SELECT input_tokens FROM usage")["input_tokens"] == 7
     assert "Hello" not in json.dumps(runtime.db.rows("SELECT * FROM traces"))
 
 
-async def test_approval_denial_and_owner_isolation(runtime, scripted_models):
+async def test_approval_denial_and_owner_isolation(runtime, scripted_models, checkout_tool):
     session = new_session(runtime)
     runtime.db.put_record("alice", "query", "test", {"sql": "SELECT 1"})
     scripted_models.responses.append(
-        [
-            AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "notes"})]
-            )
-        ]
+        [AssistantMessage(tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})])]
     )
     events = await collect(runtime.start("alice", session["id"], "Delete notes"))
     assert events[-1]["status"] == "waiting_for_approval"
@@ -60,7 +59,7 @@ async def test_approval_denial_and_owner_isolation(runtime, scripted_models):
         runtime.start("alice", session["id"], approval=(pending["id"], True))
 
 
-async def test_approval_survives_runtime_restart(runtime, scripted_models):
+async def test_approval_survives_runtime_restart(runtime, scripted_models, checkout_tool):
     session = new_session(runtime)
     from theos.services.custom_tables.tools import custom_tools
 
@@ -69,11 +68,7 @@ async def test_approval_survives_runtime_restart(runtime, scripted_models):
 
     await call_tool(tools, "create_custom_table", name="notes", columns={"text": "TEXT"})
     scripted_models.responses.append(
-        [
-            AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "notes"})]
-            )
-        ]
+        [AssistantMessage(tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})])]
     )
     await collect(runtime.start("alice", session["id"], "Delete notes"))
     pending = runtime.pending("alice", session["id"])[0]
@@ -160,7 +155,7 @@ def test_database_reopen_migrations_backup_and_single_worker(settings, tmp_path)
     db.close()
     db = Database(settings.data_dir)
     assert db.load_history("alice", session["id"])[0].content == "durable"
-    assert db.one("PRAGMA user_version")["user_version"] == 11
+    assert db.one("PRAGMA user_version")["user_version"] == 12
     db.close()
 
 
@@ -173,10 +168,10 @@ async def test_group_and_terminal_have_no_sensitive_tools(runtime):
         assert not any(n.startswith(("gmail_", "health_", "zepto_")) for n in names)
 
 
-async def test_expired_approval_cannot_execute(runtime, scripted_models):
+async def test_expired_approval_cannot_execute(runtime, scripted_models, checkout_tool):
     session = new_session(runtime)
     scripted_models.responses.append(
-        [AssistantMessage(tool_calls=[ToolCall("a", "delete_custom_table", {"name": "notes"})])]
+        [AssistantMessage(tool_calls=[ToolCall("a", "zepto_confirm_cart", {"name": "notes"})])]
     )
     await collect(runtime.start("alice", session["id"], "delete"))
     approval = runtime.pending("alice", session["id"])[0]

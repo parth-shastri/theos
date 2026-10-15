@@ -746,3 +746,137 @@ The first Pi promotion CI run exposed a timing race in the bounded write-timeout
 Setup could exceed 150 milliseconds before the tool started, which correctly records failed rather than unknown status.
 The corrected test expires research after the write starts and uses a separate 50-millisecond tool timeout.
 It patches application clocks only, leaving the event loop clock intact. Production behavior does not change.
+
+## Temporary Telegram activity and approval notifications, 2026-10-14
+
+The local suite passed 1,045 tests, with three credential-dependent tests excluded.
+Finished tool and compaction messages disappear. Final stats include elapsed time, call count, outcomes, and successfully loaded skills.
+Runtime checks include delegate calls and display queue overflow without losing counters.
+Transport checks cover complete answers, partial answers, failures, cancellation, topics, and failed message deletion.
+
+Approval checks cover one notification per card, complete multipart reviews, attached reviews, and duplicate progress events.
+Approved and denied cards disappear after decisions. A replacement bot reads saved message references and removes the complete review.
+Polling removes expired cards and cards resolved by another client. Failed deletion removes buttons and retains references for another attempt.
+SQLite retains original approval snapshots and decisions. Existing recovery and transcript checks still pass.
+Python lint, formatting, and whitespace checks passed. These changes have not deployed or sent live Telegram messages.
+
+## Recoverable tool batches and model feedback, 2026-10-14
+
+The local suite passed 1,063 tests, with three credential-dependent tests excluded.
+A 35-call response completed with batch sizes of one, eight, and sixteen. All call IDs and result order remained intact.
+The direct executor also bounded parallel groups. Model requests included explicit oversized-batch feedback and instructions against resubmitting completed or uncertain calls.
+Cancellation in a later batch retained earlier results and one unknown outcome. Resumption completed remaining calls without repeating that uncertain action.
+
+A 17-action application check created every required approval. One approved action executed once while the other sixteen were denied.
+Approval arguments and saved results retained their original identities. Invalid calls produced saved `not_started` results and allowed correction with new IDs.
+Argument size, nesting, list size, schema, and unknown-tool checks stopped affected calls before execution.
+Executed failures and uncertain outcomes retained distinct statuses. Duplicate IDs still stopped before any tool executed.
+
+Trace checks retained the full 35-call count while content capture included only the first sixteen calls.
+Log checks accepted only fixed harness error codes and excluded private values.
+These checks used local fixtures. They did not query Gmail, send Telegram messages, or deploy the change.
+
+## Sandbox recovery, approval policy, and skill selection, 2026-10-14
+
+The final full local suite passed 1,091 tests, with three credential-dependent tests excluded.
+Skill checks passed with multiline descriptions and captured first-request instructions. Python lint and whitespace checks passed.
+Approval checks cover the global Zepto-only policy and retirement of old pending cards without execution.
+Sandbox checks cover fixed creation deadlines, concurrent replacement, reconnect, transient failures, and explicit lifecycle actions.
+Workspace checks restore saved files before scanning a replacement instance.
+Transient failures retain the saved sandbox reference and do not replay commands.
+
+The Pi preflight passed on revision `363c4aa` before merge.
+It changed the private deployment environment to a 3,600-second sandbox lifetime and updated installed document styles.
+The disposable live probe verified remote creation, unchanged cached expiry, confirmed missing-instance replacement, and a successful command afterward.
+The probe removed its temporary sandbox. It did not change production conversation records or send Telegram messages.
+See [the preflight run](https://github.com/parth-shastri/theos/actions/runs/38507638730).
+
+Skill checks expose installed descriptions for selection by task intent without loading unrelated workflows.
+Document requests receive actual installed report-style and format instructions before the first model request.
+This validation does not establish real-model workflow selection or a completed styled document.
+Tag deployment still must pass the ARM64 image, backup, readiness, restart, and rollback gates.
+
+## Gmail send approval correction, 2026-10-14
+
+Version 0.1.13 restores explicit Gmail send approval after the 0.1.12 policy change.
+The full local suite passed 1,095 tests, with three credential-dependent tests excluded. Python lint, formatting, and whitespace checks passed.
+The focused account, policy, browser catalog, and regression checks passed 54 tests.
+They verify no send before approval, one unchanged approved send, denial, and rejection after a draft edit.
+A separate check verifies that the service guard rejects a send without the active approved call.
+The final draft check also rejects edits between approval resumption and send execution.
+Duplicate approval decisions cannot send the email again.
+
+## Shared skill sandbox runtime, 2026-10-15
+
+The ARM64 image `theos/sandbox-skills:v1.1.0-20261015` was built on the Mac mini and configured for new OpenSandbox instances.
+The dependency audit covered all eight installed skills: XLSX, PDF, arXiv search, Hugging Face papers, DOCX, Papers with Code, report style, and code review.
+The image includes the required Python libraries, LibreOffice, Pandoc, Poppler, Tesseract, Chromium, Node.js, `agent-browser`, and the pinned Papers with Code CLI.
+Report style assets and builders live in the image at `/opt/theos/report-style`; `report-style` now instructs the model to construct and deliver the requested report.
+Workspace actions are exposed as ordinary tools such as `run_command`, `read_file`, and `browser`; model-facing workspace instructions do not identify the execution backend.
+
+An authenticated Theos-to-Mac OpenSandbox run verified the Python kernel packages, paper and document CLIs, styled PDF and DOCX generation, LibreOffice conversion, XLSX recalculation, OCR, browser navigation, and sandbox file return under the existing one-CPU, 512 MiB limit.
+The Pi now reads the new image setting. Theos returned ready on its original data volume, and the existing SQLite database passed its integrity check.
+The Mac mini OpenSandbox health endpoint returned healthy. These checks did not send Telegram messages or verify a live report request through the model.
+These checks use HTTP mocks and send no real email. No environment change or migration is required.
+
+## Workspace lifecycle recovery, 2026-10-15
+
+The runtime handles workspace reconnection, confirmed expiry or loss, and checkpoint restoration before exposing a workspace operation to the model. A connection failure before the operation begins tells the model that it may retry the same ordinary tool call once. The model does not need to invoke lifecycle controls for recovery.
+Failures after an operation starts remain distinct: if checkpointing fails, the tool reports an unknown outcome and tells the model not to repeat the operation automatically.
+
+## Runtime latency and safe replication, 2026-10-14
+
+The complete local suite passed 1,106 tests, with three credential-dependent tests excluded before the final retry-window test.
+Focused checks also passed after that test and the diagnostic changes.
+Storage tests cover blocked uploads, unavailable storage, worker restart, failed pointer publication, and transfer fairness across owners.
+A blocked upload does not delay a newer local checkpoint.
+Pending objects retain their local files and journal entries.
+Remote pointers advance only after the corresponding objects are uploaded.
+Recovery preserves unknown external actions and never repeats tools to repair storage.
+
+Three mocked Gmail thread reads overlap while preserving their owner, result order, call IDs, and durable results.
+Writes and approved sends retain sequential execution and existing approval checks.
+Transient provider retries preserve the exact request and ZDR.
+A completed tool executes once across two injected provider failures.
+Partial output and a long failed stream do not restart generation through this path.
+Diagnostic tests reject private provider prose, raw metadata, and malformed identifiers.
+Timing tests check phase ownership, HTTP headers, first-chunk timing, and request identifiers.
+
+The Pi preflight used the edited code under a temporary source path and a separate temporary database.
+Five synthetic checkpoints took 16.9 to 17.7 milliseconds each. R2 replication completed in 4.11 seconds afterward.
+The bucket contained no remaining probe objects after cleanup.
+A live provider request with no tools returned the expected marker in 12.10 seconds.
+It sent no Telegram messages and changed no production session records.
+The Pi Connect package is 2.13.0 and its resident-memory guard is active.
+Application deployment confirmation still requires the tagged release workflow and active Pi manifest.
+
+The final source PR passed 1,108 tests on Python 3.12 and 3.13 before the remote-restore correction.
+Additional restore checks cover snapshots with unanswered calls and snapshots before any call intent.
+Saved working context and ordinary history both retain one uncertain result per unresolved call.
+Tool access stays paused until explicit operator reconciliation, even if a caller bypasses the empty registry.
+Other owners cannot confirm that review. Local process recovery keeps its existing behavior.
+
+## Provider routing and latency, 2026-10-14
+
+The provider records attribute the 143.049-second and 378.893-second calls to one Azure endpoint generation each.
+Their reasoning usage was 199 and 808 tokens. Their native input usage was 20,575 and 40,952 tokens.
+Both used the default service tier and completed with tool calls.
+The provider catalog currently reports medium default effort. Pi does not request a higher effort.
+
+The 51,079-token synthetic probe kept medium reasoning and the 8,192-token output allowance.
+Automatic routing took 2.94 seconds. The preferred Azure EU profile took 2.96 seconds.
+The same request forced to the base Azure endpoint took 38.46 seconds with a cache hit and only 27 output tokens.
+The probe executed no tools and wrote no production records.
+A separate saved-history probe retained all 39 messages and signed reasoning, then returned the expected marker in 9.65 seconds.
+It generated no tool calls and executed no actions.
+
+Routing tests preserve ZDR, signed state, tool results, output limits, and explicit endpoint allowlists.
+Trace tests expose fixed request controls and counts without private bodies or arbitrary options.
+Reasoning usage remains part of total output usage. It does not increase cost accounting.
+Existing tests retain single execution across provider retries and paused tools after remote restore.
+The full local suite passed 1,116 tests, with three credential-dependent checks excluded.
+Tagged deployment and the active Pi manifest must confirm application activation.
+
+The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
+Every request retains ZDR and generic performance preferences without an endpoint order.
+Runtime configuration contains no model-specific order map. No provider call is required for these checks.

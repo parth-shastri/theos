@@ -17,14 +17,14 @@ AGENT_SANDBOX__ENABLED=true
 AGENT_SANDBOX__DOMAIN=sandbox.example.internal:8080
 AGENT_SANDBOX__API_KEY=replace-me
 AGENT_SANDBOX__USE_SERVER_PROXY=false
-AGENT_SANDBOX__IMAGE=opensandbox/code-interpreter:v1.0.1
-AGENT_SANDBOX__TIMEOUT_SECONDS=600
+AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261015
+AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
 The image must provide `/opt/code-interpreter/code-interpreter.sh`.
 Theos supplies this entrypoint because the SDK default does not start the interpreter.
 The timeout ranges from 60 to 3600 seconds.
-The client requests one CPU and 512 MiB for each new sandbox.
+The client requests one CPU and 512 MiB for each new sandbox. Live PDF, DOCX, XLSX, OCR, and browser checks passed at this limit. Existing sandboxes keep their original image and resource limit until they are replaced.
 The server, image registry, and remote network remain operator responsibilities.
 Container loopback does not reach a sandbox server on another host.
 
@@ -74,8 +74,8 @@ AGENT_SANDBOX__ENABLED=true
 AGENT_SANDBOX__DOMAIN=100.x.y.z:8085
 AGENT_SANDBOX__API_KEY=replace-with-generated-key
 AGENT_SANDBOX__USE_SERVER_PROXY=true
-AGENT_SANDBOX__IMAGE=opensandbox/code-interpreter:v1.1.0
-AGENT_SANDBOX__TIMEOUT_SECONDS=600
+AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261015
+AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
 7. Permit the Theos machine to reach TCP port 8085 under the tailnet access rules.
@@ -123,40 +123,55 @@ A patched application client check from the Pi passed Python execution, file ret
 A separate range execution reached its deadline after interpreter readiness.
 The checks did not cover Telegram delivery or browser automation.
 
+## Shared skill runtime image
+
+Build the ARM64 image on the Mac mini. It keeps the OpenSandbox code-interpreter entrypoint and adds the tools declared by the eight shared skills: PDF and spreadsheet libraries, arXiv and Papers with Code clients, DOCX support, LibreOffice, Pandoc, Poppler, OCR, Chromium, and `agent-browser`. The report style files live at `/opt/theos/report-style`, with Python dependencies and the `theos-report` command ready to use. Local fonts remove the renderer's external font downloads.
+
+The dependency lock is `skills/sandbox-runtime/requirements.lock`. It targets Python 3.14, which the code-interpreter kernel uses. The image exposes the locked packages to both that kernel and shell commands. Update the lock from `requirements.in` with `uv pip compile` when skill dependencies change. Copy both skill directories to the Mac mini, then build the image there:
+
+```sh
+rsync -a --delete skills/sandbox-runtime/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-skill-build/skills/sandbox-runtime/
+rsync -a --delete skills/report-style/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-skill-build/skills/report-style/
+ssh parths-mac-mini 'docker build -f /Volumes/extssd/opensandbox/theos-skill-build/skills/sandbox-runtime/Dockerfile -t theos/sandbox-skills:v1.1.0-20261015 /Volumes/extssd/opensandbox/theos-skill-build/skills'
+```
+
+Update the image tag in the Pi deployment environment when the runtime changes, then recreate Theos. The image stays in the Mac mini's local Docker store because OpenSandbox and its container runtime use that Docker host. New sandboxes use the new image. Existing sandboxes retain their files and old image until they expire or are explicitly replaced.
+
 ## Browser dependencies
 
-`sandbox_browser` invokes `agent-browser` inside the remote sandbox.
-Use an image that includes that command and its browser dependencies.
-The default code-interpreter image does not guarantee those dependencies.
-Installing browser software in the assistant container does not install it in the remote sandbox.
+`browser` invokes `agent-browser` inside the remote sandbox. The shared skill runtime image installs the CLI and Chromium. Installing browser software in the assistant container does not install it in the remote sandbox.
 
 ## Tools and approval
 
 | Area | Tools |
 | --- | --- |
-| Execution | `sandbox_run_command`, `sandbox_execute_code` |
-| Text files | `sandbox_write_file`, `sandbox_read_file`, `sandbox_list_files` |
-| File transfer | `sandbox_upload_file`, `sandbox_send_file_to_user` |
-| Images | `sandbox_view_image` |
-| Browser | `sandbox_browser` |
-| Lifetime | `sandbox_lifecycle` |
+| Execution | `run_command`, `execute_code` |
+| Text files | `write_file`, `read_file`, `list_files` |
+| File transfer | `upload_file`, `send_file_to_user` |
+| Images | `view_image` |
+| Browser | `browser` |
+| Lifetime | `manage_workspace` |
 
-Shell, Python, and browser execution require approval.
+Sandbox execution does not require approval.
 Uploaded files remain bound to the authenticated owner.
 Generated files enter the local private catalog before delivery.
-The model can receive a checked sandbox image through `sandbox_view_image`.
+The model can receive a checked workspace image through `view_image`.
 
 ## Lifetime and recovery
 
 Each conversation owns a remote sandbox ID.
 The application saves the ID and reconnects after an application restart.
 A saved ID does not guarantee that the remote sandbox still exists.
-Use `sandbox_lifecycle` with `status`, `renew`, `destroy`, or `forget`.
+Routine startup, reconnection, and checkpoint restoration are automatic. Use `manage_workspace` with `status`, `restart`, `destroy`, or `forget` only when the user asks to inspect or control the workspace.
+The legacy `renew` action returns status without extending expiry.
 `forget` removes the saved connection reference without destroying a remote instance.
 
-A missing sandbox requires an explicit lifecycle reset before replacement.
+The default lifetime is one hour from creation. Reconnection and activity do not reset this deadline.
+The client checks cached instances before execution and replaces confirmed missing or expired instances automatically.
+Transient connection failures retain the existing reference. They do not trigger replacement or repeat a command.
+Managed workspaces restore saved files before saving a replacement instance.
 Download important generated files before destroying the remote environment.
-The application backup does not snapshot the remote sandbox filesystem.
+SQLite and R2 retain versioned workspace checkpoints. Unsaved work in a dead sandbox cannot be recovered.
 
 ## Credential boundary
 

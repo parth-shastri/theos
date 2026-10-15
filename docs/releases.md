@@ -15,6 +15,85 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.18
+
+Package version 0.1.18 uses tag `rpi-v0.1.18` from the promoted `rpi` tip.
+The shared ARM64 sandbox image supplies document, spreadsheet, OCR, browser, and paper research dependencies.
+Workspace tools use ordinary names. The runtime restores saved files after confirmed workspace loss.
+Connection failures before execution permit one retry. Unknown outcomes still prevent automatic repetition.
+Telegram progress shows readable tool arguments. Traces measure progress delivery and turn latency.
+The Pi already uses sandbox image `theos/sandbox-skills:v1.1.0-20261015`.
+No database migration or new Pi environment value is required.
+Confirm activation through the tagged workflow and the active Pi manifest.
+
+## Release 0.1.17
+
+Package version 0.1.17 uses tag `rpi-v0.1.17` from the promoted `rpi` tip.
+OpenRouter uses `glm-5.3` as its alternate model and keeps ZDR enabled.
+OpenAI keeps `gpt-5.6-luna` as its alternate model.
+Fallback spans record the primary failure and the alternate model.
+Usage records attribute tokens and cost to the model that answered.
+No database migration or new Pi environment value is required.
+
+## Release 0.1.16
+
+Package version 0.1.16 uses tag `rpi-v0.1.16` from the promoted `rpi` tip.
+Remove endpoint orders from runtime configuration. Do not add a model-specific order map.
+Every OpenRouter model uses generic latency and throughput preferences with mandatory ZDR and eligible fallbacks.
+Reasoning, context, output limits, direct provider clients, and safe recovery retain their existing behavior.
+
+## Release 0.1.15
+
+Package version 0.1.15 uses tag `rpi-v0.1.15` from the promoted `rpi` tip.
+OpenRouter prefers responsive endpoints instead of its default price-based routing.
+Pi prefers Azure EU while retaining ZDR and eligible fallback providers.
+Reasoning, context, output limits, retry bounds, and tool recovery rules remain unchanged.
+Spans record request controls, request size, routing preferences, and reported reasoning tokens.
+The synthetic provider probe never executes its advertised tool.
+
+## Release 0.1.14
+
+Package version 0.1.14 uses tag `rpi-v0.1.14` from the promoted `rpi` tip.
+Local checkpoints remain durable before model requests and tool execution.
+One background worker uploads R2 objects and publishes complete recovery pointers.
+Independent Gmail reads can overlap. Writes and approved sends retain their existing order and checks.
+Phase spans separate queue waits, setup, local persistence, HTTP response headers, and model generation.
+Provider diagnostics retain validated request IDs and error classifications without raw provider bodies.
+Transient OpenRouter stream errors can retry twice before any output, during the first 30 seconds.
+Retries never execute saved tools again.
+The Pi host guard checks Raspberry Pi Connect memory independently of the application release.
+
+## Release 0.1.13
+
+Package version 0.1.13 uses tag `rpi-v0.1.13` from the promoted `rpi` tip.
+This correction restores explicit approval for Gmail sending.
+Gmail checks the reviewed draft during approval and immediately before sending.
+A changed draft requires a new review. An uncertain send does not replay automatically.
+Sandbox actions remain ungated, and the one-hour lifetime remains fixed from creation.
+No private environment edits or new migration are required.
+
+## Release 0.1.12
+
+Package version 0.1.12 uses tag `rpi-v0.1.12` from the promoted `rpi` tip.
+
+- Large tool responses continue in execution batches, retain all call IDs, and receive model feedback.
+- Telegram removes temporary activity and resolved approval cards, then sends measured final stats.
+- Approval prompts apply only to Zepto confirmation, checkout, order placement, and payment tools.
+- Sandboxes expire one hour from creation. Cached expiry is checked and confirmed missing instances are replaced without replaying operations.
+- Installed skill descriptions guide task selection. Document requests receive default report and format instructions before drafting.
+
+Prepare private configuration and installed skills before merging the release:
+
+```sh
+gh workflow run release-rpi.yml --ref fix/telegram-turn-progress
+```
+
+Manual dispatch runs configuration preparation and a disposable live sandbox probe. It does not publish or deploy an image.
+It sets the private Pi environment lifetime to 3,600 seconds and updates installed report assets through the existing Pi runner.
+SSH access is not required. Logs exclude credentials and private conversation content.
+Keep context, output, compaction, and call-budget settings unchanged.
+Promote through PRs and merge commits before tagging. Confirm activation in the tagged release workflow.
+
 ## Release 0.1.11
 
 This release adds full request fitting, Markdown summaries with exact references, durable workspaces, and readable action reviews.

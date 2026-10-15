@@ -76,7 +76,8 @@ async def test_oauth_state_one_use_expiry_service_binding_and_encryption(setting
             await oauth.callback("gmail", state, "code")
 
 
-async def test_gmail_changed_draft_is_not_sent(runtime, scripted_models):
+@pytest.mark.parametrize("decision", ["changed", "changed_before_send", "denied"])
+async def test_gmail_requires_approval_and_unchanged_draft(runtime, scripted_models, decision):
     configure(runtime.settings)
     message = EmailMessage()
     message["To"] = "friend@example.com"
@@ -84,11 +85,17 @@ async def test_gmail_changed_draft_is_not_sent(runtime, scripted_models):
     message.set_content("Hello")
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     sent = []
+    reads = 0
 
     def endpoint(request):
+        nonlocal reads, raw
         if request.url.path.endswith("/drafts/send"):
             sent.append(request)
             return httpx.Response(200, json={"id": "sent"})
+        reads += 1
+        if decision == "changed_before_send" and reads == 3:
+            message.replace_header("Subject", "Changed before send")
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
         return httpx.Response(
             200, json={"id": "draft1", "message": {"raw": raw, "labelIds": ["DRAFT"]}}
         )
@@ -111,20 +118,26 @@ async def test_gmail_changed_draft_is_not_sent(runtime, scripted_models):
             )
         ]
     )
-    await collect(runtime.start("telegram:123", session["id"], "send the draft"))
+    events = await collect(runtime.start("telegram:123", session["id"], "send the draft"))
+    assert events[-1]["status"] == "waiting_for_approval" and not sent
     approval = runtime.pending("telegram:123", session["id"])[0]
     assert "Approved subject" in approval["preview"]
-    message.replace_header("Subject", "Changed subject")
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    scripted_models.responses.append([AssistantMessage("The draft changed, so I did not send it.")])
-    await collect(runtime.start("telegram:123", session["id"], approval=(approval["id"], True)))
+    if decision == "changed":
+        message.replace_header("Subject", "Changed subject")
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    scripted_models.responses.append([AssistantMessage("The draft was not sent.")])
+    await collect(
+        runtime.start(
+            "telegram:123", session["id"], approval=(approval["id"], decision != "denied")
+        )
+    )
     assert not sent
     result = next(
         m
         for m in runtime.db.load_history("telegram:123", session["id"])
         if isinstance(m, ToolResultMessage)
     )
-    assert result.status == "denied"
+    assert result.status == ("failed" if decision == "changed_before_send" else "denied")
     await http.aclose()
 
 
@@ -191,3 +204,71 @@ async def test_health_disconnect_stops_jobs_even_when_revocation_fails(settings,
         assert result == {"disconnected": True, "revoked_at_google": False}
         assert db.one("SELECT status FROM jobs")["status"] == "cancelled"
         assert db.one("SELECT * FROM credentials") is None
+
+
+async def test_parallel_gmail_reads_keep_results_and_owner_scope(runtime, scripted_models):
+    import asyncio
+
+    configure(runtime.settings)
+    active = 0
+    peak = 0
+    ready = asyncio.Event()
+    owners = []
+
+    async def endpoint(request):
+        nonlocal active, peak
+        owners.append(request.headers["authorization"])
+        active += 1
+        peak = max(peak, active)
+        if active == 3:
+            ready.set()
+        await asyncio.wait_for(ready.wait(), 1)
+        active -= 1
+        return httpx.Response(
+            200,
+            json={"id": request.url.path.rsplit("/", 1)[-1], "messages": [{"labelIds": ["INBOX"]}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:
+        runtime.oauth = OAuth(runtime.settings, runtime.db, http)
+        runtime.gmail = Gmail(runtime.oauth, http, runtime.files)
+        runtime.oauth.save(
+            "telegram:123",
+            "gmail",
+            {
+                "access_token": "one-owner-token",
+                "refresh_token": "refresh",
+                "expires_at": time.time() + 3600,
+            },
+        )
+        row = runtime.db.create_session(
+            "telegram:123", "test", "default", "telegram-private", "123:0"
+        )
+        calls = [
+            ToolCall(f"read-{i}", "gmail_get_thread", {"thread_id": f"thread{i}"}) for i in range(3)
+        ]
+        scripted_models.responses.append(
+            [AssistantMessage(tool_calls=calls), AssistantMessage("Read all three threads.")]
+        )
+        events = await collect(runtime.start("telegram:123", row["id"], "Read three threads."))
+        assert events[-1]["status"] == "completed"
+        assert peak == 3
+        assert owners == ["Bearer one-owner-token"] * 3
+        results = [
+            m
+            for m in runtime.db.load_history("telegram:123", row["id"])
+            if isinstance(m, ToolResultMessage)
+        ]
+        assert [m.call_id for m in results] == [c.id for c in calls]
+        assert all(m.status == "completed" for m in results)
+        tools = await runtime.tools(row)
+        assert next(t for t in tools if t.name == "gmail_get_thread").parallel_safe
+        assert not next(t for t in tools if t.name == "gmail_modify_labels").parallel_safe
+        assert not next(t for t in tools if t.name == "gmail_send_draft").parallel_safe
+        for c in calls:
+            assert (
+                runtime.db.one(
+                    "SELECT status FROM tool_runs WHERE session=? AND call_id=?", (row["id"], c.id)
+                )["status"]
+                == "completed"
+            )

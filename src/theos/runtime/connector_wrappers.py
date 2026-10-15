@@ -67,7 +67,10 @@ class ConnectorResults:
         return replace(
             original,
             description=original.description
-            + " Large results include a source_id. Read remaining pages with source_read or copy the complete source to the sandbox with source_to_workspace.",
+            + (
+                " Large results include a source_id. Read remaining pages with source_read. "
+                "Use source_to_workspace to copy the complete source into your task workspace."
+            ),
             execute=execute,
         )
 

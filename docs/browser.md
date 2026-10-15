@@ -208,8 +208,8 @@ Provider icons identify Gmail, Google Health, and Zepto in Connections and menti
 Workspace services use icons for execution, memory, search, storage, transcription, speech, weather, and skill resources.
 The same icons appear in Connections and mention suggestions.
 
-OpenRouter exposes the six requested choices plus the existing default model.
-The aliases are `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
+OpenRouter exposes seven model choices plus the existing default model.
+The aliases are `glm-5.3`, `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
 The runtime maps these aliases to provider model IDs.
 An explicit operator allowlist controls which choices appear.
 
@@ -313,7 +313,7 @@ Personal records, files, and credentials belong to that owner across private con
 Conversation history, approvals, tool checkpoints, and sandbox references remain separate for each conversation.
 An approval cannot authorize another conversation's action.
 Google and Zepto callbacks bind consent to the owner who started setup.
-Gmail sending retains draft review and approval. All Zepto tool calls retain approval.
+Gmail sending retains draft review and approval. Zepto payment, cart confirmation, checkout, and order placement tools require approval.
 
 Telegram-confirmed browser access uses the same owner as the enrolled private Telegram sender.
 Existing configured browser accounts remain separate unless a future explicit account migration links them.

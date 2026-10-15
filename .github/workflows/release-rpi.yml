@@ -1,5 +1,6 @@
 name: Raspberry Pi release
 on:
+  workflow_dispatch:
   push:
     tags: ['rpi-v*']
 permissions:
@@ -8,7 +9,24 @@ concurrency:
   group: theos-rpi-release
   cancel-in-progress: false
 jobs:
+  prepare_config:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, linux, ARM64, theos-rpi]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prepare private Pi environment and installed report skills
+        env:
+          THEOS_DEPLOY_DIR: ${{ vars.THEOS_DEPLOY_DIR || '/home/neuron/theos-deploy' }}
+        run: |
+          python3 scripts/prepare_pi_config.py "$THEOS_DEPLOY_DIR/.env"
+          python3 scripts/apply_skill_styles.py --skills-dir /home/neuron/.agents/skills
+      - name: Check disposable sandbox creation and cached expiry
+        run: python3 scripts/check_pi_sandbox.py
   verify:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

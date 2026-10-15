@@ -41,7 +41,12 @@ def exporter(runtime):
 
 async def spans(runtime, exporter):
     await asyncio.to_thread(runtime.tracing.provider.force_flush)
-    return exporter.get_finished_spans()
+    # Existing ownership checks inspect agent work. Phase spans have separate checks below.
+    return tuple(
+        s
+        for s in exporter.get_finished_spans()
+        if not s.name.startswith(("runtime ", "checkpoint ", "provider HTTP "))
+    )
 
 
 def session(runtime):
@@ -85,6 +90,22 @@ async def test_turn_models_and_tool_are_siblings(runtime, scripted_models, expor
     serialized = repr([(dict(s.attributes), s.events) for s in output])
     for private in ("private prompt", "private reply", "private reasoning", "alice"):
         assert private not in serialized
+
+
+async def test_trace_keeps_the_actual_tool_count_when_content_keeps_only_sixteen(runtime, exporter):
+    from harness import ModelRequest
+
+    runtime.tracing.settings.capture_content = True
+    model = runtime.tracing.model(
+        FakeModel([AssistantMessage(tool_calls=[ToolCall(str(i), "read", {}) for i in range(35)])])
+    )
+    events = [event async for event in model.stream(ModelRequest([UserMessage("Read records.")]))]
+    assert events
+    output = await spans(runtime, exporter)
+    span = output[-1]
+    assert span.attributes["theos.model.tool_call_count"] == 35
+    content = json.loads(span.attributes["gen_ai.output.messages"])
+    assert len(content[0]["parts"]) == 16
 
 
 async def test_parallel_delegates_keep_separate_model_and_tool_parents(runtime, exporter):
@@ -368,18 +389,20 @@ async def test_cancellation_closes_running_model_and_turn(runtime, exporter):
     assert all(s.status.status_code == StatusCode.ERROR for s in output)
 
 
-async def test_approval_pauses_without_executing_tool(runtime, scripted_models, exporter):
+async def test_approval_pauses_without_executing_tool(
+    runtime, scripted_models, exporter, checkout_tool
+):
     scripted_models.responses.append(
         [
             AssistantMessage(
-                tool_calls=[ToolCall("delete", "delete_custom_table", {"name": "secret-table"})]
+                tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "secret-table"})]
             )
         ]
     )
     result = await collect(runtime.start("alice", session(runtime)["id"], "Delete"))
     assert result[-1]["status"] == "waiting_for_approval"
     output = await spans(runtime, exporter)
-    tool = next(s for s in output if s.name == "execute_tool delete_custom_table")
+    tool = next(s for s in output if s.name == "execute_tool zepto_confirm_cart")
     assert tool.attributes["theos.tool.status"] == "waiting_for_approval"
     assert not runtime.db.rows("SELECT * FROM tool_runs")
     assert "secret-table" not in repr([dict(s.attributes) for s in output])
@@ -478,7 +501,10 @@ async def test_compaction_model_calls_remain_in_turn_trace(runtime, exporter):
 async def test_shutdown_flushes_pending_spans(runtime, exporter):
     await collect(runtime.start("alice", session(runtime)["id"], "Hello"))
     await runtime.close()
-    assert len(exporter.get_finished_spans()) == 2
+    assert (
+        sum(s.name.startswith(("invoke_agent ", "chat ")) for s in exporter.get_finished_spans())
+        == 2
+    )
     await runtime.tracing.close()
 
 
@@ -541,7 +567,7 @@ async def test_otlp_http_protobuf_endpoint_headers_and_payload(runtime):
         wire_spans = [
             s for r in payload.resource_spans for scope in r.scope_spans for s in scope.spans
         ]
-        assert len(wire_spans) == 2
+        assert sum(s.name.startswith(("invoke_agent ", "chat ")) for s in wire_spans) == 2
         assert len({s.trace_id for s in wire_spans}) == 1
         assert "private" not in str(payload)
     finally:
@@ -570,3 +596,183 @@ def test_authentication_headers_are_redacted():
     settings = TracingSettings(headers={"Authorization": "Bearer private-token"})
     assert "private-token" not in settings.model_dump_json()
     assert json.loads(settings.model_dump_json())["headers"]["Authorization"] == "**********"
+
+
+async def test_runtime_phase_spans_include_local_checkpoints(runtime, exporter):
+    row = session(runtime)
+    await collect(runtime.start("alice", row["id"], "Hello"))
+    await asyncio.to_thread(runtime.tracing.provider.force_flush)
+    output = exporter.get_finished_spans()
+    root = next(s for s in output if s.name.startswith("invoke_agent"))
+    phases = [s for s in output if s.name.startswith(("runtime ", "checkpoint "))]
+    assert {
+        "runtime wait",
+        "runtime restore",
+        "runtime model capacity",
+        "runtime tool registry",
+        "runtime memory retrieval",
+        "checkpoint persist",
+    } <= {s.name for s in phases}
+    assert all(s.parent.span_id == root.context.span_id for s in phases)
+    assert {
+        s.attributes["theos.checkpoint.stage"] for s in phases if s.name == "checkpoint persist"
+    } == {"before_model", "after_model", "turn_end"}
+
+
+async def test_provider_headers_span_and_redacted_error_classification(runtime, exporter):
+    from openai import AsyncOpenAI
+
+    from harness.types import ModelRequest
+    from theos.operations.provider_diagnostics import request_hook, response_hook
+    from theos.runtime.errors import CheckedModel, ProviderFailure
+    from theos.runtime.openrouter import OpenRouterChatModel
+
+    gid = "gen-1791970172-H2H3UnsPNxCqHKMmHtkD"
+    data = {
+        "error": {
+            "code": 402,
+            "message": "PRIVATE ACCOUNT INFO",
+            "metadata": {
+                "provider_name": "Azure",
+                "error_type": "invalid_request",
+                "raw": "PRIVATE SECRET",
+            },
+        }
+    }
+
+    def respond(request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream", "x-generation-id": gid},
+            text="data: " + json.dumps(data) + "\n\n",
+        )
+
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(respond),
+            event_hooks={"request": [request_hook], "response": [response_hook]},
+        ),
+    ) as client:
+        model = CheckedModel(
+            runtime.tracing.model(
+                OpenRouterChatModel(client, "openai/gpt-6-luna", api="chat_completions")
+            ),
+            "openrouter",
+        )
+        with pytest.raises(ProviderFailure):
+            await model.generate(ModelRequest([UserMessage("PRIVATE PROMPT")]))
+    await asyncio.to_thread(runtime.tracing.provider.force_flush)
+    output = exporter.get_finished_spans()
+    parent = next(s for s in output if s.name.startswith("chat "))
+    http = next(s for s in output if s.name == "provider HTTP request")
+    assert http.parent.span_id == parent.context.span_id
+    assert http.attributes["theos.provider.http_status"] == 200
+    assert parent.attributes["theos.provider.status_code"] == 402
+    assert parent.attributes["theos.provider.generation_id"] == gid
+    assert parent.attributes["theos.provider.provider_name"] == "Azure"
+    assert parent.attributes["theos.provider.provider_error_type"] == "invalid_request"
+    assert "PRIVATE" not in repr([dict(s.attributes) for s in output])
+    assert parent.events[0].name == "provider response headers"
+
+
+@pytest.mark.parametrize("malformed", [False, True])
+async def test_request_controls_are_visible_without_private_body(runtime, exporter, malformed):
+    from theos.operations.provider_diagnostics import observe, request_hook, response_hook
+
+    payload = {
+        "messages": [{"role": "user", "content": "PRIVATE PROMPT"}],
+        "tools": [{"function": {"description": "PRIVATE TOOL"}}],
+        "max_tokens": 8192,
+        "reasoning": {"effort": ["PRIVATE"] if malformed else "medium"},
+        "provider": {
+            "zdr": True,
+            "sort": {"PRIVATE": "VALUE"} if malformed else "latency",
+            "order": ["PRIVATE secret"] if malformed else ["azure/eu"],
+            "preferred_max_latency": {"p90": 15},
+            "preferred_min_throughput": {"p90": 10},
+            "unrecognized": "PRIVATE METADATA",
+        },
+    }
+    request = httpx.Request("POST", "https://provider.test", json=payload)
+    with runtime.tracing.span("chat control probe", client=True) as span:
+        with observe(runtime.tracing, span):
+            await request_hook(request)
+            await response_hook(httpx.Response(200, request=request))
+    await asyncio.to_thread(runtime.tracing.provider.force_flush)
+    output = exporter.get_finished_spans()
+    parent = next(s for s in output if s.name == "chat control probe")
+    attrs = parent.attributes
+    assert attrs["theos.model.request_bytes"] == len(request.content)
+    assert attrs["theos.model.input_message_count"] == 1
+    assert attrs["theos.model.tool_schema_count"] == 1
+    assert attrs["gen_ai.request.max_tokens"] == 8192
+    assert attrs["gen_ai.request.reasoning_effort"] == (
+        "provider_default" if malformed else "medium"
+    )
+    assert attrs["theos.provider.routing.zdr"] is True
+    assert attrs["theos.provider.routing.preferred_max_latency.p90"] == 15
+    if malformed:
+        assert "theos.provider.routing.sort" not in attrs
+        assert "theos.provider.routing.order" not in attrs
+    else:
+        assert attrs["theos.provider.routing.sort"] == "latency"
+        assert attrs["theos.provider.routing.order"] == ("azure/eu",)
+    assert "PRIVATE" not in repr([dict(s.attributes) for s in output])
+
+
+async def test_recovered_provider_span_does_not_report_a_failed_final_attempt(
+    runtime, exporter, monkeypatch
+):
+    from openai import AsyncOpenAI
+
+    from harness.types import ModelRequest
+    from theos.runtime.openrouter import OpenRouterChatModel
+
+    async def no_delay(seconds):
+        pass
+
+    monkeypatch.setattr(asyncio, "sleep", no_delay)
+    attempts = []
+    gid = "gen-1791970172-H2H3UnsPNxCqHKMmHtkD"
+
+    def respond(request):
+        attempts.append(request)
+        if len(attempts) < 3:
+            data = {"error": {"code": 502, "metadata": {"error_type": "provider_unavailable"}}}
+        else:
+            data = {
+                "id": gid,
+                "created": 1,
+                "model": "openai/gpt-6-luna",
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"content": "OK"}, "finish_reason": "stop"}],
+            }
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream", "x-generation-id": gid},
+            text="data: " + json.dumps(data) + "\n\ndata: [DONE]\n\n",
+        )
+
+    async with AsyncOpenAI(
+        api_key="test",
+        base_url="https://openrouter.test/v1",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    ) as client:
+        model = runtime.tracing.model(
+            OpenRouterChatModel(client, "openai/gpt-6-luna", api="chat_completions")
+        )
+        assert (await model.generate(ModelRequest([UserMessage("OK")]))).text == "OK"
+    await asyncio.to_thread(runtime.tracing.provider.force_flush)
+    span = next(s for s in exporter.get_finished_spans() if s.name.startswith("chat "))
+    assert span.attributes["theos.provider.recovered"] is True
+    assert span.attributes["theos.provider.transient_retries"] == 2
+    assert span.attributes["theos.provider.status_code"] == 200
+    assert span.attributes["theos.provider.provider_error_type"] == ""
+    assert (
+        span.attributes["theos.provider.last_failure_provider_error_type"] == "provider_unavailable"
+    )
+    assert len([event for event in span.events if event.name == "provider request failure"]) == 2

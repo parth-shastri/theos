@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 MODEL_CATALOG = {
     "gpt-6-luna": ("openai/gpt-6-luna", ("seed",), 128000),
     "gpt-5.6-luna": ("openai/gpt-5.6-luna", ("seed",), 128000),
+    "glm-5.3": ("z-ai/glm-5.3", ("temperature", "top_p"), 128000),
     "sonnet-5.5": ("anthropic/claude-sonnet-5.5", ("temperature",), 128000),
     "deepseek-flash-v4.1": (
         "deepseek/deepseek-v4.1-flash",
@@ -29,6 +30,7 @@ MODEL_CHOICES = tuple(name for name in MODEL_CATALOG if name != "gpt-6-luna")
 REASONING_EFFORTS = {
     "gpt-6-luna": ["none", "low", "medium", "high", "xhigh", "max"],
     "gpt-5.6-luna": ["none", "low", "medium", "high", "xhigh", "max"],
+    "glm-5.3": ["low", "high", "max"],
     "sonnet-5.5": ["low", "medium", "high", "xhigh", "max"],
     "deepseek-flash-v4.1": ["low", "high", "max"],
     "gemini-3.8-flash": ["low", "medium", "high"],
@@ -42,6 +44,26 @@ def reasoning_choices(provider, model):
     if name and provider in {"openrouter", "openai", "fake"}:
         return ["default", *REASONING_EFFORTS[name]]
     return ["default", "none", "low", "medium", "high"]
+
+
+def fallback_reasoning(provider, model, requested):
+    """Map the primary effort to an effort that the fallback model supports."""
+    if provider != "openrouter":
+        return requested
+    supported = set(reasoning_choices(provider, model)[1:])
+    if requested in supported:
+        return requested
+    if requested in {"default", "none", "medium"}:
+        if "low" in supported:
+            return "low"
+        if "high" in supported:
+            return "high"
+    if requested in {"xhigh", "max"}:
+        if "max" in supported:
+            return "max"
+        if "high" in supported:
+            return "high"
+    return requested
 
 
 class GenerationConfig(BaseModel):

@@ -20,8 +20,8 @@ def sandbox_tools(client, owner, session_id):
         return str(parsed if parsed.is_absolute() else PurePosixPath(ROOT) / parsed)
 
     @tool
-    async def sandbox_run_command(command: str, timeout: int = 60):
-        """Run a shell command in your remote sandbox after confirmation."""
+    async def run_command(command: str, timeout: int = 60):
+        """Run a shell command in your task workspace, starting from /workspace."""
         from opensandbox.models.execd import RunCommandOpts
 
         sandbox = await client.get(owner, session_id)
@@ -34,8 +34,11 @@ def sandbox_tools(client, owner, session_id):
         return result.model_dump(mode="json")
 
     @tool
-    async def sandbox_execute_code(code: str):
-        """Run Python in your remote sandbox's persistent interpreter."""
+    async def execute_code(code: str):
+        """Run Python in your persistent task workspace.
+
+        Variables and imports persist between calls.
+        """
         from code_interpreter import CodeInterpreter, SupportedLanguage
 
         interpreter = await CodeInterpreter.create(sandbox=await client.get(owner, session_id))
@@ -48,21 +51,21 @@ def sandbox_tools(client, owner, session_id):
         return result.model_dump(mode="json")
 
     @tool
-    async def sandbox_write_file(path: str, content: str):
-        """Write a text file in the remote sandbox."""
+    async def write_file(path: str, content: str):
+        """Write a text file in your task workspace."""
         sandbox = await client.get(owner, session_id)
         await sandbox.files.write_file(workspace_path(path), content)
         return {"path": path}
 
     @tool
-    async def sandbox_read_file(path: str):
-        """Read a text file from the remote sandbox."""
+    async def read_file(path: str):
+        """Read a text file from your task workspace."""
         sandbox = await client.get(owner, session_id)
         return {"content": await sandbox.files.read_file(workspace_path(path), limit=64000)}
 
     @tool
-    async def sandbox_list_files(path: str = "/workspace"):
-        """List files in a remote sandbox directory."""
+    async def list_files(path: str = "/workspace"):
+        """List files in a task workspace directory."""
         sandbox = await client.get(owner, session_id)
         from opensandbox.models.filesystem import DirectoryListEntry
 
@@ -74,8 +77,8 @@ def sandbox_tools(client, owner, session_id):
         )
 
     @tool
-    async def sandbox_send_file_to_user(path: str):
-        """Download a generated sandbox file and deliver it to the user."""
+    async def send_file_to_user(path: str):
+        """Share a file from your task workspace with the user."""
         sandbox = await client.get(owner, session_id)
         data = await sandbox.files.read_bytes(
             workspace_path(path), limit=client.settings.max_upload_bytes + 1
@@ -85,8 +88,8 @@ def sandbox_tools(client, owner, session_id):
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
     @tool
-    async def sandbox_view_image(path: str):
-        """Read a sandbox image and attach it to the next model request."""
+    async def view_image(path: str):
+        """Load an image from your task workspace for visual inspection."""
         sandbox = await client.get(owner, session_id)
         data = await sandbox.files.read_bytes(
             workspace_path(path), limit=client.settings.max_upload_bytes + 1
@@ -98,48 +101,51 @@ def sandbox_tools(client, owner, session_id):
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
     @tool
-    async def sandbox_upload_file(file_id: str, path: str):
-        """Copy one of your uploaded files into the remote sandbox."""
+    async def upload_file(file_id: str, path: str):
+        """Copy one of your uploaded files into your task workspace."""
         row = client.files.get(owner, file_id)
         sandbox = await client.get(owner, session_id)
         await sandbox.files.write_file(workspace_path(path), Path(row["path"]).read_bytes())
         return {"path": path}
 
     @tool
-    async def sandbox_browser(arguments: list[str]):
-        """Run agent-browser in the sandbox. Use snapshot, open, click, fill, or screenshot commands."""
+    async def browser(arguments: list[str]):
+        """Open pages and interact with them.
+
+        Use open, snapshot, click, fill, or screenshot commands.
+        """
         sandbox = await client.get(owner, session_id)
         result = await sandbox.commands.run(shlex.join(["agent-browser", *arguments]))
         return result.model_dump(mode="json")
 
     @tool
-    async def sandbox_lifecycle(action: Literal["status", "renew", "destroy", "forget"]):
-        """Inspect, extend, destroy, or forget an expired sandbox."""
+    async def manage_workspace(
+        action: Literal["status", "renew", "restart", "destroy", "forget"],
+    ):
+        """Inspect or control your workspace when the user asks. Routine recovery is automatic."""
         if action == "forget":
-            old = client.clients.pop((owner, session_id), None)
-            if old:
-                await old.close()
-            return client.db.delete_record(owner, "sandbox", session_id)
+            return await client.forget(owner, session_id)
+        if action in {"destroy", "restart"}:
+            await client.destroy(owner, session_id)
+            if action == "destroy":
+                return {"destroyed": True}
         sandbox = await client.get(owner, session_id)
-        if action == "destroy":
-            await sandbox.kill()
-            await sandbox.close()
-            client.clients.pop((owner, session_id), None)
-            return client.db.delete_record(owner, "sandbox", session_id)
-        if action == "renew":
-            await sandbox.renew(timedelta(seconds=client.settings.sandbox.timeout_seconds))
         info = await sandbox.get_info()
-        return info.model_dump(mode="json")
+        result = info.model_dump(mode="json")
+        if action == "renew":
+            result["renewed"] = False
+            result["reason"] = "Workspace expiry is fixed from creation and cannot be extended."
+        return result
 
     return [
-        sandbox_run_command,
-        sandbox_execute_code,
-        sandbox_write_file,
-        sandbox_read_file,
-        sandbox_list_files,
-        sandbox_send_file_to_user,
-        sandbox_upload_file,
-        sandbox_view_image,
-        sandbox_browser,
-        sandbox_lifecycle,
+        run_command,
+        execute_code,
+        write_file,
+        read_file,
+        list_files,
+        send_file_to_user,
+        upload_file,
+        view_image,
+        browser,
+        manage_workspace,
     ]

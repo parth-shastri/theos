@@ -111,3 +111,29 @@ async def test_compaction_provider_failure_still_allows_main_answer(runtime):
     history = runtime.db.load_history("alice", row["id"])
     assert history[: len(original)] == original and "saved source" in history[-1].text
     assert "private compaction error" not in json.dumps(events)
+
+
+def test_provider_diagnostics_reject_arbitrary_remote_fields():
+    import logging
+
+    from theos.operations.logging import SafeFormatter
+    from theos.operations.provider_diagnostics import diagnostics
+
+    error = {
+        "code": 502,
+        "message": "PRIVATE PROMPT",
+        "metadata": {
+            "provider_name": "PRIVATE PROVIDER",
+            "error_type": "PRIVATE SECRET",
+            "provider_code": "PRIVATE TOKEN",
+            "raw": {"password": "PRIVATE PASSWORD"},
+        },
+    }
+    values = diagnostics(error, generation_id="PRIVATE REQUEST", request_id="PRIVATE KEY")
+    assert values == {"status_code": 502}
+    record = logging.LogRecord(
+        "theos", logging.WARNING, __file__, 1, "provider_request_failed", (), None
+    )
+    record.__dict__.update(error["metadata"])
+    record.__dict__.update(values)
+    assert "PRIVATE" not in SafeFormatter().format(record)

@@ -75,7 +75,7 @@ async def zepto_tools(client, owner):
                 "user's chosen saved address. Ask which address to use if unclear. "
                 "For a new location, use zepto_get_location_serviceability with the "
                 "user's delivery coordinates. Use only address or store IDs returned "
-                "by Zepto. These setup calls require their own approval. "
+                "by Zepto. Store setup and searches do not require approval. "
                 "If Zepto reports no selected store, complete this setup before retrying."
             )
         result.append(Tool("zepto_" + remote.name, description, ZeptoArguments, execute))

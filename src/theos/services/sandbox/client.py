@@ -1,61 +1,180 @@
 """Remote OpenSandbox execution with per-conversation lifecycle state."""
 
-from datetime import timedelta
+import asyncio
+from datetime import UTC, datetime, timedelta
 
 from theos.services.errors import ServiceError
+
+from .errors import WorkspaceUnavailable
 
 
 class Sandboxes:
     """Never mount the application filesystem or pass application credentials."""
+
+    TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 
     def __init__(self, settings, db, files):
         self.settings = settings
         self.db = db
         self.files = files
         self.clients = {}
+        self.locks = {}
 
-    async def get(self, owner, session_id):
-        """Reconnect the conversation sandbox or create its first instance."""
+    async def forget(self, owner, session_id):
+        """Close only the local connection and remove its saved reference."""
+        old = self.clients.pop((owner, session_id), None)
+        if old:
+            await old.close()
+        try:
+            return self.db.delete_record(owner, "sandbox", session_id)
+        except LookupError:
+            return {"deleted": session_id}
+
+    async def destroy(self, owner, session_id):
+        """Destroy an existing sandbox without creating one just to destroy it."""
         from opensandbox import Sandbox
-        from opensandbox.config import ConnectionConfig
         from opensandbox.exceptions import SandboxException
 
-        key = (owner, session_id)
-        if key in self.clients:
-            return self.clients[key]
+        try:
+            saved = self.db.record(owner, "sandbox", session_id)
+        except LookupError:
+            saved = None
+        sandbox = self.clients.get((owner, session_id))
+        try:
+            if sandbox is None and saved:
+                sandbox = await Sandbox.connect(
+                    saved["sandbox_id"], connection_config=self.connection()
+                )
+            if sandbox:
+                await sandbox.kill()
+        except SandboxException as error:
+            if getattr(error, "status_code", None) not in {404, 410}:
+                raise ServiceError(
+                    "The workspace could not be cleared. Its saved connection remains."
+                ) from error
+        finally:
+            if sandbox and (owner, session_id) not in self.clients:
+                await sandbox.close()
+        return await self.forget(owner, session_id)
+
+    def connection(self):
+        from opensandbox.config import ConnectionConfig
+
         config = self.settings.sandbox
-        connection = ConnectionConfig(
+        return ConnectionConfig(
             domain=config.domain,
             api_key=config.api_key.get_secret_value() or None,
             use_server_proxy=config.use_server_proxy,
             request_timeout=timedelta(seconds=30),
         )
+
+    def remember(self, owner, session_id, sandbox, info, saved=None):
+        """Keep one creation deadline across reconnects and status checks."""
+        saved = saved or {}
+        created = saved.get("created_at") or getattr(info, "created_at", None) or datetime.now(UTC)
+        if isinstance(created, str):
+            created = datetime.fromisoformat(created)
+        deadline = created + timedelta(seconds=self.settings.sandbox.timeout_seconds)
+        remote_expiry = getattr(info, "expires_at", None)
+        if remote_expiry:
+            deadline = min(deadline, remote_expiry)
+        self.db.put_record(
+            owner,
+            "sandbox",
+            session_id,
+            {
+                "sandbox_id": sandbox.id,
+                "created_at": created.isoformat(),
+                "expires_at": deadline.isoformat(),
+            },
+        )
+        return deadline
+
+    async def get(self, owner, session_id):
+        """Check cached state and replace only confirmed expired or missing instances."""
+        import httpx
+        from opensandbox.exceptions import SandboxException, SandboxReadyTimeoutException
+
+        lock = self.locks.setdefault((owner, session_id), asyncio.Lock())
+        async with lock:
+            try:
+                return await self._get(owner, session_id)
+            except WorkspaceUnavailable:
+                raise
+            except (httpx.RequestError, TimeoutError) as error:
+                raise WorkspaceUnavailable(
+                    "The workspace is temporarily unavailable. Saved files remain available. "
+                    "The runtime will try to reconnect on the next workspace operation."
+                ) from error
+            except SandboxReadyTimeoutException as error:
+                raise WorkspaceUnavailable(
+                    "The workspace did not become ready. Saved files remain available. "
+                    "The runtime will try again on the next workspace operation."
+                ) from error
+            except SandboxException as error:
+                if getattr(error, "status_code", None) in self.TRANSIENT_STATUS_CODES:
+                    raise WorkspaceUnavailable(
+                        "The workspace is temporarily unavailable. Saved files remain available. "
+                        "The runtime will try to reconnect on the next workspace operation."
+                    ) from error
+                raise
+
+    async def _get(self, owner, session_id):
+        from opensandbox import Sandbox
+        from opensandbox.exceptions import SandboxException
+
+        key = (owner, session_id)
         try:
             saved = self.db.record(owner, "sandbox", session_id)
         except LookupError:
             saved = None
-        if saved:
+        sandbox = self.clients.get(key)
+        if saved or sandbox:
             try:
-                sandbox = await Sandbox.connect(saved["sandbox_id"], connection_config=connection)
+                if sandbox is None:
+                    sandbox = await Sandbox.connect(
+                        saved["sandbox_id"], connection_config=self.connection()
+                    )
+                info = await sandbox.get_info()
+                deadline = self.remember(owner, session_id, sandbox, info, saved)
+                state = getattr(getattr(info, "status", None), "state", "")
+                if datetime.now(UTC) >= deadline or state in {"Terminated", "Failed", "Expired"}:
+                    # Expiry checks happen before execution. Never replay a failed command.
+                    await sandbox.kill()
+                    if key not in self.clients:
+                        await sandbox.close()
+                    await self.forget(owner, session_id)
+                else:
+                    self.clients[key] = sandbox
+                    return sandbox
             except SandboxException as error:
-                if getattr(error, "status_code", None) not in {404, 410}:
+                status_code = getattr(error, "status_code", None)
+                if status_code not in {404, 410}:
+                    if sandbox and key not in self.clients:
+                        await sandbox.close()
+                    if status_code in self.TRANSIENT_STATUS_CODES:
+                        raise WorkspaceUnavailable(
+                            "The workspace is temporarily unavailable. Saved files remain available. "
+                            "The runtime will try to reconnect on the next workspace operation."
+                        ) from error
                     raise ServiceError(
-                        "The saved sandbox is unavailable. Retry its connection before restoring work."
+                        "The workspace request failed. Its saved connection remains available."
                     ) from error
-                # A confirmed expired sandbox can be recreated from saved workspace objects.
-                saved = None
-        if not saved:
-            sandbox = await Sandbox.create(
-                config.image,
-                # The SDK default keeps the container alive without starting the interpreter.
-                entrypoint=["/opt/code-interpreter/code-interpreter.sh"],
-                timeout=timedelta(seconds=config.timeout_seconds),
-                connection_config=connection,
-                env={},
-                resource={"cpu": "1", "memory": "512Mi"},
-            )
-            self.db.put_record(owner, "sandbox", session_id, {"sandbox_id": sandbox.id})
+                if sandbox and key not in self.clients:
+                    await sandbox.close()
+                await self.forget(owner, session_id)
+        sandbox = await Sandbox.create(
+            self.settings.sandbox.image,
+            entrypoint=["/opt/code-interpreter/code-interpreter.sh"],
+            timeout=timedelta(seconds=self.settings.sandbox.timeout_seconds),
+            connection_config=self.connection(),
+            env={},
+            resource={"cpu": "1", "memory": "512Mi"},
+        )
+        # Save the ID before further remote reads so a metadata failure cannot orphan it.
+        self.db.put_record(owner, "sandbox", session_id, {"sandbox_id": sandbox.id})
         self.clients[key] = sandbox
+        self.remember(owner, session_id, sandbox, await sandbox.get_info())
         return sandbox
 
     async def close(self):

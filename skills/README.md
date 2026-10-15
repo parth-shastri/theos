@@ -62,11 +62,10 @@ The official [Papers with Code CLI](https://github.com/huggingface/pwc-cli) prov
 The Pi uses version `0.4.3` in an isolated Python environment.
 Its source revision is `dba15a776f9773282fa590f42d7496f2833b5959`.
 Live paper search and metadata retrieval passed from the Pi host.
-The remote sandbox still needs its own CLI installation.
+The shared sandbox runtime image installs this pinned CLI in its Python environment.
 
-Skill instructions do not install tools or grant execution permissions.
-The report helpers require their declared Python packages and a separate browser installation.
-DOCX rendering also requires LibreOffice and the selected fonts.
-PDF page inspection requires Poppler or an equivalent renderer.
-Copy report scripts and text assets into the remote sandbox before execution.
-Host installation does not make these files available inside a remote sandbox.
+Skill instructions do not grant execution permissions.
+The ARM64 shared sandbox image installs the declared Python packages and command-line tools for all eight skills.
+It contains the report scripts, style assets, examples, and references at `/opt/theos/report-style`.
+Other skill scripts and text resources are loaded from the host and copied when the task needs them.
+Build and activate the image by following [sandbox deployment](../docs/sandbox.md#shared-skill-runtime-image).

@@ -84,6 +84,7 @@ async def model_client(settings, model_id, reasoning):
         from openai import AsyncOpenAI
 
         from harness.providers.openai import OpenAIChatModel
+        from theos.operations.provider_diagnostics import request_hook, response_hook
 
         base_url = settings.model_base_url or {
             "openrouter": "https://openrouter.ai/api/v1",
@@ -94,6 +95,10 @@ async def model_client(settings, model_id, reasoning):
             base_url=base_url,
             timeout=httpx.Timeout(60, connect=10),
             max_retries=2,
+            http_client=httpx.AsyncClient(
+                timeout=httpx.Timeout(60, connect=10),
+                event_hooks={"request": [request_hook], "response": [response_hook]},
+            ),
         ) as client:
             if settings.provider == "llama":
                 from harness.providers.llama import LlamaServerModel
@@ -109,6 +114,11 @@ async def model_client(settings, model_id, reasoning):
                     client,
                     model_id,
                     api="chat_completions" if settings.provider == "openrouter" else "responses",
+                    **(
+                        {"provider_preferences": settings.openrouter.preferences()}
+                        if settings.provider == "openrouter"
+                        else {}
+                    ),
                 )
 
 

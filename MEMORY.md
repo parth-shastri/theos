@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-14.
+Updated: 2026-10-15.
 
 ## Confirmed decisions
 
@@ -20,6 +20,7 @@ Updated: 2026-10-14.
 | Terminal storage | Default `~/.theos`. Resolve configured relative data paths from the configuration directory |
 | Telegram onboarding | Private `/start` asks what to call the user, then asks for a valid timezone. Save the chosen name in owner-scoped preferences and include it in model context. `/skip` accepts the saved name when available. Preserve existing completed profiles and pending timezone setup |
 | Telegram setup guidance | After setup, point users to Connections in the web UI to add connectors and to the existing `/help` command. Show web guidance when `AGENT_WEB_URL` is configured. Otherwise, show help for capabilities and account connections |
+| Telegram temporary activity | Stream OpenAI Responses reasoning summaries as temporary messages. Never show raw provider reasoning. Show each tool name and its exact JSON arguments in temporary tool messages, then delete the message when that model phase or tool call ends. Clean active indicators when delivery ends. Send one final message with elapsed time, tool counts, failed or uncertain outcomes, and successfully loaded skills. Count parent and delegate events before display queues can discard them. Approval cards notify once and remain pending until a decision or expiry. Store review message references in SQLite migration 012, including multipart reviews, attached reviews, and waiting notices. Remove resolved cards immediately for Telegram decisions and through polling for other decisions or expiry. Failed deletion removes buttons when possible and retains references for another attempt. Preserve durable approval snapshots, tool results, transcripts, and recovery behavior |
 | Reply formatting | Render assistant Markdown as Telegram text and explicit UTF-16 entities. Split long messages without losing text or formatting. Keep command responses literal. Show approval reviews as labeled fields, formatted prose, and literal code. Preserve exact arguments for approval checks. Browser and terminal retain their own Markdown rendering |
 | Assistant punctuation | Never use em dashes in assistant replies, reasoning summaries, or generated titles. Add shared model instructions and replace any emitted em dash with an ASCII hyphen before display and persistence. Preserve user input, tool arguments, and opaque provider data |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
@@ -43,6 +44,7 @@ Updated: 2026-10-14.
 | OpenRouter accounting | Keep its adapter in the application runtime. Retain readable reasoning, replay signed blocks only for the same model, and prefer reported request costs over token-rate estimates |
 | OpenRouter retention | Enforce `provider.zdr=true` in the application adapter for every OpenRouter request, including chat, delegates, compaction, and titles. Preserve other provider preferences. No request can disable ZDR. External Mem0 and voice services keep separate policies |
 | OpenRouter reasoning routing | For OpenAI models, replay encrypted reasoning from only the latest known provider format in each wire request. Omit incompatible sequences without changing saved messages or signed blocks. Recover a mixed-provider HTTP 400 once before generation, with the same restrictions as the ZDR routing retry. If OpenRouter rejects encrypted OpenAI reasoning with a ZDR routing 404 before generation, retry once without those reasoning sequences. Preserve messages, tool exchanges, model options, saved history, and ZDR. Do not retry unrelated errors, Claude signatures, or streams that emitted events. A retry is a transport attempt within the same harness model call |
+| Query latency traces | When enabled, turn spans record total duration and first/last response text chunk times. They also record first model-call and reasoning times. Model spans record per-call first/last text chunk and response-complete times |
 | Browser conversation titles | Generate from the first completed exchange with the selected model and refine once after three user messages. Bound title calls, include their usage in costs, preserve custom titles, and retain a fallback on failure. Migration 007 tracks automatic titles |
 | Configuration | Pydantic settings with the `AGENT_` prefix |
 | Deployment | One application worker and scheduler per SQLite database |
@@ -50,6 +52,17 @@ Updated: 2026-10-14.
 | Trace access | The optional Jaeger viewer and OTLP receiver bind to host loopback. The Pi uses persistent Tailscale Serve on HTTPS port 8443 to proxy the viewer. Restrict Pi TCP 8443 to `group:theos-operators` in the tailnet policy. Exclude this endpoint from broader grants across both IP families. The group currently contains `parth-shastri@github`. Keep Funnel disabled for this endpoint. Jaeger has no configured password or per-user trace isolation. Theos authentication does not protect it. Operators can also use local access or authenticated SSH tunnels. Anyone with Jaeger access can inspect all stored traces. Per-user trace access requires a separate ownership-checking layer and is not implemented |
 | Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. Use seven-day Jaeger span expiry, a 512 MiB container limit, and memory pressure guards. Do not impose a 1 GB disk quota. Jaeger storage retains traces across restarts. Monitor disk growth separately |
 | Turn recovery | Preserve the transcript and uncertain actions. Retry provider context rejection only with a smaller request, without repeating tools. An irreducible request remains a failure, never a fabricated successful answer |
+| Checkpoint latency | Commit SQLite state and fsynced local objects before work proceeds. Use one background R2 worker with bounded batches, connection reuse, storage backoff, and a durable transfer journal. Publish remote recovery pointers only after their snapshots and sources are uploaded. Remote recovery can lag local recovery. Restart replication without repeating assistant tools |
+| Parallel Gmail reads | Mark search, message, thread, draft-list, draft-read, and label-list tools safe for parallel execution. Preserve that declaration and view metadata through journal wrappers. Keep writes and approved sends ordered. Preserve each call ID, completed result, ownership check, and uncertain outcome |
+| Provider diagnostics and retries | Separate HTTP response headers from first-chunk and full-generation timing. Retain validated request IDs, HTTP and provider status codes, known provider names, and allowlisted error classifications. Exclude raw error bodies and credentials. Retry transient accepted OpenRouter streams at most twice before any event, within the same model call. Start additional attempts only during the first 30 seconds. Do not retry partial output, invalid requests, authentication, quotas, or context errors through this path |
+| Provider model fallback | OpenAI defaults to `gpt-5.6-luna`. OpenRouter defaults to `glm-5.3`, the highest tool-capable ZDR endpoint count in the 2026-10-15 OpenRouter snapshot. Map reasoning to a supported fallback effort. `AGENT_FALLBACK_MODEL` overrides the model or an empty value disables it. Other providers require an explicit compatible fallback. Use the same configured provider. Try once only when the primary provider failure occurs before any model event is forwarded. Do not fall back for known invalid-request, authentication, quota, policy, or context failures. Trace both model attempts separately with the primary failure classification and fallback model ID |
+| OpenRouter performance routing | Use generic latency and throughput preferences for every OpenRouter model. Prefer p90 latency at most 15 seconds and p90 throughput at least 10 tokens per second. These are soft preferences. Supply no endpoint order or model-specific order map. Retain ZDR, eligible provider fallbacks, signed state, explicit request constraints, default reasoning, context limits, and retry bounds. Record fixed request controls and reported reasoning-token counts without private bodies |
+| Pi Connect memory | Upgrade the host package to 2.13.0. Set its Go memory target to 192 MiB and check resident memory each minute. Restart only `rpi-connect.service` above 512 MiB. This is a service guard, not a hard kernel limit. Preserve SSH, Tailscale, Theos, and account isolation. Browser Connect access currently requires operator sign-in |
+| Tool execution batches | Replace the hard 16-call response rejection with `ExecutionLimits.tool_batch_size`, default 16. Process every valid call in ordered batches. Only tools declared safe may overlap. Keep each call ID and approval check. Append each batch's results before the next batch. Tell the model to request at most 16 calls per response and provide explicit feedback after larger groups. Reject invalid arguments per call as `not_started` before approval or execution, with correction instructions and a new call ID. Keep `failed`, `denied`, and `unknown` outcomes distinct. Duplicate IDs and malformed response identities remain fatal before execution. Retain transcript and checkpoint guarantees. Record exact generated call counts in trace metadata and only fixed harness error codes in logs |
+| Approval policy | Global approval prompts apply to Gmail draft sending and Zepto cart confirmation, checkout, order placement, and payment-related tools. Gmail approval binds the draft contents and checks them again immediately before sending. Search, read, draft creation, delivery-store setup, ordinary cart updates, all sandbox actions, deletion, and memory settings do not prompt. Keep owner isolation, validation, durable attempts, exact approval snapshots, and unknown-outcome recovery. Retire old pending cards for ungated tools without executing anything during cleanup |
+| Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity and the legacy renew action cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. The model must not use lifecycle controls for routine recovery. Status and explicit restart remain available. Destroying an absent sandbox does not create one |
+| Workspace tool names | Expose ordinary actions as `run_command`, `execute_code`, `read_file`, `write_file`, `list_files`, `upload_file`, `send_file_to_user`, `view_image`, `browser`, and `manage_workspace`. Model-facing descriptions and workspace instructions describe task actions without naming the execution backend. Keep backend terminology in internal code and operator documentation |
+| Skill selection | Include installed skill descriptions in model context. Match task intent to descriptions and load relevant instructions before work without requiring skill names from the user. Do not load every skill or treat names as the whole selection policy. Supply report-style and document-format instructions automatically for document requests. New reports default to styled PDF. Explicit formats and existing document styles retain precedence. Count automatically supplied skills in turn stats. The shared sandbox image contains report-style files and the declared runtime dependencies for all eight skills; load other skill scripts and text resources from the host as needed |
 | Model-call allowances | Theos disables call allocations and research deadlines by default through `Runtime(enforce_budgets=False)`. Preserve all budget fields and their validation for callers that explicitly enable bounded mode. Parent, delegate, summary, and recovery calls retain usage accounting without enforced call ceilings. Root traces mark enforcement false and limits as -1. Provider, context, output, tool, concurrency, approval, and cancellation limits remain active. See `docs/runtime/context-recovery.md` |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
@@ -57,7 +70,7 @@ Updated: 2026-10-14.
 | Browser connection mentions | Show local provider logos for accounts and use-case SVG icons for all workspace services in Connections and `@` suggestions. Complete mentions at the composer caret with current account status and configured workspace services. Preserve draft text. Send mentions as ordinary user text without changing access or approval policy |
 | Zepto account linking | Browser and private Telegram users authorize their own accounts through MCP OAuth. Theos encrypts credentials in SQLite. Use the localhost return handoff by default, with an optional public HTTPS callback |
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
-| Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user approved opt-in for future user-message consolidation through Mem0 inference |
+| Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user explicit opt-in for future user-message consolidation through Mem0 inference |
 | Scheduled agent tasks | Durable one-time and cron schedules run through the normal conversation runtime and approval policy. Interrupted or uncertain runs pause the schedule |
 | Remote sandbox | Keep the Mac mini configuration, database, and server logs under `/Volumes/extssd/opensandbox`. Pin the native server to `1.1.1`. Use server proxy mode with `resolve_internal=false`. Keep launchd console logs under the user's Library because macOS blocks its removable-volume access. Docker storage remains on the SSD |
 | Model context | Use the pinned middle-turn compression policy in `src/harness/compression_policy.py`: tool-output pruning first, protected head, token-budget tail, iterative auxiliary summaries, distributed samples, and scaled budgets. One async adapter in `lean_context.py` serves all agents. Default fraction 0.5 with the upstream small-window floor. Pi 100,000 context and 8,192 output imply a 68,856-token trigger. Keep raw sources outside model context and checkpoint working state in R2 |
@@ -66,7 +79,8 @@ Updated: 2026-10-14.
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
 | Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
-| Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. Keep host CLI installation separate from remote sandbox execution |
+| Shared sandbox runtime | Build the ARM64 image from `skills/sandbox-runtime/Dockerfile` on the Mac mini. Keep report scripts and style assets at `/opt/theos/report-style`. Install the locked PDF, DOCX, XLSX, OCR, browser, arXiv, and pinned Papers with Code dependencies in the image. Representative PDF, DOCX, XLSX, OCR, and browser checks passed under the existing one-CPU, 512 MiB sandbox limit |
+| Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. The shared sandbox image installs the CLI at the recorded source revision |
 | Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
 | Comments | Explain constraints and number the major workflow steps |
 | Documentation | Task-based Markdown guides, Simplified Technical English, and existing Excalidraw PNG diagrams |
@@ -472,3 +486,74 @@ The test now advances only application deadline clocks after the write starts an
 Keep the event loop clock real. Preserve unknown outcomes for started writes and never repeat them.
 This correction changes test timing only. Production runtime behavior and the successful live replay remain unchanged.
 Integrate it through a topic PR into `dev` before the Pi promotion and release tag.
+
+## Checkpoint latency, provider diagnostics, and Pi memory, 2026-10-14
+
+The operator requested latency fixes, safe parallel Gmail reads, provider diagnostics, and a Pi Connect memory correction.
+The isolated Pi preflight used synthetic data, a temporary database, and the existing configured storage and model services.
+Five local checkpoints took 16.9 to 17.7 milliseconds each. Background replication completed in 4.11 seconds.
+All six synthetic remote objects were removed and the probe prefix was empty afterward.
+A live model request with no tools returned the expected marker in 12.10 seconds.
+The probe changed no production conversation records and sent no Telegram messages.
+
+The old provider failure occurred after an accepted Azure stream and remains unclassified beyond its 502 code.
+Its detailed payload was discarded. Provider-side disconnection, timeout, and overload are not established causes.
+New diagnostics keep safe classifications and identifiers for later failures.
+They cannot guarantee provider availability or recreate missing historical evidence.
+
+The Pi Connect restart restored more than 7 GiB of available memory.
+Package 2.13.0 and the service memory guard are installed. Connect resident memory was about 18 MiB afterward.
+The guard checks each minute and restarts only Connect above 512 MiB.
+Theos was about 55 MiB resident after host memory pressure ended.
+Connect currently requires operator sign-in. SSH and Tailscale remain available.
+The application changes still require the branch promotion and tagged release gates.
+
+## Remote snapshot reconciliation, 2026-10-14
+
+A remote checkpoint can predate external actions, including actions without captured call intents.
+Remote restore resolves captured unanswered calls from saved results or records them as uncertain.
+It also saves a separate owner-bound review marker that compaction cannot remove.
+Restored conversations expose no tools until the operator checks and reconciles external effects.
+The approval boundary also denies execution if a caller bypasses the empty tool registry.
+Operator recovery code clears the marker through `confirm_restore_review` after reconciliation.
+This method is not an agent tool and rejects confirmation while the session is running.
+Local process recovery retains its existing journal behavior and does not create this review marker.
+
+## Provider latency and endpoint preference, 2026-10-14
+
+The operator requested the cause and correction for 143–379-second model calls.
+Provider records show one successful Azure endpoint generation per slow call.
+The calls used 20,575 and 40,952 input tokens, with 199 and 808 reasoning tokens.
+Pi requested default reasoning, currently medium in the catalog, with an 8,192-token output allowance.
+Default service tier and large cache hits exclude flex routing and excessive uncached context as complete explanations.
+
+The responsive synthetic probe used 51,079 input tokens and medium effort. It completed in 2.96 seconds.
+The same cached request forced to base Azure took 38.46 seconds and returned only 27 output tokens.
+A saved-history probe preserved signed state and returned the expected marker in 9.65 seconds without any tool execution.
+The evidence establishes intermittent upstream endpoint stalls, not Azure's internal resource or queue cause.
+
+Prefer low latency with p90 performance thresholds. Pi prefers the ZDR-compatible `azure/eu` route.
+Keep eligible fallback providers and all existing reasoning, context, output, retry, and recovery rules.
+Record actual request controls and reported reasoning-token usage in spans without private request bodies.
+Prepare release 0.1.15 through the normal topic PR, Pi promotion, and immutable release tag.
+The active Pi configuration is now a regular `.env` file, not the earlier documented symlink.
+Back it up before editing. Change only its four OpenRouter routing fields and retain all other settings.
+
+## Release 0.1.18 preparation, 2026-10-15
+
+The operator requested development checks, promotion PRs to `main` and `rpi`, and a new Pi release.
+Prepare version 0.1.18 through a topic PR from `dev`.
+This release includes shared sandbox dependencies, ordinary workspace tools, safe workspace recovery, and Telegram progress tracing.
+Keep the open account connector PRs outside this release.
+Use merge commits for both promotions after their destination checks pass.
+Create immutable tag `rpi-v0.1.18` at the promoted `rpi` tip.
+Deployment remains unconfirmed until the tagged workflow and active Pi manifest agree.
+
+## Automatic routing for every OpenRouter model, 2026-10-14
+
+The operator requested removal of endpoint orders for all OpenRouter models.
+The proposed model-specific order map was never merged or deployed. Close its PR and remove the proposal.
+Remove the global order field and both prepared order variables from the private Pi configuration.
+Retain generic latency and throughput preferences. OpenRouter selects compatible ZDR endpoints for the selected model.
+Reasoning, context and output limits, retries, signed state, approvals, and safe recovery retain their existing behavior.
+Prepare release 0.1.16 through a topic PR, Pi promotion, and immutable release tag.

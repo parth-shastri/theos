@@ -5,6 +5,13 @@ The harness supplies bounded exact references from the original transcript and o
 The full reference index stays in saved memory. Existing `history_read`, `history_search`, and research tools recover omitted details.
 This extension adds no tool or runtime dependency.
 
+Tool responses can contain more than 16 calls. The harness processes valid calls in ordered batches of at most 16.
+It preserves call IDs, approval checks, and completed results. Only tools declared safe may overlap.
+The model receives batching guidance and explicit feedback after oversized groups.
+Invalid arguments and unknown tools receive `not_started` results before execution, with correction instructions.
+Executed failures retain `failed`. Uncertain actions retain `unknown` and cannot repeat automatically.
+Trace metadata retains the complete generated call count even when content capture includes only the first 16 calls.
+
 The runtime binds tools to the authenticated owner and conversation.
 A model cannot supply another owner ID through tool arguments.
 Optional account tools appear only after configuration and transport checks.
@@ -38,6 +45,12 @@ It uses UTF-16 offsets and splits long replies while retaining formatting.
 Raw HTML remains literal text. Only HTTP, HTTPS, mail, and Telegram links become link entities.
 Commands remain literal text. Approval reviews use labeled fields, formatted prose, and literal code.
 Telegram uses one editable status per tool call and per compaction, with readable action names and tool icons.
+Finished activities disappear. A final message shows elapsed time, call count, failed or uncertain outcomes, and successfully loaded skills.
+The runtime counts parent and delegate activity before display queues can discard events.
+Approval cards notify once and stay visible until a decision or expiry. Saved message references survive restarts.
+Telegram decisions remove complete reviews immediately. Polling also removes reviews resolved elsewhere and retries failed cleanup every ten seconds.
+If deletion fails, cleanup removes approval buttons while retaining references for another attempt.
+SQLite retains approval snapshots, decisions, tool results, and conversation history.
 Expandable quotes retain exact identifiers and raw price units. Long reviews retain complete details in splits or a file.
 Zepto cart reviews show paise prices in rupees, while approval snapshots retain the original values.
 This renderer adds no model tool.
@@ -110,6 +123,10 @@ OpenRouter aliases and parameter support live in [the model catalog](../src/theo
 Microphone input uses browser MediaRecorder and the existing transcription client.
 Speech playback uses the existing Kokoro client and authenticated file catalog.
 The [OpenRouter adapter](../src/theos/runtime/openrouter.py) retains streamed reasoning, signed reasoning blocks, and provider-reported costs.
+Runtime settings prefer low latency and minimum throughput among eligible endpoints.
+Endpoint preferences apply to all model paths and preserve explicit request constraints.
+`scripts/check_provider_latency.py` compares routes with synthetic records and a tool schema that never executes.
+The probe uses existing OpenAI, HTTPX, and tracing dependencies. It writes no production conversation records.
 It enforces `provider.zdr=true` for every OpenRouter request, including delegated research, compaction, and titles.
 This uses the existing OpenAI SDK and adds no dependency or model tool.
 
@@ -125,7 +142,7 @@ Composer `@` suggestions use these same owner-bound connection statuses.
 Mentions remain user text and do not grant tool access or approve actions.
 Provider icons are local assets. The [provider manifest](browser-provider-provenance.json) records their sources and hashes.
 These controls add no Python dependency or model tool.
-Configured sandbox tools work in browser conversations and retain execution approvals.
+Configured sandbox tools work in browser conversations without execution approval prompts.
 
 Source: [connection routes](../src/theos/transports/browser/connections.py), [account access](../src/theos/storage/account_access.py), and [browser controls](../src/theos/transports/browser/static/app.js).
 
@@ -269,6 +286,8 @@ The operator sets `THEOS_SHARED_SKILLS_DIR=/home/neuron/.agents/skills` and inst
 The deployment script retains this mount during release and rollback.
 Manual Compose commands must include the shared-skills file explicitly.
 Host skill updates appear without a copy or application restart.
+The runtime includes installed skill descriptions and requires purpose-based skill selection before work.
+It supplies report-style and format instructions automatically for document requests, with explicit user formats taking precedence.
 The [skills.sh CLI](https://skills.sh/docs) installed code review, Papers with Code, arXiv, Hugging Face papers, DOCX, XLSX, and PDF skills.
 It runs through a temporary Node 22 runtime because the Pi's system Node 20 is incompatible with `skills@1.7.2`.
 Source licenses, installation metadata, hashes, and local corrections remain with the installation.
@@ -280,19 +299,20 @@ See [shared skill maintenance](../skills/README.md) for installation and updates
 
 | Report helper | Dependencies |
 | --- | --- |
-| `build_doc.py` | Python 3.10 or later, Markdown, Chrome or Chromium, network access for CSS fonts |
-| `build_docx.py` | Python 3.10 or later, python-docx, Markdown, Beautiful Soup, Inter and DejaVu Sans Mono fonts |
-| DOCX diagrams | Playwright and Chrome or Chromium |
-| Visual verification | LibreOffice for DOCX conversion and Poppler for PDF page images |
+| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, local Inter and DejaVu Sans Mono fonts |
+| `build_docx.py` | python-docx, Markdown, Beautiful Soup, Playwright, Chrome or Chromium |
+| PDF and OCR skills | pypdf, pdfplumber, reportlab, pdf2image, pytesseract, Poppler, and Tesseract |
+| DOCX and XLSX skills | npm `docx`, Pandoc, openpyxl, pandas, markitdown, and LibreOffice Writer/Calc |
+| Paper skills | `arxiv` Python package and the pinned `pwc` command |
+| Browser tool | Node.js 24, `agent-browser`, and Chromium |
 
-The helper scripts declare their Python dependencies for `uv run`.
-Copy their scripts and text assets into the remote sandbox before execution.
-Skill installation does not install browser binaries, fonts, LibreOffice, or Poppler in that sandbox.
+The shared runtime image installs these dependencies and contains the report style files at `/opt/theos/report-style`.
+Other skills still supply their own scripts and text resources when loaded.
 
 Paper research uses the official `pwc-cli` skill first, with arXiv and Hugging Face as supplemental sources.
 The Pi has `pwc 0.4.3` in an isolated Python environment.
 Live search and metadata retrieval passed against the public catalog.
-The remote sandbox needs a separate CLI installation.
+The shared runtime image also installs the pinned `pwc` CLI for remote research work.
 
 On 2026-10-11, the Pi's deployed loader listed eight skills and read every instruction file.
 A temporary host-file change appeared through `load_skill` without a restart.
@@ -348,16 +368,16 @@ This uses the existing SDK and lets remote clients connect without access to con
 
 | Callable | Action |
 | --- | --- |
-| `sandbox_run_command` | Run a shell command in your remote sandbox after confirmation. |
-| `sandbox_execute_code` | Run Python in your remote sandbox's persistent interpreter. |
-| `sandbox_write_file` | Write a text file in the remote sandbox. |
-| `sandbox_read_file` | Read a text file from the remote sandbox. |
-| `sandbox_list_files` | List files in a remote sandbox directory. |
-| `sandbox_send_file_to_user` | Download a generated sandbox file and deliver it to the user. |
-| `sandbox_view_image` | Read a sandbox image and attach it to the next model request. |
-| `sandbox_upload_file` | Copy one of your uploaded files into the remote sandbox. |
-| `sandbox_browser` | Run agent-browser in the sandbox. Use snapshot, open, click, fill, or screenshot commands. |
-| `sandbox_lifecycle` | Inspect, extend, destroy, or forget an expired sandbox. |
+| `run_command` | Run a shell command in your task workspace. |
+| `execute_code` | Run Python in your persistent workspace. Imports and variables persist between calls. |
+| `write_file` | Write a text file in your task workspace. |
+| `read_file` | Read a text file from your task workspace. |
+| `list_files` | List files in a workspace directory. |
+| `send_file_to_user` | Share a generated file with the user. |
+| `view_image` | Load an image from your workspace for visual inspection. |
+| `upload_file` | Copy one of your uploaded files into your workspace. |
+| `browser` | Open pages and interact with them. Use open, snapshot, click, fill, or screenshot commands. |
+| `manage_workspace` | Inspect or control the workspace on explicit user request. Routine recovery is automatic. |
 
 ## Gmail
 
@@ -375,8 +395,8 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | `gmail_download_attachment` | Download an attachment from one of your accessible messages. |
 | `gmail_list_drafts` | List your Gmail drafts. |
 | `gmail_get_draft` | Read a draft with its recipients, subject, body, and content hash. |
-| `gmail_create_draft` | Create a draft. Sending requires a separate user approval. |
-| `gmail_send_draft` | Send a reviewed draft only after explicit approval of its current contents. |
+| `gmail_create_draft` | Create a draft in your connected account. |
+| `gmail_send_draft` | Send after explicit approval of the current draft. Recheck its contents immediately before sending. |
 | `gmail_list_labels` | List Gmail labels. |
 | `gmail_create_label` | Create a Gmail label. |
 | `gmail_modify_labels` | Add or remove labels on a message or thread. |
@@ -405,7 +425,8 @@ Source: [service tools](../src/theos/services/zepto/tools.py).
 Each user connects Zepto from the browser Connections view or a private Telegram chat.
 The client discovers remote tools and registers them with the `zepto_` prefix.
 It excludes the `zepto_shop` wrapper and validates arguments against each remote schema.
-All exposed Zepto calls require approval, including order and payment actions.
+Only Zepto cart confirmation, checkout, order placement, and payment tools require approval.
+Searches, reads, store setup, and ordinary cart updates run without approval.
 Product search needs a selected delivery store.
 Use `zepto_list_saved_addresses` and `zepto_select_saved_address` for the user's chosen address.
 Use `zepto_get_location_serviceability` for a new delivery location's coordinates.
@@ -534,6 +555,12 @@ This host dependency does not change the application image or expose the OTLP re
 See [observability](base-infra/observability.md) for setup and trace contents.
 Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
 The [content serializer](../src/theos/operations/trace_content.py) uses the OTel GenAI role and parts schema without new dependencies.
+Runtime phase spans measure queue waits, history restoration, model capacity, tool registration, memory retrieval, and local checkpoint persistence.
+HTTPX hooks measure each OpenAI-compatible HTTP request through response headers.
+Model spans retain first-chunk and complete generation timing separately.
+The [provider diagnostics](../src/theos/operations/provider_diagnostics.py) retain validated identifiers and allowlisted classifications.
+Raw provider errors, prompts, authentication headers, and unknown metadata never enter diagnostic fields.
+OpenRouter can retry a transient accepted stream twice before any output, without repeating tools or weakening ZDR.
 
 ## Scheduled agent tasks
 
@@ -559,25 +586,20 @@ Source: [memory automation](../src/theos/services/memory/automation.py).
 
 | Tool | Action |
 | --- | --- |
-| `configure_memory_automation` | Set retrieval and consolidation policy after approval |
+| `configure_memory_automation` | Set retrieval and consolidation policy at the user's request |
 | `get_memory_automation_status` | Read owner policy and batch status counts |
 
 ## Approval boundary
 
-The runtime requires approval for these actions:
+The global policy requires approval for Gmail sending and Zepto cart confirmation, checkout, order placement, and payment-related tools.
+This includes online payments, UPI, wallet payments, and payment status tools.
+Searches, cart updates, delivery-store setup, and account reads do not prompt.
+Sandbox execution, draft creation, file and table deletion, and memory settings do not prompt.
+Gmail checks the recipients, subject, body, attachments, and raw draft hash against the approved preview before sending.
+Account ownership, tool validation, transcript checkpoints, and uncertain-action recovery remain active.
+Each approval still binds one user, conversation, call ID, and exact arguments, with a 15-minute expiry.
+Old pending cards for tools that no longer need approval are retired without changing their saved snapshots.
 
-- `gmail_send_draft`
-- `delete_custom_table`
-- `delete_user_file`
-- `sandbox_run_command`
-- `sandbox_execute_code`
-- `sandbox_browser`
-- `configure_memory_automation`
-- Every registered `zepto_` tool
-
-Approvals expire after 15 minutes and bind to the saved arguments.
-Gmail also binds approval to the draft preview and rechecks it before sending.
-An uncertain external write requires review before another attempt.
 Source: [approval policy](../src/theos/runtime/approvals.py).
 
 
@@ -589,13 +611,18 @@ Request sizing uses provider usage anchors and the upstream UTF-8-aware rough es
 
 The runtime owns `history_read` and `history_search` for bounded access to original agent history.
 The Gmail and Health wrappers add `source_read` and `source_to_workspace` for complete saved connector responses.
-They preserve raw results in R2 and return readable pages with source IDs, offsets, and pagination tokens.
+They preserve raw results in fsynced local objects and queue R2 replication.
+Returned pages include source IDs, offsets, and pagination tokens.
 MIME text views identify unread attachments and do not download them.
 MCP tools and connector implementations remain unchanged.
 
 `services/files/checkpoints.py` uses the existing boto3 dependency for R2 objects and the SQLite transfer index.
+One background worker uploads bounded batches and publishes only complete recovery pointers.
+Checkpoint persistence and connector reads do not wait for those uploads.
+The storage client is reused and has bounded connection, read, and retry settings.
 `services/sandbox/workspace.py` uses the existing OpenSandbox SDK for `/workspace` files and restoration.
 The agent can choose this workspace without an explicit sandbox request from the user.
+The runtime reconnects, replaces confirmed expired or missing instances, and restores saved files. If connection fails before a tool action starts, the model may retry that same action once. It must not use lifecycle controls for routine recovery or repeat an action with an unknown outcome.
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.

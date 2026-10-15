@@ -19,6 +19,8 @@ from .text import reply_text
 
 def publish_event(runtime, turn, event, status):
     """Publish one event and return the latest turn status."""
+    if hasattr(turn, "observe_tool"):
+        turn.observe_tool(event)
     if isinstance(event, (TextDelta, ReasoningDelta)):
         event = replace(event, text=reply_text(event.text))
     if turn.raw_events:
@@ -35,9 +37,45 @@ def publish_event(runtime, turn, event, status):
                 "compaction_id": event.compaction_id,
             }
         )
-    # Child progress belongs to its tool. It cannot finish or supply the parent answer.
+    # Child tool progress is Telegram-only. Child output cannot finish the parent answer.
     if getattr(event, "parent_call_id", None) is not None:
+        if not turn.raw_events and getattr(turn, "include_delegate_tool_progress", False):
+            if isinstance(event, ToolStarted):
+                turn.emit(
+                    {
+                        "type": "tool",
+                        "name": event.call.name,
+                        "call_id": event.call.id,
+                        "arguments": event.call.arguments,
+                        "parent_call_id": event.parent_call_id,
+                        "status": "running",
+                    }
+                )
+            elif isinstance(event, ToolFinished):
+                result = event.result
+                if isinstance(result, PendingApproval):
+                    call = result.call
+                    turn.emit(
+                        {
+                            "type": "tool",
+                            "name": call.name,
+                            "call_id": call.id,
+                            "parent_call_id": event.parent_call_id,
+                            "status": "waiting_for_approval",
+                        }
+                    )
+                else:
+                    turn.emit(
+                        {
+                            "type": "tool",
+                            "name": result.name,
+                            "call_id": result.call_id,
+                            "parent_call_id": event.parent_call_id,
+                            "status": result.status,
+                        }
+                    )
         return status
+    runtime.tracing.turn_event(event)
     if isinstance(event, ModelCalled):
         if not turn.raw_events:
             turn.emit({"type": "thinking", "display": {"created_at": time.time()}})
@@ -46,7 +84,10 @@ def publish_event(runtime, turn, event, status):
             turn.emit({"type": "text", "text": event.text})
     elif isinstance(event, ReasoningDelta):
         if not turn.raw_events:
-            turn.emit({"type": "reasoning", "text": event.text})
+            payload = {"type": "reasoning", "text": event.text}
+            if event.display_summary:
+                payload["display_summary"] = True
+            turn.emit(payload)
     elif isinstance(event, ModelResponded):
         if not turn.raw_events:
             turn.emit(

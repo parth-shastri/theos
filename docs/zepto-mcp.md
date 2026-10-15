@@ -108,7 +108,8 @@ The runtime discovers remote tools for connected users in browser and private Te
 It excludes the `zepto_shop` wrapper.
 It adds the `zepto_` prefix and validates arguments against each remote schema.
 
-Every Zepto call requires approval, including reads and cart changes.
+Only cart confirmation, checkout, order placement, and payment-related tools require approval.
+Searches, reads, address and store setup, and ordinary cart updates run without approval.
 The approval binds to the saved tool and arguments.
 It expires after 15 minutes.
 
@@ -117,7 +118,7 @@ Order history can work before a store is selected.
 Ask Theos to list saved addresses and select the address you want for delivery.
 The `zepto_list_saved_addresses` and `zepto_select_saved_address` tools support this procedure.
 For a new delivery location, use `zepto_get_location_serviceability` with its latitude and longitude.
-Review each setup approval, then request the product search.
+Select the intended delivery address, then request the product search.
 Theos explains this prerequisite when Zepto reports `Store not selected`.
 It does not select an address or retry a remote action automatically.
 Theos retains one MCP session per account and sends its calls in order.

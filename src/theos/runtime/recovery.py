@@ -19,6 +19,7 @@ from theos.storage.messages import stamp_message
 
 from .errors import CheckedModel, ProviderFailure, failure_message
 from .text import reply_text
+from .usage import message_model
 
 logger = logging.getLogger("theos")
 REASONS = {
@@ -79,7 +80,7 @@ def settle_calls(runtime, turn, history):
                 "The action outcome is unknown. Check the external service before repeating it."
                 if row
                 else "The turn stopped before this tool started.",
-                "unknown" if row else "failed",
+                "unknown" if row else "not_started",
             )
         previous = next(
             (
@@ -154,7 +155,7 @@ async def response_call(
             return request
 
         async def record(message, ctx):
-            runtime.record_usage(session, message.usage)
+            runtime.record_usage(session, message.usage, model_id=message_model(message))
             return message
 
         agent = Agent(

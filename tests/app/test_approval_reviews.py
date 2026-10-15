@@ -37,7 +37,7 @@ def test_nested_review_preserves_newlines_code_and_empty_values():
 def test_telegram_review_formats_prose_and_preserves_literal_code():
     code = 'print("😀\\n**literal**")\nprint("next")'
     fields = approval_fields({"description": "**Review**\n- First\n- Second", "code": code})
-    parts = format_approval("sandbox_execute_code", fields)
+    parts = format_approval("execute_code", fields)
     assert len(parts) == 1
     assert "**Review**" not in parts[0]["text"]
     assert "Review\n\n• First\n• Second" in parts[0]["text"]
@@ -63,7 +63,7 @@ async def test_pending_review_keeps_exact_snapshot(runtime):
             "review",
             row["id"],
             "call",
-            "sandbox_execute_code",
+            "zepto_confirm_cart",
             arguments,
             arguments,
             time.time(),
@@ -88,11 +88,25 @@ async def test_telegram_review_buttons_follow_complete_unicode_review(runtime):
     bot.api = api
     code = "😀" * 2500 + "\nFINAL LINE"
     preview = json.dumps({"code": code})
+    row = runtime.db.create_session("alice", "test", "none")
+    runtime.db.execute(
+        "INSERT INTO approvals(id,session,call_id,tool,arguments,preview,created,expires) VALUES (?,?,?,?,?,?,?,?)",
+        (
+            "approval",
+            row["id"],
+            "call",
+            "execute_code",
+            preview,
+            preview,
+            time.time(),
+            time.time() + 900,
+        ),
+    )
 
     async def events():
         yield {
             "type": "approvals",
-            "items": [{"id": "approval", "tool": "sandbox_execute_code", "preview": preview}],
+            "items": [{"id": "approval", "tool": "execute_code", "preview": preview}],
         }
         yield {"type": "done", "status": "waiting_for_approval"}
 
