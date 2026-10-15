@@ -56,7 +56,9 @@ async def test_configured_accounts_are_visible_before_owner_authorization(runtim
     async with browser(runtime) as client:
         data = (await client.get("/api/connections")).json()
         assert {account["id"] for account in data["accounts"]} == {"gmail", "health"}
-        assert all(account["configured"] and not account["connected"] for account in data["accounts"])
+        assert all(
+            account["configured"] and not account["connected"] for account in data["accounts"]
+        )
 
 
 @pytest.mark.parametrize("service", ["gmail", "health"])
