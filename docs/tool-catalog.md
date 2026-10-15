@@ -377,7 +377,7 @@ This uses the existing SDK and lets remote clients connect without access to con
 | `view_image` | Load an image from your workspace for visual inspection. |
 | `upload_file` | Copy one of your uploaded files into your workspace. |
 | `browser` | Open pages and interact with them. Use open, snapshot, click, fill, or screenshot commands. |
-| `manage_workspace` | Check status, restart, or clear the workspace. Expiry remains fixed from creation. |
+| `manage_workspace` | Inspect or control the workspace on explicit user request. Routine recovery is automatic. |
 
 ## Gmail
 
@@ -622,6 +622,7 @@ Checkpoint persistence and connector reads do not wait for those uploads.
 The storage client is reused and has bounded connection, read, and retry settings.
 `services/sandbox/workspace.py` uses the existing OpenSandbox SDK for `/workspace` files and restoration.
 The agent can choose this workspace without an explicit sandbox request from the user.
+The runtime reconnects, replaces confirmed expired or missing instances, and restores saved files. If connection fails before a tool action starts, the model may retry that same action once. It must not use lifecycle controls for routine recovery or repeat an action with an unknown outcome.
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.

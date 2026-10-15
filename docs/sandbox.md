@@ -162,7 +162,7 @@ The model can receive a checked workspace image through `view_image`.
 Each conversation owns a remote sandbox ID.
 The application saves the ID and reconnects after an application restart.
 A saved ID does not guarantee that the remote sandbox still exists.
-Use `manage_workspace` with `status`, `restart`, `destroy`, or `forget`.
+Routine startup, reconnection, and checkpoint restoration are automatic. Use `manage_workspace` with `status`, `restart`, `destroy`, or `forget` only when the user asks to inspect or control the workspace.
 The legacy `renew` action returns status without extending expiry.
 `forget` removes the saved connection reference without destroying a remote instance.
 

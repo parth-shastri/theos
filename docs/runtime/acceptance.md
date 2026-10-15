@@ -819,6 +819,11 @@ The Pi now reads the new image setting. Theos returned ready on its original dat
 The Mac mini OpenSandbox health endpoint returned healthy. These checks did not send Telegram messages or verify a live report request through the model.
 These checks use HTTP mocks and send no real email. No environment change or migration is required.
 
+## Workspace lifecycle recovery, 2026-10-15
+
+The runtime handles workspace reconnection, confirmed expiry or loss, and checkpoint restoration before exposing a workspace operation to the model. A connection failure before the operation begins tells the model that it may retry the same ordinary tool call once. The model does not need to invoke lifecycle controls for recovery.
+Failures after an operation starts remain distinct: if checkpointing fails, the tool reports an unknown outcome and tells the model not to repeat the operation automatically.
+
 ## Runtime latency and safe replication, 2026-10-14
 
 The complete local suite passed 1,106 tests, with three credential-dependent tests excluded before the final retry-window test.

@@ -122,7 +122,7 @@ def sandbox_tools(client, owner, session_id):
     async def manage_workspace(
         action: Literal["status", "renew", "restart", "destroy", "forget"],
     ):
-        """Check your workspace, restart it, or clear its saved state."""
+        """Inspect or control your workspace when the user asks. Routine recovery is automatic."""
         if action == "forget":
             return await client.forget(owner, session_id)
         if action in {"destroy", "restart"}:
