@@ -806,3 +806,60 @@ A separate check verifies that the service guard rejects a send without the acti
 The final draft check also rejects edits between approval resumption and send execution.
 Duplicate approval decisions cannot send the email again.
 These checks use HTTP mocks and send no real email. No environment change or migration is required.
+
+## Runtime latency and safe replication, 2026-10-14
+
+The complete local suite passed 1,106 tests, with three credential-dependent tests excluded before the final retry-window test.
+Focused checks also passed after that test and the diagnostic changes.
+Storage tests cover blocked uploads, unavailable storage, worker restart, failed pointer publication, and transfer fairness across owners.
+A blocked upload does not delay a newer local checkpoint.
+Pending objects retain their local files and journal entries.
+Remote pointers advance only after the corresponding objects are uploaded.
+Recovery preserves unknown external actions and never repeats tools to repair storage.
+
+Three mocked Gmail thread reads overlap while preserving their owner, result order, call IDs, and durable results.
+Writes and approved sends retain sequential execution and existing approval checks.
+Transient provider retries preserve the exact request and ZDR.
+A completed tool executes once across two injected provider failures.
+Partial output and a long failed stream do not restart generation through this path.
+Diagnostic tests reject private provider prose, raw metadata, and malformed identifiers.
+Timing tests check phase ownership, HTTP headers, first-chunk timing, and request identifiers.
+
+The Pi preflight used the edited code under a temporary source path and a separate temporary database.
+Five synthetic checkpoints took 16.9 to 17.7 milliseconds each. R2 replication completed in 4.11 seconds afterward.
+The bucket contained no remaining probe objects after cleanup.
+A live provider request with no tools returned the expected marker in 12.10 seconds.
+It sent no Telegram messages and changed no production session records.
+The Pi Connect package is 2.13.0 and its resident-memory guard is active.
+Application deployment confirmation still requires the tagged release workflow and active Pi manifest.
+
+The final source PR passed 1,108 tests on Python 3.12 and 3.13 before the remote-restore correction.
+Additional restore checks cover snapshots with unanswered calls and snapshots before any call intent.
+Saved working context and ordinary history both retain one uncertain result per unresolved call.
+Tool access stays paused until explicit operator reconciliation, even if a caller bypasses the empty registry.
+Other owners cannot confirm that review. Local process recovery keeps its existing behavior.
+
+## Provider routing and latency, 2026-10-14
+
+The provider records attribute the 143.049-second and 378.893-second calls to one Azure endpoint generation each.
+Their reasoning usage was 199 and 808 tokens. Their native input usage was 20,575 and 40,952 tokens.
+Both used the default service tier and completed with tool calls.
+The provider catalog currently reports medium default effort. Pi does not request a higher effort.
+
+The 51,079-token synthetic probe kept medium reasoning and the 8,192-token output allowance.
+Automatic routing took 2.94 seconds. The preferred Azure EU profile took 2.96 seconds.
+The same request forced to the base Azure endpoint took 38.46 seconds with a cache hit and only 27 output tokens.
+The probe executed no tools and wrote no production records.
+A separate saved-history probe retained all 39 messages and signed reasoning, then returned the expected marker in 9.65 seconds.
+It generated no tool calls and executed no actions.
+
+Routing tests preserve ZDR, signed state, tool results, output limits, and explicit endpoint allowlists.
+Trace tests expose fixed request controls and counts without private bodies or arbitrary options.
+Reasoning usage remains part of total output usage. It does not increase cost accounting.
+Existing tests retain single execution across provider retries and paused tools after remote restore.
+The full local suite passed 1,116 tests, with three credential-dependent checks excluded.
+Tagged deployment and the active Pi manifest must confirm application activation.
+
+The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
+Every request retains ZDR and generic performance preferences without an endpoint order.
+Runtime configuration contains no model-specific order map. No provider call is required for these checks.

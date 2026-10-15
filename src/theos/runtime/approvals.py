@@ -63,6 +63,13 @@ async def check_approval(runtime, session, tool, args, ctx):
     if call is None:
         return DENY("The tool call has no conversation record.")
     visited.add(call.id)
+    if runtime.db.one(
+        "SELECT id FROM records WHERE owner=? AND kind='remote_recovery_review' AND id=?",
+        (owner, session_id),
+    ):
+        return DENY(
+            "Remote recovery requires operator review of external effects before tools can run."
+        )
     if not requires_approval(tool.name):
         return ALLOW
     row = runtime.db.one(

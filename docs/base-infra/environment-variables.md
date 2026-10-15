@@ -139,10 +139,14 @@ The delegate deadline remains 85 seconds. The turn deadline remains 300 seconds 
 | --- | --- | --- |
 | `AGENT_PROVIDER` | `openai` | `openai`, `openrouter`, `gemini`, `anthropic`, `llama`, or `fake` |
 | `AGENT_MODEL` | `gpt-6-luna` | Default provider model ID |
+| `AGENT_FALLBACK_MODEL` | `gpt-5.6-luna` for OpenAI, `glm-5.3` for OpenRouter; otherwise empty | Override the second model through the configured provider. Set empty to disable the default |
 | `AGENT_API_KEY` | Empty | Credential for the selected provider |
 | `AGENT_MODEL_BASE_URL` | Empty | Base URL override for the OpenAI client path |
 | `AGENT_ALLOWED_MODELS` | `[]` | Explicit model allowlist. Empty uses the provider's built-in choices and `AGENT_MODEL` |
 | `AGENT_REASONING` | `default` | `default`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`, where supported |
+| `AGENT_OPENROUTER__SORT` | `latency` | Prefer latency, throughput, or price among eligible endpoints |
+| `AGENT_OPENROUTER__LATENCY_P90` | `15` | Prefer endpoints whose recent p90 latency is at most this many seconds |
+| `AGENT_OPENROUTER__THROUGHPUT_P90` | `10` | Prefer endpoints whose recent p90 throughput is at least this many tokens per second |
 | `AGENT_AUTO_TITLES` | `true` | Generate browser conversation titles from opening exchanges. Title usage contributes to conversation costs |
 | `AGENT_INPUT_COST_PER_MILLION` | Unset | Nonnegative input rate in USD per million tokens |
 | `AGENT_OUTPUT_COST_PER_MILLION` | Unset | Nonnegative output rate in USD per million tokens |
@@ -152,12 +156,28 @@ OpenAI uses Responses. OpenRouter uses Chat Completions.
 The llama provider defaults to `http://127.0.0.1:8081/v1`.
 Gemini and Anthropic use their dedicated clients.
 `AGENT_MODEL_BASE_URL` applies to OpenAI, OpenRouter, and llama.
+OpenAI defaults to `gpt-5.6-luna` as a fallback. OpenRouter defaults to `glm-5.3` because it has the most tool-capable ZDR endpoints in the current catalog.
+Other providers need an explicit `AGENT_FALLBACK_MODEL` supported by that provider.
+The fallback model uses the same provider, API key, base URL, and request options as the selected model.
+OpenRouter maps reasoning to a supported fallback effort. It uses `low` when the primary setting is `default`, `none`, or `medium`.
+It maps `xhigh` to `max` when the fallback supports it.
+It is attempted once after a provider failure only when the primary attempt has not forwarded an event.
+Known invalid-request, authentication, quota, policy, and context failures do not use the fallback.
+Both model attempts have separate trace spans; the fallback span records its primary model and safe primary error classification.
 
 All real hosted providers require `AGENT_API_KEY` for model calls.
 The fake provider needs no credential.
 The llama client uses a local placeholder when the key is empty.
 A model must support the requested reasoning option.
 Use `default` when the provider rejects an explicit effort.
+
+OpenRouter preferences apply to chat, research, compaction, and title requests.
+They retain `provider.zdr=true`, saved signed reasoning, and explicit request preferences.
+Performance thresholds deprioritize slow endpoints. They are not request deadlines or hard exclusions.
+The runtime supplies no endpoint order or model-specific endpoint map.
+OpenRouter ranks eligible endpoints for each selected model using current performance statistics.
+An incompatible preferred endpoint does not disable other eligible providers.
+Do not disable ZDR to reach a faster endpoint.
 
 OpenRouter-reported costs take precedence over configured estimates.
 Both cost rates must exist before Theos records a token-rate estimate.
@@ -166,7 +186,7 @@ Use `AGENT_MODEL_COSTS` when model rates differ.
 Keys can use a configured alias or its OpenRouter model ID.
 The estimate does not include provider billing adjustments or a separate cached-token rate.
 
-OpenRouter includes `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
+OpenRouter includes `glm-5.3`, `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
 The existing `gpt-6-luna` default remains available.
 Direct OpenAI adds only `gpt-5.6-luna` to its configured model.
 Other providers use the configured model unless an operator supplies an allowlist.

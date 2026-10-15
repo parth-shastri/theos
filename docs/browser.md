@@ -208,8 +208,8 @@ Provider icons identify Gmail, Google Health, and Zepto in Connections and menti
 Workspace services use icons for execution, memory, search, storage, transcription, speech, weather, and skill resources.
 The same icons appear in Connections and mention suggestions.
 
-OpenRouter exposes the six requested choices plus the existing default model.
-The aliases are `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
+OpenRouter exposes seven model choices plus the existing default model.
+The aliases are `glm-5.3`, `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
 The runtime maps these aliases to provider model IDs.
 An explicit operator allowlist controls which choices appear.
 

@@ -141,7 +141,7 @@ History tools operate only on the current agent's history.
 
 Immutable compressed objects live under `theos/checkpoints/<owner hash>/<session>/` in R2.
 The local private spool and SQLite `context_objects` table track each transfer.
-An R2 outage leaves the local object pending. A later checkpoint retries the transfer without repeating the connector call.
+An R2 outage leaves the local object pending. The background worker retries the transfer without repeating the connector call.
 The latest remote checkpoint pointer advances only after all referenced objects are saved.
 
 Checkpoints include the full journal, working context, model state, tool execution states, and workspace manifest.
@@ -202,3 +202,29 @@ The display conversion never changes approved arguments. Other tool prices retai
 It preserves the original transcript, checks expected facts and source reads, and does not access production connectors or Telegram.
 Use task-specific expectations to check answer completeness.
 See [acceptance checks](acceptance.md) for results and limitations.
+
+## Local checkpoint latency and remote replication
+
+SQLite state and fsynced local objects remain durable before model requests and tool execution.
+Checkpoint creation does not wait for R2.
+One worker scans bounded batches from the SQLite transfer journal and reuses its storage connection.
+Failed transfers remain pending. Restarted workers retry storage operations without repeating assistant tools.
+A failed object cannot prevent another conversation from receiving transfer attempts indefinitely.
+
+The worker publishes a remote recovery pointer only after its snapshot and all conversation sources are uploaded.
+Remote recovery can therefore lag the current local transcript during an outage or transfer backlog.
+Local recovery continues from SQLite and the checkpoint directory.
+Back up both stores. Do not treat an outstanding remote transfer as an external action failure.
+
+Independent Gmail reads can overlap within the existing bounded tool batches.
+Each call retains its ownership check, journal entry, result, and original result order.
+Writes and approved sends remain sequential. An unfinished action remains uncertain after interruption.
+See [the recovery diagram](../architecture/theos-runtime-recovery.excalidraw) and [latency diagnostics](../base-infra/observability.md#diagnose-turn-latency-and-provider-failures).
+
+Remote restore also pauses tool access for that conversation until operator reconciliation.
+A snapshot can omit calls and actions that occurred after its upload.
+Captured unanswered calls become saved results or uncertain outcomes before the runtime resumes.
+The separate owner-bound review record survives context compaction and later checkpoints.
+After checking external effects, operator recovery code calls `checkpoints.confirm_restore_review(owner, session)`.
+This method cannot run as an agent tool and rejects confirmation during a running turn.
+Uncertain call records remain intact after review. The runtime never executes them automatically.

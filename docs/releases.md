@@ -15,6 +15,43 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.17
+
+Package version 0.1.17 uses tag `rpi-v0.1.17` from the promoted `rpi` tip.
+OpenRouter uses `glm-5.3` as its alternate model and keeps ZDR enabled.
+OpenAI keeps `gpt-5.6-luna` as its alternate model.
+Fallback spans record the primary failure and the alternate model.
+Usage records attribute tokens and cost to the model that answered.
+No database migration or new Pi environment value is required.
+
+## Release 0.1.16
+
+Package version 0.1.16 uses tag `rpi-v0.1.16` from the promoted `rpi` tip.
+Remove endpoint orders from runtime configuration. Do not add a model-specific order map.
+Every OpenRouter model uses generic latency and throughput preferences with mandatory ZDR and eligible fallbacks.
+Reasoning, context, output limits, direct provider clients, and safe recovery retain their existing behavior.
+
+## Release 0.1.15
+
+Package version 0.1.15 uses tag `rpi-v0.1.15` from the promoted `rpi` tip.
+OpenRouter prefers responsive endpoints instead of its default price-based routing.
+Pi prefers Azure EU while retaining ZDR and eligible fallback providers.
+Reasoning, context, output limits, retry bounds, and tool recovery rules remain unchanged.
+Spans record request controls, request size, routing preferences, and reported reasoning tokens.
+The synthetic provider probe never executes its advertised tool.
+
+## Release 0.1.14
+
+Package version 0.1.14 uses tag `rpi-v0.1.14` from the promoted `rpi` tip.
+Local checkpoints remain durable before model requests and tool execution.
+One background worker uploads R2 objects and publishes complete recovery pointers.
+Independent Gmail reads can overlap. Writes and approved sends retain their existing order and checks.
+Phase spans separate queue waits, setup, local persistence, HTTP response headers, and model generation.
+Provider diagnostics retain validated request IDs and error classifications without raw provider bodies.
+Transient OpenRouter stream errors can retry twice before any output, during the first 30 seconds.
+Retries never execute saved tools again.
+The Pi host guard checks Raspberry Pi Connect memory independently of the application release.
+
 ## Release 0.1.13
 
 Package version 0.1.13 uses tag `rpi-v0.1.13` from the promoted `rpi` tip.

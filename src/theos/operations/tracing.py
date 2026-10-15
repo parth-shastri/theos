@@ -261,8 +261,12 @@ class Tracing:
             if status in {"failed", "interrupted", "uncertain"}:
                 self.failed(span, status)
 
-    def model(self, model, *, reasoning=None):
-        return TracedModel(self, model, reasoning=reasoning) if self.tracer is not None else model
+    def model(self, model, *, reasoning=None, attributes=None):
+        return (
+            TracedModel(self, model, reasoning=reasoning, attributes=attributes)
+            if self.tracer is not None
+            else model
+        )
 
     def tool(self, original):
         if self.tracer is None:
@@ -299,22 +303,29 @@ class Tracing:
 class TracedModel:
     """Preserve the model interface and trace all generation paths."""
 
-    def __init__(self, tracing, model, *, reasoning=None):
+    def __init__(self, tracing, model, *, reasoning=None, attributes=None):
         self.tracing, self.model = tracing, model
         self.reasoning = reasoning
+        self.attributes = dict(attributes or {})
 
     def __getattr__(self, name):
         return getattr(self.model, name)
 
     async def stream(self, request):
+        from .provider_diagnostics import failure, observe
+
         attrs = {
             "gen_ai.operation.name": "chat",
             "gen_ai.provider.name": self.model.provider,
             "gen_ai.request.model": self.model.model_id,
+            **self.attributes,
         }
         if self.reasoning is not None:
             attrs["theos.model.reasoning_effort"] = self.reasoning
-        with self.tracing.span(f"chat {self.model.model_id}", attrs, client=True) as span:
+        with (
+            self.tracing.span(f"chat {self.model.model_id}", attrs, client=True) as span,
+            observe(self.tracing, span),
+        ):
             if self.tracing.settings.capture_content and span.is_recording():
                 messages = request.messages[-32:]
                 self.tracing.content(
@@ -340,60 +351,64 @@ class TracedModel:
             first_tool_call = True
             last_text_elapsed = None
             complete = False
-            async with aclosing(self.model.stream(request)) as stream:
-                async for event in stream:
-                    elapsed = time.monotonic() - started
-                    if isinstance(event, TextDelta):
-                        last_text_elapsed = elapsed
-                    if first:
-                        span.set_attribute(
-                            "gen_ai.response.time_to_first_chunk", elapsed
-                        )
-                        first = False
-                    if isinstance(event, ReasoningDelta) and first_reasoning:
-                        span.set_attribute(
-                            "theos.model.time_to_first_reasoning_chunk", elapsed
-                        )
-                        first_reasoning = False
-                    elif isinstance(event, TextDelta) and first_text:
-                        span.set_attribute("theos.model.time_to_first_text_chunk", elapsed)
-                        first_text = False
-                    elif isinstance(event, ToolCallDelta) and first_tool_call:
-                        span.set_attribute(
-                            "theos.model.time_to_first_tool_call_chunk", elapsed
-                        )
-                        first_tool_call = False
-                    if isinstance(event, GenerationComplete):
-                        span.set_attribute(
-                            "theos.model.time_to_response_complete_seconds", elapsed
-                        )
-                        if last_text_elapsed is not None:
+            try:
+                async with aclosing(self.model.stream(request)) as stream:
+                    async for event in stream:
+                        elapsed = time.monotonic() - started
+                        if isinstance(event, TextDelta):
+                            last_text_elapsed = elapsed
+                        if first:
                             span.set_attribute(
-                                "theos.model.time_to_last_text_chunk_seconds",
-                                last_text_elapsed,
+                                "gen_ai.response.time_to_first_chunk", elapsed
                             )
-                        span.set_attribute(
-                            "theos.model.tool_call_count", len(event.message.tool_calls)
-                        )
-                        self.tracing.content(
-                            span, "gen_ai.output.messages", [message_content(event.message)]
-                        )
-                        complete = True
-                        for key, attribute in {
-                            "input_tokens": "input_tokens",
-                            "output_tokens": "output_tokens",
-                            "reasoning_tokens": "reasoning_tokens",
-                            "cache_read_tokens": "cache_read.input_tokens",
-                            "cache_write_tokens": "cache_write.input_tokens",
-                        }.items():
+                            first = False
+                        if isinstance(event, ReasoningDelta) and first_reasoning:
                             span.set_attribute(
-                                f"gen_ai.usage.{attribute}", event.message.usage.get(key, 0)
+                                "theos.model.time_to_first_reasoning_chunk", elapsed
                             )
-                        if event.message.stop_reason:
+                            first_reasoning = False
+                        elif isinstance(event, TextDelta) and first_text:
+                            span.set_attribute("theos.model.time_to_first_text_chunk", elapsed)
+                            first_text = False
+                        elif isinstance(event, ToolCallDelta) and first_tool_call:
                             span.set_attribute(
-                                "gen_ai.response.finish_reasons", [event.message.stop_reason]
+                                "theos.model.time_to_first_tool_call_chunk", elapsed
                             )
-                    yield event
+                            first_tool_call = False
+                        if isinstance(event, GenerationComplete):
+                            span.set_attribute(
+                                "theos.model.time_to_response_complete_seconds", elapsed
+                            )
+                            if last_text_elapsed is not None:
+                                span.set_attribute(
+                                    "theos.model.time_to_last_text_chunk_seconds",
+                                    last_text_elapsed,
+                                )
+                            span.set_attribute(
+                                "theos.model.tool_call_count", len(event.message.tool_calls)
+                            )
+                            self.tracing.content(
+                                span, "gen_ai.output.messages", [message_content(event.message)]
+                            )
+                            complete = True
+                            for key, attribute in {
+                                "input_tokens": "input_tokens",
+                                "output_tokens": "output_tokens",
+                                "reasoning_tokens": "reasoning.output_tokens",
+                                "cache_read_tokens": "cache_read.input_tokens",
+                                "cache_write_tokens": "cache_write.input_tokens",
+                            }.items():
+                                span.set_attribute(
+                                    f"gen_ai.usage.{attribute}", event.message.usage.get(key, 0)
+                                )
+                            if event.message.stop_reason:
+                                span.set_attribute(
+                                    "gen_ai.response.finish_reasons", [event.message.stop_reason]
+                                )
+                        yield event
+            except Exception as error:
+                failure(error)
+                raise
             if not complete:
                 self.tracing.failed(span, "IncompleteModelStream")
 

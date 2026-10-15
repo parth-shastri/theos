@@ -204,3 +204,71 @@ async def test_health_disconnect_stops_jobs_even_when_revocation_fails(settings,
         assert result == {"disconnected": True, "revoked_at_google": False}
         assert db.one("SELECT status FROM jobs")["status"] == "cancelled"
         assert db.one("SELECT * FROM credentials") is None
+
+
+async def test_parallel_gmail_reads_keep_results_and_owner_scope(runtime, scripted_models):
+    import asyncio
+
+    configure(runtime.settings)
+    active = 0
+    peak = 0
+    ready = asyncio.Event()
+    owners = []
+
+    async def endpoint(request):
+        nonlocal active, peak
+        owners.append(request.headers["authorization"])
+        active += 1
+        peak = max(peak, active)
+        if active == 3:
+            ready.set()
+        await asyncio.wait_for(ready.wait(), 1)
+        active -= 1
+        return httpx.Response(
+            200,
+            json={"id": request.url.path.rsplit("/", 1)[-1], "messages": [{"labelIds": ["INBOX"]}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:
+        runtime.oauth = OAuth(runtime.settings, runtime.db, http)
+        runtime.gmail = Gmail(runtime.oauth, http, runtime.files)
+        runtime.oauth.save(
+            "telegram:123",
+            "gmail",
+            {
+                "access_token": "one-owner-token",
+                "refresh_token": "refresh",
+                "expires_at": time.time() + 3600,
+            },
+        )
+        row = runtime.db.create_session(
+            "telegram:123", "test", "default", "telegram-private", "123:0"
+        )
+        calls = [
+            ToolCall(f"read-{i}", "gmail_get_thread", {"thread_id": f"thread{i}"}) for i in range(3)
+        ]
+        scripted_models.responses.append(
+            [AssistantMessage(tool_calls=calls), AssistantMessage("Read all three threads.")]
+        )
+        events = await collect(runtime.start("telegram:123", row["id"], "Read three threads."))
+        assert events[-1]["status"] == "completed"
+        assert peak == 3
+        assert owners == ["Bearer one-owner-token"] * 3
+        results = [
+            m
+            for m in runtime.db.load_history("telegram:123", row["id"])
+            if isinstance(m, ToolResultMessage)
+        ]
+        assert [m.call_id for m in results] == [c.id for c in calls]
+        assert all(m.status == "completed" for m in results)
+        tools = await runtime.tools(row)
+        assert next(t for t in tools if t.name == "gmail_get_thread").parallel_safe
+        assert not next(t for t in tools if t.name == "gmail_modify_labels").parallel_safe
+        assert not next(t for t in tools if t.name == "gmail_send_draft").parallel_safe
+        for c in calls:
+            assert (
+                runtime.db.one(
+                    "SELECT status FROM tool_runs WHERE session=? AND call_id=?", (row["id"], c.id)
+                )["status"]
+                == "completed"
+            )
