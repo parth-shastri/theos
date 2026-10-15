@@ -40,7 +40,7 @@ class ConnectorResults:
         self.owner, self.session_id = session["owner"], session["id"]
 
     def wrap(self, original):
-        if original.name not in READ_TOOLS:
+        if original.name not in READ_TOOLS and original.view != "mcp_account_read":
             return original
 
         async def execute(args, ctx):
