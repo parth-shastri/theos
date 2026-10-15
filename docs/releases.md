@@ -15,6 +15,17 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 0.1.18
+
+Package version 0.1.18 uses tag `rpi-v0.1.18` from the promoted `rpi` tip.
+The shared ARM64 sandbox image supplies document, spreadsheet, OCR, browser, and paper research dependencies.
+Workspace tools use ordinary names. The runtime restores saved files after confirmed workspace loss.
+Connection failures before execution permit one retry. Unknown outcomes still prevent automatic repetition.
+Telegram progress shows readable tool arguments. Traces measure progress delivery and turn latency.
+The Pi already uses sandbox image `theos/sandbox-skills:v1.1.0-20261015`.
+No database migration or new Pi environment value is required.
+Confirm activation through the tagged workflow and the active Pi manifest.
+
 ## Release 0.1.17
 
 Package version 0.1.17 uses tag `rpi-v0.1.17` from the promoted `rpi` tip.
