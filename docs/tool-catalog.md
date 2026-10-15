@@ -624,3 +624,12 @@ The agent can choose this workspace without an explicit sandbox request from the
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
+
+
+## Planned Slack connector
+
+Status: proposed, not implemented.
+See [the separate plan](connectors/slack-plan.md) for tool coverage, complexity, delivery steps, and acceptance checks.
+The [inventory](connectors/slack-tools.json) separates documented tools from session metadata and pending runtime discovery.
+The proposed adapter uses the existing `mcp`, `httpx`, `cryptography`, and `jsonschema` dependencies.
+No connector tool, account grant, runtime dependency, or deployment changes in this planning branch.
