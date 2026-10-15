@@ -299,19 +299,20 @@ See [shared skill maintenance](../skills/README.md) for installation and updates
 
 | Report helper | Dependencies |
 | --- | --- |
-| `build_doc.py` | Python 3.10 or later, Markdown, Chrome or Chromium, network access for CSS fonts |
-| `build_docx.py` | Python 3.10 or later, python-docx, Markdown, Beautiful Soup, Inter and DejaVu Sans Mono fonts |
-| DOCX diagrams | Playwright and Chrome or Chromium |
-| Visual verification | LibreOffice for DOCX conversion and Poppler for PDF page images |
+| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, local Inter and DejaVu Sans Mono fonts |
+| `build_docx.py` | python-docx, Markdown, Beautiful Soup, Playwright, Chrome or Chromium |
+| PDF and OCR skills | pypdf, pdfplumber, reportlab, pdf2image, pytesseract, Poppler, and Tesseract |
+| DOCX and XLSX skills | npm `docx`, Pandoc, openpyxl, pandas, markitdown, and LibreOffice Writer/Calc |
+| Paper skills | `arxiv` Python package and the pinned `pwc` command |
+| Browser tool | Node.js 24, `agent-browser`, and Chromium |
 
-The helper scripts declare their Python dependencies for `uv run`.
-Copy their scripts and text assets into the remote sandbox before execution.
-Skill installation does not install browser binaries, fonts, LibreOffice, or Poppler in that sandbox.
+The shared runtime image installs these dependencies and contains the report style files at `/opt/theos/report-style`.
+Other skills still supply their own scripts and text resources when loaded.
 
 Paper research uses the official `pwc-cli` skill first, with arXiv and Hugging Face as supplemental sources.
 The Pi has `pwc 0.4.3` in an isolated Python environment.
 Live search and metadata retrieval passed against the public catalog.
-The remote sandbox needs a separate CLI installation.
+The shared runtime image also installs the pinned `pwc` CLI for remote research work.
 
 On 2026-10-11, the Pi's deployed loader listed eight skills and read every instruction file.
 A temporary host-file change appeared through `load_skill` without a restart.
@@ -367,16 +368,16 @@ This uses the existing SDK and lets remote clients connect without access to con
 
 | Callable | Action |
 | --- | --- |
-| `sandbox_run_command` | Run a shell command in your remote sandbox without an approval prompt. |
-| `sandbox_execute_code` | Run Python in your remote sandbox's persistent interpreter. |
-| `sandbox_write_file` | Write a text file in the remote sandbox. |
-| `sandbox_read_file` | Read a text file from the remote sandbox. |
-| `sandbox_list_files` | List files in a remote sandbox directory. |
-| `sandbox_send_file_to_user` | Download a generated sandbox file and deliver it to the user. |
-| `sandbox_view_image` | Read a sandbox image and attach it to the next model request. |
-| `sandbox_upload_file` | Copy one of your uploaded files into the remote sandbox. |
-| `sandbox_browser` | Run agent-browser in the sandbox. Use snapshot, open, click, fill, or screenshot commands. |
-| `sandbox_lifecycle` | Inspect, restart, destroy, or forget a sandbox. Expiry remains fixed from creation. |
+| `run_command` | Run a shell command in your task workspace. |
+| `execute_code` | Run Python in your persistent workspace. Imports and variables persist between calls. |
+| `write_file` | Write a text file in your task workspace. |
+| `read_file` | Read a text file from your task workspace. |
+| `list_files` | List files in a workspace directory. |
+| `send_file_to_user` | Share a generated file with the user. |
+| `view_image` | Load an image from your workspace for visual inspection. |
+| `upload_file` | Copy one of your uploaded files into your workspace. |
+| `browser` | Open pages and interact with them. Use open, snapshot, click, fill, or screenshot commands. |
+| `manage_workspace` | Inspect or control the workspace on explicit user request. Routine recovery is automatic. |
 
 ## Gmail
 
@@ -621,6 +622,7 @@ Checkpoint persistence and connector reads do not wait for those uploads.
 The storage client is reused and has bounded connection, read, and retry settings.
 `services/sandbox/workspace.py` uses the existing OpenSandbox SDK for `/workspace` files and restoration.
 The agent can choose this workspace without an explicit sandbox request from the user.
+The runtime reconnects, replaces confirmed expired or missing instances, and restores saved files. If connection fails before a tool action starts, the model may retry that same action once. It must not use lifecycle controls for routine recovery or repeat an action with an unknown outcome.
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.

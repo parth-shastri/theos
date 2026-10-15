@@ -5,9 +5,13 @@ from datetime import UTC, datetime, timedelta
 
 from theos.services.errors import ServiceError
 
+from .errors import WorkspaceUnavailable
+
 
 class Sandboxes:
     """Never mount the application filesystem or pass application credentials."""
+
+    TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 
     def __init__(self, settings, db, files):
         self.settings = settings
@@ -46,7 +50,7 @@ class Sandboxes:
         except SandboxException as error:
             if getattr(error, "status_code", None) not in {404, 410}:
                 raise ServiceError(
-                    "The sandbox could not be destroyed. Its saved reference remains."
+                    "The workspace could not be cleared. Its saved connection remains."
                 ) from error
         finally:
             if sandbox and (owner, session_id) not in self.clients:
@@ -88,9 +92,32 @@ class Sandboxes:
 
     async def get(self, owner, session_id):
         """Check cached state and replace only confirmed expired or missing instances."""
+        import httpx
+        from opensandbox.exceptions import SandboxException, SandboxReadyTimeoutException
+
         lock = self.locks.setdefault((owner, session_id), asyncio.Lock())
         async with lock:
-            return await self._get(owner, session_id)
+            try:
+                return await self._get(owner, session_id)
+            except WorkspaceUnavailable:
+                raise
+            except (httpx.RequestError, TimeoutError) as error:
+                raise WorkspaceUnavailable(
+                    "The workspace is temporarily unavailable. Saved files remain available. "
+                    "The runtime will try to reconnect on the next workspace operation."
+                ) from error
+            except SandboxReadyTimeoutException as error:
+                raise WorkspaceUnavailable(
+                    "The workspace did not become ready. Saved files remain available. "
+                    "The runtime will try again on the next workspace operation."
+                ) from error
+            except SandboxException as error:
+                if getattr(error, "status_code", None) in self.TRANSIENT_STATUS_CODES:
+                    raise WorkspaceUnavailable(
+                        "The workspace is temporarily unavailable. Saved files remain available. "
+                        "The runtime will try to reconnect on the next workspace operation."
+                    ) from error
+                raise
 
     async def _get(self, owner, session_id):
         from opensandbox import Sandbox
@@ -121,11 +148,17 @@ class Sandboxes:
                     self.clients[key] = sandbox
                     return sandbox
             except SandboxException as error:
-                if getattr(error, "status_code", None) not in {404, 410}:
+                status_code = getattr(error, "status_code", None)
+                if status_code not in {404, 410}:
                     if sandbox and key not in self.clients:
                         await sandbox.close()
+                    if status_code in self.TRANSIENT_STATUS_CODES:
+                        raise WorkspaceUnavailable(
+                            "The workspace is temporarily unavailable. Saved files remain available. "
+                            "The runtime will try to reconnect on the next workspace operation."
+                        ) from error
                     raise ServiceError(
-                        "The saved sandbox is unavailable. Its work remains saved. Retry the connection."
+                        "The workspace request failed. Its saved connection remains available."
                     ) from error
                 if sandbox and key not in self.clients:
                     await sandbox.close()

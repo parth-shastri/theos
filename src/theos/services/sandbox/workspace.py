@@ -7,20 +7,46 @@ import shlex
 from dataclasses import replace
 from pathlib import PurePosixPath
 
+from harness import OutcomeUnknown
+from theos.services.errors import ServiceError
+
+from .errors import WorkspaceUnavailable
+
 ROOT = "/workspace"
 INSTRUCTIONS = (
-    "Use the sandbox as your normal workspace whenever computation, data processing, scripts, "
-    "document creation, or file inspection helps complete the task. The user does not need to request it. "
-    "Keep task files under /workspace. Save intermediate tables and scripts as well as final reports. "
-    "Files in this directory are checkpointed automatically after execution. "
-    "Use source_to_workspace to transfer complete connector results without copying them through chat. "
-    "Read selected rows or file sections and keep exact source IDs in derived data. "
-    "Check your calculations and generated files before delivery. "
-    "Sandbox execution does not require approval. Expiry is fixed at one hour from creation by default. "
-    "Execution tools replace confirmed expired sandboxes and restore saved workspace files automatically. "
-    "Do not renew, destroy, or forget a sandbox merely because a command failed. "
-    "Never claim an R2 save succeeded while its status is pending."
+    "Use your task workspace whenever computation, data processing, scripts, "
+    "document creation, or file inspection helps. The user does not need to request it. "
+    "Keep task files under /workspace. Save intermediate tables and scripts as well "
+    "as final reports. Files here are saved automatically after execution. "
+    "Use source_to_workspace to move complete connector results into your workspace "
+    "without copying them through chat. Read relevant rows or file sections and keep "
+    "exact source IDs in derived data. Check calculations and generated files before "
+    "delivery. The runtime prepares and restores your workspace automatically. "
+    "Do not use workspace lifecycle controls to recover from routine tool failures. "
+    "If a workspace tool says the requested action did not start because the workspace was unavailable, "
+    "retry that same tool once with the same arguments. If that retry fails, stop and explain that the workspace is unavailable. "
+    "If the result says the action may have started "
+    "or its outcome is unknown, do not repeat it; explain the uncertainty and ask the user before retrying. "
+    "Do not reset or discard the workspace just because a command failed. "
+    "Never claim a workspace save succeeded while its status is pending."
 )
+
+RETRYABLE_WORKSPACE_FAILURE = (
+    "The requested action did not start because the workspace could not be reached. "
+    "Saved files remain available. Retry this same tool once with the same arguments; "
+    "the runtime will handle reconnection and restoration. Do not use lifecycle controls."
+)
+RETRYABLE_STATUS_CODES = {404, 408, 410, 425, 429, 500, 502, 503, 504}
+
+
+def retryable_workspace_error(error):
+    """Recognize connection and missing-instance errors before user work starts."""
+    import httpx
+
+    return (
+        isinstance(error, (WorkspaceUnavailable, httpx.RequestError, TimeoutError))
+        or getattr(error, "status_code", None) in RETRYABLE_STATUS_CODES
+    )
 
 
 class Workspaces:
@@ -66,7 +92,7 @@ class Workspaces:
                 return sandbox
             result = await sandbox.commands.run("mkdir -p /workspace")
             if getattr(result, "error", None):
-                raise RuntimeError("The sandbox could not create its workspace.")
+                raise RuntimeError("The task workspace could not be prepared.")
             try:
                 manifest = self.runtime.db.record(owner, "workspace", session)
             except LookupError:
@@ -86,11 +112,22 @@ class Workspaces:
         return sandbox
 
     async def write(self, owner, session, path, content):
-        sandbox = await self.prepare(owner, session)
+        try:
+            sandbox = await self.prepare(owner, session)
+        except Exception as error:
+            if not retryable_workspace_error(error):
+                raise
+            raise ServiceError(RETRYABLE_WORKSPACE_FAILURE) from error
         path = self.path(path)
         await sandbox.commands.run("mkdir -p " + shlex.quote(str(PurePosixPath(path).parent)))
         await sandbox.files.write_file(path, content)
-        manifest = await self.save(owner, session)
+        try:
+            manifest = await self.save(owner, session)
+        except Exception as error:
+            raise OutcomeUnknown(
+                "The workspace file may have been written, but its saved state could not "
+                "be confirmed. Do not repeat this operation automatically."
+            ) from error
         return {"path": path, "workspace": manifest}
 
     async def save(self, owner, session):
@@ -139,24 +176,51 @@ class Workspaces:
 
     def wrap(self, original, owner, session):
         if original.name not in {
-            "sandbox_run_command",
-            "sandbox_execute_code",
-            "sandbox_write_file",
-            "sandbox_upload_file",
-            "sandbox_browser",
-            "sandbox_send_file_to_user",
-            "sandbox_read_file",
-            "sandbox_list_files",
-            "sandbox_view_image",
+            "run_command",
+            "execute_code",
+            "write_file",
+            "upload_file",
+            "browser",
+            "send_file_to_user",
+            "read_file",
+            "list_files",
+            "view_image",
         }:
             return original
 
         async def execute(args, ctx):
-            await self.prepare(owner, session)
             try:
-                return await original.execute(args, ctx)
-            finally:
+                await self.prepare(owner, session)
+            except Exception as error:
+                if not retryable_workspace_error(error):
+                    raise
+                raise ServiceError(RETRYABLE_WORKSPACE_FAILURE) from error
+
+            try:
+                result = await original.execute(args, ctx)
+            except WorkspaceUnavailable as error:
+                # Every workspace tool acquires its connection before doing the requested work.
+                raise ServiceError(RETRYABLE_WORKSPACE_FAILURE) from error
+            except BaseException as operation_error:
                 # A failed command can still create useful files. Preserve them before returning.
+                try:
+                    await self.save(owner, session)
+                except Exception as save_error:
+                    if not isinstance(operation_error, Exception):
+                        raise operation_error from None
+                    raise OutcomeUnknown(
+                        "The workspace operation may have started, but its result and file "
+                        "changes could not be confirmed. Do not repeat it automatically."
+                    ) from save_error
+                raise
+
+            try:
                 await self.save(owner, session)
+            except Exception as save_error:
+                raise OutcomeUnknown(
+                    "The workspace operation may have completed, but its file changes could "
+                    "not be saved. Do not repeat it automatically."
+                ) from save_error
+            return result
 
         return replace(original, execute=execute)

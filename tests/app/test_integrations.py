@@ -182,21 +182,21 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
 
     monkeypatch.setattr(CodeInterpreter, "create", interpreter)
     tools = runtime.sandboxes.tools("alice", "session1")
-    await call_tool(tools, "sandbox_write_file", path="/tmp/note", content="hello")
-    assert (await call_tool(tools, "sandbox_read_file", path="/tmp/note"))["content"] == "hello"
-    assert await call_tool(tools, "sandbox_list_files", path="/tmp")
-    await call_tool(tools, "sandbox_run_command", command="pwd")
-    await call_tool(tools, "sandbox_execute_code", code="print(1)")
-    await call_tool(tools, "sandbox_browser", arguments=["open", "https://example.org/a;echo bad"])
+    await call_tool(tools, "write_file", path="/tmp/note", content="hello")
+    assert (await call_tool(tools, "read_file", path="/tmp/note"))["content"] == "hello"
+    assert await call_tool(tools, "list_files", path="/tmp")
+    await call_tool(tools, "run_command", command="pwd")
+    await call_tool(tools, "execute_code", code="print(1)")
+    await call_tool(tools, "browser", arguments=["open", "https://example.org/a;echo bad"])
     assert commands[-1] == "agent-browser open 'https://example.org/a;echo bad'"
-    result = await call_tool(tools, "sandbox_view_image", path="/tmp/image.png")
+    result = await call_tool(tools, "view_image", path="/tmp/image.png")
     assert runtime.files.image("alice", result["file_id"])
     upload = runtime.files.save("alice", "input.txt", "text/plain", b"input")
-    await call_tool(tools, "sandbox_upload_file", file_id=upload["id"], path="/tmp/input.txt")
-    delivered = await call_tool(tools, "sandbox_send_file_to_user", path="/tmp/input.txt")
+    await call_tool(tools, "upload_file", file_id=upload["id"], path="/tmp/input.txt")
+    delivered = await call_tool(tools, "send_file_to_user", path="/tmp/input.txt")
     assert runtime.files.get("alice", delivered["file_id"])["size"] == 5
-    assert await call_tool(tools, "sandbox_lifecycle", action="renew")
-    assert await call_tool(tools, "sandbox_lifecycle", action="status")
+    assert await call_tool(tools, "manage_workspace", action="renew")
+    assert await call_tool(tools, "manage_workspace", action="status")
     await runtime.sandboxes.close()
     restarted = Sandboxes(runtime.settings, runtime.db, runtime.files)
     await restarted.get("alice", "session1")
@@ -204,7 +204,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     assert len(created) == 1
     await restarted.get("bob", "session1")
     assert len(created) == 2
-    await call_tool(restarted.tools("bob", "session1"), "sandbox_lifecycle", action="destroy")
+    await call_tool(restarted.tools("bob", "session1"), "manage_workspace", action="destroy")
     with pytest.raises(LookupError):
         runtime.db.record("bob", "sandbox", "session1")
     await restarted.close()
