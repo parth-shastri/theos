@@ -183,9 +183,7 @@ async def test_browser_sandbox_runs_without_approval_and_keeps_owner_scope(
     monkeypatch.setattr(runtime.workspaces, "save", workspace_noop)
     scripted_models.responses.append(
         [
-            AssistantMessage(
-                tool_calls=[ToolCall("code", "run_command", {"command": "echo 4"})]
-            ),
+            AssistantMessage(tool_calls=[ToolCall("code", "run_command", {"command": "echo 4"})]),
             AssistantMessage("Done."),
         ]
     )
