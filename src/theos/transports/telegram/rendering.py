@@ -8,7 +8,7 @@ from theos.runtime.reviews import approval_review, tool_icon, tool_label
 from theos.services.errors import ServiceError
 
 from . import approval_messages
-from .formatting import format_approval, format_reply
+from .formatting import format_approval, format_reply, format_tool_activity
 
 
 def format_stats(stats, status):
@@ -23,7 +23,7 @@ def format_stats(stats, status):
         "failed": "Failed",
     }.get(status, status.replace("_", " ").capitalize())
     calls = stats["tool_calls"]
-    lines = [f"⏱ {duration} · {calls} tool {'call' if calls == 1 else 'calls'} · {outcome}"]
+    lines = [f"✔ {duration} · {calls} tool {'call' if calls == 1 else 'calls'} · {outcome}"]
     outcomes = stats.get("tool_outcomes", {})
     problems = [
         f"{outcomes[name]} {label}"
@@ -37,7 +37,7 @@ def format_stats(stats, status):
     ]
     if problems:
         lines.append("Tools: " + ", ".join(problems))
-    lines.append("📚 Skills used: " + (", ".join(stats.get("skills", [])) or "None"))
+    lines.append("Skills used: " + (", ".join(stats.get("skills", [])) or "None"))
     return "\n".join(lines)
 
 
@@ -48,49 +48,100 @@ async def render(bot, turn, chat, topic):
     messages = [(sent["message_id"], {"text": "Thinking…", "entities": []})]
     activities = {}
     compactions = {}
+    summaries = {}
     started = time.monotonic()
     seen_tools, loaded_skills = {}, set()
     pending_approvals = set()
+    summary_text, last_summary_edit = "", 0.0
     if getattr(turn, "session_id", None):
         await approval_messages.remove_resolved(bot, turn.owner, turn.session_id)
 
     async def remove_activity(cache, key):
         if key not in cache:
             return
-        try:
-            await bot.api("deleteMessage", {"chat_id": chat, "message_id": cache[key][0]})
-        except ServiceError:
-            # Keep the reference for another cleanup attempt when the turn ends.
+        remaining = []
+        for message_id, _ in cache[key]:
             try:
-                await bot.api(
-                    "editMessageText",
-                    {"chat_id": chat, "message_id": cache[key][0], "text": "Live updates stopped."},
-                )
+                await bot.api("deleteMessage", {"chat_id": chat, "message_id": message_id})
             except ServiceError:
-                pass
-            return
-        cache.pop(key, None)
+                # Keep references when Telegram cannot delete temporary progress.
+                try:
+                    await bot.api(
+                        "editMessageText",
+                        {
+                            "chat_id": chat,
+                            "message_id": message_id,
+                            "text": "Live updates stopped.",
+                        },
+                    )
+                except ServiceError:
+                    pass
+                remaining.append((message_id, {"text": "Live updates stopped.", "entities": []}))
+        if remaining:
+            cache[key] = remaining
+        else:
+            cache.pop(key, None)
+
+    async def activity_parts(cache, key, parts):
+        previous = cache.get(key, [])
+        current = []
+        for index, part in enumerate(parts):
+            if index < len(previous):
+                message_id, displayed = previous[index]
+                if part != displayed:
+                    await bot.api(
+                        "editMessageText", {"chat_id": chat, "message_id": message_id, **part}
+                    )
+                current.append((message_id, part))
+            else:
+                posted = await bot.api(
+                    "sendMessage",
+                    {
+                        "chat_id": chat,
+                        **part,
+                        "disable_notification": True,
+                        **({"message_thread_id": topic} if topic else {}),
+                    },
+                )
+                current.append((posted["message_id"], part))
+        for message_id, _ in previous[len(parts) :]:
+            try:
+                await bot.api("deleteMessage", {"chat_id": chat, "message_id": message_id})
+            except ServiceError:
+                try:
+                    await bot.api(
+                        "editMessageText",
+                        {
+                            "chat_id": chat,
+                            "message_id": message_id,
+                            "text": "Live updates stopped.",
+                        },
+                    )
+                except ServiceError:
+                    pass
+                current.append((message_id, {"text": "Live updates stopped.", "entities": []}))
+        if current:
+            cache[key] = current
+        else:
+            cache.pop(key, None)
 
     async def activity(cache, key, value):
-        part = format_reply(value)[0]
-        if key in cache:
-            message_id, previous = cache[key]
-            if part != previous:
-                await bot.api(
-                    "editMessageText", {"chat_id": chat, "message_id": message_id, **part}
-                )
-                cache[key] = (message_id, part)
-        else:
-            posted = await bot.api(
-                "sendMessage",
-                {
-                    "chat_id": chat,
-                    **part,
-                    "disable_notification": True,
-                    **({"message_thread_id": topic} if topic else {}),
-                },
-            )
-            cache[key] = (posted["message_id"], part)
+        await activity_parts(cache, key, format_reply(value))
+
+    async def remove_thinking_placeholder():
+        if (
+            not text
+            and messages
+            and messages[0][1].get("text") == "Thinking…"
+            and "summary" not in summaries
+        ):
+            summaries["summary"] = [messages.pop(0)]
+
+    async def clear_summary():
+        nonlocal summary_text
+        if "summary" in summaries:
+            await remove_activity(summaries, "summary")
+        summary_text = ""
 
     async def edit(value):
         parts = format_reply(value)
@@ -124,13 +175,31 @@ async def render(bot, turn, chat, topic):
         async for event in turn.events():
             kind = event["type"]
             if kind == "text":
+                await clear_summary()
                 text += event["text"]
                 if time.monotonic() - last_edit >= 1:
                     await edit(text or "…")
                     last_edit = time.monotonic()
+            elif kind == "reasoning" and event.get("display_summary"):
+                summary_text += event["text"]
+                await remove_thinking_placeholder()
+                if time.monotonic() - last_summary_edit >= 1 or "summary" not in summaries:
+                    await activity(
+                        summaries,
+                        "summary",
+                        "🧠 **Reasoning summary**\n\n" + summary_text,
+                    )
+                    last_summary_edit = time.monotonic()
+            elif kind == "thinking" and not text and not messages:
+                sent = await bot.send(chat, "Thinking…", topic)
+                messages.append((sent["message_id"], {"text": "Thinking…", "entities": []}))
             elif kind in {"assistant_complete", "answer_replace"}:
+                await clear_summary()
                 text = event["text"] or ""
-                await edit(text or "…")
+                if text:
+                    await edit(text)
+                elif not event.get("requested_tools"):
+                    await edit("…")
             elif kind == "compaction":
                 label = (
                     "research context" if event.get("parent_call_id") else "earlier conversation"
@@ -143,18 +212,26 @@ async def render(bot, turn, chat, topic):
                     await remove_activity(compactions, key)
             elif kind == "tool":
                 state = event["status"]
-                key = event["call_id"]
+                key = (event.get("parent_call_id"), event["call_id"])
                 item = seen_tools.setdefault(key, {"skill": None})
                 item["status"] = state
                 if state == "running" and event["name"] == "load_skill":
                     item["skill"] = event.get("arguments", {}).get("name")
                 if state == "completed" and isinstance(item["skill"], str):
                     loaded_skills.add(" ".join(item["skill"].split())[:128])
-                icon = tool_icon(event["name"])
                 if state == "running":
-                    outcome = "Requested" if requires_approval(event["name"]) else "In progress"
-                    await activity(
-                        activities, key, f"{icon} **{tool_label(event['name'])}**\n{outcome}"
+                    needs_approval = requires_approval(event["name"])
+                    outcome = "Waiting for approval" if needs_approval else "In progress"
+                    arguments = json.dumps(
+                        event.get("arguments", {}),
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    verb = "Requesting" if needs_approval else "Calling"
+                    await activity_parts(
+                        activities,
+                        key,
+                        format_tool_activity(event["name"], arguments, outcome, verb),
                     )
                 else:
                     await remove_activity(activities, key)
@@ -179,10 +256,11 @@ async def render(bot, turn, chat, topic):
                         continue
                     preview = json.loads(item["preview"])
                     fields = item.get("review") or approval_review(item["tool"], preview)
-                    if item.get("call_id") in activities:
+                    call_key = (None, item.get("call_id"))
+                    if call_key in activities:
                         await activity(
                             activities,
-                            item["call_id"],
+                            call_key,
                             f"{tool_icon(item['tool'])} **{tool_label(item['tool'])}**\nWaiting for approval",
                         )
                     parts = format_approval(item["tool"], fields)
@@ -257,6 +335,6 @@ async def render(bot, turn, chat, topic):
                     }
                     await bot.send(chat, format_stats(stats, event["status"]), topic)
     finally:
-        for cache in (activities, compactions):
+        for cache in (activities, compactions, summaries):
             for key in list(cache):
                 await remove_activity(cache, key)

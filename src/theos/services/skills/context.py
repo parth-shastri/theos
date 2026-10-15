@@ -42,8 +42,8 @@ def skill_context(settings, task):
         "A request to generate a report means deliver a styled PDF by default. "
         "Explicit user formats and styles take precedence. Summarizing an existing report does not require a new file. "
         "Keep Markdown as a source when useful. Load scripts and assets through load_skill's resource argument, "
-        "copy them into the sandbox, build with the skill's workflow, and inspect every output page before delivery. "
-        "Host skill paths are not sandbox paths. Do not substitute a generic PDF renderer for the installed report workflow. "
+        "copy them into your task workspace, build with the skill's workflow, and inspect every output page before delivery. "
+        "Host skill paths are not workspace paths. Do not substitute a generic PDF renderer for the installed report workflow. "
         "If required skills or dependencies are unavailable, explain the limitation before using a fallback."
     )
     instructions += (

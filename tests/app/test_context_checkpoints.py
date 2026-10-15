@@ -265,11 +265,11 @@ async def test_wrappers_preserve_execution_metadata_and_save_failed_command_file
     saved = []
 
     @tool
-    async def sandbox_run_command(command: str):
+    async def run_command(command: str):
         """Execute in the workspace."""
         raise RuntimeError("command failed after writing output")
 
-    original = replace(sandbox_run_command, parallel_safe=True, view="command", timeout_s=12)
+    original = replace(run_command, parallel_safe=True, view="command", timeout_s=12)
     wrapped = runtime.workspaces.wrap(original, "alice", row["id"])
 
     async def prepare(*args):

@@ -32,7 +32,7 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             raise turn.provider_failure
         # Add sandbox images once, after the file catalog checks their owner.
         for file_id in ctx.state.pop("view_images", []):
-            image = UserMessage("Image from the sandbox:", [runtime.files.image(owner, file_id)])
+            image = UserMessage("Image from your workspace:", [runtime.files.image(owner, file_id)])
             stamp_message(image)
             ctx.history.append(image)
             request.messages.append(image)
@@ -102,7 +102,7 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             runtime.research.checkpoint(
                 owner, session_id, turn.research_id, [*ctx.history, result], ctx.memory
             )
-        if result.name == "sandbox_view_image" and result.status == "completed":
+        if result.name == "view_image" and result.status == "completed":
             value = json.loads(result.content)
             ctx.state.setdefault("view_images", []).append(value["file_id"])
         # This hook runs before the harness resumes the model, so results survive a process exit.

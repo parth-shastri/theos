@@ -337,9 +337,28 @@ def tool_map():
             ("custom", "Custom tables + preferences", "create_custom_table\ndelete_custom_table\ncreate_query_template\nexecute_query_template\nlist_custom_tables_and_templates\nset_custom_instruction_override\ndelete_custom_instruction_override", "SQLite schemas + bound queries / style and units", TEAL),
         ]),
         (850, [
-            ("sandbox", "Sandbox code + files", "sandbox_run_command\nsandbox_execute_code\nsandbox_write_file\nsandbox_read_file\nsandbox_list_files\nsandbox_view_image\nsandbox_send_file_to_user", "Isolated shell + persistent Python / images / send files", PURPLE),
-            ("files", "Durable Telegram files", "list_user_files\nrestore_user_file\ndelete_user_file", "R2 objects / sender ownership / restore to sandbox", TEAL),
-            ("skills", "Skills + browser", "load_skill\nload_skill_resource", "SKILL.md / repo exploration / agent-browser in sandbox", PURPLE),
+            (
+                "workspace",
+                "Task workspace",
+                "run_command\nexecute_code\nwrite_file\nread_file\nlist_files\n"
+                "upload_file\nsend_file_to_user\nview_image\nbrowser\nmanage_workspace",
+                "Shell + Python / files / browser / images",
+                PURPLE,
+            ),
+            (
+                "files",
+                "Durable Telegram files",
+                "list_user_files\nrestore_user_file\ndelete_user_file",
+                "R2 objects / sender ownership / restore to workspace",
+                TEAL,
+            ),
+            (
+                "skills",
+                "Skills + browser",
+                "load_skill\nload_skill_resource",
+                "SKILL.md / repo exploration / browser",
+                PURPLE,
+            ),
             ("speech", "Speech delivery", "send_text_to_speech", "Kokoro text -> MP3 -> current Telegram chat", GREEN),
             ("health", "Google Health", "get_health_summary", "Read stored summaries / separate OAuth refresh job", TEAL),
             ("shopping", "Zepto shopping / MCP", "zepto_*  (discovered manifest)\nzepto_create_order\nzepto_create_online_payment_order\nzepto_create_upi_reserve_pay_order\nzepto_create_wallet_order", "Search / cart / address / history / confirm final order", GREEN),

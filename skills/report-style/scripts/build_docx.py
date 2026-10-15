@@ -225,7 +225,11 @@ def build(source, output):
             from playwright.sync_api import sync_playwright
 
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(executable_path=find_chrome(), headless=True)
+                browser = playwright.chromium.launch(
+                    executable_path=find_chrome(),
+                    headless=True,
+                    args=["--no-sandbox", "--disable-dev-shm-usage"],
+                )
                 tab = browser.new_page(
                     viewport={"width": 820, "height": 1100}, device_scale_factor=2
                 )

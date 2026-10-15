@@ -333,6 +333,10 @@ class OpenAIChatModel:
         cached = getattr(usage.input_tokens_details, "cached_tokens", None)
         if cached is not None:
             counts["cache_read_tokens"] = cached
+        details = getattr(usage, "output_tokens_details", None)
+        reasoning = getattr(details, "reasoning_tokens", None)
+        if reasoning is not None:
+            counts["reasoning_tokens"] = reasoning
         return counts
 
     def _decode_chat(self, raw: ChatCompletion) -> AssistantMessage:
@@ -420,7 +424,7 @@ class OpenAIChatModel:
             if kind == "response.output_text.delta":
                 yield TextDelta(event.delta)
             elif kind == "response.reasoning_summary_text.delta":
-                yield ReasoningDelta(event.delta)
+                yield ReasoningDelta(event.delta, display_summary=True)
             elif kind == "response.output_item.added" and event.item.type == "function_call":
                 yield ToolCallDelta(event.output_index, name=event.item.name)
             elif kind == "response.function_call_arguments.delta":
