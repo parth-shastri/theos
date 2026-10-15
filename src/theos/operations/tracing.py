@@ -195,8 +195,8 @@ class Tracing:
             if status in {"failed", "interrupted", "uncertain"}:
                 self.failed(span, status)
 
-    def model(self, model):
-        return TracedModel(self, model) if self.tracer is not None else model
+    def model(self, model, *, attributes=None):
+        return TracedModel(self, model, attributes=attributes) if self.tracer is not None else model
 
     def tool(self, original):
         if self.tracer is None:
@@ -233,8 +233,9 @@ class Tracing:
 class TracedModel:
     """Preserve the model interface and trace all generation paths."""
 
-    def __init__(self, tracing, model):
+    def __init__(self, tracing, model, *, attributes=None):
         self.tracing, self.model = tracing, model
+        self.attributes = dict(attributes or {})
 
     def __getattr__(self, name):
         return getattr(self.model, name)
@@ -246,6 +247,7 @@ class TracedModel:
             "gen_ai.operation.name": "chat",
             "gen_ai.provider.name": self.model.provider,
             "gen_ai.request.model": self.model.model_id,
+            **self.attributes,
         }
         with (
             self.tracing.span(f"chat {self.model.model_id}", attrs, client=True) as span,

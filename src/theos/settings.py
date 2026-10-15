@@ -154,6 +154,8 @@ class Settings(ClientSettings):
         DEFAULT_PROVIDER
     )
     model: str = DEFAULT_MODEL
+    # Optional override. OpenAI and OpenRouter default to the previous Luna model.
+    fallback_model: str | None = None
     api_key: SecretStr = SecretStr("")
     model_base_url: str = ""
     openrouter: OpenRouterSettings = Field(default_factory=OpenRouterSettings)

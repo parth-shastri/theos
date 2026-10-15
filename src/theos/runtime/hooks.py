@@ -15,6 +15,7 @@ from theos.storage.messages import stamp_message
 from .approvals import check_approval
 from .context import ResearchStopped, options
 from .text import reply_text
+from .usage import message_model
 
 
 def build_hooks(runtime, session, *, limits=None, deadline=None):
@@ -68,7 +69,7 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             runtime.db.save_history(
                 owner, session_id, [*ctx.history, message], ctx.memory.to_dict()
             )
-            runtime.record_usage(session, message.usage)
+            runtime.record_usage(session, message.usage, model_id=message_model(message))
         await runtime.checkpoints.save(
             owner, session_id, [*ctx.history, message], ctx.memory, "after_model"
         )
