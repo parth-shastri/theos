@@ -16,6 +16,7 @@ Use private service endpoints where possible.
 | Gmail | [Gmail](gmail.md) |
 | Google Health | [Google Health](google-health.md) |
 | Zepto tools | [Zepto MCP](zepto-mcp.md) |
+| GitLab account tools | [GitLab MCP](gitlab-mcp.md) |
 
 ## Models
 

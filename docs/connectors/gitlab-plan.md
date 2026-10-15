@@ -1,6 +1,7 @@
 # GitLab connector plan
 
-Status: proposed, not implemented. Reviewed on 2026-10-15.
+Status: read-only adapter implemented on 2026-10-15. Live account acceptance remains pending.
+See [the setup guide](../gitlab-mcp.md) for the current supported scope.
 Branch: `feature/gitlab-connector`. Base: `origin/dev` at `8a4360f`.
 
 ## Tool evidence

@@ -863,3 +863,18 @@ Tagged deployment and the active Pi manifest must confirm application activation
 The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
 Every request retains ZDR and generic performance preferences without an endpoint order.
 Runtime configuration contains no model-specific order map. No provider call is required for these checks.
+
+
+## GitLab official MCP connector, 2026-10-15
+
+The full local suite passed 1,158 tests, with three credential-dependent checks excluded.
+Checks cover encrypted account recovery, owner binding, PKCE, callback replay, cancellation, and token rotation.
+They also cover refresh/disconnect races, session teardown, paged discovery, schema rejection, and private transport access.
+GitLab checks reject insecure origins, embedded credentials, paths, and query parameters in the configured instance.
+A custom instance determines the authorization, token, and MCP endpoints together. REST scopes cannot replace the required MCP scope.
+The scripted runtime preserves complete source results and rejects reads by other owners. Invalid arguments never start a remote request.
+A connector outage leaves ordinary chat available. Unknown tools and write tools stay unavailable.
+The shared wire check uses the real MCP client with a mock HTTP transport and does not repeat a failed call.
+Python lint, formatting, JavaScript syntax, lock validation, package builds, and whitespace checks passed.
+The setup guide's prose lint reports 1.30 findings per 100 words.
+These checks used local fixtures. Live instance authorization, version compatibility, and deployment remain pending.

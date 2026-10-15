@@ -626,10 +626,17 @@ Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
 
 
-## Planned GitLab connector
+## GitLab MCP connector
 
-Status: proposed, not implemented.
-See [the separate plan](connectors/gitlab-plan.md) for tool coverage, complexity, delivery steps, and acceptance checks.
-The [inventory](connectors/gitlab-tools.json) separates documented tools from session metadata and pending runtime discovery.
-The proposed adapter uses the existing `mcp`, `httpx`, `cryptography`, and `jsonschema` dependencies.
-No connector tool, account grant, runtime dependency, or deployment changes in this planning branch.
+Theos uses the official remote MCP server through an owner-bound account adapter.
+The reviewed allowlist contains 32 read identifiers.
+Only the subset returned by authenticated discovery enters a conversation.
+Write tools and unknown tools remain unavailable.
+
+See [setup and usage](gitlab-mcp.md), the [allowlist](connectors/gitlab-tools.json), and the [implementation plan](connectors/gitlab-plan.md).
+The adapter validates arguments against the discovered JSON schema before execution.
+Complete results enter existing source records and durable tool journals.
+The runtime preserves the existing private-account boundaries and approval policy.
+
+Dependencies remain mcp, httpx, cryptography, and jsonschema.
+Local contract tests pass. Real account authorization and provider tool discovery remain pending.
