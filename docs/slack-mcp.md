@@ -31,7 +31,8 @@ The adapter never grants scopes merely because a remote tool appears in discover
 5. Set AGENT_TOKEN_ENCRYPTION_KEY to the deployment's valid Fernet key.
 6. Restart Theos after the settings change.
 
-HTTP callbacks are allowed only on localhost or 127.0.0.1 for development.
+Slack requires HTTPS for registered callbacks, including local development.
+Use an HTTPS endpoint that routes to this deployment for local OAuth tests.
 The callback must reach the deployment that started authorization.
 A localhost callback on another computer will not reach a remote Theos server.
 Keep secrets out of shared environment samples.
