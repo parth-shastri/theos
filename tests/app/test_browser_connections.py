@@ -41,7 +41,7 @@ async def test_disabled_connections_and_status_do_not_expose_configuration(runti
         assert (await client.post("/api/connections/gmail/connect")).status_code == 401
         client.headers["Authorization"] = "Bearer " + "a" * 32
         data = (await client.get("/api/connections")).json()
-        assert not any(account["configured"] for account in data["accounts"])
+        assert data["accounts"] == []
         assert (await client.post("/api/connections/gmail/connect")).status_code == 502
         assert (await client.post("/api/connections/unknown/connect")).status_code == 400
         assert (await client.post("/api/connections/unknown/disconnect")).status_code == 400
@@ -49,6 +49,14 @@ async def test_disabled_connections_and_status_do_not_expose_configuration(runti
             await client.post("/api/connections/zepto/finish", json={"url": "x" * 4001})
         ).status_code == 422
         assert runtime.db.rows("SELECT * FROM oauth_states") == []
+
+
+async def test_configured_accounts_are_visible_before_owner_authorization(runtime):
+    configure(runtime.settings)
+    async with browser(runtime) as client:
+        data = (await client.get("/api/connections")).json()
+        assert {account["id"] for account in data["accounts"]} == {"gmail", "health"}
+        assert all(account["configured"] and not account["connected"] for account in data["accounts"])
 
 
 @pytest.mark.parametrize("service", ["gmail", "health"])
