@@ -868,7 +868,7 @@ Runtime configuration contains no model-specific order map. No provider call is 
 ## GitHub official MCP connector, 2026-10-15
 
 The full local suite passed 1,153 tests, with three credential-dependent checks excluded.
-The final focused suite passed 31 tests after the refresh request retained its registered callback URI.
+The final focused suite passed 31 tests after the callback URI and Git tree toolset checks.
 Checks cover encrypted account recovery, owner binding, PKCE, callback replay, cancellation, and token rotation.
 They also cover refresh/disconnect races, session teardown, paged discovery, schema rejection, and private transport access.
 A real MCP client read two discovery pages through a mock HTTP transport. A failed tool call executed once.

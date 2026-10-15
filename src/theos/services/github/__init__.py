@@ -46,7 +46,7 @@ def create_account(settings, db, http):
         scopes=(),
         headers={
             "X-MCP-Readonly": "true",
-            "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions",
+            "X-MCP-Toolsets": "context,repos,git,issues,pull_requests,actions",
         },
         methods={
             "issue_read": frozenset(

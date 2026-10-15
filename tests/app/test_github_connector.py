@@ -278,3 +278,5 @@ def test_fixed_catalog_keeps_writes_out(connector):
     assert "get_file_contents" in READ_TOOLS
     assert "create_pull_request" not in READ_TOOLS
     assert connector.spec.endpoint == "https://api.githubcopilot.com/mcp/"
+    assert "git" in connector.spec.headers["X-MCP-Toolsets"].split(",")
+    assert connector.spec.headers["X-MCP-Readonly"] == "true"
