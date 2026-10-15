@@ -23,8 +23,9 @@ Use private service endpoints where possible.
 For Gemini, set `AGENT_PROVIDER=gemini` and a Google AI Studio key.
 For OpenRouter, set `AGENT_PROVIDER=openrouter` and an OpenRouter key.
 Set `AGENT_MODEL` to a model ID accepted by that provider.
-OpenAI and OpenRouter default to `gpt-5.6-luna` as an alternate model. Set `AGENT_FALLBACK_MODEL` to override it, or set it empty to disable fallback. Other providers need an explicit model accepted by that provider.
+OpenAI defaults to `gpt-5.6-luna` as an alternate model. OpenRouter defaults to `glm-5.3`, which has the most tool-capable endpoints in the current ZDR catalog. Set `AGENT_FALLBACK_MODEL` to override it, or set it empty to disable fallback. Other providers need an explicit model accepted by that provider.
 The fallback runs only for eligible provider failures before any model event is forwarded. It does not retry known context, authentication, quota, policy, or invalid-request failures.
+OpenRouter maps the primary reasoning choice to one supported by the fallback. It uses low effort for default, none, and medium. It maps xhigh to max when the model supports it.
 
 OpenRouter uses its [Chat Completions API](https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request).
 The application sends reasoning effort through OpenRouter's `reasoning` field.

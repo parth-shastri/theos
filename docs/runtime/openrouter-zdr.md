@@ -51,6 +51,18 @@ A request for `openai/gpt-6-luna` forced `provider.only=["openai"]` with ZDR ena
 OpenRouter returned HTTP 404 because no endpoint matched the Zero Data Retention policy.
 This confirms that the tested route rejected an incompatible provider selection.
 
+## Fallback model selection, 2026-10-15
+
+The live ZDR endpoint list returned 35 entries for `z-ai/glm-5.3`, the most for a tool-capable model.
+It returned 29 entries for `z-ai/glm-5.3-flash` and 26 for `deepseek/deepseek-v4.1-flash`.
+OpenRouter reports 99.87% routed availability for GLM 5.3 over three days.
+It reports 99.85% for DeepSeek V4.1 Flash and 99.81% for GLM 5.3 Flash.
+GLM 5.3 accepts tool calls and supports `low`, `high`, and `max` reasoning.
+It always reasons, so fallback requests use `low` for default, none, or medium effort.
+The runtime maps `xhigh` to `max` for this fallback.
+Endpoint counts and availability change over time.
+See [OpenRouter's ZDR endpoint list](https://openrouter.ai/api/v1/endpoints/zdr) and the [GLM 5.3 model page](https://openrouter.ai/z-ai/glm-5.3).
+
 ## Scope
 
 The initial probe disabled reasoning. Sonnet, Gemini, and GLM rejected that setting.

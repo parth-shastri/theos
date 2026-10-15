@@ -139,7 +139,7 @@ The delegate deadline remains 85 seconds. The turn deadline remains 300 seconds 
 | --- | --- | --- |
 | `AGENT_PROVIDER` | `openai` | `openai`, `openrouter`, `gemini`, `anthropic`, `llama`, or `fake` |
 | `AGENT_MODEL` | `gpt-6-luna` | Default provider model ID |
-| `AGENT_FALLBACK_MODEL` | `gpt-5.6-luna` for OpenAI/OpenRouter; otherwise empty | Override the second model through the configured provider. Set empty to disable the default |
+| `AGENT_FALLBACK_MODEL` | `gpt-5.6-luna` for OpenAI, `glm-5.3` for OpenRouter; otherwise empty | Override the second model through the configured provider. Set empty to disable the default |
 | `AGENT_API_KEY` | Empty | Credential for the selected provider |
 | `AGENT_MODEL_BASE_URL` | Empty | Base URL override for the OpenAI client path |
 | `AGENT_ALLOWED_MODELS` | `[]` | Explicit model allowlist. Empty uses the provider's built-in choices and `AGENT_MODEL` |
@@ -156,8 +156,11 @@ OpenAI uses Responses. OpenRouter uses Chat Completions.
 The llama provider defaults to `http://127.0.0.1:8081/v1`.
 Gemini and Anthropic use their dedicated clients.
 `AGENT_MODEL_BASE_URL` applies to OpenAI, OpenRouter, and llama.
-OpenAI and OpenRouter default to `gpt-5.6-luna` as a fallback. Other providers need an explicit `AGENT_FALLBACK_MODEL` supported by that provider.
-The fallback model uses the same provider, API key, base URL, reasoning setting, and request options as the selected model.
+OpenAI defaults to `gpt-5.6-luna` as a fallback. OpenRouter defaults to `glm-5.3` because it has the most tool-capable ZDR endpoints in the current catalog.
+Other providers need an explicit `AGENT_FALLBACK_MODEL` supported by that provider.
+The fallback model uses the same provider, API key, base URL, and request options as the selected model.
+OpenRouter maps reasoning to a supported fallback effort. It uses `low` when the primary setting is `default`, `none`, or `medium`.
+It maps `xhigh` to `max` when the fallback supports it.
 It is attempted once after a provider failure only when the primary attempt has not forwarded an event.
 Known invalid-request, authentication, quota, policy, and context failures do not use the fallback.
 Both model attempts have separate trace spans; the fallback span records its primary model and safe primary error classification.
@@ -183,7 +186,7 @@ Use `AGENT_MODEL_COSTS` when model rates differ.
 Keys can use a configured alias or its OpenRouter model ID.
 The estimate does not include provider billing adjustments or a separate cached-token rate.
 
-OpenRouter includes `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
+OpenRouter includes `glm-5.3`, `gpt-5.6-luna`, `sonnet-5.5`, `deepseek-flash-v4.1`, `gemini-3.8-flash`, `glm-5.3-flash`, and `qwen-3.8-27b`.
 The existing `gpt-6-luna` default remains available.
 Direct OpenAI adds only `gpt-5.6-luna` to its configured model.
 Other providers use the configured model unless an operator supplies an allowlist.

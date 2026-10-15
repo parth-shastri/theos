@@ -29,7 +29,7 @@ from .budgets import TurnBudget
 from .errors import CheckedModel
 from .events import publish_event
 from .fallback import FallbackModel
-from .model_catalog import wire_model
+from .model_catalog import fallback_reasoning, wire_model
 from .reviews import approval_review, tool_label
 from .text import WRITING_RULES, reply_text
 from .turn import Turn
@@ -52,9 +52,10 @@ class Runtime:
         async def traced_models(settings, model_id, reasoning):
             fallback_model = settings.fallback_model
             if fallback_model is None:
-                fallback_model = (
-                    "gpt-5.6-luna" if settings.provider in {"openai", "openrouter"} else ""
-                )
+                fallback_model = {
+                    "openai": "gpt-5.6-luna",
+                    "openrouter": "glm-5.3",
+                }.get(settings.provider, "")
             fallback_model = fallback_model.strip()
             if fallback_model and wire_model(settings.provider, fallback_model) != wire_model(
                 settings.provider, model_id
@@ -63,7 +64,10 @@ class Runtime:
 
                 @asynccontextmanager
                 async def fallback_connection():
-                    async with models(settings, fallback_model, reasoning) as fallback:
+                    fallback_effort = fallback_reasoning(
+                        settings.provider, fallback_model, reasoning
+                    )
+                    async with models(settings, fallback_model, fallback_effort) as fallback:
                         yield CheckedModel(
                             self.tracing.model(
                                 fallback,
