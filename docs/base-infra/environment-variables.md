@@ -359,3 +359,17 @@ The parent holds one summary call for its final response within the summary allo
 Each active delegate holds one when available. Completed delegates release unused holds.
 These holds do not add calls or change the generation output setting.
 See the [call budget map](../runtime/call-budgets.md).
+
+## GitLab remote MCP
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_GITLAB__CLIENT_ID | Empty | Deployment OAuth client ID |
+| AGENT_GITLAB__CLIENT_SECRET | Empty | Deployment OAuth client secret |
+| AGENT_GITLAB__REDIRECT_URI | Empty | Exact /oauth/gitlab/callback URI |
+| AGENT_GITLAB__SCOPES | ["mcp"] | JSON list of user scopes |
+
+The connector requires a valid AGENT_TOKEN_ENCRYPTION_KEY.
+See [GitLab setup](../gitlab-mcp.md) for provider requirements and supported tools.
+
+AGENT_GITLAB__INSTANCE_URL selects the configured GitLab origin. Its default is https://gitlab.com.

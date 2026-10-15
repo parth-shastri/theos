@@ -624,3 +624,19 @@ The agent can choose this workspace without an explicit sandbox request from the
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
+
+
+## GitLab MCP connector
+
+Theos uses the official remote MCP server through an owner-bound account adapter.
+The reviewed allowlist contains 32 read identifiers.
+Only the subset returned by authenticated discovery enters a conversation.
+Write tools and unknown tools remain unavailable.
+
+See [setup and usage](gitlab-mcp.md), the [allowlist](connectors/gitlab-tools.json), and the [implementation plan](connectors/gitlab-plan.md).
+The adapter validates arguments against the discovered JSON schema before execution.
+Complete results enter existing source records and durable tool journals.
+The runtime preserves the existing private-account boundaries and approval policy.
+
+Dependencies remain mcp, httpx, cryptography, and jsonschema.
+Local contract tests pass. Real account authorization and provider tool discovery remain pending.

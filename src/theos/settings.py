@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, SecretStr, StringConstraints, model_valid
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from theos.config import DEFAULT_MODEL, DEFAULT_PROVIDER
+from theos.services.mcp_accounts.config import MCPAccountSettings
 
 
 class MemorySettings(BaseModel):
@@ -47,6 +48,33 @@ class OAuthSettings(BaseModel):
                 uri.scheme == "http" and uri.hostname in {"localhost", "127.0.0.1"}
             ):
                 raise ValueError("Use HTTPS for the OAuth callback, except on localhost.")
+        return self
+
+
+class GitLabSettings(MCPAccountSettings):
+    """Use one operator-configured GitLab instance per deployment."""
+
+    instance_url: str = "https://gitlab.com"
+
+    @model_validator(mode="after")
+    def trusted_instance(self):
+        self.instance_url = self.instance_url.strip().rstrip("/")
+        uri = urlsplit(self.instance_url)
+        if (
+            not uri.hostname
+            or uri.username
+            or uri.password
+            or uri.path
+            or uri.query
+            or uri.fragment
+            or not (
+                uri.scheme == "https"
+                or (uri.scheme == "http" and uri.hostname in {"localhost", "127.0.0.1"})
+            )
+        ):
+            raise ValueError("Use an HTTPS GitLab origin, except on localhost.")
+        if self.scopes is not None and "mcp" not in self.scopes:
+            raise ValueError("The official GitLab MCP server requires the mcp scope.")
         return self
 
 
@@ -202,6 +230,7 @@ class Settings(ClientSettings):
     transcription_model: str = "whisper-1"
     kokoro_url: str = ""
     kokoro_voice: str = "af_heart"
+    gitlab: GitLabSettings = Field(default_factory=GitLabSettings)
     gmail: OAuthSettings = Field(default_factory=OAuthSettings)
     health: OAuthSettings = Field(default_factory=OAuthSettings)
     token_encryption_key: SecretStr = SecretStr("")
@@ -240,7 +269,8 @@ class Settings(ClientSettings):
             raise ValueError("Use a different browser token for each user.")
         if not self.admins <= self.users.keys():
             raise ValueError("Each administrator must have a browser token.")
-        if self.gmail.enabled or self.health.enabled or self.zepto_url:
+        self.gitlab.check_callback("gitlab")
+        if self.gmail.enabled or self.health.enabled or self.zepto_url or self.gitlab.enabled:
             from cryptography.fernet import Fernet
 
             try:

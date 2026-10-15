@@ -14,6 +14,7 @@ async def command(bot, session, command, argument, chat, topic):
         "/thinking": "/reasoning",
         "/connect_gmail": "/gmail",
         "/connect_health": "/health",
+        "/gitlab": "/connect_gitlab",
         "/zepto": "/connect_zepto",
     }
     command = aliases.get(command, command)
@@ -24,6 +25,8 @@ async def command(bot, session, command, argument, chat, topic):
         "/disconnect_health",
         "/health_summary",
         "/health_refresh",
+        "/connect_gitlab",
+        "/disconnect_gitlab",
         "/connect_zepto",
         "/disconnect_zepto",
         "/zepto_finish",
@@ -39,12 +42,21 @@ async def command(bot, session, command, argument, chat, topic):
         "/disconnect_health",
         "/health_summary",
         "/health_refresh",
+        "/disconnect_gitlab",
         "/disconnect_zepto",
     }:
         if session["channel"] != "telegram-private":
             raise PermissionError("Use a private Telegram chat for account commands.")
         if command.startswith("/disconnect_"):
             service = command.removeprefix("/disconnect_")
+            if service == "gitlab":
+                await bot.runtime.gitlab.disconnect(owner)
+                await bot.send(
+                    chat,
+                    "GitLab is disconnected from Theos. Revoke the app in GitLab to end remote authorization.",
+                    topic,
+                )
+                return
             if service == "zepto":
                 await bot.runtime.zepto.disconnect(owner)
                 await bot.send(
@@ -64,7 +76,7 @@ async def command(bot, session, command, argument, chat, topic):
         await bot.send(
             chat,
             f"I am {bot.settings.name}, your personal assistant.\n\n"
-            "Send a message, photo, document, or voice note. Commands: /web, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_zepto.",
+            "Send a message, photo, document, or voice note. Commands: /web, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_gitlab, /connect_zepto.",
             topic,
         )
     elif command in {"/new", "/reset"}:
@@ -95,6 +107,14 @@ async def command(bot, session, command, argument, chat, topic):
         if session["channel"] != "telegram-private":
             raise PermissionError("Connect accounts in a private Telegram chat.")
         await bot.send(chat, bot.runtime.oauth.start(owner, command[1:]), topic)
+    elif command == "/connect_gitlab":
+        started = await bot.runtime.gitlab.start(owner)
+        await bot.send(
+            chat,
+            "Open the GitLab sign-in link. Return to this private chat after authorization.",
+            topic,
+            {"inline_keyboard": [[{"text": "Sign in to GitLab", "url": started["url"]}]]},
+        )
     elif command == "/connect_zepto":
         if session["channel"] != "telegram-private":
             raise PermissionError("Connect Zepto in a private Telegram chat.")
