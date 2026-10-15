@@ -212,14 +212,7 @@ class Workspaces:
                         "The workspace operation may have started, but its result and file "
                         "changes could not be confirmed. Do not repeat it automatically."
                     ) from save_error
-                if not isinstance(operation_error, Exception):
-                    raise operation_error from None
-                if isinstance(operation_error, (TypeError, ValueError, LookupError)):
-                    raise
-                raise OutcomeUnknown(
-                    "The workspace operation returned an error without confirming whether it "
-                    "completed. Do not repeat it automatically."
-                ) from operation_error
+                raise
 
             try:
                 await self.save(owner, session)
