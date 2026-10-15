@@ -167,7 +167,11 @@ class MCPAccount:
             }
 
     async def token_request(self, form, *, refresh=False):
-        data = {"client_id": self.config.client_id, **form}
+        data = {
+            "client_id": self.config.client_id,
+            "redirect_uri": self.config.redirect_uri,
+            **form,
+        }
         kwargs = {}
         secret = self.config.client_secret.get_secret_value()
         if self.spec.token_basic_auth:
@@ -265,9 +269,10 @@ class MCPAccount:
             self.authorize(owner)
             if fingerprint != self.fingerprint():
                 raise ServiceError("Account configuration changed. Connect again.")
-            await self.close_session(owner)
             # 3. Save encrypted tokens only after the exchange and access recheck.
             self.save(owner, payload)
+        # Session teardown can authenticate a final DELETE. Release the token lock first.
+        await self.close_session(owner)
         return owner
 
     async def access_token(self, owner):
@@ -300,7 +305,7 @@ class MCPAccount:
                 self.db.execute(
                     "DELETE FROM oauth_states WHERE owner=? AND service=?", (owner, self.spec.name)
                 )
-            await self.close_session(owner)
+        await self.close_session(owner)
         return {"disconnected": True, "revoked_at_provider": False}
 
     async def remote(self, owner, name=None, arguments=None):

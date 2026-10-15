@@ -65,10 +65,12 @@ class AccountSession:
                                     while True:
                                         page = await session.list_tools(cursor=cursor)
                                         result.extend(page.tools)
+                                        if len(result) > 2000:
+                                            raise ValueError("Tool catalog is too large")
                                         cursor = page.nextCursor
                                         if not cursor:
                                             break
-                                        if cursor in seen or len(result) > 2000:
+                                        if cursor in seen:
                                             raise ValueError("Invalid tool discovery pagination")
                                         seen.add(cursor)
                                 else:
