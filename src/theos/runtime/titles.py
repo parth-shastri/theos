@@ -9,6 +9,7 @@ from harness import AssistantMessage, ModelRequest, SystemMessage, UserMessage
 from .model_catalog import generation_options, reasoning_choices
 from .models import model_options
 from .text import WRITING_RULES, reply_text
+from .usage import message_model
 
 logger = logging.getLogger("theos")
 
@@ -75,7 +76,7 @@ async def update_title(runtime, turn, session, model, history, *, budget=None):
             async with asyncio.timeout(8):
                 response = await model.generate(request)
         if response.usage:
-            runtime.record_usage(session, response.usage)
+            runtime.record_usage(session, response.usage, model_id=message_model(response))
         title = reply_text(response.text).strip().strip('"\u201c\u201d').strip()
         if not title or len(title) > 100 or "\n" in title or response.tool_calls:
             return

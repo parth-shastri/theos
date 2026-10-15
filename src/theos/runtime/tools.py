@@ -34,6 +34,7 @@ from . import context
 from .errors import CheckedModel, ProviderFailure, failure_message
 from .history_tools import history_tools
 from .recovery import failure_reason, response_call
+from .usage import message_model
 
 logger = logging.getLogger("theos")
 
@@ -304,7 +305,9 @@ async def build_tools(runtime, session):
                     model = CheckedModel(model, runtime.settings.provider)
 
                     async def record_usage(message, child_ctx):
-                        runtime.record_usage(session, message.usage)
+                        runtime.record_usage(
+                            session, message.usage, model_id=message_model(message)
+                        )
                         await checkpoint_child("after_model", [*child_ctx.history, message])
                         if run_id:
                             runtime.research.checkpoint(

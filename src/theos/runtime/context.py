@@ -23,6 +23,7 @@ SUMMARY_PROMPT = (
 CONTEXT_WINDOWS = {
     "gpt-6-luna": 1050000,
     "gpt-5.6-luna": 1050000,
+    "glm-5.3": 1048576,
     "sonnet-5.5": 1000000,
     "deepseek-flash-v4.1": 1048576,
     "gemini-3.8-flash": 1048576,

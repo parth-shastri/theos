@@ -28,6 +28,8 @@ from . import approvals, checkpoints, context, hooks, recovery, titles, tools
 from .budgets import TurnBudget
 from .errors import CheckedModel
 from .events import publish_event
+from .fallback import FallbackModel
+from .model_catalog import fallback_reasoning, wire_model
 from .reviews import approval_review, tool_label
 from .text import WRITING_RULES, reply_text
 from .turn import Turn
@@ -48,6 +50,52 @@ class Runtime:
 
         @asynccontextmanager
         async def traced_models(settings, model_id, reasoning):
+            fallback_model = settings.fallback_model
+            if fallback_model is None:
+                fallback_model = {
+                    "openai": "gpt-5.6-luna",
+                    "openrouter": "glm-5.3",
+                }.get(settings.provider, "")
+            fallback_model = fallback_model.strip()
+            if fallback_model and wire_model(settings.provider, fallback_model) != wire_model(
+                settings.provider, model_id
+            ):
+                from .errors import CheckedModel
+
+                @asynccontextmanager
+                async def fallback_connection():
+                    fallback_effort = fallback_reasoning(
+                        settings.provider, fallback_model, reasoning
+                    )
+                    async with models(settings, fallback_model, fallback_effort) as fallback:
+                        yield CheckedModel(
+                            self.tracing.model(
+                                fallback,
+                                attributes={
+                                    "theos.provider.fallback.attempt": True,
+                                    "theos.provider.fallback.primary_model": model_id,
+                                },
+                            ),
+                            settings.provider,
+                        )
+
+                async with models(settings, model_id, reasoning) as primary:
+                    yield FallbackModel(
+                        CheckedModel(
+                            self.tracing.model(
+                                primary,
+                                attributes={
+                                    "theos.provider.fallback.available_model": fallback_model
+                                },
+                            ),
+                            settings.provider,
+                        ),
+                        fallback_connection,
+                        fallback_model,
+                        settings.provider,
+                        self.tracing,
+                    )
+                return
             async with models(settings, model_id, reasoning) as model:
                 yield self.tracing.model(model)
 
@@ -226,9 +274,9 @@ class Runtime:
         """Read the exact action contents that the user must approve."""
         return await approvals.approval_preview(self, session, name, arguments)
 
-    def record_usage(self, session, usage):
+    def record_usage(self, session, usage, *, model_id=None):
         """Store token counters and configured cost estimates without prompt content."""
-        return record_usage(self, session, usage)
+        return record_usage(self, session, usage, model_id=model_id)
 
     def hooks(self, session):
         """Connect durable checkpoints and approval policy to the harness."""
