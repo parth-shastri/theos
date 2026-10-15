@@ -46,7 +46,7 @@ class Sandboxes:
         except SandboxException as error:
             if getattr(error, "status_code", None) not in {404, 410}:
                 raise ServiceError(
-                    "The sandbox could not be destroyed. Its saved reference remains."
+                    "The workspace could not be cleared. Its saved connection remains."
                 ) from error
         finally:
             if sandbox and (owner, session_id) not in self.clients:
@@ -125,7 +125,8 @@ class Sandboxes:
                     if sandbox and key not in self.clients:
                         await sandbox.close()
                     raise ServiceError(
-                        "The saved sandbox is unavailable. Its work remains saved. Retry the connection."
+                        "The workspace is unavailable. Saved files remain available. "
+                        "Retry the connection."
                     ) from error
                 if sandbox and key not in self.clients:
                     await sandbox.close()

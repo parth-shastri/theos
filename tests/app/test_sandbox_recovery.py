@@ -79,7 +79,7 @@ async def test_one_hour_is_fixed_from_creation_and_renew_cannot_extend_it(runtim
     assert first.expiry - first.created == timedelta(hours=1)
     now[0] += timedelta(minutes=30)
     result = await call_tool(
-        runtime.sandboxes.tools("alice", "chat"), "sandbox_lifecycle", action="renew"
+        runtime.sandboxes.tools("alice", "chat"), "manage_workspace", action="renew"
     )
     assert result["renewed"] is False and first.renewals == 0
     assert runtime.db.record("alice", "sandbox", "chat") == original
@@ -126,10 +126,10 @@ async def test_destroy_without_an_instance_does_not_create_one_and_restart_repla
     runtime, boxes
 ):
     created, _ = boxes
-    await call_tool(runtime.sandboxes.tools("alice", "chat"), "sandbox_lifecycle", action="destroy")
+    await call_tool(runtime.sandboxes.tools("alice", "chat"), "manage_workspace", action="destroy")
     assert not created
     first = await runtime.sandboxes.get("alice", "chat")
     result = await call_tool(
-        runtime.sandboxes.tools("alice", "chat"), "sandbox_lifecycle", action="restart"
+        runtime.sandboxes.tools("alice", "chat"), "manage_workspace", action="restart"
     )
     assert result["id"] != first.id and first.kills == 1

@@ -14,9 +14,9 @@ Preserve an existing document's style when editing.
 Follow any explicit style or format request.
 
 Write the report as Markdown at `/workspace/report.md`.
-The sandbox image includes the style files and report builders at `/opt/theos/report-style`.
+The report style files and builders are preinstalled at `/opt/theos/report-style`.
 Do not copy those files or install report dependencies.
 
 Run `theos-report /workspace/report.md` to create `/workspace/report.pdf`.
 Use `--format docx` only when the user requests an editable Word file.
-Deliver the requested output with `sandbox_send_file_to_user`.
+Deliver the requested output with `send_file_to_user`.

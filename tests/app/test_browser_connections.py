@@ -147,9 +147,9 @@ async def test_browser_tools_include_configured_accounts_and_sandbox(runtime):
         session = (await client.post("/api/sessions", json={})).json()
         tools = (await client.get(f"/api/sessions/{session['id']}/tools")).json()
         by_name = {tool["name"]: tool for tool in tools}
-        assert {"gmail_connect", "get_health_summary", "sandbox_run_command"} <= by_name.keys()
+        assert {"gmail_connect", "get_health_summary", "run_command"} <= by_name.keys()
         assert by_name["gmail_send_draft"]["requires_approval"]
-        assert not by_name["sandbox_run_command"]["requires_approval"]
+        assert not by_name["run_command"]["requires_approval"]
         assert not by_name["get_health_summary"]["requires_approval"]
         for tool in tools:
             assert "owner" not in tool["parameters"].get("properties", {})
@@ -184,7 +184,7 @@ async def test_browser_sandbox_runs_without_approval_and_keeps_owner_scope(
     scripted_models.responses.append(
         [
             AssistantMessage(
-                tool_calls=[ToolCall("code", "sandbox_run_command", {"command": "echo 4"})]
+                tool_calls=[ToolCall("code", "run_command", {"command": "echo 4"})]
             ),
             AssistantMessage("Done."),
         ]

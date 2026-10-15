@@ -139,30 +139,30 @@ Update the image tag in the Pi deployment environment when the runtime changes, 
 
 ## Browser dependencies
 
-`sandbox_browser` invokes `agent-browser` inside the remote sandbox. The shared skill runtime image installs the CLI and Chromium. Installing browser software in the assistant container does not install it in the remote sandbox.
+`browser` invokes `agent-browser` inside the remote sandbox. The shared skill runtime image installs the CLI and Chromium. Installing browser software in the assistant container does not install it in the remote sandbox.
 
 ## Tools and approval
 
 | Area | Tools |
 | --- | --- |
-| Execution | `sandbox_run_command`, `sandbox_execute_code` |
-| Text files | `sandbox_write_file`, `sandbox_read_file`, `sandbox_list_files` |
-| File transfer | `sandbox_upload_file`, `sandbox_send_file_to_user` |
-| Images | `sandbox_view_image` |
-| Browser | `sandbox_browser` |
-| Lifetime | `sandbox_lifecycle` |
+| Execution | `run_command`, `execute_code` |
+| Text files | `write_file`, `read_file`, `list_files` |
+| File transfer | `upload_file`, `send_file_to_user` |
+| Images | `view_image` |
+| Browser | `browser` |
+| Lifetime | `manage_workspace` |
 
 Sandbox execution does not require approval.
 Uploaded files remain bound to the authenticated owner.
 Generated files enter the local private catalog before delivery.
-The model can receive a checked sandbox image through `sandbox_view_image`.
+The model can receive a checked workspace image through `view_image`.
 
 ## Lifetime and recovery
 
 Each conversation owns a remote sandbox ID.
 The application saves the ID and reconnects after an application restart.
 A saved ID does not guarantee that the remote sandbox still exists.
-Use `sandbox_lifecycle` with `status`, `restart`, `destroy`, or `forget`.
+Use `manage_workspace` with `status`, `restart`, `destroy`, or `forget`.
 The legacy `renew` action returns status without extending expiry.
 `forget` removes the saved connection reference without destroying a remote instance.
 

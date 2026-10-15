@@ -368,16 +368,16 @@ This uses the existing SDK and lets remote clients connect without access to con
 
 | Callable | Action |
 | --- | --- |
-| `sandbox_run_command` | Run a shell command in your remote sandbox without an approval prompt. |
-| `sandbox_execute_code` | Run Python in your remote sandbox's persistent interpreter. |
-| `sandbox_write_file` | Write a text file in the remote sandbox. |
-| `sandbox_read_file` | Read a text file from the remote sandbox. |
-| `sandbox_list_files` | List files in a remote sandbox directory. |
-| `sandbox_send_file_to_user` | Download a generated sandbox file and deliver it to the user. |
-| `sandbox_view_image` | Read a sandbox image and attach it to the next model request. |
-| `sandbox_upload_file` | Copy one of your uploaded files into the remote sandbox. |
-| `sandbox_browser` | Run agent-browser in the sandbox. Use snapshot, open, click, fill, or screenshot commands. |
-| `sandbox_lifecycle` | Inspect, restart, destroy, or forget a sandbox. Expiry remains fixed from creation. |
+| `run_command` | Run a shell command in your task workspace. |
+| `execute_code` | Run Python in your persistent workspace. Imports and variables persist between calls. |
+| `write_file` | Write a text file in your task workspace. |
+| `read_file` | Read a text file from your task workspace. |
+| `list_files` | List files in a workspace directory. |
+| `send_file_to_user` | Share a generated file with the user. |
+| `view_image` | Load an image from your workspace for visual inspection. |
+| `upload_file` | Copy one of your uploaded files into your workspace. |
+| `browser` | Open pages and interact with them. Use open, snapshot, click, fill, or screenshot commands. |
+| `manage_workspace` | Check status, restart, or clear the workspace. Expiry remains fixed from creation. |
 
 ## Gmail
 

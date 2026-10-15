@@ -9,17 +9,16 @@ from pathlib import PurePosixPath
 
 ROOT = "/workspace"
 INSTRUCTIONS = (
-    "Use the sandbox as your normal workspace whenever computation, data processing, scripts, "
-    "document creation, or file inspection helps complete the task. The user does not need to request it. "
-    "Keep task files under /workspace. Save intermediate tables and scripts as well as final reports. "
-    "Files in this directory are checkpointed automatically after execution. "
-    "Use source_to_workspace to transfer complete connector results without copying them through chat. "
-    "Read selected rows or file sections and keep exact source IDs in derived data. "
-    "Check your calculations and generated files before delivery. "
-    "Sandbox execution does not require approval. Expiry is fixed at one hour from creation by default. "
-    "Execution tools replace confirmed expired sandboxes and restore saved workspace files automatically. "
-    "Do not renew, destroy, or forget a sandbox merely because a command failed. "
-    "Never claim an R2 save succeeded while its status is pending."
+    "Use your task workspace whenever computation, data processing, scripts, "
+    "document creation, or file inspection helps. The user does not need to request it. "
+    "Keep task files under /workspace. Save intermediate tables and scripts as well "
+    "as final reports. Files here are saved automatically after execution. "
+    "Use source_to_workspace to move complete connector results into your workspace "
+    "without copying them through chat. Read relevant rows or file sections and keep "
+    "exact source IDs in derived data. Check calculations and generated files before "
+    "delivery. If the workspace needs to restart, saved files are restored automatically. "
+    "Do not reset or discard the workspace just because a command failed. "
+    "Never claim a workspace save succeeded while its status is pending."
 )
 
 
@@ -66,7 +65,7 @@ class Workspaces:
                 return sandbox
             result = await sandbox.commands.run("mkdir -p /workspace")
             if getattr(result, "error", None):
-                raise RuntimeError("The sandbox could not create its workspace.")
+                raise RuntimeError("The task workspace could not be prepared.")
             try:
                 manifest = self.runtime.db.record(owner, "workspace", session)
             except LookupError:
@@ -139,15 +138,15 @@ class Workspaces:
 
     def wrap(self, original, owner, session):
         if original.name not in {
-            "sandbox_run_command",
-            "sandbox_execute_code",
-            "sandbox_write_file",
-            "sandbox_upload_file",
-            "sandbox_browser",
-            "sandbox_send_file_to_user",
-            "sandbox_read_file",
-            "sandbox_list_files",
-            "sandbox_view_image",
+            "run_command",
+            "execute_code",
+            "write_file",
+            "upload_file",
+            "browser",
+            "send_file_to_user",
+            "read_file",
+            "list_files",
+            "view_image",
         }:
             return original
 

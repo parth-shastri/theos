@@ -812,6 +812,7 @@ The ARM64 image `theos/sandbox-skills:v1.1.0-20261015` was built on the Mac mini
 The dependency audit covered all eight installed skills: XLSX, PDF, arXiv search, Hugging Face papers, DOCX, Papers with Code, report style, and code review.
 The image includes the required Python libraries, LibreOffice, Pandoc, Poppler, Tesseract, Chromium, Node.js, `agent-browser`, and the pinned Papers with Code CLI.
 Report style assets and builders live in the image at `/opt/theos/report-style`; `report-style` now instructs the model to construct and deliver the requested report.
+Workspace actions are exposed as ordinary tools such as `run_command`, `read_file`, and `browser`; model-facing workspace instructions do not identify the execution backend.
 
 An authenticated Theos-to-Mac OpenSandbox run verified the Python kernel packages, paper and document CLIs, styled PDF and DOCX generation, LibreOffice conversion, XLSX recalculation, OCR, browser navigation, and sandbox file return under the existing one-CPU, 512 MiB limit.
 The Pi now reads the new image setting. Theos returned ready on its original data volume, and the existing SQLite database passed its integrity check.
