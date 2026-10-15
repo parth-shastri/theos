@@ -626,10 +626,17 @@ Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
 
 
-## Planned GitHub connector
+## GitHub MCP connector
 
-Status: proposed, not implemented.
-See [the separate plan](connectors/github-plan.md) for tool coverage, complexity, delivery steps, and acceptance checks.
-The [inventory](connectors/github-tools.json) separates documented tools from session metadata and pending runtime discovery.
-The proposed adapter uses the existing `mcp`, `httpx`, `cryptography`, and `jsonschema` dependencies.
-No connector tool, account grant, runtime dependency, or deployment changes in this planning branch.
+Theos uses the official remote MCP server through an owner-bound account adapter.
+The reviewed allowlist contains 23 read identifiers.
+Only the subset returned by authenticated discovery enters a conversation.
+Write tools and unknown tools remain unavailable.
+
+See [setup and usage](github-mcp.md), the [allowlist](connectors/github-tools.json), and the [implementation plan](connectors/github-plan.md).
+The adapter validates arguments against the discovered JSON schema before execution.
+Complete results enter existing source records and durable tool journals.
+The runtime preserves the existing private-account boundaries and approval policy.
+
+Dependencies remain mcp, httpx, cryptography, and jsonschema.
+Local contract tests pass. Real account authorization and provider tool discovery remain pending.

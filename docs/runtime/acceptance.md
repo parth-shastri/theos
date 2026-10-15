@@ -863,3 +863,17 @@ Tagged deployment and the active Pi manifest must confirm application activation
 The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
 Every request retains ZDR and generic performance preferences without an endpoint order.
 Runtime configuration contains no model-specific order map. No provider call is required for these checks.
+
+
+## GitHub official MCP connector, 2026-10-15
+
+The full local suite passed 1,153 tests, with three credential-dependent checks excluded.
+The final focused suite passed 31 tests after the refresh request retained its registered callback URI.
+Checks cover encrypted account recovery, owner binding, PKCE, callback replay, cancellation, and token rotation.
+They also cover refresh/disconnect races, session teardown, paged discovery, schema rejection, and private transport access.
+A real MCP client read two discovery pages through a mock HTTP transport. A failed tool call executed once.
+A scripted runtime read saved the complete result and returned a bounded source page. Other owners could not read that source.
+An optional connector outage left ordinary chat available. Unknown tools and write tools remained unavailable.
+Python lint, formatting, JavaScript syntax, lock validation, package builds, and whitespace checks passed.
+The setup guide's prose lint reports 1.20 findings per 100 words.
+These checks used local fixtures. Live GitHub App authorization, repository access, and deployment remain pending.

@@ -1,6 +1,7 @@
 # GitHub connector plan
 
-Status: proposed, not implemented. Reviewed on 2026-10-15.
+Status: read-only adapter implemented on 2026-10-15. Live account acceptance remains pending.
+See [the setup guide](../github-mcp.md) for the current supported scope.
 Branch: `feature/github-connector`. Base: `origin/dev` at `8a4360f`.
 
 ## Tool evidence

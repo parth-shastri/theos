@@ -19,7 +19,15 @@ def connection_status(runtime, owner):
     """Expose availability and owner connection state without credentials."""
     settings = runtime.settings
     accounts = []
-    for service, label in (("gmail", "Gmail"), ("health", "Google Health"), ("zepto", "Zepto")):
+    for service, label in (
+        ("gmail", "Gmail"),
+        ("health", "Google Health"),
+        ("zepto", "Zepto"),
+        ("github", "GitHub"),
+    ):
+        if service == "github":
+            accounts.append(runtime.github.status(owner))
+            continue
         connected = (
             runtime.zepto.connected(owner)
             if service == "zepto"
@@ -77,7 +85,7 @@ def register_connections(app, settings, current, identity):
     def authorize(request, owner, service):
         if not browser_account_access(settings, owner, current(request).db):
             raise PermissionError("Browser account access is required.")
-        if service not in {"gmail", "health", "zepto"}:
+        if service not in {"gmail", "health", "zepto", "github"}:
             raise ValueError("Unknown account service.")
 
     @app.get("/api/connections")
@@ -90,6 +98,8 @@ def register_connections(app, settings, current, identity):
     async def connect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
         authorize(request, owner, service)
         runtime = current(request)
+        if service == "github":
+            return await runtime.github.start(owner)
         if service == "zepto":
             return await runtime.zepto.connect_from_browser(owner)
         return {"status": "waiting", "url": runtime.oauth.start(owner, service)}
@@ -98,6 +108,8 @@ def register_connections(app, settings, current, identity):
     async def disconnect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
         authorize(request, owner, service)
         runtime = current(request)
+        if service == "github":
+            return await runtime.github.disconnect(owner)
         if service == "zepto":
             await runtime.zepto.disconnect(owner)
             return {"disconnected": True}

@@ -522,7 +522,12 @@ def create_app(settings=None, runtime=None):
                 "<!doctype html><title>Zepto connected</title>"
                 "<p>Authorization received. Return to the workspace or private chat that started setup.</p>"
             )
-        await current(request).oauth.callback(service, state, code)
+        if service == "github":
+            await current(request).github.callback(
+                state, code, request.query_params.get("error", "")
+            )
+        else:
+            await current(request).oauth.callback(service, state, code)
         return HTMLResponse(
             "<!doctype html><title>Account connected</title>"
             "<p>Account connected. Return to the workspace or private chat that started setup.</p>"

@@ -553,3 +553,18 @@ Branch: `feature/github-connector`, from remote `dev` at `8a4360f`.
 Review the official remote MCP server before selecting a native API adapter. Start with an explicit read-tool allowlist.
 The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
 See [the plan](docs/connectors/github-plan.md) and its tool inventory.
+
+## GitHub official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote GitHub MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+OAuth state uses durable single-use records and PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 23 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/github-mcp.md).
