@@ -234,9 +234,7 @@ class Tracing:
             timing["last_text_chunk_seconds"] = elapsed
         if name is None or name in timing["recorded"]:
             return
-        timing["span"].set_attribute(
-            attribute, elapsed
-        )
+        timing["span"].set_attribute(attribute, elapsed)
         timing["recorded"].add(name)
 
     def finish_turn(self, status, budget_attributes=None):
@@ -358,22 +356,16 @@ class TracedModel:
                         if isinstance(event, TextDelta):
                             last_text_elapsed = elapsed
                         if first:
-                            span.set_attribute(
-                                "gen_ai.response.time_to_first_chunk", elapsed
-                            )
+                            span.set_attribute("gen_ai.response.time_to_first_chunk", elapsed)
                             first = False
                         if isinstance(event, ReasoningDelta) and first_reasoning:
-                            span.set_attribute(
-                                "theos.model.time_to_first_reasoning_chunk", elapsed
-                            )
+                            span.set_attribute("theos.model.time_to_first_reasoning_chunk", elapsed)
                             first_reasoning = False
                         elif isinstance(event, TextDelta) and first_text:
                             span.set_attribute("theos.model.time_to_first_text_chunk", elapsed)
                             first_text = False
                         elif isinstance(event, ToolCallDelta) and first_tool_call:
-                            span.set_attribute(
-                                "theos.model.time_to_first_tool_call_chunk", elapsed
-                            )
+                            span.set_attribute("theos.model.time_to_first_tool_call_chunk", elapsed)
                             first_tool_call = False
                         if isinstance(event, GenerationComplete):
                             span.set_attribute(

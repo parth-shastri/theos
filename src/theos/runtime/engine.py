@@ -296,9 +296,7 @@ class Runtime:
 
     async def run(self, turn, session, message, *, scheduled=False):
         """Trace one turn independently of the transport and other active turns."""
-        with self.tracing.turn(
-            session, scheduled, self.settings.name, started_at=turn.started_at
-        ):
+        with self.tracing.turn(session, scheduled, self.settings.name, started_at=turn.started_at):
             await self._run(turn, session, message, scheduled=scheduled)
 
     async def _run(self, turn, session, message, *, scheduled=False):
