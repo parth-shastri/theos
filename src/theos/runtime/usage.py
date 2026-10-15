@@ -22,12 +22,20 @@ def usage_summary(db, *, owner=None, session=None):
     )
 
 
-def record_usage(runtime, session, usage):
+def message_model(message):
+    """Return the actual generation model when a fallback supplied the answer."""
+    metadata = message.provider_data.get("theos", {})
+    model = metadata.get("model") if isinstance(metadata, dict) else None
+    return model if isinstance(model, str) and model else None
+
+
+def record_usage(runtime, session, usage, *, model_id=None):
     """Store token counters and configured cost estimates without prompt content."""
+    model_id = model_id or session["model"]
     incoming, outgoing = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
     cost = None
-    rates = runtime.settings.model_costs.get(session["model"]) or runtime.settings.model_costs.get(
-        wire_model(runtime.settings.provider, session["model"])
+    rates = runtime.settings.model_costs.get(model_id) or runtime.settings.model_costs.get(
+        wire_model(runtime.settings.provider, model_id)
     )
     input_rate = rates.input if rates else runtime.settings.input_cost_per_million
     output_rate = rates.output if rates else runtime.settings.output_cost_per_million
@@ -41,7 +49,7 @@ def record_usage(runtime, session, usage):
         (
             session["owner"],
             session["id"],
-            session["model"],
+            model_id,
             incoming,
             outgoing,
             usage.get("cache_read_tokens", 0),

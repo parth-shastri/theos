@@ -139,6 +139,7 @@ The delegate deadline remains 85 seconds. The turn deadline remains 300 seconds 
 | --- | --- | --- |
 | `AGENT_PROVIDER` | `openai` | `openai`, `openrouter`, `gemini`, `anthropic`, `llama`, or `fake` |
 | `AGENT_MODEL` | `gpt-6-luna` | Default provider model ID |
+| `AGENT_FALLBACK_MODEL` | `gpt-5.6-luna` for OpenAI/OpenRouter; otherwise empty | Override the second model through the configured provider. Set empty to disable the default |
 | `AGENT_API_KEY` | Empty | Credential for the selected provider |
 | `AGENT_MODEL_BASE_URL` | Empty | Base URL override for the OpenAI client path |
 | `AGENT_ALLOWED_MODELS` | `[]` | Explicit model allowlist. Empty uses the provider's built-in choices and `AGENT_MODEL` |
@@ -155,6 +156,11 @@ OpenAI uses Responses. OpenRouter uses Chat Completions.
 The llama provider defaults to `http://127.0.0.1:8081/v1`.
 Gemini and Anthropic use their dedicated clients.
 `AGENT_MODEL_BASE_URL` applies to OpenAI, OpenRouter, and llama.
+OpenAI and OpenRouter default to `gpt-5.6-luna` as a fallback. Other providers need an explicit `AGENT_FALLBACK_MODEL` supported by that provider.
+The fallback model uses the same provider, API key, base URL, reasoning setting, and request options as the selected model.
+It is attempted once after a provider failure only when the primary attempt has not forwarded an event.
+Known invalid-request, authentication, quota, policy, and context failures do not use the fallback.
+Both model attempts have separate trace spans; the fallback span records its primary model and safe primary error classification.
 
 All real hosted providers require `AGENT_API_KEY` for model calls.
 The fake provider needs no credential.
