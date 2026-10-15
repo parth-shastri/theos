@@ -539,6 +539,16 @@ Prepare release 0.1.15 through the normal topic PR, Pi promotion, and immutable 
 The active Pi configuration is now a regular `.env` file, not the earlier documented symlink.
 Back it up before editing. Change only its four OpenRouter routing fields and retain all other settings.
 
+## Release 0.1.18 preparation, 2026-10-15
+
+The operator requested development checks, promotion PRs to `main` and `rpi`, and a new Pi release.
+Prepare version 0.1.18 through a topic PR from `dev`.
+This release includes shared sandbox dependencies, ordinary workspace tools, safe workspace recovery, and Telegram progress tracing.
+Keep the open account connector PRs outside this release.
+Use merge commits for both promotions after their destination checks pass.
+Create immutable tag `rpi-v0.1.18` at the promoted `rpi` tip.
+Deployment remains unconfirmed until the tagged workflow and active Pi manifest agree.
+
 ## Automatic routing for every OpenRouter model, 2026-10-14
 
 The operator requested removal of endpoint orders for all OpenRouter models.
