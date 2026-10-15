@@ -126,6 +126,9 @@ async def test_refresh_rotates_once_under_concurrency_and_disconnect_cannot_resu
 
     async def remote(request):
         requests.append(request)
+        assert parse_qs(request.content.decode())["redirect_uri"] == [
+            "https://assistant.test/oauth/example/callback"
+        ]
         entered.set()
         await release.wait()
         return httpx.Response(
@@ -358,3 +361,34 @@ async def test_http_auth_rechecks_disconnect_without_forwarding_token(settings, 
         )
         with pytest.raises(ServiceError, match="Connect this account"):
             await anext(flow)
+
+
+@pytest.mark.parametrize("action", ["disconnect", "reconnect"])
+async def test_session_teardown_can_finish_authentication_without_token_lock_deadlock(
+    settings, db, action
+):
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"access_token": "fresh"})
+        )
+    ) as http:
+        account = make_account(settings, db, http)
+        account.save("alice", {"access_token": "old"})
+        closed = []
+
+        class Session:
+            async def close(self):
+                # A remote session can authenticate DELETE during context teardown.
+                try:
+                    closed.append(await account.access_token("alice"))
+                except ServiceError:
+                    closed.append("disconnected")
+
+        account.sessions["alice"] = Session()
+        async with asyncio.timeout(1):
+            if action == "disconnect":
+                await account.disconnect("alice")
+            else:
+                await account.callback(state_from(await account.start("alice")), "code")
+        assert closed == ["disconnected" if action == "disconnect" else "fresh"]
+        assert not account.sessions
