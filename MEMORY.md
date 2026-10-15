@@ -544,3 +544,12 @@ Remove the global order field and both prepared order variables from the private
 Retain generic latency and throughput preferences. OpenRouter selects compatible ZDR endpoints for the selected model.
 Reasoning, context and output limits, retries, signed state, approvals, and safe recovery retain their existing behavior.
 Prepare release 0.1.16 through a topic PR, Pi promotion, and immutable release tag.
+
+
+## GitHub connector planning, 2026-10-15
+
+The operator requested a separate topic branch and a tool-coverage and complexity review.
+Branch: `feature/github-connector`, from remote `dev` at `8a4360f`.
+Review the official remote MCP server before selecting a native API adapter. Start with an explicit read-tool allowlist.
+The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
+See [the plan](docs/connectors/github-plan.md) and its tool inventory.
