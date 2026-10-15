@@ -188,7 +188,7 @@ def plain_messages(text):
 
 def format_tool_activity(name, arguments, status, action="Calling"):
     """Render exact JSON arguments as temporary literal tool progress."""
-    heading = f"{tool_icon(name)} {action} {name} with args:"
+    heading = f"{tool_icon(name)} {action} {tool_label(name)} with args:"
     prefix = heading + "\n\n"
     text = prefix + arguments + "\n\n" + status
     entities = [
