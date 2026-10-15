@@ -186,6 +186,23 @@ def plain_messages(text):
     return _chunks(reply_text(text), [], 3900)
 
 
+def format_tool_activity(name, arguments, status, action="Calling"):
+    """Render exact JSON arguments as temporary literal tool progress."""
+    heading = f"{tool_icon(name)} {action} {name} with args:"
+    prefix = heading + "\n\n"
+    text = prefix + arguments + "\n\n" + status
+    entities = [
+        {"type": "bold", "offset": 0, "length": utf16_length(heading)},
+        {
+            "type": "pre",
+            "offset": utf16_length(prefix),
+            "length": utf16_length(arguments),
+            "language": "json",
+        },
+    ]
+    return _chunks(text, entities, 3900)
+
+
 def format_approval(tool, fields):
     """Render labels and prose while preserving commands as literal code."""
     title = tool_icon(tool) + " Approval needed"

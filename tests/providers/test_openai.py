@@ -483,7 +483,14 @@ def test_responses_decode_leaves_reasoning_none_without_a_summary():
 
 def test_responses_decode_usage_with_cached_tokens():
     raw = response([message_item("ok")], usage=responses_usage())
-    assert adapter().decode_response(raw).usage == {"input_tokens": 11, "output_tokens": 7, "cache_read_tokens": 4, "cache_write_tokens": 0, "total_tokens": 18}
+    assert adapter().decode_response(raw).usage == {
+        "input_tokens": 11,
+        "output_tokens": 7,
+        "reasoning_tokens": 3,
+        "cache_read_tokens": 4,
+        "cache_write_tokens": 0,
+        "total_tokens": 18,
+    }
 
 
 def test_responses_decode_without_usage_returns_zero_counters():

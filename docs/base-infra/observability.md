@@ -92,6 +92,29 @@ Every span includes the existing `gen_ai.conversation.id` and its `theos.turn.id
 The root also includes transport, scheduled state, and final status.
 Root attributes `theos.budget.total`, `theos.budget.research`, `theos.budget.compaction`, and `theos.budget.recovery` each have `.limit` and `.used` values.
 They show reserved allowances and consumed calls, including title generation and failed provider attempts.
+Model spans record `theos.model.reasoning_effort` and these stream timings:
+
+- `gen_ai.response.time_to_first_chunk`
+- `theos.model.time_to_first_reasoning_chunk`
+- `theos.model.time_to_first_text_chunk`
+- `theos.model.time_to_first_tool_call_chunk`
+- `theos.model.time_to_last_text_chunk_seconds`
+- `theos.model.time_to_response_complete_seconds`
+
+OpenAI Responses spans also record reasoning token counts when the provider reports them.
+The value `default` means that the provider chose the reasoning effort.
+Each turn span records these timing attributes:
+
+- `theos.turn.duration_seconds`: elapsed time from query acceptance to turn finalization.
+- `theos.turn.time_to_first_model_call_seconds`: elapsed time until the first model request starts.
+- `theos.turn.time_to_first_stream_chunk_seconds`: elapsed time until the first streamed model chunk.
+- `theos.turn.time_to_first_reasoning_chunk_seconds`: elapsed time until the first reasoning chunk.
+- `theos.turn.time_to_first_text_chunk_seconds`: elapsed time until the first response text chunk.
+- `theos.turn.time_to_last_text_chunk_seconds`: elapsed time until the last response text chunk.
+
+Time to first model call includes lock waits and request preparation.
+Use per-model chunk times to measure provider latency after each request starts.
+Providers send stream chunks, so these values do not measure individual tokenizer tokens.
 Delegate spans include `theos.delegate.model_calls.limit` for the configured local cap.
 Use `gen_ai.conversation.id` in Jaeger's **Attributes** filter to find turns from one conversation.
 

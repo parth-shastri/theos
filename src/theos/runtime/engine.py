@@ -49,7 +49,7 @@ class Runtime:
         @asynccontextmanager
         async def traced_models(settings, model_id, reasoning):
             async with models(settings, model_id, reasoning) as model:
-                yield self.tracing.model(model)
+                yield self.tracing.model(model, reasoning=reasoning)
 
         self.models = traced_models
         self.memory = MemoryClient(settings.memory, self.http)
@@ -153,7 +153,13 @@ class Runtime:
         from .research_mode import explicit_request
 
         research_task = explicit_request(text, mode) if text is not None else None
-        turn = Turn(owner, session_id, raw_events=raw_events, research_task=research_task)
+        turn = Turn(
+            owner,
+            session_id,
+            raw_events=raw_events,
+            include_delegate_tool_progress=session["channel"].startswith("telegram"),
+            research_task=research_task,
+        )
         # Reserve synchronously. Two incoming requests must not start the same conversation.
         self.active[session_id] = turn
         turn.task = asyncio.create_task(
@@ -234,7 +240,9 @@ class Runtime:
 
     async def run(self, turn, session, message, *, scheduled=False):
         """Trace one turn independently of the transport and other active turns."""
-        with self.tracing.turn(session, scheduled, self.settings.name):
+        with self.tracing.turn(
+            session, scheduled, self.settings.name, started_at=turn.started_at
+        ):
             await self._run(turn, session, message, scheduled=scheduled)
 
     async def _run(self, turn, session, message, *, scheduled=False):
