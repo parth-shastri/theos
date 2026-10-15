@@ -71,7 +71,7 @@ def connection_status(runtime, owner):
         ("skills", "Skill resources", settings.skills_dir is not None),
     ]
     return {
-        "accounts": accounts,
+        "accounts": [account for account in accounts if account["configured"]],
         "services": [
             {"id": service, "name": name, "configured": bool(enabled)}
             for service, name, enabled in services
