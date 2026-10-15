@@ -553,3 +553,19 @@ Branch: `feature/slack-connector`, from remote `dev` at `8a4360f`.
 Check internal or Marketplace app eligibility before the MCP connection. Review granular search scopes and workspace consent.
 The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
 See [the plan](docs/connectors/slack-plan.md) and its tool inventory.
+
+## Slack official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote Slack MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+Confidential OAuth uses a client secret and durable single-use state.
+Slack public-client PKCE mode is not enabled. Other providers retain the shared adapter default of PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 18 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/slack-mcp.md).

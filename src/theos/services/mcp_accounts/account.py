@@ -32,6 +32,7 @@ class AccountSpec:
     methods: dict[str, frozenset[str]] = field(default_factory=dict)
     scope_separator: str = " "
     token_basic_auth: bool = False
+    pkce: bool = True
 
 
 class MCPAccount:
@@ -68,6 +69,7 @@ class MCPAccount:
             self.config.client_secret.get_secret_value(),
             self.config.redirect_uri,
             self.scopes,
+            self.spec.pkce,
         ]
         return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
@@ -156,9 +158,10 @@ class MCPAccount:
                 "redirect_uri": self.config.redirect_uri,
                 "state": state,
                 "response_type": "code",
-                "code_challenge": challenge.decode().rstrip("="),
-                "code_challenge_method": "S256",
             }
+            if self.spec.pkce:
+                params["code_challenge"] = challenge.decode().rstrip("=")
+                params["code_challenge_method"] = "S256"
             if self.scopes:
                 params["scope"] = self.spec.scope_separator.join(self.scopes)
             return {
@@ -258,14 +261,14 @@ class MCPAccount:
                 raise ValueError("Account authorization was canceled. Connect again when ready.")
             # 2. Bind the exchange to the original owner, client, endpoint, and verifier.
             fingerprint = self.fingerprint()
-            payload = await self.token_request(
-                {
-                    "code": code,
-                    "grant_type": "authorization_code",
-                    "redirect_uri": self.config.redirect_uri,
-                    "code_verifier": saved["verifier"],
-                }
-            )
+            form = {
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": self.config.redirect_uri,
+            }
+            if self.spec.pkce:
+                form["code_verifier"] = saved["verifier"]
+            payload = await self.token_request(form)
             self.authorize(owner)
             if fingerprint != self.fingerprint():
                 raise ServiceError("Account configuration changed. Connect again.")

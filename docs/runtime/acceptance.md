@@ -863,3 +863,19 @@ Tagged deployment and the active Pi manifest must confirm application activation
 The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
 Every request retains ZDR and generic performance preferences without an endpoint order.
 Runtime configuration contains no model-specific order map. No provider call is required for these checks.
+
+
+## Slack official MCP connector, 2026-10-15
+
+The full local suite passed 1,156 tests, with three credential-dependent checks excluded.
+The focused shared and Slack checks passed 34 tests.
+They cover confidential user OAuth, durable single-use state, callback replay, encrypted restart access, and token refresh.
+The Slack adapter uses a client secret without enabling Slack's public-client PKCE mode.
+Other providers keep PKCE as the shared adapter default.
+The default Slack scopes exclude private search and writes. Provider permission checks still apply to every call.
+A private-search refusal remains a failed read. It returns no source page and does not expose private provider error text.
+Tests also cover paged discovery, schema rejection, private transports, optional outages, and complete source ownership.
+The shared wire check uses the real MCP client against a mock HTTP transport. It does not repeat failed reads.
+Python lint, formatting, JavaScript syntax, lock validation, package builds, and whitespace checks passed.
+The setup guide's prose lint reports 1.57 findings per 100 words.
+These checks used local fixtures. Eligible app registration, workspace consent, live tool discovery, and deployment remain pending.

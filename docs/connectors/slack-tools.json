@@ -47,5 +47,26 @@
     "slack_update_list_record",
     "slack_update_user_profile"
   ],
-  "official_tool_coverage": "Search, messages, conversations, files, canvases, profiles, reactions, and lists"
+  "official_tool_coverage": "Search, messages, conversations, files, canvases, profiles, reactions, and lists",
+  "implemented_read_allowlist": [
+    "slack_list_workspaces",
+    "slack_list_user_channels",
+    "slack_list_user_conversations",
+    "slack_search_public",
+    "slack_search_public_and_private",
+    "slack_search_channels",
+    "slack_search_users",
+    "slack_read_channel",
+    "slack_read_thread",
+    "slack_read_user_profile",
+    "slack_list_channel_members",
+    "slack_read_file",
+    "slack_read_canvas",
+    "slack_read_list",
+    "slack_get_reactions",
+    "slack_search_emojis",
+    "slack_list_user_groups",
+    "slack_list_starred_items"
+  ],
+  "implementation_status": "Read-only adapter with local contract tests. Live provider authorization remains pending."
 }

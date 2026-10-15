@@ -20,6 +20,7 @@ let mentionCatalogUpdated = 0;
 let mentionRequest = null;
 let mentionsDismissed = false;
 const providerIcons = {
+  slack: "/static/providers/slack.svg",
   gmail: "/static/providers/gmail.svg",
   health: "/static/providers/health.png",
   zepto: "/static/providers/zepto.png",
@@ -2175,6 +2176,8 @@ $("tool-search").oninput = renderTools;
 $("back-tools").onclick = () => showView("chat-view");
 
 const accountDescriptions = {
+  slack:
+    "Search and read Slack conversations through the official Slack MCP server. Available tools depend on your granted scopes.",
   gmail:
     "Search messages, manage drafts and labels. Sending a draft requires approval.",
   health:
