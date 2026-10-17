@@ -110,12 +110,43 @@ Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard cha
 Personal queries use the authenticated owner. Administrator queries cover the workspace.
 
 Web Audio MediaStreamAudioSourceNode and AnalyserNode measure microphone RMS volume for the accent recording glow.
-Reduced motion and unsupported audio analyzers retain a static glow.
+The same smoothed level controls the height and opacity of three SVG waves along the bottom edge.
+CSS supplies their alternating motion. Recording cleanup stops motion and clears both visual meters.
+Reduced motion retains static feedback. Unsupported audio analyzers retain the recording animation without volume modulation.
 These UI features add no Python dependency or model tool.
 
 Browser commands use the existing authenticated conversation APIs.
 Native HTML dialogs supply Settings, command help, and usage cards. Native SVG supplies the settings and sidebar icons.
 These controls add no runtime dependency. Settings saves model, reasoning, generation, and voice choices together.
+The owned `selects.js` module presents model, reasoning, and chart-period choices through keyboard-controlled glass listboxes.
+The Popover API places these menus above the dialog's scroll frame, with bounded height and matching field widths.
+Native select elements retain values, model-specific reasoning choices, and validation. Browsers without popovers retain native menus.
+All dropdowns separate option rows by 4px and draw focus rings inside each row.
+Picker focus scrolls only the option list, without moving the settings pane.
+The composer uses native HTML, CSS Grid, and SVG for its plus menu and expanding input.
+An eight-second browser timer rotates idle placeholders without changing drafts or focused fields.
+Voice activity takes priority over idle prompts. The composer keeps accessible status feedback inside its frame.
+CSS backdrop filters and translucent theme tokens supply frosted surfaces with solid fallbacks.
+The visual treatment follows [Apple's Liquid Glass guidance](https://developer.apple.com/videos/play/wwdc2025/219/) for quiet content and floating navigation surfaces.
+The owned `glass.js` module separates the optical layer from text and controls.
+The top navigation, usage panels, account cards, and workspace services share this material.
+Dynamic panel refreshes release detached optical filters and observers.
+Desktop mouse movement controls the hover tint. Touch input retains press feedback.
+Canvas creates a cached rounded-edge displacement map when a pane changes size.
+Chromium applies this map through SVG `feImage`, `feDisplacementMap`, and CSS backdrop filters.
+Other browsers retain CSS blur, transparent fills, inset edges, and shadows.
+CSS animates edge highlights on entry. Pointer events update the local light position through requestAnimationFrame.
+Dialog content scrolls inside a fixed optical frame.
+Child controls use simple fills instead of additional glass layers.
+The mode picker uses an upward CSS animation, adjacent SVG icons, and keyboard-controlled listbox options.
+ResizeObserver reserves scroll space for the floating composer and approval cards.
+It also bounds command and plus menus to the available screen height.
+Safe-area insets and the VisualViewport resize event keep controls within the available screen.
+The browser skips viewport sizing during pinch zoom and respects reduced-motion and reduced-transparency preferences.
+These changes add no package dependency or model tool.
+The owned `charts.js` module renders request bars, cost lines, and model and tool rankings through SVG and HTML.
+Arrow keys, Home, and End select UTC days. Tap and hover update the visible value panel.
+Cost paths stop at unknown prices. Data disclosures retain exact source values and all ranking rows.
 Generation controls use Pydantic validation and SQLite migration 006.
 Automatic titles use bounded, tool-free requests to the selected model and SQLite migration 007.
 Their token usage is included in the conversation cost.
