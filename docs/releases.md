@@ -25,7 +25,8 @@ Preparation records model usage and stops on invalid output instead of reading p
 The private local `.env`, local `.env.pi`, and Pi deployment environment use the selected Michael/George blend at speed `0.9`.
 They point to the authenticated Mac mini speech gateway at port `8881`.
 The gateway runs separately from Kokoro under the user's `com.parthshastri.theos-speech` launch agent.
-Its source and environment live under `/Volumes/extssd/voice/theos-speech`.
+Its source stays under `/Volumes/extssd/voice/theos-speech`.
+Its runtime and private environment live under `~/.local/share/theos-speech` so macOS can launch its Python entry point.
 Console logs live under `~/Library/Logs/Theos`.
 Keep the speech key outside Git. Private backups retain the previous environment values.
 No database migration is required. Confirm release activation through the tagged workflow and the Pi manifest.

@@ -233,7 +233,8 @@ Prepare the version on a topic branch from `dev`, merge through a PR, and promot
 Use the immutable tag `rpi-v1.2.0`. The `main` promotion is independent and was not requested.
 Both local environment files and the Pi deployment environment now select the Michael/George blend, speed `0.9`, and the authenticated Mac mini gateway on port `8881`.
 Preserve their unrelated settings and mode `0600`. Private `.before-1.2.0` backups retain prior values.
-The native gateway lives at `/Volumes/extssd/voice/theos-speech`, with launch agent `com.parthshastri.theos-speech`.
+The native gateway source lives at `/Volumes/extssd/voice/theos-speech`, with launch agent `com.parthshastri.theos-speech`.
+macOS blocked launchd from opening its Python entry script on the external SSD. Install its runtime and private environment under `~/.local/share/theos-speech`. Keep Kokoro and model storage on the SSD.
 Keep its console logs under the user's `Library/Logs/Theos` directory.
 Deployment remains unconfirmed until the release workflow and Pi manifest confirm activation.
 
