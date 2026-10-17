@@ -67,11 +67,18 @@ Token reset and revocation retain personal records and history.
 1. Open `http://127.0.0.1:8080` through local access or an [SSH tunnel](DEPLOYMENT.md#private-browser-access).
 2. Enter your token.
 3. Select **New conversation**.
-4. Open **Settings** in the header.
+4. Open **Settings** in the header, or in the sidebar on mobile.
 5. Select an allowed model and reasoning effort.
 6. Select **Save settings**.
 7. Enter your message.
 8. Select **Send**.
+
+Model and reasoning choices use animated glass menus with a check beside the selected value.
+Keyboard focus moves through separate rows while the current selection retains its checkmark.
+Each menu matches its field width and opens above the field when space permits.
+Use arrow keys, **Home**, **End**, or type a choice name to move through options.
+Use **Enter** or **Space** to select a choice. **Escape** closes only the menu.
+Reasoning choices follow the selected model. **Cancel** discards changes to both fields.
 
 For manual token sign-in, the browser keeps the token in tab session storage until sign-out.
 It sends that token in the authorization header.
@@ -79,11 +86,13 @@ It does not place the token in a URL.
 Telegram-confirmed sign-in uses a protected session cookie instead of storing its session secret in JavaScript.
 The conversation list contains only browser sessions for that user.
 The sidebar contains conversations and workspace links.
-Use the sidebar icon beside the logo to hide or show conversations.
+Use the sidebar icon to hide or show conversations.
+On mobile, the sidebar contains the theme button, Settings, and conversation actions.
+The mobile chat has no top bar.
 
 ## Files and approvals
 
-Use the attachment button to upload files.
+Select **+**, then **Attach files** to upload files.
 The default file limit is 10 MiB.
 Image checks also apply before the model receives an image.
 Generated file links require the same authenticated owner.
@@ -98,12 +107,13 @@ The [tool catalog](tool-catalog.md#approval-boundary) lists protected actions.
 
 ## Continue or reset
 
-**Resume** continues saved work after an interruption or model-call limit.
+Open **Conversation actions** beside the title, or in the sidebar on mobile.
+**Resume conversation** continues saved work after an interruption or model-call limit.
 Reopen the conversation if a browser stream disconnects.
 The runtime can finish a turn after the browser stops reading events.
 Check the saved result before repeating an external action.
 
-**Reset** clears the current history and approval history.
+**Reset conversation** clears the current history and approval history.
 It retains personal records, files, and conversation model settings.
 Model changes require a finished turn with no pending approvals.
 
@@ -126,8 +136,14 @@ Model request counts include title and delegate requests.
 Charts include complete records across transports, beyond the recent-row limits in diagnostic tables.
 
 Hover over or tap a daily chart to inspect its values.
-Select a model or tool bar for its breakdown. Expand **View chart data** for accessible exact values.
+Select a model or tool bar for its breakdown. Expand **View exact values** for accessible exact values.
 Cost charts exclude unpriced requests and show their count. Hollow points mark days without a recorded price.
+Both usage views use glass panels, a theme-specific Theos logo, and a return-to-chat button that stays visible during scrolling.
+On narrow screens, the arrow button returns to chat. Its accessible name remains **Back to chat**.
+The glass chart-period picker offers 7, 30, and 90 days. Lifetime totals and detailed records stay separate from period charts.
+Tap a day to inspect requests, tokens, or recorded USD. Use the arrow keys, **Home**, and **End** for keyboard selection.
+Rankings show token splits and usage shares. Expand **View exact values** for every source row, including grouped models and tools.
+The top navigation shares the pane material. Desktop panes tint on hover only. Mobile panes retain touch feedback.
 
 The server enforces owner scope and administrator access independently of the visible buttons.
 See [observability](base-infra/observability.md).
@@ -175,9 +191,35 @@ Select **Copy** on a code block to copy its code.
 Raw HTML appears as text. Unsafe links cannot execute scripts, and remote images appear as links.
 Speech playback uses the rendered text without code toolbar labels.
 
-The composer starts with one line and grows with longer drafts, up to 140px.
-Attachment, command, microphone, and send icons share the input row.
-On mobile, recording hides attachment and command buttons until recording stops.
+The frosted composer starts with one line on mobile and desktop.
+The **+** button sits on the left. Microphone and send buttons sit on the right.
+Focus the input to expand it into a text row above the controls and message mode.
+A draft keeps the composer expanded. Longer drafts grow up to 140px.
+Select the message mode to open its glass menu above the input.
+Normal has a conversation icon. Deep research has a search icon.
+Use the arrow keys, **Home**, or **End** to move between modes.
+Use **Enter** or **Space** to select a mode. **Escape** closes the menu.
+The selected mode applies to one message.
+Select **+** for attachments, commands, and conversation settings.
+The browser preserves both color themes and respects reduced-motion and reduced-transparency preferences.
+The composer floats above the chat. Content behind it blurs as you scroll.
+On mobile, the Theos name appears in the sidebar.
+A soft green tint rises from the full bottom edge in both themes, with minimal color at the top corner.
+The dark theme uses less tint. The color remains visible through the sidebar, dialogs, and menus.
+The panes show blurred content behind them, with moving edge highlights and light that follows pointer interaction.
+Chromium also refracts backdrop pixels around the pane edges. Other browsers retain the CSS blur and edge highlights.
+Dialog content scrolls inside the pane without moving its optical layer.
+During microphone recording, three green waves move along the bottom edge.
+Their height and opacity follow microphone volume. Stopping or canceling the recording stops the waves.
+Reduced motion retains static feedback. The effect does not change the recorded audio.
+The header has no private-workspace badge or status dot.
+Idle input prompts rotate every eight seconds. Focus changes the placeholder to **Start Typing...**.
+Phone layouts up to 700px use exaggerated philosophical prompts in three short words.
+Examples include **Sue the void** and **Fix free will**.
+Recording and transcription replace the placeholder with **Listening...** and **Transcribing...**.
+If the field already contains a draft, voice feedback appears inside the composer below the controls.
+Progress and errors also stay inside the composer. A completed transcription adds no readiness message.
+In the light theme, user messages use the same green as the send button, with white text.
 Dropdown arrows have a 14px right margin and reserved space for long values.
 
 ## Commands and generation settings
@@ -186,7 +228,7 @@ Type `/` in the message field to see commands and descriptions.
 Use the arrow keys to select a suggestion.
 Use **Enter** or **Tab** to insert it, then **Enter** to run it.
 Use **Escape** to close suggestions.
-`/help` and the slash icon show the command list and keyboard controls.
+`/help` and **+ → Commands & connections** show the command list and keyboard controls.
 Select a command in the help dialog to run it or see its options.
 Commands include `/new`, `/reset`, `/resume`, `/model`, `/reasoning`, `/settings`, `/tools`, `/connections`, `/usage`, and `/voice`.
 Selecting `/model` or `/reasoning` opens a menu of supported options.
@@ -235,7 +277,7 @@ Replies without provider usage retain the estimate.
 Each model generation has its own duration. Tool execution and title generation do not add to that duration.
 
 User messages also show their timestamps.
-Dates use the browser's local time, such as `6 Oct 14:32`.
+Dates use the browser's local time and include the year, such as `6 Oct 2026 14:32`.
 Hover over the timestamp for the full date, time, and timezone.
 New timestamps and final durations survive conversation reloads and application restarts.
 Older messages retain their token counts, with an estimate when usage is unavailable. They receive no invented timestamps or durations.
@@ -299,6 +341,7 @@ Health disconnection also cancels incomplete imports and meal exports.
 Use the provider's account settings to remove remaining remote access when needed.
 
 The view refreshes account status while open.
+Account cards and workspace services share the glass material. Status badges distinguish saved authorization from service configuration.
 **Connected** means Theos has saved authorization. It does not prove that every provider request will succeed.
 **Workspace services** shows configured sandbox, memory, search, storage, transcription, speech, weather, and skill resources.
 **Configured** does not prove service reachability or a successful live operation.

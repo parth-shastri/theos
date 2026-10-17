@@ -1,5 +1,92 @@
 # Feature and acceptance checklist
 
+## Browser glass UI and expanding composer, 2026-10-17
+
+The focused browser and dashboard suite passed 48 tests after the workspace-panel changes.
+JavaScript syntax, Prettier, and whitespace checks passed.
+
+PR validation on 2026-10-18 passed 1,135 tests with three live-provider tests excluded.
+The isolated validation environment used the locked server and terminal dependencies.
+One 30ms recovery test timed out on the initial run. All 21 recovery tests and the full rerun passed.
+Ruff lint and formatting, dependency-lock validation, and both package builds passed. The wheel includes all six updated browser assets.
+
+Headless Chromium checks covered widths from 320px through 1440px without horizontal overflow.
+Both themes passed compact and expanded composer checks at five widths, including the 700px sidebar breakpoint.
+Checks covered the plus menu, file selection, uploaded attachments, settings saves, commands, selected research mode, and empty-input collapse.
+The idle readiness note and its layout space are absent.
+
+Additional checks covered chat submission, Markdown replies, multiline drafts, short viewports, drawer focus, navigation, dialogs, and reduced motion.
+The preview used disposable SQLite data and a fake provider. It changed no production records and called no external model.
+Physical iOS and Android keyboard checks remain pending.
+
+The native wheel and source distribution built successfully on this device.
+An isolated Python environment runs the installed wheel on loopback port 8082 with a separate test account and local database.
+Readiness and authenticated access passed. Served CSS and JavaScript match the built wheel.
+A live `gpt-6-luna` request returned the expected marker in 8.65 seconds with no tool calls.
+The local browser signed in and displayed the updated UI. Telegram polling remains disabled for this test instance.
+
+The composer uses a floating optical layer with a 10px blur and rim refraction in Chromium.
+Its CSS fallback uses a 12px blur.
+Native browser checks covered idle and expanded inputs at five widths in both themes.
+Input and button rows measured 44px. Microphone and send retained an 8px gap during focus and draft changes.
+Short-viewport checks covered 140px drafts, selected research mode, reserved reply space, and menus above the input.
+Scrolling placed chat content behind the composer.
+
+Mobile has no header or conversation toolbar. A standalone button opens the sidebar.
+The sidebar contains the Theos name, theme button, settings, and conversation actions.
+Desktop retains its header and conversation toolbar.
+The background tint starts along the full bottom edge at 26% opacity in light mode and 12% in dark mode.
+The light tint fades through a 9% middle stop. The dark middle stop uses 5%.
+The top-corner tint uses 3% in light mode and 2% in dark mode.
+Sidebar and dialog fills use 26% opacity in light mode and 28% in dark mode.
+Their optical layers use a 7px blur with rim refraction in Chromium, or a 9px CSS fallback.
+Opening a pane animates its edge highlights. Pointer interaction moves the local light position.
+The refined highlight mask measures 0.75px and uses short arcs with softer permanent borders.
+Controls inside these surfaces use simple fills.
+Twenty native browser checks covered the upward mode menu and settings across five widths in both themes.
+Mode checks covered adjacent icons, selection, arrow keys, Home, Enter, Escape, and restored trigger focus.
+Tab closes the mode menu and advances focus to the message input.
+All menus stayed above the composer and within the viewport. Microphone and send retained their 8px gap.
+At 320px by 500px, expanded settings scrolled 551.5px inside the fixed optical frame.
+Settings and saved research close the mobile sidebar before their dialogs open.
+Closing either dialog restores focus to the sidebar button.
+JavaScript syntax, formatting, and whitespace checks still pass.
+
+Model and reasoning pickers use glass listboxes above the dialog's scroll frame.
+Checks covered field alignment and viewport bounds at 320px through 1440px in both themes, including a 500px viewport height.
+Model changes updated reasoning choices. Escape closed only the picker, and Cancel restored the saved choices.
+An isolated conversation saved `gpt-5.6-luna` with low reasoning, then restored `gpt-6-luna` with default reasoning.
+No model request ran during this settings check.
+Model, reasoning, message-mode, add-options, and command menus retained 4px between adjacent rows during selection changes.
+Focus rings measured as inset shadows, without paint outside the option. The selected model and adjacent focus row remained separate in both themes.
+
+The local microphone check activated three animated waves and measured a smoothed voice level of 0.840.
+Cancel cleared the recording state and volume styles and stopped all three wave animations before transcription.
+A synthetic audio test checks volume response, silence decay, audio-resource cleanup, and reduced-motion behavior without microphone capture.
+
+The header's private-workspace label and dot are absent. Status feedback stays inside the composer.
+Native checks verified rotating idle prompts and the focused **Start Typing...** placeholder.
+At 320px, empty placeholders stay on one line and drafts wrap without horizontal overflow.
+Microphone and send retain an 8px gap. Light user bubbles and the send button share `rgb(51, 101, 78)`.
+Dark user bubbles retain their previous fill.
+A synthetic recording test covers transcription progress, successful insertion, existing drafts, failure, and cancellation.
+Successful transcription clears feedback without a readiness note. Failed transcription preserves the draft and error.
+
+Usage views and Connections now share the glass material with the top navigation.
+Native checks covered desktop usage and 320px mobile usage and Connections without horizontal overflow.
+The seven-day picker reloaded all charts. Optical filters remained bounded at 23 after the usage refresh.
+The usage header retained its themed logo and return button after 662px of internal scrolling.
+Returning to chat preserved the conversation. Dark Connections displayed three account cards and eight workspace services within the viewport.
+The chart fixture covered 90 days, eight models, long identifiers, and missing prices with synthetic data only.
+Chart tests cover price gaps, small costs, keyboard selection, redraws, grouped rankings, exact rows, and empty states.
+Glass tests cover top-navigation decoration, detached-filter cleanup, mouse hover tracking, and touch-only press feedback.
+Interface labels use sentence case. No uppercase text transform remains. User content and technical identifiers keep their original case.
+Phone prompts use three short words. A 320px check kept the input at 44px without overflow.
+The philosophical rotation fits at 320px with a 14px idle placeholder. Typed text remains 16px.
+Focus retained **Start Typing...**. Resizing to 1280px restored the longer desktop prompts.
+The composer regression test covers both prompt sets and viewport changes during focus.
+Saved user and assistant messages display the local year, verified as **17 Oct 2026 18:58** in the browser.
+
 ## Philosophical personality and approved speech, 2026-10-17
 
 The full local application suite passed 1,131 tests, with three credential-dependent tests excluded.
