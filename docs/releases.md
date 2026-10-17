@@ -15,6 +15,22 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.2.0
+
+Package version 1.2.0 uses tag `rpi-v1.2.0` from the promoted `rpi` tip.
+This release adds the philosophical personality, expressive spoken-text preparation, and the approved subtle robotic voice.
+Every browser and tool speech request prepares spoken wording before synthesis while retaining displayed text and conversation history.
+Preparation records model usage and stops on invalid output instead of reading plain source text.
+
+The private local `.env`, local `.env.pi`, and Pi deployment environment use the selected Michael/George blend at speed `0.9`.
+They point to the authenticated Mac mini speech gateway at port `8881`.
+The gateway runs separately from Kokoro under the user's `com.parthshastri.theos-speech` launch agent.
+Its source stays under `/Volumes/extssd/voice/theos-speech`.
+Its runtime and private environment live under `~/.local/share/theos-speech` so macOS can launch its Python entry point.
+Console logs live under `~/Library/Logs/Theos`.
+Keep the speech key outside Git. Private backups retain the previous environment values.
+No database migration is required. Confirm release activation through the tagged workflow and the Pi manifest.
+
 ## Release 0.1.18
 
 Package version 0.1.18 uses tag `rpi-v0.1.18` from the promoted `rpi` tip.
