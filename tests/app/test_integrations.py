@@ -93,8 +93,11 @@ async def test_file_archive_restore_delete_and_ownership(runtime, monkeypatch):
 
 
 async def test_voice_contracts_and_generated_file(runtime):
+    from pydantic import SecretStr
+
     runtime.settings.transcription_url = "http://speech/v1"
     runtime.settings.kokoro_url = "http://kokoro/v1"
+    runtime.settings.kokoro_key = SecretStr("private-speech-key")
 
     def endpoint(request):
         if request.url.path.endswith("/transcriptions"):
@@ -102,10 +105,15 @@ async def test_voice_contracts_and_generated_file(runtime):
             return httpx.Response(200, json={"text": "Please set a reminder."})
         payload = json.loads(request.content)
         assert payload["model"] == "kokoro" and payload["response_format"] == "mp3"
+        assert payload["voice"] == "am_michael(0.7)+bm_george(0.3)"
+        assert payload["speed"] == 0.9
+        assert request.headers["Authorization"] == "Bearer private-speech-key"
         return httpx.Response(200, content=b"ID3audio", headers={"Content-Type": "audio/mpeg"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:
-        files = Files(runtime.settings, runtime.db, http)
+        files = Files(
+            runtime.settings, runtime.db, http, speech_renderer=runtime.files.voice.prepare
+        )
         voice = files.save("alice", "voice.ogg", "audio/ogg", b"voice")
         assert await files.transcribe("alice", voice["id"]) == "Please set a reminder."
         result = await call_tool(

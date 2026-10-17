@@ -361,6 +361,7 @@ function releaseAudio() {
 }
 function speechControl(body) {
   const speechText = TheosMarkdown.text(body);
+  const speechSession = selected;
   if (
     !me?.voice.tts ||
     !speechText ||
@@ -424,7 +425,7 @@ function speechControl(body) {
       if (!audio) {
         const result = await json("/api/audio/speech", {
           method: "POST",
-          body: JSON.stringify({ text: speechText }),
+          body: JSON.stringify({ text: speechText, session_id: speechSession }),
           signal: request.signal,
         });
         const response = await api(`/api/files/${result.file_id}`, {

@@ -6,6 +6,7 @@ import logging
 import time
 from contextlib import aclosing, asynccontextmanager
 from datetime import UTC, datetime
+from functools import partial
 
 import httpx
 
@@ -24,14 +25,14 @@ from theos.services.memory.client import MemoryClient
 from theos.services.preferences.tools import preferences
 from theos.storage.messages import stamp_message
 
-from . import approvals, checkpoints, context, hooks, recovery, titles, tools
+from . import approvals, checkpoints, context, hooks, recovery, speech, titles, tools
 from .budgets import TurnBudget
 from .errors import CheckedModel
 from .events import publish_event
 from .fallback import FallbackModel
 from .model_catalog import fallback_reasoning, wire_model
 from .reviews import approval_review, tool_label
-from .text import WRITING_RULES, reply_text
+from .text import PERSONALITY, WRITING_RULES, reply_text
 from .turn import Turn
 from .usage import record_usage
 
@@ -106,7 +107,7 @@ class Runtime:
         from theos.services.memory.automation import MemoryAutomation
 
         self.memory_automation = MemoryAutomation(self)
-        self.files = Files(settings, db, self.http)
+        self.files = Files(settings, db, self.http, speech_renderer=partial(speech.prepare, self))
         from theos.services.files.checkpoints import Checkpoints
         from theos.services.sandbox.workspace import Workspaces
 
@@ -439,7 +440,7 @@ class Runtime:
                         )
                     if retrieved:
                         instructions += "\n" + retrieved
-                    instructions += "\n" + WRITING_RULES
+                    instructions += "\n" + PERSONALITY + "\n" + WRITING_RULES
                     if session["channel"].startswith("telegram"):
                         instructions += (
                             "\nYour reply will appear in Telegram. Use short paragraphs, "

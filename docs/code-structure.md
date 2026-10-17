@@ -99,6 +99,10 @@ Telegram and browser conversation threads remain separate.
 
 `services/personal.py` and `services/information.py` only collect related tools.
 They contain no database rules or external requests.
+
+`runtime/speech.py` writes expressive spoken renditions through the configured model and records their usage.
+The voice service calls this step before browser or tool synthesis. Display text and history remain unchanged.
+The separate `speech/` project owns the optional Kokoro gateway and its audio effects on the speech host.
 The runtime creates clients explicitly and closes them during shutdown.
 `runtime/scheduled.py` claims durable scheduled occurrences and delivers ordinary runtime turns.
 `services/memory/automation.py` owns retrieval, consent policy, and consolidation batches.

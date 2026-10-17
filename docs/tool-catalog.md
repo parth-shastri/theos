@@ -342,8 +342,17 @@ The [speech hosting guide](speech-hosting.md) covers separate Docker and native 
 Docker uses Speaches with faster-whisper and Kokoro-FastAPI CPU images.
 Native Apple Silicon uses MLX Whisper and Kokoro-FastAPI through PyTorch MPS, with uv, FFmpeg, and espeak-ng.
 Hosted transcription uses a compatible multipart API with bearer authentication.
-The speech client fixes the model to `kokoro` and sends no authentication header.
-Generic hosted speech APIs require an adapter or client changes.
+The speech client fixes the model to `kokoro` and sends the configured voice and speed.
+Its defaults are 70% Michael, 30% George, and speed `0.9`.
+It sends an optional bearer key from `AGENT_KOKORO_KEY`.
+The separate [speech gateway](../speech/README.md) applies the selected subtle robotic effect with
+Pedalboard, NumPy, SciPy, SoundFile, pyloudnorm, and FFmpeg.
+FastAPI and HTTPX serve its authenticated endpoint. Its own `uv.lock` pins Python dependencies.
+These dependencies are not installed in the assistant or Pi image.
+Generic hosted speech APIs still require a compatible adapter.
+Before synthesis, the runtime makes one tool-free model call to prepare expressive spoken wording.
+It retains normal provider privacy controls, usage accounting, owner checks, and the original displayed reply.
+Preparation failure stops synthesis instead of returning a plain-text fallback.
 
 Source: [service tools](../src/theos/services/voice/tools.py).
 

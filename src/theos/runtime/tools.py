@@ -78,7 +78,7 @@ async def build_tools(runtime, session):
     tools = personal_tools(runtime.db, owner, session_id, runtime.settings.timezone)
     tools += custom_tools(runtime.db, owner, runtime.settings.data_dir / "tables")
     tools += information_tools(runtime.settings, runtime.http) + file_tools(runtime.files, owner)
-    tools += voice_tools(runtime.files.voice, owner)
+    tools += voice_tools(runtime.files.voice, owner, session_id)
     tools += task_tools(runtime.db, owner, session_id, runtime.settings)
     if runtime.settings.memory.enabled:
         tools += memory_tools(runtime.memory, owner)

@@ -70,12 +70,20 @@ The returned transcript can enter model requests and saved conversation history.
 
 ```dotenv
 AGENT_KOKORO_URL=http://speech.example.internal:8880/v1
-AGENT_KOKORO_VOICE=af_heart
+AGENT_KOKORO_VOICE=am_michael(0.7)+bm_george(0.3)
+AGENT_KOKORO_SPEED=0.9
 ```
 
 `send_text_to_speech` accepts text from 1 to 12,000 characters.
 The client appends `/audio/speech` and requests MP3 audio.
 It saves the result as `speech.mp3` in the private catalog.
+
+For the approved subtle robotic effect, point `AGENT_KOKORO_URL` to the separate
+[speech gateway](../speech/README.md) and set its bearer key in `AGENT_KOKORO_KEY`.
+Direct Kokoro connections return the voice blend without the effect.
+Every request first generates expressive spoken wording through the configured model.
+This step retains the source facts and records its model usage.
+See [personality and voice](personality.md) for the selected style and system prompt changes.
 The normal file size limit applies to the saved result.
 Telegram sends audio through its audio delivery path.
 Browser chat supplies an authenticated download link.
