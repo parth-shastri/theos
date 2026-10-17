@@ -1,0 +1,27 @@
+name: Speech gateway
+on:
+  pull_request:
+    paths: ['speech/**', '.github/workflows/speech.yml']
+  push:
+    branches: [dev, main, rpi]
+    paths: ['speech/**', '.github/workflows/speech.yml']
+permissions:
+  contents: read
+jobs:
+  speech:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.26'
+          python-version: '3.12'
+          enable-cache: true
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: uv sync --project speech --locked
+      - run: uv run --project speech --no-sync ruff check speech
+      - run: uv run --project speech --no-sync ruff format --check speech
+      - run: cd speech && uv run --no-sync pytest -q

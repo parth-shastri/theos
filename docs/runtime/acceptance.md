@@ -1,5 +1,28 @@
 # Feature and acceptance checklist
 
+## Philosophical personality and approved speech, 2026-10-17
+
+The full local application suite passed 1,131 tests, with three credential-dependent tests excluded.
+The separate speech gateway passed 11 checks locally and on the M4 Mac mini.
+Both packages built, dependency locks validated, and Python lint, formatting, JavaScript syntax, and whitespace checks passed.
+
+Browser playback and speech tools now prepare expressive spoken wording before synthesis.
+Checks cover ownership, conversation usage, unchanged history, rejected numeric edits, empty and truncated output, unexpected tool calls, and preparation failure.
+Preparation failure does not send plain source text to Kokoro.
+The gateway checks cover authentication, upstream failures, decodable MP3 output, short replies, silence, output bounds, and serialized synthesis.
+
+Live `gpt-6-luna` probes through the configured OpenRouter provider produced spoken phrasing with contractions, pauses, and emphasis.
+The final three writing probes took approximately 1.8 to 4.3 seconds.
+Live gateway calls on the Mac mini returned 6.6 to 7.5 seconds of MP3 audio in approximately 2.0 to 2.3 seconds.
+The processing chain correlated at 0.9998 with the user-approved subtle audition when given the same source waveform.
+
+Whisper retained the first two probes' meaning. The numeric probe retained all written values before synthesis,
+but its audio transcript rendered `2500 USD` ambiguously. Direct, unprocessed Kokoro audio produced the same ambiguity.
+Human verification of numeric pronunciation remains open. This is not a confirmed effect-processing regression.
+
+These probes used an isolated candidate directory on the Mac mini. They sent no Telegram messages and changed no deployed assistant configuration.
+The normal release process must activate the personality, expressive writing, gateway URL, and private speech key.
+
 ## Release 0.1.9 preflight
 
 The combined research and shared-skills code passed 950 deterministic tests, with three live tests excluded.
@@ -542,7 +565,7 @@ Mocks do not count as live results.
 | Exa, Brave, Open-Meteo | Search, exercise fallback, request a forecast | Pending |
 | OpenSandbox | Create, reconnect, execute code, automate a browser, deliver a file, destroy | Patched application client creation, Python execution, file retrieval, reconnection, and destruction passed from the Pi on 2026-10-11. Range execution, browser automation, and transport delivery remain pending |
 | R2 | Archive, restore, and delete a disposable object | Pending |
-| Transcription and Kokoro | Transcribe audio and play generated speech | Pending. Operator confirmed Whisper Small cache discovery on the Mac mini on 2026-10-04. Inference and playback remain unconfirmed |
+| Transcription and Kokoro | Transcribe audio and play generated speech | Mac mini inference, gateway encoding, and transcription checked on 2026-10-17. The user approved the subtle audition. Numeric pronunciation needs a listening check. Deployed Theos voice delivery remains pending |
 | Gmail | Connect, read a thread, download an attachment, draft, approve, and send to a test recipient | Pending |
 | Google Health | Connect, import all available data types, export/edit/delete a meal, recover an interrupted export | Pending |
 | Zepto | Connect through browser or private Telegram OAuth, inspect account access, reject an order, inspect a payment confirmation | Browser sign-in and order-history access confirmed on 2026-10-06. Live search returned `Store not selected`. Delivery-store setup, successful search, and order/payment approval checks remain pending |

@@ -201,7 +201,9 @@ class Settings(ClientSettings):
     transcription_key: SecretStr = SecretStr("")
     transcription_model: str = "whisper-1"
     kokoro_url: str = ""
-    kokoro_voice: str = "af_heart"
+    kokoro_voice: str = "am_michael(0.7)+bm_george(0.3)"
+    kokoro_speed: float = Field(default=0.9, ge=0.5, le=2)
+    kokoro_key: SecretStr = SecretStr("")
     gmail: OAuthSettings = Field(default_factory=OAuthSettings)
     health: OAuthSettings = Field(default_factory=OAuthSettings)
     token_encryption_key: SecretStr = SecretStr("")

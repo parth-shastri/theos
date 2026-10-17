@@ -10,10 +10,11 @@ from theos.services.errors import ServiceError
 class Voice:
     """Own voice configuration and an HTTP client supplied by the runtime."""
 
-    def __init__(self, settings, http, files):
+    def __init__(self, settings, http, files, prepare=None):
         self.settings = settings
         self.http = http
         self.files = files
+        self.prepare = prepare
 
     async def transcribe(self, owner, file_id):
         """Send an owned audio file to the configured transcription service."""
@@ -37,19 +38,28 @@ class Voice:
                 "Voice transcription failed. Check the transcription service."
             ) from error
 
-    async def speech(self, owner, text):
+    async def speech(self, owner, text, *, session_id=None):
         """Generate bounded speech text and save the returned audio."""
         if not text.strip() or len(text) > 12000:
             raise ValueError("Supply speech text from 1 to 12000 characters.")
         if not self.settings.kokoro_url:
             raise ServiceError("Set the Kokoro service URL before you request speech.")
+        if self.prepare is None:
+            raise ServiceError("Expressive speech preparation is unavailable.")
+        text = await self.prepare(owner, text, session_id=session_id)
         try:
             response = await self.http.post(
                 self.settings.kokoro_url.rstrip("/") + "/audio/speech",
+                headers=(
+                    {"Authorization": "Bearer " + self.settings.kokoro_key.get_secret_value()}
+                    if self.settings.kokoro_key.get_secret_value()
+                    else {}
+                ),
                 json={
                     "model": "kokoro",
                     "input": text,
                     "voice": self.settings.kokoro_voice,
+                    "speed": self.settings.kokoro_speed,
                     "response_format": "mp3",
                 },
             )

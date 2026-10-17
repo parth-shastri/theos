@@ -3,13 +3,13 @@
 from harness import tool
 
 
-def voice_tools(voice, owner):
+def voice_tools(voice, owner, session_id=None):
     """Build speech and transcription tools bound to the authenticated owner."""
 
     @tool
     async def send_text_to_speech(text: str):
-        """Generate speech with Kokoro and deliver it as a file."""
-        row = await voice.speech(owner, text)
+        """Write an expressive spoken rendition, generate speech, and deliver the audio file."""
+        row = await voice.speech(owner, text, session_id=session_id)
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
     @tool

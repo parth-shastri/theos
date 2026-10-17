@@ -30,13 +30,13 @@ def model_image(data, media_type, max_bytes, filename=None):
 class Files:
     """Use opaque file IDs. Filenames never control local or object-storage paths."""
 
-    def __init__(self, settings, db, http):
+    def __init__(self, settings, db, http, *, speech_renderer=None):
         self.settings = settings
         self.db = db
         self.http = http
         from theos.services.voice.client import Voice
 
-        self.voice = Voice(settings, http, self)
+        self.voice = Voice(settings, http, self, prepare=speech_renderer)
         self.directory = settings.data_dir / "files"
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
 
@@ -185,6 +185,6 @@ class Files:
         """Retain the catalog entry point for existing callers."""
         return await self.voice.transcribe(owner, file_id)
 
-    async def speech(self, owner, text):
+    async def speech(self, owner, text, *, session_id=None):
         """Retain the catalog entry point for generated audio."""
-        return await self.voice.speech(owner, text)
+        return await self.voice.speech(owner, text, session_id=session_id)
