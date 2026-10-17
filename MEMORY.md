@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-15.
+Updated: 2026-10-17.
 
 ## Confirmed decisions
 
@@ -77,6 +77,9 @@ Updated: 2026-10-15.
 | Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. The auxiliary summary uses a scaled prompt target without a hard output cap. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
+| Final voice | Kokoro `am_michael(0.7)+bm_george(0.3)`, speed `0.9`, with the approved subtle robotic treatment in the separate `speech` gateway. Keep DSP dependencies out of the Pi application image. Authenticate gateway requests with `AGENT_KOKORO_KEY`. Existing environment overrides require an explicit rollout update. The louder audition is not the selected profile |
+| Personality | Calm, deliberate, curious, philosophical, and lightly dry in humor. Connect ideas to concrete choices without lectures. Complete practical work first. Use relevant philosopher quotations sparingly, verify uncertain attribution, and clearly label paraphrases. Honor requested tone and urgency. See `docs/personality.md` |
+| Expressive TTS text | Every browser or tool synthesis request first uses one bounded, tool-free model call to write an expressive spoken rendition. Preserve facts, numbers, quotations, uncertainty, and action outcomes. Use words and punctuation rather than unsupported emotion tags. Retain display text and history. Record model usage under the owner and conversation. Fail preparation rather than silently reading plain source text |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
 | Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
 | Shared sandbox runtime | Build the ARM64 image from `skills/sandbox-runtime/Dockerfile` on the Mac mini. Keep report scripts and style assets at `/opt/theos/report-style`. Install the locked PDF, DOCX, XLSX, OCR, browser, arXiv, and pinned Papers with Code dependencies in the image. Representative PDF, DOCX, XLSX, OCR, and browser checks passed under the existing one-CPU, 512 MiB sandbox limit |

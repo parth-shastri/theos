@@ -2,12 +2,17 @@
 
 Theos calls separate HTTP services for transcription and speech generation.
 Its application image contains no speech models.
+
+For the finalized Theos voice, use the separate [speech gateway](../speech/README.md).
+It applies the approved subtle robotic treatment to a 70% Michael, 30% George Kokoro blend at speed `0.9`.
+The assistant sends its optional bearer key from `AGENT_KOKORO_KEY`.
 The main `compose.yaml` starts only Theos.
 This guide describes optional deployments, not bundled services.
 
 Upstream instructions were checked on 2026-10-04.
 The operator confirmed that Speaches listed the downloaded Whisper Small model on the Mac mini.
-Transcription, Kokoro playback, and Telegram voice delivery still need live checks.
+Mac mini transcription, Kokoro inference, and the approved voice audition have live checks.
+Deployed Theos voice delivery and numeric pronunciation still need verification.
 
 ## Choose a deployment
 
@@ -32,8 +37,8 @@ See [Kokoro deployment](https://github.com/remsky/Kokoro-FastAPI) and [Speaches 
 | Speech output | JSON `POST /audio/speech`, model `kokoro`, configured voice, and format `mp3` | MP3 bytes |
 
 The base URL must include `/v1` when the service requires that prefix.
-Theos does not send a speech authentication header.
-There is no `AGENT_KOKORO_KEY` or configurable speech model setting.
+Theos sends a bearer header when `AGENT_KOKORO_KEY` is configured.
+The speech model remains fixed to `kokoro`.
 The transcription credential is separate from the chat model credential.
 The client sends the original audio without format conversion or automatic chunking.
 Its shared HTTP client uses a 30-second timeout, including the read timeout.
@@ -427,8 +432,8 @@ See [Speaches configuration](https://github.com/speaches-ai/speaches/blob/master
    Keep Tailscale forwarding enabled for remote access.
    The key does not encrypt HTTP traffic outside the Tailscale connection.
 
-Kokoro cannot use this credential through the current Theos client.
-It needs a compatible private gateway or speech authentication support in Theos.
+Direct Kokoro does not use this transcription credential.
+The optional speech gateway accepts its own key through `AGENT_KOKORO_KEY`.
 
 ## Hosted options
 
@@ -490,7 +495,7 @@ See [OpenAI speech generation](https://developers.openai.com/api/docs/guides/tex
 
 A compatible gateway must accept the current Kokoro request, translate model and voice values, add provider authentication, and return MP3 bytes.
 Keep the provider credential at that gateway and restrict access to it.
-Theos does not implement this gateway or generic hosted speech configuration.
+The included speech gateway applies effects to Kokoro. It does not adapt generic hosted speech providers.
 Hosted transcription with self-hosted Kokoro works within the current client contracts.
 
 ## Test speech before Telegram
