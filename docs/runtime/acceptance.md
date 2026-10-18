@@ -1163,6 +1163,11 @@ Independent geometry checks verified the tick values, all 12 INR stack segments,
 Space Grotesk covered the prose and chart labels. Only unsupported currency and arrow glyphs used fallback fonts.
 The corrected standalone SVG embeds its font data. The derived CSV remained byte-for-byte unchanged.
 An uncertain workspace checkpoint interrupted delivery. Recovered files passed validation without repeating the generation command.
+The cause was the acceptance image tag being rebuilt while a sandbox still referenced its old image record.
+Docker Desktop removed that record. OpenSandbox status returned HTTP 500, while direct execution and file reads still worked.
+The local runtime now uses a distinct revision tag. Keep referenced image records until their sandboxes expire.
+A fresh sandbox using that revision delivered the verified PDF, chart PNG, and CSV through normal Theos tools.
+All three delivered files matched the verified sources byte-for-byte. PDF structure and PNG decoding also passed.
 
 The local application uses the updated prompt image and the isolated font runtime for new sandboxes.
 PR #86 remains open. No connector PR, production deployment, or branch promotion was merged.

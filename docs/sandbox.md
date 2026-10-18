@@ -137,6 +137,10 @@ ssh parths-mac-mini 'docker build -f /Volumes/extssd/opensandbox/theos-skill-bui
 
 Update the image tag in the Pi deployment environment when the runtime changes, then recreate Theos. The image stays in the Mac mini's local Docker store because OpenSandbox and its container runtime use that Docker host. New sandboxes use the new image. Existing sandboxes retain their files and old image until they expire or are explicitly replaced.
 
+Use a new revision tag for each runtime build. Keep image records while running sandboxes reference them.
+Rebuilding a reused tag removed an old image record during local Docker Desktop acceptance testing.
+The container kept running, but OpenSandbox status requests returned HTTP 500 when they inspected the missing image.
+
 ## Browser dependencies
 
 `browser` invokes `agent-browser` inside the remote sandbox. The shared skill runtime image installs the CLI and Chromium. Installing browser software in the assistant container does not install it in the remote sandbox.

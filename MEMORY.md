@@ -648,6 +648,9 @@ Reports must answer the user's question and support their understanding or decis
 Lead with findings and implications. Use charts and diagrams where they make patterns, comparisons, or relationships easier to understand.
 Select those visuals automatically. Users do not need to request charts or diagrams explicitly.
 Verify plotted values, bar heights, and axis ticks against the data. Preserve Space Grotesk in standalone SVG charts through embedded fonts or text paths.
+
+Use distinct revision tags for sandbox runtime builds. Retain image records referenced by running sandboxes.
+Rebuilding a reused local tag removed image metadata during acceptance testing and broke OpenSandbox status requests for the old instance.
 Keep agent activity, read counts, generation details, and provenance out of the main report unless explicitly requested.
 Retain citations and concise material limitations without making them the report's purpose.
 Do not impose arbitrary total Gmail message, page, or body limits. Read the evidence needed for the requested period and task.
