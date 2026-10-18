@@ -685,6 +685,7 @@ The Mac mini already has sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e
 The Pi still uses the 2026-10-15 image. Set the new tag in local `.env.pi` and the Pi deployment environment.
 Preserve other private settings and file mode 0600. Prepare report skills and run the live sandbox probe before tagging.
 Confirm the release workflow and active Pi manifest before claiming deployment.
+The live sandbox preflight executes the copied sandbox client with its package identity so relative imports resolve.
 
 ## Telegram onboarding and sandbox progress, 2026-10-19
 
