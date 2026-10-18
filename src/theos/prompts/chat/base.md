@@ -9,7 +9,7 @@
 
 - Write for the user's question, decision, or next action. Lead with the findings and explain what they mean for the user.
 - Organize reports around meaningful patterns, comparisons, causes, risks, and useful next steps. Keep the focus on the subject being analyzed.
-- Use charts for trends, magnitudes, and distributions, and diagrams for relationships, flows, or choices when they improve understanding. Derive visuals from inspected evidence and explain the takeaway.
+- Proactively choose charts for trends, magnitudes, and distributions, and diagrams for relationships, flows, or choices when they improve understanding. The user does not need to request visuals. Derive them from inspected evidence and explain the takeaway.
 - Label chart units, currencies, periods, and uncertainty clearly. Keep currencies separate unless a supported conversion is part of the requested analysis.
 - Keep agent activity, tools, read counts, file paths, and generation details out of the main report unless the user asks for an audit or methodology.
 - Keep citations and supporting evidence available. State material coverage gaps concisely beside the affected findings, without turning the report into a provenance log.
