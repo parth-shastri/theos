@@ -1193,3 +1193,20 @@ Docker reported 32.09 GB of removed build cache. No service volume was pruned.
 Mem0, its dashboard, PostgreSQL, Kokoro, and Whisper remain running.
 The previous production sandbox image remains available for the Pi. The Pi environment remains unchanged.
 PR #86 remains open. No branch promotion or Pi deployment occurred.
+
+## Navigation visibility in both themes, 2026-10-19
+
+The collapsed mobile topbar now uses the existing light-mode layout in both themes.
+Dark sidebar labels, conversation titles, costs, and account text use brighter ink.
+Text halos separate navigation labels from reflected content in both themes.
+No blur, saturation, opacity, refraction, or glass material setting changed.
+Computed sidebar and optical styles matched the baseline after excluding inherited color on a nonexistent border.
+
+Browser previews at 320 and 390 pixels showed readable labels over normal, white, and green surfaces.
+Both topbars retained their glass layers while messages scrolled beneath them. No horizontal overflow occurred.
+The live 1280-pixel workspace retained its conversation list, costs, account, and stored report links after container replacement.
+The served stylesheet matches the verified source bytes. The application readiness check passed.
+The existing focused glass, composer, view, and replacement checks passed 12 tests.
+
+The local container runs `theos:local-acceptance-navigation-20261019-74cc202` with the final sandbox image.
+PR #86 remains open. The Pi and connector branches remain unchanged.

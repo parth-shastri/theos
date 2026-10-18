@@ -668,3 +668,10 @@ Exclude caches and environment files from the Docker build context.
 The Mac mini retains this image, its runtime dependencies, and the older image required by the Pi.
 Retire acceptance sandboxes before removing their images. Remove unused build cache without pruning service volumes.
 The Pi environment and application stay unchanged until the separate release step.
+
+## Navigation contrast in both themes, 2026-10-19
+
+Apply the existing collapsed mobile topbar layout in both light and dark modes.
+Use brighter dark sidebar text and text halos to preserve readability over reflected content.
+Keep the existing frost, opacity, blur, saturation, and refraction settings.
+This extends the earlier light-only navigation decision.
