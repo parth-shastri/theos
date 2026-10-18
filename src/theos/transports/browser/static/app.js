@@ -2592,7 +2592,8 @@ function drawResearch(run) {
     TheosMarkdown.render(report, run.answer);
     content.append(report);
   }
-  for (const item of run.items) {
+  if (run.scratchpad.length) content.append(node("h3", "Evidence scratchpad"));
+  for (const item of run.scratchpad) {
     const details = node("details"),
       value = item.content;
     details.append(

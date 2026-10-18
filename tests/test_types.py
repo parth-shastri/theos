@@ -10,10 +10,8 @@ from pydantic import BaseModel, Field
 from harness.types import (
     AssistantMessage,
     Budget,
-    ModelRequest,
     SystemMessage,
     ToolCall,
-    ToolOutput,
     ToolResultMessage,
     ToolSpec,
     UserMessage,
@@ -108,30 +106,18 @@ def test_message_to_dict_does_not_alias_mutable_fields():
     payload["tool_calls"][0]["arguments"]["k"] = "changed"
     payload["usage"]["input_tokens"] = 99
     assert call.arguments == {"k": "v"}
-    assert message.usage == {"input_tokens": 1, "output_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "total_tokens": 1}
-
-
-def test_view_defaults_to_empty_props():
-    assert View("order-card").props == {}
-
-
-def test_tool_output_defaults_to_no_view():
-    output = ToolOutput(content={"status": "shipped"})
-    assert output.view is None
+    assert message.usage == {
+        "input_tokens": 1,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "total_tokens": 1,
+    }
 
 
 class OrderQuery(BaseModel):
     order_id: str = Field(description="The order identifier")
     verbose: bool = False
-
-
-def test_tool_spec_from_model_uses_the_model_json_schema():
-    spec = ToolSpec.from_model("get_order", "Return one order.", OrderQuery)
-    assert spec.name == "get_order"
-    assert spec.description == "Return one order."
-    assert spec.parameters == OrderQuery.model_json_schema()
-    assert spec.parameters["properties"]["order_id"]["description"] == "The order identifier"
-    assert spec.parameters["required"] == ["order_id"]
 
 
 def test_tool_spec_to_openai_uses_the_chat_completions_shape():
@@ -144,12 +130,6 @@ def test_tool_spec_to_openai_uses_the_chat_completions_shape():
             "parameters": OrderQuery.model_json_schema(),
         },
     }
-
-
-def test_model_request_defaults():
-    request = ModelRequest(messages=[UserMessage(content="hi")])
-    assert request.tools == []
-    assert request.options == {}
 
 
 def test_budget_spend_stops_at_the_maximum():

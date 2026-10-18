@@ -176,11 +176,9 @@ class Settings(ClientSettings):
     max_scheduled_tasks: int = Field(default=50, ge=1, le=200)
     turn_timeout: int = Field(default=300, ge=10, le=3600)
     context_tokens: int | None = Field(default=None, ge=4096)
+    compaction_model: str | None = None
     compaction_trigger_ratio: float = Field(default=0.5, gt=0, le=1)
-    compaction_model: str = "gpt-6-luna"
-    compaction_context_tokens: int | None = Field(default=None, ge=1024)
-    compaction_tail_mode: Literal["current", "lean"] = "lean"
-    compaction_min_tail_user_messages: int = Field(default=1, ge=1, le=20)
+    compaction_tail_ratio: float = Field(default=0.025, gt=0, le=0.5)
     max_output_tokens: int = Field(default=8192, ge=1, le=1_000_000)
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=25 * 1024 * 1024)
     timezone: str = "UTC"

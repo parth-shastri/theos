@@ -5,7 +5,6 @@ import mimetypes
 import shlex
 from datetime import timedelta
 from pathlib import Path, PurePosixPath
-from typing import Literal
 
 from harness import tool
 
@@ -59,7 +58,7 @@ def sandbox_tools(client, owner, session_id):
 
     @tool
     async def read_file(path: str):
-        """Read a text file from your task workspace."""
+        """Read up to 64,000 characters from the task workspace or a staged result file."""
         sandbox = await client.get(owner, session_id)
         return {"content": await sandbox.files.read_file(workspace_path(path), limit=64000)}
 
@@ -102,7 +101,7 @@ def sandbox_tools(client, owner, session_id):
 
     @tool
     async def upload_file(file_id: str, path: str):
-        """Copy one of your uploaded files into your task workspace."""
+        """Copy a selected uploaded file or Gmail attachment into your task workspace."""
         row = client.files.get(owner, file_id)
         sandbox = await client.get(owner, session_id)
         await sandbox.files.write_file(workspace_path(path), Path(row["path"]).read_bytes())
@@ -118,25 +117,6 @@ def sandbox_tools(client, owner, session_id):
         result = await sandbox.commands.run(shlex.join(["agent-browser", *arguments]))
         return result.model_dump(mode="json")
 
-    @tool
-    async def manage_workspace(
-        action: Literal["status", "renew", "restart", "destroy", "forget"],
-    ):
-        """Inspect or control your workspace when the user asks. Routine recovery is automatic."""
-        if action == "forget":
-            return await client.forget(owner, session_id)
-        if action in {"destroy", "restart"}:
-            await client.destroy(owner, session_id)
-            if action == "destroy":
-                return {"destroyed": True}
-        sandbox = await client.get(owner, session_id)
-        info = await sandbox.get_info()
-        result = info.model_dump(mode="json")
-        if action == "renew":
-            result["renewed"] = False
-            result["reason"] = "Workspace expiry is fixed from creation and cannot be extended."
-        return result
-
     return [
         run_command,
         execute_code,
@@ -147,5 +127,4 @@ def sandbox_tools(client, owner, session_id):
         upload_file,
         view_image,
         browser,
-        manage_workspace,
     ]

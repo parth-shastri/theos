@@ -16,6 +16,7 @@ from harness import (
     ToolResultMessage,
     UserMessage,
 )
+from harness.compaction import TURN_PREFIX_LABEL
 from harness.testing import FakeModel
 from harness.tools import execute_tool
 from tests.context_fixtures import long_history
@@ -73,6 +74,7 @@ async def test_normal_turn_cannot_call_deep_research_or_create_records(runtime):
 
 
 async def test_explicit_mode_is_one_turn_and_persists_full_report(runtime):
+    runtime.settings.context_tokens = 100000
     row = runtime.db.create_session("alice", "test-model", "default")
     report = "Full research report. " * 3000 + "REPORT END"
     deep = FakeModel([AssistantMessage(report)])
@@ -190,7 +192,7 @@ async def test_deep_research_saves_child_transcript_and_search_evidence(runtime)
     saved = runtime.research.get("alice", row["id"], researcher["id"])
     assert "Original excerpt." in saved["history"]
     assert saved["answer"].endswith("https://example.com/source")
-    evidence = runtime.research.items("alice", row["id"], researcher["id"])
+    evidence = runtime.research.scratchpad("alice", row["id"], researcher["id"])
     source = next(item for item in evidence if item["kind"] == "source")
     assert source["content"]["text"] == "Original excerpt."
     assert source["id"].startswith("S")
@@ -225,10 +227,10 @@ async def test_full_source_and_notes_are_retrievable_without_text_cuts(runtime):
     )
     saved = await call_tool(registry, "read_research", item_id=read["source_id"])
     assert saved["content"]["text"] == text
-    assert note["id"] in json.dumps(runtime.research.summary_context("alice", row["id"], run))
+    assert note["id"] in json.dumps(runtime.research.scratchpad_context("alice", row["id"], run))
     other = runtime.db.create_session("bob", "test-model", "default")
     with pytest.raises(LookupError):
-        runtime.research.item("bob", other["id"], read["source_id"])
+        runtime.research.scratchpad_item("bob", other["id"], read["source_id"])
     with pytest.raises(LookupError):
         runtime.research.get("bob", other["id"], run)
 
@@ -301,10 +303,10 @@ async def test_research_view_survives_restart_and_checks_ownership(runtime):
     assert runtime.research.get("alice", row["id"], run)["answer"] == "Full saved report."
 
 
-async def test_repeated_summary_preserves_corrections_references_and_questions(runtime):
+async def test_rolling_summary_does_not_replace_the_research_scratchpad(runtime):
     row = runtime.db.create_session("alice", "test-model", "default")
     run = runtime.research.create("alice", row["id"], "Lead", "Compare evidence")
-    source = runtime.research.save_item(
+    source = runtime.research.save_scratchpad(
         "alice",
         row["id"],
         run,
@@ -315,7 +317,7 @@ async def test_repeated_summary_preserves_corrections_references_and_questions(r
             "text": "Qualified evidence.",
         },
     )
-    question = runtime.research.save_item(
+    question = runtime.research.save_scratchpad(
         "alice",
         row["id"],
         run,
@@ -327,40 +329,32 @@ async def test_repeated_summary_preserves_corrections_references_and_questions(r
         },
     )
     policy = context.compaction(runtime, row, context.ModelCapacity(100000, 500, "test"), run)
-    summary = (
-        "## Goal\nCompare qualified evidence.\n\n## Constraints & Preferences\n"
-        "Only primary sources from December 2025 onward. Include opposing views.\n\n"
-        "## Blocked\nThe opposing source remains undated."
-    )
     memory = ContextMemory()
     history = long_history()
     history[0] = UserMessage("Only primary sources from December 2025 onward.")
     history.append(UserMessage("Include opposing views."))
-    auxiliary = FakeModel([AssistantMessage(summary)] * 2)
-    from contextlib import asynccontextmanager
-    from dataclasses import replace
-
-    @asynccontextmanager
-    async def summaries():
-        yield auxiliary
-
-    policy = replace(policy, summary_model=summaries)
-    model = FakeModel([AssistantMessage("Report with caveats.")] * 2)
+    model = FakeModel(
+        [
+            AssistantMessage("Summary after the first pass."),
+            AssistantMessage("Report with caveats."),
+            AssistantMessage("Updated summary after source-date check."),
+            AssistantMessage("Updated report with caveats."),
+        ]
+    )
     agent = Agent(model, context_window=100000, compaction=policy)
     await agent.run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(6))
     assert memory.summary
-    assert "Only primary sources" in str(memory.view(history))
+    assert "Include opposing views." in str(memory.view(history))
     history.extend([*long_history(), UserMessage("Verify source dates.")])
     await agent.run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(6))
-    assert "Only primary sources" in str(memory.view(history))
-    assert "Include opposing views" in str(memory.view(history))
-    assert question in memory.summary and source in memory.summary
+    assert "Verify source dates." in str(memory.view(history))
     assert ContextMemory.from_dict(memory.to_dict()) == memory
+    scratchpad = runtime.research.scratchpad_context("alice", row["id"], run)["scratchpad"]
+    assert {source, question} <= {record["id"] for record in scratchpad}
     assert (
-        runtime.research.item("alice", row["id"], source)["content"]["publishedDate"]
+        runtime.research.scratchpad_item("alice", row["id"], source)["content"]["publishedDate"]
         == "2025-12-01"
     )
-    assert set(memory.state["references"]["record_ids"]) == {source, question}
 
 
 @pytest.mark.parametrize("recipient", ["parent", "delegate"])
@@ -389,9 +383,14 @@ async def test_final_reply_can_summarize_after_ordinary_summary_budget_exhaustio
     history = [*long_history(), UserMessage("Answer with the evidence.")]
     original = list(history)
     answer_text = "Complete returned answer. " * 2000 + "ANSWER END"
-    model = FakeModel([AssistantMessage(answer_text)])
+    model = FakeModel(
+        [
+            AssistantMessage("Evidence and original requirements retained."),
+            AssistantMessage(answer_text),
+        ]
+    )
     auxiliary = FakeModel([AssistantMessage("Evidence and original requirements retained.")])
-    use_models(runtime, auxiliary)
+    use_models(runtime, model)
     answer = await response_call(
         runtime,
         row,
@@ -405,12 +404,11 @@ async def test_final_reply_can_summarize_after_ordinary_summary_budget_exhaustio
     )
     assert answer.text == answer_text
     assert history == original
-    assert len(model.requests) == len(auxiliary.requests) == 1
+    assert len(model.requests) == 2 and not auxiliary.requests
     assert not model.requests[0].tools
     assert budgets.total.used == before + 2
-    for request in model.requests:
-        assert request.options["max_output_tokens"] == 1000
-        assert default_estimate_tokens(request) + 1000 <= 100000
+    assert all(request.options["max_output_tokens"] == 1000 for request in model.requests)
+    assert all(default_estimate_tokens(request) + 1000 <= 100000 for request in model.requests)
     if recipient == "parent":
         assert budgets.total.used == 30
     else:
@@ -446,7 +444,7 @@ async def test_replaced_questions_and_shared_source_references_remain_inspectabl
     row = runtime.db.create_session("alice", "test-model", "default")
     root = runtime.research.create("alice", row["id"], "Lead", "Compare evidence")
     child = runtime.research.create("alice", row["id"], "Dates", "Verify dates", root)
-    source = runtime.research.save_item(
+    source = runtime.research.save_scratchpad(
         "alice",
         row["id"],
         root,
@@ -471,21 +469,24 @@ async def test_replaced_questions_and_shared_source_references_remain_inspectabl
         status="resolved",
         replaces=old["id"],
     )
-    protected = runtime.research.summary_context("alice", row["id"], child)
-    assert {old["id"], new["id"], source} == {record["id"] for record in protected["records"]}
+    protected = runtime.research.scratchpad_context("alice", row["id"], child)
+    assert {old["id"], new["id"], source} == {record["id"] for record in protected["scratchpad"]}
     assert "2025-12-01" in json.dumps(protected)
-    assert runtime.research.item("alice", row["id"], old["id"])["content"]["status"] == "open"
+    assert (
+        runtime.research.scratchpad_item("alice", row["id"], old["id"])["content"]["status"]
+        == "open"
+    )
 
 
-async def test_invalid_research_summary_keeps_previous_summary_and_full_source(runtime):
+async def test_compaction_leaves_the_full_research_scratchpad_available(runtime):
     runtime.enforce_budgets = True
     row = runtime.db.create_session("alice", "test-model", "default")
     run = runtime.research.create("alice", row["id"], "Lead", "Compare sources")
     source_text = "Full source evidence. " * 1500 + "SOURCE END"
-    source = runtime.research.save_item(
+    source = runtime.research.save_scratchpad(
         "alice", row["id"], run, "source", {"url": "https://example.com", "text": source_text}
     )
-    memory = ContextMemory("Earlier verified progress.", 2, [0])
+    memory = ContextMemory("Earlier verified progress.", 2)
     history = [
         UserMessage("Check publication dates."),
         AssistantMessage("Earlier exchange."),
@@ -494,7 +495,10 @@ async def test_invalid_research_summary_keeps_previous_summary_and_full_source(r
         ToolResultMessage("read", "read_source", source_text),
     ]
     model = FakeModel(
-        [AssistantMessage("Earlier progress retained. The source needs date verification.")]
+        [
+            AssistantMessage("Earlier progress retained. The source needs date verification."),
+            AssistantMessage("The source still needs date verification."),
+        ]
     )
     agent = Agent(
         model,
@@ -503,11 +507,25 @@ async def test_invalid_research_summary_keeps_previous_summary_and_full_source(r
     )
     result = await agent.run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(3))
     assert result.status == "completed"
-    assert "Earlier verified progress." in memory.summary
-    assert "Evidence summarized without" not in memory.summary
-    assert memory.summary == "Earlier verified progress."
-    assert runtime.research.item("alice", row["id"], source)["content"]["text"] == source_text
-    assert len(model.requests) == 1
+    assert memory.summary == (
+        "Earlier verified progress.\n\n---\n\n"
+        f"{TURN_PREFIX_LABEL}\n\n"
+        "Earlier progress retained. The source needs date verification."
+    )
+    assert "Continue research." in model.requests[0].messages[1].content
+    assert not any(
+        isinstance(message, UserMessage) and message.content == "Continue research."
+        for message in model.requests[-1].messages
+    )
+    assert (
+        runtime.research.scratchpad_item("alice", row["id"], source)["content"]["text"]
+        == source_text
+    )
+    assert len(model.requests) == 2
+    assert any(
+        isinstance(message, ToolResultMessage) and message.content == source_text
+        for message in history
+    )
 
 
 @pytest.mark.parametrize(
@@ -527,4 +545,4 @@ async def test_source_reader_rejects_private_and_credential_urls(runtime, url):
     run = runtime.research.create("alice", row["id"], "Lead", "Find evidence")
     with pytest.raises(ValueError, match="public HTTP"):
         await call_tool(research_tools(runtime, row, run), "read_source", url=url)
-    assert not runtime.research.items("alice", row["id"], run)
+    assert not runtime.research.scratchpad("alice", row["id"], run)

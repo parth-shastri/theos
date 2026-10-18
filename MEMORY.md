@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-17.
+Updated: 2026-10-18.
 
 ## Confirmed decisions
 
@@ -60,8 +60,8 @@ Updated: 2026-10-17.
 | Pi Connect memory | Upgrade the host package to 2.13.0. Set its Go memory target to 192 MiB and check resident memory each minute. Restart only `rpi-connect.service` above 512 MiB. This is a service guard, not a hard kernel limit. Preserve SSH, Tailscale, Theos, and account isolation. Browser Connect access currently requires operator sign-in |
 | Tool execution batches | Replace the hard 16-call response rejection with `ExecutionLimits.tool_batch_size`, default 16. Process every valid call in ordered batches. Only tools declared safe may overlap. Keep each call ID and approval check. Append each batch's results before the next batch. Tell the model to request at most 16 calls per response and provide explicit feedback after larger groups. Reject invalid arguments per call as `not_started` before approval or execution, with correction instructions and a new call ID. Keep `failed`, `denied`, and `unknown` outcomes distinct. Duplicate IDs and malformed response identities remain fatal before execution. Retain transcript and checkpoint guarantees. Record exact generated call counts in trace metadata and only fixed harness error codes in logs |
 | Approval policy | Global approval prompts apply to Gmail draft sending and Zepto cart confirmation, checkout, order placement, and payment-related tools. Gmail approval binds the draft contents and checks them again immediately before sending. Search, read, draft creation, delivery-store setup, ordinary cart updates, all sandbox actions, deletion, and memory settings do not prompt. Keep owner isolation, validation, durable attempts, exact approval snapshots, and unknown-outcome recovery. Retire old pending cards for ungated tools without executing anything during cleanup |
-| Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity and the legacy renew action cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. The model must not use lifecycle controls for routine recovery. Status and explicit restart remain available. Destroying an absent sandbox does not create one |
-| Workspace tool names | Expose ordinary actions as `run_command`, `execute_code`, `read_file`, `write_file`, `list_files`, `upload_file`, `send_file_to_user`, `view_image`, `browser`, and `manage_workspace`. Model-facing descriptions and workspace instructions describe task actions without naming the execution backend. Keep backend terminology in internal code and operator documentation |
+| Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. Lifecycle controls stay internal; the model does not need them for routine recovery. Destroying an absent sandbox does not create one |
+| Workspace tool names | Expose ordinary actions as `run_command`, `execute_code`, `read_file`, `write_file`, `list_files`, `upload_file`, `send_file_to_user`, `view_image`, and `browser`. Model-facing descriptions and workspace instructions describe task actions without naming the execution backend. Keep backend terminology in internal code and operator documentation |
 | Skill selection | Include installed skill descriptions in model context. Match task intent to descriptions and load relevant instructions before work without requiring skill names from the user. Do not load every skill or treat names as the whole selection policy. Supply report-style and document-format instructions automatically for document requests. New reports default to styled PDF. Explicit formats and existing document styles retain precedence. Count automatically supplied skills in turn stats. The shared sandbox image contains report-style files and the declared runtime dependencies for all eight skills; load other skill scripts and text resources from the host as needed |
 | Model-call allowances | Theos disables call allocations and research deadlines by default through `Runtime(enforce_budgets=False)`. Preserve all budget fields and their validation for callers that explicitly enable bounded mode. Parent, delegate, summary, and recovery calls retain usage accounting without enforced call ceilings. Root traces mark enforcement false and limits as -1. Provider, context, output, tool, concurrency, approval, and cancellation limits remain active. See `docs/runtime/context-recovery.md` |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
@@ -73,8 +73,8 @@ Updated: 2026-10-17.
 | Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user explicit opt-in for future user-message consolidation through Mem0 inference |
 | Scheduled agent tasks | Durable one-time and cron schedules run through the normal conversation runtime and approval policy. Interrupted or uncertain runs pause the schedule |
 | Remote sandbox | Keep the Mac mini configuration, database, and server logs under `/Volumes/extssd/opensandbox`. Pin the native server to `1.1.1`. Use server proxy mode with `resolve_internal=false`. Keep launchd console logs under the user's Library because macOS blocks its removable-volume access. Docker storage remains on the SSD |
-| Model context | Use the pinned middle-turn compression policy in `src/harness/compression_policy.py`: tool-output pruning first, protected head, token-budget tail, iterative auxiliary summaries, distributed samples, and scaled budgets. One async adapter in `lean_context.py` serves all agents. Default fraction 0.5 with the upstream small-window floor. Pi 100,000 context and 8,192 output imply a 68,856-token trigger. Keep raw sources outside model context and checkpoint working state in R2 |
-| Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. The auxiliary summary uses a scaled prompt target without a hard output cap. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
+| Model context | Keep one rolling checkpoint in `src/harness/compaction.py`. Default to a 50% trigger and a 2.5% recent tail, both configurable. Use the conversation model for summaries unless `AGENT_COMPACTION_MODEL` selects another provider model. Summarize earlier history and a split turn separately. Include the covered original request in the checkpoint, then append only retained messages. Keep new unanswered user messages and unfinished tool batches verbatim. Preserve the full transcript. On provider overflow, retry with shorter summary tiers without replaying tools. `history_read` and `history_search` recover exact saved messages |
+| Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. Summary calls use no tools and cap output at the configured tail ratio of the summary model's context. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Final voice | Kokoro `am_michael(0.7)+bm_george(0.3)`, speed `0.9`, with the approved subtle robotic treatment in the separate `speech` gateway. Keep DSP dependencies out of the Pi application image. Authenticate gateway requests with `AGENT_KOKORO_KEY`. Existing environment overrides require an explicit rollout update. The louder audition is not the selected profile |
@@ -85,7 +85,10 @@ Updated: 2026-10-17.
 | Shared sandbox runtime | Build the ARM64 image from `skills/sandbox-runtime/Dockerfile` on the Mac mini. Keep report scripts and style assets at `/opt/theos/report-style`. Install the locked PDF, DOCX, XLSX, OCR, browser, arXiv, and pinned Papers with Code dependencies in the image. Representative PDF, DOCX, XLSX, OCR, and browser checks passed under the existing one-CPU, 512 MiB sandbox limit |
 | Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. The shared sandbox image installs the CLI at the recorded source revision |
 | Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
-| Comments | Explain constraints and number the major workflow steps |
+| Prompt organization | Store Theos prompts in Markdown Jinja templates under `src/theos/prompts`. Store harness production prompts under `src/harness/prompts`. Use plain `.md` filenames for normal Markdown previews. The shared package-aware renderer uses StrictUndefined and caches compiled templates without request data. Python resolves capabilities and external data. Templates compose text with conditionals and includes. Version templates with code and deploy them through normal releases |
+| Compaction prompt ownership | The harness owns the exact production compaction prompts, including shared, initial, update, split-turn, and shortening instructions. Start the shared system prompt with an explicit context summarization assistant role, then state its task and constraints. Theos uses those defaults and can override individual prompts through `CompactionConfig`. Optional Theos override files live under `src/theos/prompts/compaction`. Omitted overrides use the corresponding harness production prompt. Theos currently ships no overrides. The harness owns prompt selection and the compaction algorithm. See `docs/runtime/prompts.md` for filenames and fields |
+| Comments | Explain constraints and number the major workflow steps. Use nearby ASCII diagrams for message order and complex flows |
+| Tests | Keep cases for distinct observable behavior, meaningful input boundaries, and important regressions. Consolidate related request and response assertions into contract tests. Remove constructor-only checks, framework introspection, and repeated examples of the same branch. Expand parameter matrices only when their interactions matter. Retain approvals, owner isolation, uncertain-action recovery, persistence, compaction, and supported provider contracts. See `docs/runtime/testing.md` |
 | Documentation | Task-based Markdown guides, Simplified Technical English, and existing Excalidraw PNG diagrams |
 
 Application and deployment environment variables use the `AGENT_` prefix.
@@ -570,3 +573,39 @@ Remove the global order field and both prepared order variables from the private
 Retain generic latency and throughput preferences. OpenRouter selects compatible ZDR endpoints for the selected model.
 Reasoning, context and output limits, retries, signed state, approvals, and safe recovery retain their existing behavior.
 Prepare release 0.1.16 through a topic PR, Pi promotion, and immutable release tag.
+
+## Rolling summary and research scratchpad, 2026-10-18
+
+The harness uses one rolling summary, with configurable 50% context trigger and 2.5% recent-tail defaults.
+The harness owns shared summary rules and separate initial, update, split-turn, and shortening prompts.
+Runtime supplies model settings, persistence, and usage callbacks.
+Update prompts retain relevant prior information and apply user corrections, confirmed progress, and resolved blockers.
+When compaction splits a turn, a separate call summarizes its original request and earlier progress.
+Combine that result with the history summary before the retained messages.
+Do not repeat a covered original request after the checkpoint.
+Reuse previous history when no new history summary is needed. Update an existing checkpoint when its request is already covered.
+Both summary parts must succeed before the checkpoint replaces the previous view.
+Optional `CompactionConfig.additional_instructions` supplies summary focus.
+Shortening tiers omit structured headings to avoid conflicting output requirements.
+The summary model is configurable and defaults to the conversation model.
+New unanswered user requests and unfinished tool batches stay verbatim. The saved transcript remains unchanged.
+New checkpoints use memory schema version 5.
+Recover the omitted request inside version 4 checkpoints from saved history until a successful compaction replaces them.
+The active model writes summaries without tools. Large messages stay in history and receive an index marker in summary input.
+History tools return exact saved text. Provider overflow retries use shorter summary tiers and never rerun completed tools.
+
+Deep Research evidence stays in the separate `research_scratchpad` table.
+Migration 013 renames the earlier evidence table and preserves its rows.
+Compaction does not summarize or alter scratchpad records.
+Gmail and Health service tools return compact summaries and fetch selected details by provider IDs or date/metric filters. Do not archive full provider responses or register generic provider-source readers.
+
+## Runtime provider context limits, 2026-10-18
+
+Read context and output limits from OpenRouter, Gemini, and Anthropic model metadata, then cache them for one hour. OpenAI's model endpoint does not publish context limits, so direct OpenAI uses a 272,000-token conservative cap for GPT-6 Luna and GPT-5.6 Luna. Other hosts may support more; use that host's metadata when available. Unknown models or providers use a 24,000-token fallback unless an operator sets `AGENT_CONTEXT_TOKENS`. An operator cap can lower, but never raise, a known provider limit.
+
+## Temporary provider result files, 2026-10-18
+
+Provider services decide when a normalized read result needs staging. Results under 8 KiB stay inline; larger results up to 1 MiB can be written under `/tmp/theos-results` through the sandbox peripheral.
+The helper returns a path and bounded instructions rather than copying full results into model context. If staging fails or exceeds the file limit, it returns a bounded preview and asks for a narrower provider read.
+Temporary result files are outside `/workspace` and are not checkpointed to R2. The runtime owns sandbox lifecycle; do not expose a model-facing `manage_workspace` tool.
+Keep `upload_file` for selected owner files and Gmail attachments that need workspace analysis.

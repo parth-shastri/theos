@@ -190,6 +190,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
 
     monkeypatch.setattr(CodeInterpreter, "create", interpreter)
     tools = runtime.sandboxes.tools("alice", "session1")
+    assert "manage_workspace" not in {item.name for item in tools}
     await call_tool(tools, "write_file", path="/tmp/note", content="hello")
     assert (await call_tool(tools, "read_file", path="/tmp/note"))["content"] == "hello"
     assert await call_tool(tools, "list_files", path="/tmp")
@@ -203,8 +204,11 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     await call_tool(tools, "upload_file", file_id=upload["id"], path="/tmp/input.txt")
     delivered = await call_tool(tools, "send_file_to_user", path="/tmp/input.txt")
     assert runtime.files.get("alice", delivered["file_id"])["size"] == 5
-    assert await call_tool(tools, "manage_workspace", action="renew")
-    assert await call_tool(tools, "manage_workspace", action="status")
+    staged = await runtime.sandboxes.stage_result(
+        "alice", "session1", "gmail_get_message", '{"body": "selected text"}'
+    )
+    assert staged["path"].startswith("/tmp/theos-results/gmail_get_message-")
+    assert remote_files[staged["path"]] == b'{"body": "selected text"}'
     await runtime.sandboxes.close()
     restarted = Sandboxes(runtime.settings, runtime.db, runtime.files)
     await restarted.get("alice", "session1")
@@ -212,7 +216,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     assert len(created) == 1
     await restarted.get("bob", "session1")
     assert len(created) == 2
-    await call_tool(restarted.tools("bob", "session1"), "manage_workspace", action="destroy")
+    await restarted.destroy("bob", "session1")
     with pytest.raises(LookupError):
         runtime.db.record("bob", "sandbox", "session1")
     await restarted.close()

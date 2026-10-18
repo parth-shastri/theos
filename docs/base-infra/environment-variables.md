@@ -90,11 +90,9 @@ See the [terminal guide](../terminal.md#connect-to-a-deployment).
 | `AGENT_DELEGATE_CALL_RATIO` | `1/3` | Fraction of total for each delegate ceiling when the count is absent, greater than 0 and at most 1. Round up |
 | `AGENT_TURN_TIMEOUT` | `300` | Optional bounded mode only. Deadline for new research, from 10 to 3600 seconds |
 | `AGENT_CONTEXT_TOKENS` | Unset | Optional context override, at least 4096 tokens and within known provider capacity |
-| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.5` | Configured trigger fraction, greater than zero and at most one. The policy applies its small-window floor |
-| `AGENT_COMPACTION_MODEL` | `gpt-6-luna` | Auxiliary summary model. Other providers use their conversation model unless configured |
-| `AGENT_COMPACTION_CONTEXT_TOKENS` | Unset | Optional auxiliary context capacity, at least 1024 tokens |
-| `AGENT_COMPACTION_TAIL_MODE` | `lean` | Token-sized lean tail or a larger current tail. Both preserve complete tool exchanges |
-| `AGENT_COMPACTION_MIN_TAIL_USER_MESSAGES` | `1` | Recent user messages retained in the tail, from 1 to 20. More messages can exceed the tail target |
+| `AGENT_COMPACTION_MODEL` | Conversation model | Optional provider model ID for summary calls |
+| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.5` | Start rolling compaction at this fraction of the context window, greater than 0 and at most 1 |
+| `AGENT_COMPACTION_TAIL_RATIO` | `0.025` | Keep this fraction of recent raw messages, greater than 0 and at most 0.5 |
 | `AGENT_MAX_OUTPUT_TOKENS` | `8192` | Default output allowance. Explicit conversation output settings override it |
 | `AGENT_MAX_UPLOAD_BYTES` | `10485760` | File limit, from 1024 to 26214400 bytes |
 
@@ -104,10 +102,8 @@ Unset context uses the model capacity from provider metadata or the verified cat
 Unknown models use a logged 24,000-token fallback unless the operator configures a window.
 The context override does not increase the selected model's capacity.
 Pi uses `AGENT_CONTEXT_TOKENS=100000` and `AGENT_MAX_OUTPUT_TOKENS=8192`.
-The default policy starts compaction at 68,856 input tokens for this Pi cap and output reservation.
+Compaction uses the configured trigger and tail ratios. Output reservations can trigger it earlier.
 Theos disables call budgets and research deadlines by default. Summary calls still enter usage records.
-An explicit trigger ratio overrides the default. Output reservations can require earlier compaction.
-Compaction starts at 70 percent by default and targets 45 percent after a complete summary.
 
 Omitted counts derive from the total using the configured ratios, rounded up.
 Explicit counts override their own ratios. Remove old explicit counts to enable automatic derivation.

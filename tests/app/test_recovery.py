@@ -176,15 +176,22 @@ async def test_provider_stall_during_recovery_returns_failure_without_retry(runt
 
 @pytest.mark.parametrize("recovery_fits", [True, False])
 async def test_context_limit_recovers_from_provider_rejection(runtime, recovery_fits):
+    runtime.enforce_budgets = True
     runtime.settings.context_tokens = 20000
-    runtime.settings.max_compaction_calls = 0
+    runtime.settings.max_compaction_calls = 5
     content = "Verified opening time: 7 AM. " + "source text " * 1000
     count = await install_read(runtime, content)
     replies = [RuntimeError("maximum context length is 10000 tokens; input too long")]
     replies += (
-        [AssistantMessage("The park opens at 7 AM.")]
+        [
+            AssistantMessage("The saved source is available in history."),
+            AssistantMessage("The park opens at 7 AM."),
+        ]
         if recovery_fits
-        else [RuntimeError("maximum context length is 10000 tokens; input too long")] * 2
+        else [
+            AssistantMessage("The saved source is available in history."),
+            RuntimeError("maximum context length is 10000 tokens; input too long"),
+        ]
     )
     research = FakeModel([read_call("one"), *replies])
     use_models(runtime, research)

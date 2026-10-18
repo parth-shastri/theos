@@ -150,7 +150,6 @@ Update the image tag in the Pi deployment environment when the runtime changes, 
 | File transfer | `upload_file`, `send_file_to_user` |
 | Images | `view_image` |
 | Browser | `browser` |
-| Lifetime | `manage_workspace` |
 
 Sandbox execution does not require approval.
 Uploaded files remain bound to the authenticated owner.
@@ -162,16 +161,15 @@ The model can receive a checked workspace image through `view_image`.
 Each conversation owns a remote sandbox ID.
 The application saves the ID and reconnects after an application restart.
 A saved ID does not guarantee that the remote sandbox still exists.
-Routine startup, reconnection, and checkpoint restoration are automatic. Use `manage_workspace` with `status`, `restart`, `destroy`, or `forget` only when the user asks to inspect or control the workspace.
-The legacy `renew` action returns status without extending expiry.
-`forget` removes the saved connection reference without destroying a remote instance.
+Routine startup, reconnection, expiry handling, and checkpoint restoration are automatic. The model has no workspace lifecycle control tool.
 
 The default lifetime is one hour from creation. Reconnection and activity do not reset this deadline.
 The client checks cached instances before execution and replaces confirmed missing or expired instances automatically.
 Transient connection failures retain the existing reference. They do not trigger replacement or repeat a command.
 Managed workspaces restore saved files before saving a replacement instance.
-Download important generated files before destroying the remote environment.
-SQLite and R2 retain versioned workspace checkpoints. Unsaved work in a dead sandbox cannot be recovered.
+SQLite and R2 retain versioned `/workspace` checkpoints. Unsaved work in a dead sandbox cannot be recovered.
+
+Large, normalized Gmail search, message, thread, and draft results, plus Health summary and export-status results, can be staged under `/tmp/theos-results` when they exceed 8 KiB. Staging stops at 1 MiB. The runtime does not checkpoint this directory, so staged results disappear when the sandbox is replaced or expires. If staging fails, the provider tool returns a bounded preview and the model can repeat the read with narrower arguments.
 
 ## Credential boundary
 

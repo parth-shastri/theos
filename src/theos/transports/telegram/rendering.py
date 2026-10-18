@@ -1,4 +1,8 @@
-"""Telegram response edits, tool progress, and approval buttons."""
+"""Render Theos turn events as Telegram messages, progress, files, and approvals.
+
+The runtime produces transport-neutral events. This file decides how Telegram should
+display them; it does not decide what the model should do or execute the tools.
+"""
 
 import json
 import time
@@ -13,6 +17,8 @@ from .formatting import format_approval, format_reply, format_tool_activity
 
 def format_stats(stats, status):
     """Describe measured calls and successfully loaded skills in literal text."""
+    # Keep the completion footer useful but small. Stats come from the turn, not a
+    # model-generated claim about how long it ran or which tools succeeded.
     seconds = round(stats["elapsed_seconds"])
     minutes, seconds = divmod(seconds, 60)
     duration = f"{minutes}m {seconds:02d}s" if minutes else f"{seconds}s"
@@ -43,9 +49,14 @@ def format_stats(stats, status):
 
 async def render(bot, turn, chat, topic):
     """Display streamed text, progress, approvals, and generated files."""
+    # Runtime.start() works in a background task. This placeholder tells the user the
+    # turn exists while render() waits for that task's first display event.
     sent = await bot.send(chat, "Thinking…", topic)
     text, last_edit = "", 0.0
+    # Keep Telegram message IDs so later events can edit or remove the right messages.
     messages = [(sent["message_id"], {"text": "Thinking…", "entities": []})]
+    # Each cache tracks temporary messages by purpose and tool/call ID. Separate caches
+    # stop one tool's cleanup from deleting a reasoning or compaction notice.
     activities = {}
     compactions = {}
     summaries = {}
@@ -54,9 +65,12 @@ async def render(bot, turn, chat, topic):
     pending_approvals = set()
     summary_text, last_summary_edit = "", 0.0
     if getattr(turn, "session_id", None):
+        # A newer turn is a convenient time to remove approval cards resolved elsewhere.
         await approval_messages.remove_resolved(bot, turn.owner, turn.session_id)
 
     async def remove_activity(cache, key):
+        # Temporary progress should disappear when its work ends. Keep a reference if
+        # Telegram refuses deletion so the app can try cleanup again later.
         if key not in cache:
             return
         remaining = []
@@ -83,6 +97,8 @@ async def render(bot, turn, chat, topic):
             cache.pop(key, None)
 
     async def activity_parts(cache, key, parts):
+        # Reuse existing Telegram messages while an activity changes; send extra chunks
+        # only when needed, because Telegram edits are less noisy than repeated sends.
         previous = cache.get(key, [])
         current = []
         for index, part in enumerate(parts):
@@ -129,6 +145,8 @@ async def render(bot, turn, chat, topic):
         await activity_parts(cache, key, format_reply(value))
 
     async def remove_thinking_placeholder():
+        # Reasoning summaries can be the first visible update. Replace the placeholder
+        # instead of leaving both "Thinking…" and the summary in the chat.
         if (
             not text
             and messages
@@ -138,12 +156,15 @@ async def render(bot, turn, chat, topic):
             summaries["summary"] = [messages.pop(0)]
 
     async def clear_summary():
+        # Once answer text arrives, remove temporary reasoning-summary messages.
         nonlocal summary_text
         if "summary" in summaries:
             await remove_activity(summaries, "summary")
         summary_text = ""
 
     async def edit(value):
+        # Formatting is centralized in formatting.py, which converts Markdown into
+        # Telegram entities and splits long messages without breaking entity offsets.
         parts = format_reply(value)
         # Reparse the whole reply so split fences and partial links recover on later deltas.
         for index, part in enumerate(parts):
@@ -172,15 +193,21 @@ async def render(bot, turn, chat, topic):
             messages.pop()
 
     try:
+        # Turn.events() is the bridge from Runtime.publish_event() to this transport.
+        # Each event below changes only the Telegram presentation of that turn.
         async for event in turn.events():
             kind = event["type"]
             if kind == "text":
+                # Deltas arrive in small pieces. Accumulate them, then edit at most once
+                # per second to avoid Telegram rate limits and unnecessary network calls.
                 await clear_summary()
                 text += event["text"]
                 if time.monotonic() - last_edit >= 1:
                     await edit(text or "…")
                     last_edit = time.monotonic()
             elif kind == "reasoning" and event.get("display_summary"):
+                # Only explicitly displayable summaries reach Telegram. Raw provider
+                # reasoning is not rendered by this branch.
                 summary_text += event["text"]
                 await remove_thinking_placeholder()
                 if time.monotonic() - last_summary_edit >= 1 or "summary" not in summaries:
@@ -194,6 +221,8 @@ async def render(bot, turn, chat, topic):
                 sent = await bot.send(chat, "Thinking…", topic)
                 messages.append((sent["message_id"], {"text": "Thinking…", "entities": []}))
             elif kind in {"assistant_complete", "answer_replace"}:
+                # A complete response can replace streamed text, for example after a
+                # recovery step produces the final answer.
                 await clear_summary()
                 text = event["text"] or ""
                 if text:
@@ -201,6 +230,8 @@ async def render(bot, turn, chat, topic):
                 elif not event.get("requested_tools"):
                     await edit("…")
             elif kind == "compaction":
+                # Context compaction is background model work. Show a short notice instead
+                # of exposing its internal prompt or summary content.
                 label = (
                     "research context" if event.get("parent_call_id") else "earlier conversation"
                 )
@@ -211,6 +242,8 @@ async def render(bot, turn, chat, topic):
                 else:
                     await remove_activity(compactions, key)
             elif kind == "tool":
+                # Tool events tell us when to show exact arguments and when that temporary
+                # card can be removed. The call ID keeps parallel calls distinct.
                 state = event["status"]
                 key = (event.get("parent_call_id"), event["call_id"])
                 item = seen_tools.setdefault(key, {"skill": None})
@@ -245,6 +278,8 @@ async def render(bot, turn, chat, topic):
                         },
                     )
             elif kind == "approvals":
+                # Approval cards need stable message references so a later button press,
+                # timeout, or decision in another client can remove them.
                 for item in event["items"]:
                     if item["id"] in pending_approvals:
                         continue
@@ -274,6 +309,8 @@ async def render(bot, turn, chat, topic):
                     )
                     # Preserve the full review in a file when the message limit would hide action details.
                     if len(parts) > 4:
+                        # Keep the entire review available when Telegram's message limit
+                        # would otherwise make the action too long to inspect safely.
                         review_file = bot.runtime.files.save(
                             turn.owner, "approval-review.txt", "text/plain", full_preview.encode()
                         )
@@ -296,6 +333,8 @@ async def render(bot, turn, chat, topic):
                         ]
                     }
                     for index, part in enumerate(parts):
+                        # Put buttons only on the last chunk so all parts refer to the same
+                        # complete review and one approval decision.
                         posted = await bot.api(
                             "sendMessage",
                             {
@@ -308,10 +347,16 @@ async def render(bot, turn, chat, topic):
                         )
                         approval_messages.remember(bot, item["id"], chat, posted)
             elif kind == "file":
+                # The event contains a catalog ID; deliver_file checks that it belongs to
+                # this turn's owner before opening and sending the file.
                 await bot.deliver_file(turn.owner, chat, topic, event["file_id"])
             elif kind == "error":
+                # Errors are displayed only after Runtime has converted them to a safe
+                # user-facing message; provider exceptions stay out of Telegram.
                 text = event["message"]
             elif kind == "done":
+                # This is the terminal event. Send any final answer and measured footer,
+                # or leave approval cards in place while the turn waits for a decision.
                 final = text or {
                     "waiting_for_approval": "Waiting for your approval.",
                     "budget_exhausted": "This turn reached its model-call limit. Send /resume to continue.",
@@ -335,6 +380,8 @@ async def render(bot, turn, chat, topic):
                     }
                     await bot.send(chat, format_stats(stats, event["status"]), topic)
     finally:
+        # A cancelled turn must not leave temporary reasoning, tool, or compaction cards
+        # looking active in the chat.
         for cache in (activities, compactions, summaries):
             for key in list(cache):
                 await remove_activity(cache, key)

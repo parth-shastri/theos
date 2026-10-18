@@ -1,4 +1,4 @@
-"""Construct harness models and close the SDK clients that own connections."""
+"""Choose a harness model adapter from Theos settings and manage its SDK client."""
 
 import json
 from contextlib import asynccontextmanager
@@ -27,8 +27,10 @@ def session_options(settings, session):
 @asynccontextmanager
 async def model_client(settings, model_id, reasoning):
     """Use the configured provider with explicit timeouts and bounded retries."""
+    # Resolve Theos' configured model to the provider-specific ID outside the generic loop.
     model_id = wire_model(settings.provider, model_id)
     if settings.provider == "fake":
+        # Local tests can exercise the same Runtime without credentials or network calls.
         yield FakeModel(
             [AssistantMessage(f"{settings.name} is ready. This is a local test response.")]
         )
@@ -36,6 +38,7 @@ async def model_client(settings, model_id, reasoning):
     key = settings.api_key.get_secret_value()
     if not key and settings.provider != "llama":
         raise ValueError("Set AGENT_API_KEY for the configured model provider.")
+    # Import each provider SDK only when selected, so deployments need only their own SDK.
     if settings.provider == "gemini":
         from google import genai
 
@@ -81,6 +84,8 @@ async def model_client(settings, model_id, reasoning):
                 thinking=None if reasoning == "none" else {"type": "adaptive"},
             )
     else:
+        # OpenAI, OpenRouter, and the local llama server share the OpenAI SDK transport;
+        # their harness adapters handle differences in endpoint and request format.
         from openai import AsyncOpenAI
 
         from harness.providers.openai import OpenAIChatModel
@@ -124,6 +129,7 @@ async def model_client(settings, model_id, reasoning):
 
 def model_options(provider, reasoning):
     """Use each provider's reasoning field without changing the harness API."""
+    # One Theos setting is translated to provider-specific option names here.
     if provider == "openai":
         options = {} if reasoning == "default" else {"effort": reasoning}
         if reasoning != "none":

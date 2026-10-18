@@ -162,16 +162,19 @@ agent = Agent(
     compaction=CompactionConfig(
         prompt="Summarize the task, findings, sources, and unresolved questions.",
         options={"max_tokens": 512},
-        max_summary_tokens=256,
-        reduce_current_turn=True,
     ),
 )
 session = AgentSession(agent, JsonlStore(Path(".sessions")))
 ```
 
-Completed tool batches can be summarized even when one batch exceeds the
-available context. Incomplete batches remain intact. Summary requests share the
-model-call budget and leave one call for the answer. The original transcript
-stays unchanged, and failed summaries do not replace the last complete memory.
+The harness uses the same model to update the rolling summary without tools.
+Production prompts live in `src/harness/prompts/compaction/` as Markdown Jinja templates.
+`CompactionConfig` accepts `initial_prompt`, `update_prompt`, `turn_prefix_prompt`, and three `shortening_prompts`.
+Omitted fields retain their production defaults. `prompt` supplies shared instructions and `additional_instructions` adds optional focus.
+Split turns use separate history and turn-prefix summaries.
+The combined checkpoint precedes retained messages and includes the covered original request.
+New unanswered requests remain verbatim. The complete history stays unchanged.
+Large messages keep their history indexes for exact retrieval.
+Provider overflow retries use shorter summary tiers without rerunning completed tools.
 Direct callers can pass a `ContextMemory` instance through `Agent.run` or
 `Agent.run_stream` to retain summaries between turns.

@@ -1,5 +1,69 @@
 # Feature and acceptance checklist
 
+## Test consolidation, 2026-10-18
+
+The local suite passed 1,017 cases, down from 1,153. Three live provider checks remain deselected.
+The cleanup removed 136 cases through redundant-check removal, smaller independent-flag matrices, and consolidated request and response contracts.
+Approval, ownership, recovery, persistence, compaction, and provider failure scenarios remain covered.
+Source coverage retained the same 11,171 executed lines and 3,218 branch outcomes.
+Application source hashes remained unchanged. The retained estimator contracts reject a constant-one estimator.
+Python lint, formatting, and whitespace checks passed for the changed tests.
+See [test selection](testing.md) for the retained-case policy and coverage commands.
+
+## Packaged Markdown prompts, 2026-10-18
+
+Theos runtime prompts and harness production prompts now live in separate package-owned `.md` directories.
+Jinja supplies includes and text conditions. Python retains capability checks, data retrieval, and compaction decisions.
+Theos can override individual compaction prompts through `CompactionConfig`. Missing overrides retain harness production defaults.
+See [prompt templates](prompts.md) for the supported filenames and fields.
+
+The full local suite passed 1,153 tests, with three live checks deselected.
+Prompt checks cover conditional composition, missing variables, literal inserted data, isolated renders, and per-operation overrides.
+Baseline comparisons retained exact text across 32 chat combinations and all six summary operations.
+They also retained delegate, speech, title, recovery, skill, tool-batch, and checkpoint wrapper text.
+A clean wheel installation loaded and rendered all 27 prompt resources outside the repository with core dependencies only.
+Python lint, formatting, lock validation, and whitespace checks passed.
+These checks used scripted model responses and local data. They did not deploy a release.
+
+## Temporary provider result files and workspace tools, 2026-10-18
+
+Selected Gmail search, message, thread, and draft reads, plus Health summary and export-status reads, keep normalized results up to 8 KiB inline. Larger results up to 1 MiB use temporary files under `/tmp/theos-results`, outside the durable `/workspace` checkpoint tree.
+If staging fails or the result is too large, the tool returns a bounded preview with instructions to narrow the provider read. Model-facing file and execution tools can inspect selected sections.
+The model-facing `manage_workspace` lifecycle tool is removed. Sandbox recovery remains automatic, and `upload_file` remains for selected user files and downloaded attachments.
+
+`tests/test_result_files.py` checks inline results, temporary staging, bounded fallback, and the size limit.
+`tests/app/test_integrations.py` checks temporary sandbox writes and the available sandbox tool list.
+`tests/app/test_sandbox_recovery.py` checks lifecycle recovery through the internal sandbox service.
+
+## Rolling summary and research scratchpad, 2026-10-18
+
+The harness keeps one rolling summary and the full transcript.
+It defaults to a 50% trigger and a 2.5% recent tail. Both ratios and the summary model are configurable.
+The harness owns shared summary rules and initial, update, split-turn, and shortening prompts.
+Runtime supplies model settings and persistence and usage callbacks.
+Split turns use separate history and turn-prefix summary calls.
+The checkpoint contains the covered original request and precedes the retained messages.
+New unanswered user requests and unfinished tool batches remain verbatim.
+Provider overflow retries use shorter summary tiers and do not repeat completed tools.
+Large messages remain available through exact history tools.
+Deep Research evidence remains in the separate `research_scratchpad` table.
+
+`tests/test_compaction.py` checks summary updates, tool batches, retry tiers, and exact history reads.
+It checks separate split-turn calls, prompt selection, optional focus, and context order without request replay.
+It checks atomic failure when either summary is unavailable and retains unfinished tool batches during overflow recovery.
+Shortening checks verify that the three length tiers omit structured heading requirements.
+`tests/app/test_text_summary_state.py` checks checkpoints, version 4 recovery, schema migration rollback, and scratchpad independence.
+Prompt checks use scripted model responses.
+The local suite passed 1,117 tests, with three live checks deselected.
+Python lint, formatting, and whitespace checks passed for the changed code.
+
+## Runtime provider context limits, 2026-10-18
+
+OpenRouter, Gemini, and Anthropic context and output limits come from their model metadata and are cached for one hour. Direct OpenAI uses a conservative 272,000-token cap for GPT-6 Luna and GPT-5.6 Luna; available model profiles differ by host, and OpenAI's model endpoint does not return a context limit.
+Unknown models or providers use a 24,000-token fallback unless `AGENT_CONTEXT_TOKENS` is set. Explicit context settings can reduce known limits but cannot exceed provider metadata or the conservative OpenAI cap.
+
+`tests/app/test_context_policy.py` checks provider metadata, both OpenAI Luna aliases with and without an operator setting, cache behavior, and the unknown-model fallback.
+
 ## Philosophical personality and approved speech, 2026-10-17
 
 The full local application suite passed 1,131 tests, with three credential-dependent tests excluded.
@@ -133,7 +197,7 @@ Test files are in [`tests/app`](../../tests/app).
 | --- | --- | --- |
 | Persistent conversations, resets, model and reasoning choices | `runtime/`, `server.py`, `runtime/models.py` | `test_runtime.py`, `test_interfaces.py` |
 | Streaming, tool progress, approvals, bounded concurrent turns | `runtime/` | `test_runtime.py`, `test_interfaces.py` |
-| Compaction and bounded research delegates | Existing harness, `runtime/` | Existing compaction tests, `test_integrations.py` |
+| Rolling summary, history retrieval, and bounded research delegates | `harness/compaction.py`, `harness/tools.py`, `runtime/`, `services/research/` | `test_compaction.py`, `test_text_summary_state.py`, `test_integrations.py` |
 | Telegram private chats, allowlists, groups, topics, commands | `transports/telegram/` | `test_interfaces.py` |
 | Telegram `/start` onboarding, access code, preferred name, timezone, 50-user cap, restart recovery | `transports/telegram/onboarding.py`, `storage/telegram_access.py`, SQLite migrations 003, 004, and 008 | `test_telegram_onboarding.py` |
 | Photos, image documents, albums, voice, uploads, file delivery | `transports/telegram/`, `services/files/`, `services/voice/` | `test_interfaces.py`, `test_integrations.py`, `test_regressions.py` |
@@ -153,7 +217,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Exa search, Brave fallback, current weather, forecasts | `services/search/`, `services/weather/`, `services/skills/` | Mock service contracts in `test_integrations.py` |
 | Skill discovery and text resources | `services/skills/` | Resource loading and path restrictions in `test_integrations.py` |
 | Shell, Python, files, images, browser automation | `services/sandbox/` | OpenSandbox SDK contracts in `test_integrations.py` |
-| Sandbox creation, reconnection, renewal, destruction | `services/sandbox/` | Lifecycle and owner isolation in `test_integrations.py` |
+| Sandbox creation, reconnection, expiry, destruction | `services/sandbox/` | Lifecycle and owner isolation in `test_sandbox_recovery.py`, `test_integrations.py` |
 | File catalog, R2 archive, restore, deletion | `services/files/` | Storage contracts and ownership in `test_integrations.py` |
 | Voice transcription and Kokoro speech | `services/voice/` | Request formats and generated files in `test_integrations.py` |
 | Per-user Google authorization and disconnection | `services/google/oauth.py` | State, scopes, encryption, expiry, races, and ownership tests |

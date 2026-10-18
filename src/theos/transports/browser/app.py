@@ -281,7 +281,7 @@ def create_app(settings=None, runtime=None):
         row = store.get(owner, session_id, run_id)
         row["history"] = json.loads(row["history"])
         row["memory"] = json.loads(row["memory"])
-        row["items"] = store.items(owner, session_id, run_id, family=True)
+        row["scratchpad"] = store.scratchpad(owner, session_id, run_id, family=True)
         row["checkpoints"] = current(request).db.rows(
             "SELECT id,history,memory,created FROM research_checkpoints WHERE run=? ORDER BY id",
             (run_id,),

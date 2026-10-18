@@ -8,7 +8,6 @@ The health adapters use code by queryplanner from commit `d006624c150973a5637dbf
 The original MIT notice is in [`src/theos/UPSTREAM-LICENSE`](../../src/theos/UPSTREAM-LICENSE).
 
 The browser controls and visual tokens follow [ocr-checker commit e51dc10](https://github.com/parth-shastri/ocr-checker/tree/e51dc10935384935e55aa80026c7255e9df0d688).
-The original MIT notice is in [`src/theos/OCR-CHECKER-LICENSE`](../../src/theos/OCR-CHECKER-LICENSE).
 The assistant uses its own HTML, JavaScript, and application icon.
 
 The browser serves the Latin subset of Space Grotesk from `@fontsource-variable/space-grotesk` version `5.3.0`.

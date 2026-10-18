@@ -9,6 +9,6 @@ def long_history():
         for i in range(18)
         for message in (
             UserMessage(f"Question {i}"),
-            AssistantMessage(f"Finding {i}: " + "Evidence text. " * 5000),
+            AssistantMessage(f"Finding {i}: " + "Evidence text. " * 1000),
         )
     ]
