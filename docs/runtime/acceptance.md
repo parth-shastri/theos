@@ -1,5 +1,21 @@
 # Feature and acceptance checklist
 
+## Local account and light navigation checks, 2026-10-18
+
+The ARM64 image completed explicit research, Gmail search/body/thread reads, and a bounded spending-analysis scenario.
+Research returned six primary documentation links and saved its evidence separately from conversation compaction.
+Gmail reads exercised temporary result files and selected message and thread access.
+The spending answer retained four inspected source IDs and evidence amounts. Its two currency subtotals passed an independent arithmetic check.
+The answer reported sample coverage and exclusions. No Gmail write tool ran.
+Private mailbox contents and amounts remain outside project artifacts.
+
+A synthetic long conversation reproduced low-contrast sidebar labels behind the original glass material.
+Darker light-mode ink resolved the cost, identity, and conversation-action labels without changing frost parameters.
+The mobile header now supplies a box for the existing optical layer.
+Native checks passed at 320px, 390px, and 1280px without horizontal overflow.
+Computed dark-mode header, toggle, sidebar, optical layer, cost, identity, and conversation-action styles matched the baseline.
+The page declares the existing Theos image as its PNG favicon and touch icon.
+
 ## Structured prompts and shared voice, 2026-10-18
 
 All 27 prompt templates now use explicit sections or sectioned composition.
@@ -17,7 +33,7 @@ The wheel contains all 27 templates and no standalone upstream license or notice
 Four tool-free live model probes covered decisive advice, uncertain actions, duplicate receipt evidence, and requested gentleness.
 The uncertain backup remained uncertain. Matching receipt IDs did not establish separate payments.
 A separate speech probe preserved `16:30`, `3`, and `2500 USD` exactly.
-These probes used synthetic examples. Live Gmail and spending analysis await checks on the updated local image.
+These probes used synthetic examples. The connected local account checks are recorded above.
 
 The speech gateway and client match `feature/philosophical-voice`.
 Configured synthesis uses `am_michael(0.7)+bm_george(0.3)` at speed `0.9`.
