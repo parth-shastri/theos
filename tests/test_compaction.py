@@ -61,7 +61,8 @@ async def test_configured_operation_prompts_reach_the_summary_model(mode, kwargs
     request = model.requests[0]
     separator = "\n" if kwargs["tier"] else "\n\n"
     assert request.messages[0].content == (
-        f"Shared override{separator}{mode}\n\nAdditional focus: Keep {{{{ literal }}}} evidence."
+        f"Shared override{separator}{mode}\n\n# Additional Focus\n\n"
+        "Additional focus: Keep {{ literal }} evidence."
     )
     assert request.messages[1].content == "Supplied evidence."
     assert not request.tools

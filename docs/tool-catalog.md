@@ -6,7 +6,8 @@ The Deep Research evidence scratchpad stays separate and keeps its existing serv
 Prompt templates use Jinja2 as a core dependency, with MarkupSafe as its transitive dependency.
 The shared renderer loads Markdown files from installed packages and fails on missing template variables.
 Theos can override harness production compaction prompts through configuration.
-See [prompt templates](runtime/prompts.md) for the resource directories and override fields.
+See [prompt templates](runtime/prompts.md) for the resource directories, section structure, and override fields.
+Theos chat and speech preparation share one persona fragment. Research delegates and harness summaries keep factual task roles.
 
 Test audits can use Coverage.py through `uv run --with coverage` for source-line and branch comparisons.
 Coverage.py remains an optional audit tool outside the locked project dependencies.
@@ -111,7 +112,7 @@ The application saves UTC timestamps and durations in history JSON through `stor
 Native browser timers and Intl formatters supply live updates and local timestamps.
 
 Markdown uses locally served [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16.
-The [vendor manifest](browser-vendor-provenance.json) records pinned package sources, file hashes, and included license files.
+The [vendor manifest](browser-vendor-provenance.json) records pinned package sources and file hashes.
 The renderer treats raw HTML as text and removes unsafe links from generated markup.
 
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.

@@ -82,6 +82,17 @@ def test_request_values_remain_literal_and_do_not_leak_between_renders():
     assert literal not in bob
     assert "Alice" not in bob
     assert "You are Bob" in bob
+    sections = [
+        "# Role and Identity",
+        "# Personality and Voice",
+        "# Instructions",
+        "# Response Format",
+        "# Examples",
+        "# Runtime Context",
+    ]
+    positions = [bob.index(section) for section in sections]
+    assert positions == sorted(positions)
+    assert "<user_preferences>\n{}\n</user_preferences>" in bob
     checkpoint = render_prompt(
         "harness", "compaction/checkpoint.md", label="Checkpoint", summary=literal
     )
@@ -99,6 +110,7 @@ def test_delegate_research_policy_has_an_explicit_delegation_condition():
     assert "Use deep_research for independent assignments" in parent
     assert "Use deep_research for independent assignments" not in child
     assert "Read important original sources with read_source" in child
+    assert "# Personality and Voice" not in child
 
 
 def test_operator_skill_contents_are_not_rendered_as_templates():

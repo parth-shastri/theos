@@ -89,7 +89,7 @@ Keep provider and protocol rules inside the owning service.
 Keep generic harness behavior under `src/harness`.
 Transport modules handle authentication and delivery.
 They do not own service records or external protocols.
-Preserve source notices and provenance manifests.
+Preserve provenance manifests and the project's root license. Do not restore standalone upstream license files or source attribution notices.
 
 ## Maintain documentation
 

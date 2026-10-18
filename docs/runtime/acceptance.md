@@ -1,5 +1,29 @@
 # Feature and acceptance checklist
 
+## Structured prompts and shared voice, 2026-10-18
+
+All 27 prompt templates now use explicit sections or sectioned composition.
+Main chat separates identity, persona, instructions, response format, examples, and runtime context.
+Preferences and retrieved memory use labeled context blocks.
+Chat and speech preparation include the same persona. Source preservation takes precedence during speech preparation.
+Delegates, titles, and harness summaries retain factual task roles. Compaction selection and split-turn ordering remain unchanged.
+
+The full local suite passed 1,021 tests, with three live-provider tests excluded.
+The 18 focused speech and identity checks passed after the final composition change.
+Existing checks now verify persona delivery to the speech request and the main prompt's section order.
+No new pytest cases were added. Python lint, formatting, lock validation, and whitespace checks passed.
+The wheel contains all 27 templates and no standalone upstream license or notice copies.
+
+Four tool-free live model probes covered decisive advice, uncertain actions, duplicate receipt evidence, and requested gentleness.
+The uncertain backup remained uncertain. Matching receipt IDs did not establish separate payments.
+A separate speech probe preserved `16:30`, `3`, and `2500 USD` exactly.
+These probes used synthetic examples. Live Gmail and spending analysis await checks on the updated local image.
+
+The speech gateway and client match `feature/philosophical-voice`.
+Configured synthesis uses `am_michael(0.7)+bm_george(0.3)` at speed `0.9`.
+The reachable gateway reported profile `theos-subtle-v1`.
+A live synthesis request returned decodable MP3 audio with the selected blend and speed.
+
 ## Test consolidation, 2026-10-18
 
 The local suite passed 1,017 cases, down from 1,153. Three live provider checks remain deselected.

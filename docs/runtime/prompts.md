@@ -23,6 +23,38 @@ The harness owns the compaction algorithm and its production defaults.
 Theos uses those defaults unless its release includes explicit override files.
 Tool schemas, permission checks, retrieval, and message roles remain in Python.
 
+## Prompt structure
+
+Main prompts separate their purpose and rules with Markdown headings:
+
+```markdown
+# Role and Identity
+
+# Personality and Voice
+
+# Instructions
+
+# Response Format
+
+# Examples
+
+# Runtime Context
+```
+
+Use only the sections a task needs. A reusable fragment does not need a separate identity.
+Keep operational rules separate from response style and runtime data.
+Place dynamic preferences and retrieved memory in labeled blocks after the stable chat instructions.
+Examples illustrate behavior. Their details are not evidence for the current task.
+
+Theos chat and speech preparation include `shared/personality.md`.
+Speech source preservation takes precedence over style. Delegates and harness summaries use factual language.
+Compaction prompts distinguish role, task, preservation rules, and the requested summary format.
+Shortening calls still request prose without summary headings.
+
+This structure follows [OpenAI's prompt guidance](https://developers.openai.com/api/docs/guides/prompt-engineering)
+and [Anthropic's guidance](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices).
+The exact sections depend on the task. They are not a required schema for every fragment.
+
 ## Render a prompt
 
 `src/harness/prompting.py` provides a package-aware Jinja environment.
@@ -54,7 +86,7 @@ Render trusted package files once. Inserted values retain literal Jinja syntax a
 Do not pass service clients, database handles, or secrets into template context.
 
 Missing variables fail through `StrictUndefined`. Prompt text uses no HTML escaping.
-Whitespace settings preserve existing rendered text, including spaces from included partials.
+Templates own their paragraph breaks and section boundaries. Keep includes separated so adjacent instructions cannot run together.
 Runtime startup compiles templates and checks static includes.
 Request values remain local to each render. The cache stores compiled templates only.
 
@@ -108,5 +140,6 @@ uv run pytest tests/test_prompting.py tests/test_compaction.py tests/app/test_pr
 uv build --wheel
 ```
 
-The prompt extraction preserves existing text and message order.
-Changes to wording or placement need separate review because they can change model behavior.
+The initial extraction preserved existing text and message order.
+The structured revision changes wording and placement while retaining capability gates, operation selection, and context ordering.
+Review the assembled prompt and representative outputs when changing these instructions.

@@ -1,5 +1,8 @@
+# Output Format
+
 Use these Markdown headings in this order. Write (none) for an empty section.
 
+```markdown
 ## Goal
 [The user's goals]
 
@@ -24,3 +27,4 @@ Use these Markdown headings in this order. Write (none) for an empty section.
 
 ## Critical Context
 - [Facts and references needed to continue]
+```

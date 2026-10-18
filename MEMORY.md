@@ -82,7 +82,7 @@ Updated: 2026-10-18.
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Final voice | Kokoro `am_michael(0.7)+bm_george(0.3)`, speed `0.9`, with the approved subtle robotic treatment in the separate `speech` gateway. Keep DSP dependencies out of the Pi application image. Authenticate gateway requests with `AGENT_KOKORO_KEY`. Existing environment overrides require an explicit rollout update. The louder audition is not the selected profile |
-| Personality | Calm, deliberate, curious, philosophical, and lightly dry in humor. Connect ideas to concrete choices without lectures. Complete practical work first. Use relevant philosopher quotations sparingly, verify uncertain attribution, and clearly label paraphrases. Honor requested tone and urgency. See `docs/personality.md` |
+| Personality | Commanding, self-assured, philosophical, and darkly witty, with deliberate cadence and restrained theatrical weight. Describe these traits directly without naming a fictional character. Chat and speech preparation share one persona. Facts, source fidelity, requested tone, and urgency take precedence over style. Use original observations and verify attributed quotations. Keep research delegates and harness summaries factual. See `docs/personality.md` |
 | Expressive TTS text | Every browser or tool synthesis request first uses one bounded, tool-free model call to write an expressive spoken rendition. Preserve facts, numbers, quotations, uncertainty, and action outcomes. Use words and punctuation rather than unsupported emotion tags. Retain display text and history. Record model usage under the owner and conversation. Fail preparation rather than silently reading plain source text |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
 | Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
@@ -101,7 +101,7 @@ The package name, storage paths, and existing deployment resource names remain s
 
 The user requested removal of unrelated starter examples and historical planning documents.
 The required mock API fixture now lives under `tests/fixtures`.
-Keep harness tests, source notices, provenance manifests, and editable architecture sources.
+Keep harness tests, provenance manifests, and editable architecture sources.
 Keep only reusable building blocks in the separate `agents-intro` repository.
 
 ## Implemented application
@@ -613,3 +613,14 @@ Provider services decide when a normalized read result needs staging. Results un
 The helper returns a path and bounded instructions rather than copying full results into model context. If staging fails or exceeds the file limit, it returns a bounded preview and asks for a narrower provider read.
 Temporary result files are outside `/workspace` and are not checkpointed to R2. The runtime owns sandbox lifecycle; do not expose a model-facing `manage_workspace` tool.
 Keep `upload_file` for selected owner files and Gmail attachments that need workspace analysis.
+
+## Structured prompts and shared persona, 2026-10-18
+
+Main prompts separate role, instructions, output rules, examples, and runtime context with Markdown headings.
+Reusable fragments use only the sections they need. Templates remain ordinary `.md` files.
+Place the persona near the main identity and keep dynamic preferences and retrieved memory in labeled context blocks.
+The same persona guides chat and speech preparation. Speech source preservation takes precedence over style.
+Keep factual research handoffs, titles, and generic harness compaction separate from user-facing personality.
+The selected voice branch already supplies the Michael/George blend, speed 0.9, and `theos-subtle-v1` processing.
+The operator requested removal of standalone upstream license files and attribution notices. Do not restore those copies.
+Keep the project's root license and provenance manifests.
