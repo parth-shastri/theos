@@ -685,3 +685,10 @@ The Mac mini already has sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e
 The Pi still uses the 2026-10-15 image. Set the new tag in local `.env.pi` and the Pi deployment environment.
 Preserve other private settings and file mode 0600. Prepare report skills and run the live sandbox probe before tagging.
 Confirm the release workflow and active Pi manifest before claiming deployment.
+
+## Telegram onboarding and sandbox progress, 2026-10-19
+
+When a ready private user sends `/start`, ask before restarting onboarding.
+The continue choice keeps the saved profile and conversation history available.
+The restart choice collects the name and timezone again without deleting saved records.
+Show `run_command` input as shell code, `browser` input as its `agent-browser` command, and `execute_code` input as Python code in Telegram progress events.
