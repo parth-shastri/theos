@@ -75,6 +75,7 @@ async def test_normal_turn_cannot_call_deep_research_or_create_records(runtime):
 
 async def test_explicit_mode_is_one_turn_and_persists_full_report(runtime):
     runtime.settings.context_tokens = 100000
+    runtime.settings.sandbox.enabled = True
     row = runtime.db.create_session("alice", "test-model", "default")
     report = "Full research report. " * 3000 + "REPORT END"
     deep = FakeModel([AssistantMessage(report)])
@@ -85,9 +86,15 @@ async def test_explicit_mode_is_one_turn_and_persists_full_report(runtime):
     runs = runtime.research.runs("alice", row["id"])
     assert len(runs) == 1
     assert runtime.research.get("alice", row["id"], runs[0]["id"])["answer"] == report
-    assert {"deep_research", "read_source", "save_research_note"} <= {
-        t.name for t in deep.requests[0].tools
-    }
+    assert {
+        "deep_research",
+        "read_source",
+        "save_research_note",
+        "run_command",
+        "send_file_to_user",
+        "view_image",
+    } <= {t.name for t in deep.requests[0].tools}
+    assert "gmail_send_draft" not in {t.name for t in deep.requests[0].tools}
     assert not {"deep_research", "read_source", "save_research_note"} & {
         t.name for t in normal.requests[0].tools
     }

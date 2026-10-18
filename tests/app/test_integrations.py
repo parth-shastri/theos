@@ -147,7 +147,8 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
             return remote_files[path]
 
         async def read_bytes(self, path, **kwargs):
-            return remote_files[path]
+            assert kwargs == {"range_header": f"bytes=0-{runtime.settings.max_upload_bytes}"}
+            return remote_files[path][: runtime.settings.max_upload_bytes + 1]
 
         async def list_directory(self, entry):
             assert entry.path == "/tmp"
@@ -200,10 +201,19 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     assert commands[-1] == "agent-browser open 'https://example.org/a;echo bad'"
     result = await call_tool(tools, "view_image", path="/tmp/image.png")
     assert runtime.files.image("alice", result["file_id"])
-    upload = runtime.files.save("alice", "input.txt", "text/plain", b"input")
+    assert (
+        Path(runtime.files.get("alice", result["file_id"])["path"]).read_bytes()
+        == output.getvalue()
+    )
+    payload = b"binary\r\n\x00\xff\r\n"
+    upload = runtime.files.save("alice", "input.txt", "application/octet-stream", payload)
     await call_tool(tools, "upload_file", file_id=upload["id"], path="/tmp/input.txt")
     delivered = await call_tool(tools, "send_file_to_user", path="/tmp/input.txt")
-    assert runtime.files.get("alice", delivered["file_id"])["size"] == 5
+    assert Path(runtime.files.get("alice", delivered["file_id"])["path"]).read_bytes() == payload
+    runtime.settings.max_upload_bytes = 1024
+    remote_files["/tmp/oversized.bin"] = b"x" * 1025
+    with pytest.raises(ValueError, match="upload limit"):
+        await call_tool(tools, "send_file_to_user", path="/tmp/oversized.bin")
     staged = await runtime.sandboxes.stage_result(
         "alice", "session1", "gmail_get_message", '{"body": "selected text"}'
     )

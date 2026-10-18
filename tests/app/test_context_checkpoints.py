@@ -291,8 +291,9 @@ async def test_workspace_saves_changed_versions_and_restores_after_loss(
     async def write(path, content):
         data[path] = content.encode() if isinstance(content, str) else content
 
-    async def read(path, limit):
-        return data[path][:limit]
+    async def read(path, *, range_header):
+        assert range_header == f"bytes=0-{runtime.settings.max_upload_bytes}"
+        return data[path][: runtime.settings.max_upload_bytes + 1]
 
     async def listing(spec):
         return [{"path": p, "entry_type": "file"} for p in data]
@@ -310,13 +311,13 @@ async def test_workspace_saves_changed_versions_and_restores_after_loss(
     first = await runtime.workspaces.write("alice", sid, "purchases.csv", "amount,currency\n42,USD")
     assert first["workspace"]["files"]["/workspace/purchases.csv"]["version"] == 1
     second = await runtime.workspaces.write(
-        "alice", sid, "purchases.csv", "amount,currency\n84,USD"
+        "alice", sid, "purchases.csv", "amount,currency\r\n84,USD"
     )
     assert second["workspace"]["files"]["/workspace/purchases.csv"]["version"] == 2
     data.clear()
     sandbox.id = "sandbox-2"
     await runtime.workspaces.save("alice", sid)
-    assert b"84,USD" in data["/workspace/purchases.csv"]
+    assert data["/workspace/purchases.csv"] == b"amount,currency\r\n84,USD"
     with pytest.raises(ValueError):
         await runtime.workspaces.write("alice", sid, "../escape", "bad")
 
@@ -336,8 +337,9 @@ async def test_workspace_reconnect_keeps_newer_files_and_walks_nested_directorie
             return [{"path": "/workspace/nested", "entry_type": "directory"}]
         return [{"path": p, "entry_type": "file"} for p in data]
 
-    async def read(path, limit):
-        return data[path][:limit]
+    async def read(path, *, range_header):
+        assert range_header == f"bytes=0-{runtime.settings.max_upload_bytes}"
+        return data[path][: runtime.settings.max_upload_bytes + 1]
 
     async def write(path, value):
         data[path] = value

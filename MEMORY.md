@@ -624,6 +624,7 @@ Keep factual research handoffs, titles, and generic harness compaction separate 
 The selected voice branch already supplies the Michael/George blend, speed 0.9, and `theos-subtle-v1` processing.
 The operator requested removal of standalone upstream license files and attribution notices. Do not restore those copies.
 Keep the project's root license and provenance manifests.
+Exception: the operator explicitly removed `src/harness/compression_provenance.json`. Do not restore that file.
 
 ## Light navigation readability and favicon, 2026-10-18
 
@@ -632,3 +633,11 @@ Use darker text for light-mode sidebar labels, costs, account identity, and conv
 The collapsed mobile sidebar trigger needs a header box so the existing optical layer can blur messages beneath it.
 Apply this navigation change only in light mode. Preserve dark-mode colors and layout.
 Use the existing Theos Daylight image as the browser favicon and touch icon.
+
+## Binary workspace transfers and research reports, 2026-10-18
+
+Use an inclusive HTTP byte range to read sandbox files, with one extra byte to detect the transfer limit.
+The sandbox SDK's `offset` and `limit` arguments select text lines and can normalize binary CRLF bytes.
+Preserve original bytes for image inspection, file delivery, workspace hashes, and restored files.
+The lead researcher needs configured workspace tools to generate and deliver requested report files in the same turn.
+Research delegates keep their existing read-only tools. Personal account tools remain excluded from explicit research.

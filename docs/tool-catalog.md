@@ -428,6 +428,9 @@ This uses the existing SDK and lets remote clients connect without access to con
 | `upload_file(file_id, path)` | Copy a selected uploaded file or Gmail attachment into your workspace for analysis. |
 | `browser` | Open pages and interact with them. Use open, snapshot, click, fill, or screenshot commands. |
 
+Binary file reads use bounded HTTP byte ranges for delivery, image inspection, and workspace checkpoints.
+The SDK's line-based limits must not handle binary files because they can alter line endings.
+
 ## Gmail
 
 HTTPX, Google OAuth, and encrypted owner tokens. Tools require a browser or private Telegram conversation.
@@ -510,6 +513,9 @@ Each researcher saves its full transcript, report, notes, and summary checkpoint
 Evidence records live in the separate `research_scratchpad` table from migration 013.
 The browser **Research** view permits later inspection within the same account and conversation.
 Normal questions do not receive these tools or create research records.
+
+The lead researcher retains configured workspace tools to compute results and deliver report files.
+Research delegates remain read-only, and personal account tools remain outside explicit research.
 
 | Tool | Behavior | Dependency |
 | --- | --- | --- |

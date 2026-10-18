@@ -79,8 +79,10 @@ def sandbox_tools(client, owner, session_id):
     async def send_file_to_user(path: str):
         """Share a file from your task workspace with the user."""
         sandbox = await client.get(owner, session_id)
+        # SDK offset/limit arguments select text lines and normalize CRLF bytes.
+        # An inclusive byte range preserves binary files and reads one overflow byte.
         data = await sandbox.files.read_bytes(
-            workspace_path(path), limit=client.settings.max_upload_bytes + 1
+            workspace_path(path), range_header=f"bytes=0-{client.settings.max_upload_bytes}"
         )
         media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
         row = client.files.save(owner, PurePosixPath(path).name, media_type, data)
@@ -91,7 +93,7 @@ def sandbox_tools(client, owner, session_id):
         """Load an image from your task workspace for visual inspection."""
         sandbox = await client.get(owner, session_id)
         data = await sandbox.files.read_bytes(
-            workspace_path(path), limit=client.settings.max_upload_bytes + 1
+            workspace_path(path), range_header=f"bytes=0-{client.settings.max_upload_bytes}"
         )
         media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
         if not media_type.startswith("image/"):

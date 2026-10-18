@@ -128,8 +128,9 @@ class Workspaces:
                 if row.get("entry_type") not in {"file", "regular"}:
                     continue
                 path = self.path(row["path"])
+                # Line-based limits would rewrite binary files before hashing and restore.
                 data = await sandbox.files.read_bytes(
-                    path, limit=self.runtime.settings.max_upload_bytes + 1
+                    path, range_header=f"bytes=0-{self.runtime.settings.max_upload_bytes}"
                 )
                 if len(data) > self.runtime.settings.max_upload_bytes:
                     raise ValueError(

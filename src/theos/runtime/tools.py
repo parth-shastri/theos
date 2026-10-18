@@ -93,9 +93,11 @@ async def build_tools(runtime, session):
         tools += memory_tools(runtime.memory, owner)
         if session["channel"] in {"browser", "telegram-private", "terminal"}:
             tools += runtime.memory_automation.tools(owner)
+    workspace_tools = []
     if runtime.settings.sandbox.enabled:
         # Sandbox tools exist only when the remote execution service is configured.
-        tools += runtime.sandboxes.tools(owner, session_id)
+        workspace_tools = runtime.sandboxes.tools(owner, session_id)
+        tools += workspace_tools
 
         # Provider services decide what to stage; this callback only writes their shaped result.
         async def result_stager(name, content):
@@ -551,7 +553,11 @@ async def build_tools(runtime, session):
             )
             return await delegate_tasks.execute(args, ctx)
 
-        tools = information_tools(runtime.settings, runtime.http) + [deep_research]
+        # The lead researcher needs its workspace to compute and deliver requested reports.
+        # Delegates retain their separate read-only registry; account tools remain excluded.
+        tools = (
+            information_tools(runtime.settings, runtime.http) + [deep_research] + workspace_tools
+        )
         tools += research_tools(runtime, session, active_turn.research_id)
     else:
         tools.append(delegate_tasks)
