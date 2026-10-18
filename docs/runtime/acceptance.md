@@ -1123,14 +1123,22 @@ An independent audit matched the earlier mailbox report totals to its transactio
 
 The earlier 100-header and 30-body limits came from the acceptance prompt.
 Production instructions now require task-driven pagination and relevant body, thread, and attachment reads without an invented total allowance.
-An uncapped scenario completed 34 message-body calls before a provider timeout interrupted delivery.
-Its saved evidence remains available for recovery. No scenario used Gmail write tools.
+An uncapped scenario retrieved 181 unique headers across 21 search results and completed 34 message-body calls.
+A provider timeout interrupted delivery. Recovery reused the saved workspace and retried outstanding message reads.
+Recovery delivered a three-page PDF with daily spending bars and a category comparison, plus the transaction CSV.
+All pages passed visual inspection. Font inspection confirmed Space Grotesk in the report and chart labels.
+The delivered CSV matched the independently audited snapshot: 33 rows, separate currencies, and no repeated purchase keys.
+The audit matched counted amounts to retrieved bodies or source headers. One counted row relied on two retrieved headers.
+Password-protected or unavailable statement attachments remain explicit coverage limitations.
+No scenario used Gmail write tools.
 
 Report instructions now lead with findings, implications, and actions for the user.
 They exclude agent activity logs from the main report and select useful visuals without a separate user request.
 The first natural-language visual scenario still produced tables without a diagram.
 The revised skill explicitly requires a diagram for choices or multistep processes and a chart for supported spending comparisons.
-End-to-end verification of that revision remains in progress.
+A fresh request for a concise decision guide did not mention visuals.
+The completed response included a decision diagram in both its two-page PDF and editable two-page DOCX.
+All four rendered pages passed visual inspection. Word retained the editable prose and tables.
 
 Report builders now use bundled Space Grotesk for prose, tables, headings, and diagram labels.
 PDF HTML embeds its font data. DOCX embeds regular and bold font parts.
@@ -1142,6 +1150,19 @@ PDF font inspection confirmed Space Grotesk in both the PDF and native Word conv
 A separate Word conversion on a host without the font installed also used the embedded Space Grotesk faces.
 The rendered smoke pages passed visual inspection. The focused prompt and identity checks passed 24 tests.
 The configured CI lint and formatting checks passed. No additional pytest cases were added.
+CI passed on Python 3.12, Python 3.13, and ARM64 for the font commit `4d24332`.
+
+A separate chart scenario used a synthetic CSV with 22 rows across three months and two currencies.
+The request asked for spending analysis and did not mention charts or diagrams.
+The completed two-page PDF contained stacked monthly category bars and a separate USD chart.
+All 26 derived CSV rows matched independent calculations of gross expenses, refunds, and net spending.
+Transfers were excluded and currencies retained separate scales. Chart labels matched the derived totals.
+The geometry check caught two truncated tick labels: 2,500 and 7,500 appeared as `2k` and `7k`.
+The correction uses `2.5k` and `7.5k`. Both PDF pages and the standalone chart preview passed inspection after correction.
+Independent geometry checks verified the tick values, all 12 INR stack segments, and all three USD bars.
+Space Grotesk covered the prose and chart labels. Only unsupported currency and arrow glyphs used fallback fonts.
+The corrected standalone SVG embeds its font data. The derived CSV remained byte-for-byte unchanged.
+An uncertain workspace checkpoint interrupted delivery. Recovered files passed validation without repeating the generation command.
 
 The local application uses the updated prompt image and the isolated font runtime for new sandboxes.
 PR #86 remains open. No connector PR, production deployment, or branch promotion was merged.

@@ -647,6 +647,7 @@ Research delegates keep their existing read-only tools. Personal account tools r
 Reports must answer the user's question and support their understanding or decisions.
 Lead with findings and implications. Use charts and diagrams where they make patterns, comparisons, or relationships easier to understand.
 Select those visuals automatically. Users do not need to request charts or diagrams explicitly.
+Verify plotted values, bar heights, and axis ticks against the data. Preserve Space Grotesk in standalone SVG charts through embedded fonts or text paths.
 Keep agent activity, read counts, generation details, and provenance out of the main report unless explicitly requested.
 Retain citations and concise material limitations without making them the report's purpose.
 Do not impose arbitrary total Gmail message, page, or body limits. Read the evidence needed for the requested period and task.
