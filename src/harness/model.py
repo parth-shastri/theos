@@ -1,4 +1,8 @@
-"""The interface shared by every chat model adapter."""
+"""The interface shared by every chat model adapter.
+
+The harness loop depends on these methods and message types, not on a particular SDK.
+Provider adapters translate this common request/event shape to each provider's API.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +31,9 @@ class Capabilities:
 
     tools: bool = True
     parallel_tool_calls: bool = True
-    forced_tool_choice: bool = True  # False where the provider rejects tool_choice "any" or a named tool
+    forced_tool_choice: bool = (
+        True  # False where the provider rejects tool_choice "any" or a named tool
+    )
     json_schema_output: bool = False  # native structured output
     vision: bool = False
 
@@ -50,6 +56,7 @@ class ChatModel(Model, Protocol):
     @property
     def capabilities(self) -> Capabilities: ...
 
+    # Streaming is the main interface because transports can show progress as it arrives.
     def stream(self, request: ModelRequest) -> AsyncIterator[ModelEvent]: ...
 
     async def generate(self, request: ModelRequest) -> AssistantMessage: ...
@@ -59,6 +66,8 @@ class ChatModel(Model, Protocol):
 
 async def collect_model_stream(events: AsyncIterator[ModelEvent]) -> AssistantMessage:
     """Consume a model stream and return its final message."""
+    # Intermediate events are useful to a live UI, but callers that need a complete
+    # message must wait for exactly one GenerationComplete event.
     message: AssistantMessage | None = None
     async for event in events:
         log_event(event, phase="model-collect")
@@ -74,6 +83,7 @@ async def collect_model_stream(events: AsyncIterator[ModelEvent]) -> AssistantMe
 
 def default_estimate_tokens(request: ModelRequest) -> int:
     """Estimate request size using roughly four characters per token."""
+    # Include tool schemas as well as conversation text; long schemas consume context too.
     total = default_estimate(request.messages)
     for spec in request.tools:
         total += max(1, len(json.dumps(spec.parameters)) // 4)

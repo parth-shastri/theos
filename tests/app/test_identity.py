@@ -80,7 +80,7 @@ async def test_runtime_uses_agent_name(runtime):
     assert (
         model.requests[0]
         .messages[0]
-        .content.startswith("You are Nova, a private personal assistant.")
+        .content.startswith("# Role and Identity\n\nYou are Nova, a private personal assistant.")
     )
 
 

@@ -64,7 +64,6 @@ def test_manual_run_can_validate_every_architecture(extended, expected):
     assert select_architectures("workflow_dispatch", {}, extended=extended) == expected
 
 
-@pytest.mark.parametrize("event_name", ["push", "pull_request"])
 @pytest.mark.parametrize(
     "path, expected",
     [
@@ -80,11 +79,11 @@ def test_manual_run_can_validate_every_architecture(extended, expected):
         ("tests/deployment/test_ci_policy.py", ["arm64"]),
     ],
 )
-def test_dev_builds_only_when_build_files_change(repository, event_name, path, expected):
+def test_dev_builds_only_when_build_files_change(repository, path, expected):
     root, _, base, commit = repository
     head = commit(path)
-    event = push("dev", base, head) if event_name == "push" else pull_request("dev", base, head)
-    assert select_architectures(event_name, event, root=root) == expected
+    event = push("dev", base, head)
+    assert select_architectures("push", event, root=root) == expected
 
 
 def test_push_checks_every_commit_in_the_batch(repository):
@@ -188,3 +187,11 @@ def test_actual_workflow_gate_rejects_failed_or_missing_checks(
         check=False,
     )
     assert (result.returncode == 0) is accepted
+
+
+def test_pr_build_file_change_retains_arm64(repository):
+    root, _, base, commit = repository
+    head = commit("uv.lock")
+    assert select_architectures("pull_request", pull_request("dev", base, head), root=root) == [
+        "arm64"
+    ]

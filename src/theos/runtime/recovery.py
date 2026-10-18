@@ -15,6 +15,7 @@ from harness import (
     message_to_dict,
     unanswered_calls,
 )
+from theos.prompts import render
 from theos.storage.messages import stamp_message
 
 from .errors import CheckedModel, ProviderFailure, failure_message
@@ -160,14 +161,9 @@ async def response_call(
 
         agent = Agent(
             model,
-            instructions=instructions
-            + "\n"
-            + "Research has stopped: "
-            + REASONS[reason]
-            + " "
-            + "Write the requested answer from the collected findings and sources. "
-            "Preserve the user's requirements and corrections. Identify missing or uncertain facts. "
-            "Do not call tools, repeat research, or claim uncertain actions succeeded.",
+            instructions=render(
+                "recovery/final_answer.md", instructions=instructions, reason=REASONS[reason]
+            ),
             hooks=Hooks(before_model=prepare, after_model=record),
             context_window=limits.context,
             compaction=context.compaction(

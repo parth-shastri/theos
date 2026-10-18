@@ -31,7 +31,7 @@ def tool_icon(name):
         return "✉️"
     if "search" in name or "research" in name:
         return "🔎"
-    if name in {"run_command", "execute_code", "browser", "manage_workspace"}:
+    if name in {"run_command", "execute_code", "browser"}:
         return "🧰"
     if "file" in name or name.startswith("source_"):
         return "📄"

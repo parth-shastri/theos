@@ -8,6 +8,7 @@ import pytest
 
 from harness import AssistantMessage, ToolCall
 from harness.testing import FakeModel
+from theos.prompts import render
 from theos.runtime.speech import prepare
 from theos.services.errors import ServiceError
 from theos.services.voice.tools import voice_tools
@@ -44,6 +45,7 @@ async def test_tool_sends_spoken_rendition_and_accounts_without_changing_history
     assert sent[0]["input"] == spoken and sent[0]["input"] != source
     assert runtime.files.get("alice", result["file_id"])["media_type"] == "audio/mpeg"
     assert len(model.requests) == 1 and not model.requests[0].tools
+    assert render("shared/personality.md") in model.requests[0].messages[0].content
     assert json.loads(model.requests[0].messages[-1].content) == {"source_text": source}
     assert runtime.db.load_history("alice", session["id"]) == []
     usage = runtime.db.one("SELECT owner,session,input_tokens,output_tokens FROM usage")

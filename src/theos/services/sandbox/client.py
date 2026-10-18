@@ -1,6 +1,8 @@
 """Remote OpenSandbox execution with per-conversation lifecycle state."""
 
 import asyncio
+import hashlib
+import re
 from datetime import UTC, datetime, timedelta
 
 from theos.services.errors import ServiceError
@@ -19,6 +21,23 @@ class Sandboxes:
         self.files = files
         self.clients = {}
         self.locks = {}
+
+    async def stage_result(self, owner, session_id, name, content):
+        """Write one normalized provider result outside the durable task workspace."""
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", name):
+            raise ValueError("Use a simple provider tool name for a staged result.")
+
+        data = content.encode("utf-8")
+        digest = hashlib.sha256(name.encode() + b"\0" + data).hexdigest()[:20]
+        path = f"/tmp/theos-results/{name}-{digest}.json"
+        sandbox = await self.get(owner, session_id)
+
+        # /tmp is outside /workspace, which is the only directory checkpointed to R2.
+        result = await sandbox.commands.run("mkdir -p /tmp/theos-results")
+        if getattr(result, "error", None):
+            raise RuntimeError("The temporary result directory could not be prepared.")
+        await sandbox.files.write_file(path, data)
+        return {"path": path, "size_bytes": len(data)}
 
     async def forget(self, owner, session_id):
         """Close only the local connection and remove its saved reference."""

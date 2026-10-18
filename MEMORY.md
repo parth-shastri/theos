@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-17.
+Updated: 2026-10-18.
 
 ## Confirmed decisions
 
@@ -25,7 +25,7 @@ Updated: 2026-10-17.
 | Assistant punctuation | Never use em dashes in assistant replies, reasoning summaries, or generated titles. Add shared model instructions and replace any emitted em dash with an ASCII hyphen before display and persistence. Preserve user input, tool arguments, and opaque provider data |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
 | Telegram enrollment limit | 50 unique senders per database, including incomplete setup. Operators can lower the limit |
-| Browser style | Controls and visual style from ocr-checker |
+| Browser style | Retain the existing green palette and light/dark theme colors. Start the green background tint along the full bottom edge in both themes. Keep the top-corner tint minimal and reduce dark-mode tint strength. Avoid bright light pools. Keep panes transparent enough to show blurred content underneath. Use moving edge highlights, pointer light, and shadows on the sidebar, dialogs, and menus. Use cached SVG rim displacement in Chromium, with CSS blur and edge highlights as the fallback. Keep controls above a separate optical layer. Scroll dialog content inside the fixed pane. Use simple child-control fills instead of stacked glass. Keep the floating composer subtle and allow content to scroll behind it. Preserve solid fallbacks and reduced-motion and reduced-transparency preferences |
 | Browser usage and tools | Owner and conversation USD estimates. Administrator totals and cost breakdowns include all transports. Missing prices stay visible. Collapsed reasoning summaries and tool calls. Searchable conversation tool registry with approval labels |
 | Usage view access | Every browser user has personal Activity & usage through their token. Administrators have a separate Admin dashboard for all users and transports. Personal charts always use the authenticated owner, including administrator tokens. Administrator responses exclude conversation titles and message content |
 | Enrollment roles | The deployment operator uses an explicitly configured administrator account in `AGENT_USERS` and `AGENT_ADMINS`. First registration never grants administrator access. New Telegram enrollments receive ordinary access. With `AGENT_WEB_URL` configured, completed users receive a browser link and confirm a matching code in Telegram. Generated browser credentials reuse their stable Telegram owner and never grant administrator access |
@@ -33,14 +33,18 @@ Updated: 2026-10-17.
 | User-owned encryption requirement | Deferred: the user requested completion of onboarding without choosing an encryption mechanism. Private content storage, password wrapping, and automatic key access remain proposals. Current personal content is not encrypted. Keep the existing encrypted service credentials and content-free usage views. Hosted processing can expose plaintext to the running server |
 | Encrypted history continuity | Restore saved history automatically while a decryption grant is active. The user requested transparent access across turns. Password-based key wrapping and automatic key-service access remain proposals. Losing a runtime grant must not erase encrypted history. See `docs/architecture/theos-encryption-proposal.excalidraw` for the proposed boundary |
 | Browser model controls | Keep the current model selector. OpenRouter exposes the six requested aliases plus the existing default. Preserve explicit operator allowlists. Save supported generation parameters in SQLite migration 006. Model-specific cost rates can override shared rates |
-| Browser settings and command panels | Move model and reasoning into the header Settings dialog with generation and voice controls. Save changes together and discard canceled drafts. Use a sidebar icon beside the logo to toggle conversations. Show interactive help and usage dialogs. Keep usage access through `/usage`, without a sidebar Usage button. Keep generation controls in Settings, without `/generation`. Offer supported options for argument commands. List only `/reasoning`, with `/thinking` retained as a compatibility alias |
+| Browser settings and command panels | Move model and reasoning into Settings, opened from the desktop header or mobile sidebar with generation and voice controls. Save changes together and discard canceled drafts. Use a sidebar icon beside the logo to toggle conversations. Show interactive help and usage dialogs. Keep usage access through `/usage`, without a sidebar Usage button. Keep generation controls in Settings, without `/generation`. Offer supported options for argument commands. List only `/reasoning`, with `/thinking` retained as a compatibility alias |
 | Browser commands and voice | Slash command help and keyboard suggestions. Record microphone audio for editable transcription. Optional TTS reply playback through the existing configured voice services |
 | Browser identity and thinking | Copy the mini-theos logo into owned browser assets. Animate active thinking and respect reduced motion |
-| Browser voice controls | Use accessible microphone, recording stop, and speaker icons. Keep TTS playback in one play/stop button, cache audio for replay, and stop it on conversation changes. Use the mini-theos glow during thinking and the theme accent during recording. Smooth microphone RMS volume into the composer glow with a quiet baseline. Close the analyzer on stop, cancellation, errors, or page exit. Reduced motion keeps a static recording glow |
+| Browser voice controls | Use accessible microphone, recording stop, and speaker icons. Keep TTS playback in one play/stop button, cache audio for replay, and stop it on conversation changes. Use the mini-theos glow during thinking and the theme accent during recording. Smooth microphone RMS volume into the composer glow and three animated waves along the bottom edge. Modulate wave height and opacity with speech volume. Stop the waves and clear both meters on stop, cancellation, errors, or page exit. Reduced motion keeps static recording feedback |
+| Browser glass edges and modes | Keep moving edge highlights fine and localized. Use a 0.75px highlight mask with soft permanent borders, without stacked bright rims. Keep 4px between dropdown option rows and draw keyboard focus inside each row to separate it from the current selection. Model and reasoning use bounded glass popovers with native values and a native-menu fallback. Open the message-mode listbox upward with a short spring animation. Show conversation and search icons beside Normal and Deep research. Preserve keyboard navigation and one-message mode scope |
 | Browser Markdown and composer | Render streamed and saved thinking and replies with pinned, locally served Marked 18.1.0 and DOMPurify 3.4.16. Show raw HTML as text, block unsafe links, and show remote images as links. Preserve raw Markdown for token estimates. Copy code without toolbar labels and send rendered plain text to TTS. Start the composer at one line and grow it to 140px. Inset native dropdown chevrons by 14px |
+| Browser composer feedback | Remove the private-workspace badge and dot. Keep progress and errors inside the composer. Show Listening... and Transcribing... in the empty input; keep voice feedback inside the composer when a draft exists. Add no transcription-ready or cancellation note. Rotate playful idle prompts every eight seconds while the empty input is unfocused and visible. At widths up to 700px, use exaggerated philosophical prompts in three short words, and update them when the viewport changes. Focus shows Start Typing... and never changes the draft. Light-theme user bubbles use the send-button green with white text; preserve dark-theme bubbles |
 | Dashboard charts | Use native SVG and HTML charts for daily model requests, recorded USD cost, input/output tokens by model, and main-agent tool starts. Offer 7, 30, and 90 day UTC ranges. Aggregate complete records across transports behind administrator access. Preserve missing prices, zero-fill inactive dates, and provide hover/tap details and chart data tables |
-| Browser UX and appearance | Align chat messages and the composer at a shared left gutter. Keep attachment, command, input, microphone, and send controls in one row. Hide attachment and command buttons during mobile recording to retain input space. Grow multiline drafts, preserve reading position during streams, and dismiss the mobile drawer after navigation. Use the mini-theos Daylight logo in light mode |
-| Browser message statistics | Show estimated output tokens and elapsed time during each model generation. Use final provider usage when available. Save UTC message timestamps and generation duration in application history metadata. Show local dates as `6 Oct 14:32`. Preserve unknown dates for older messages. Keep display metadata out of provider and generic harness serialization |
+| Browser workspace panels | Use the shared glass material for the top navigation, usage cards, account cards, and workspace services. Keep lifetime totals distinct from period charts. Use the glass range picker, exact data disclosures, direct ranking values, and keyboard-selectable days. Preserve price gaps and owner boundaries. Keep the themed logo and a sticky return-to-chat action in both usage views. Desktop panes tint on hover only. Preserve mobile touch feedback. Release optical filters when refreshed panes leave the page |
+| Browser interface case | Use sentence case for interface headings, labels, role names, badges, and command argument hints. Do not apply uppercase text transforms. Preserve user and model text, model identifiers, and standard technical abbreviations |
+| Browser UX and appearance | Align messages and the composer at a shared gutter. On mobile and desktop, start with one frosted input row, a plus button on the left, and microphone and send buttons on the right. Focus or a draft expands the composer into a text row above controls and message mode. The plus menu offers attachments, commands, and conversation settings. Remove the idle readiness note and its space. Keep progress, recording, and error messages. Grow drafts to 140px, preserve reading position during streams, and fit the visual viewport without changing pinch zoom. Use a sliding mobile drawer with keyboard focus handling, safe-area spacing, and dismissal after navigation. Keep the existing theme-specific logos. Hide the mobile conversation toolbar. In light mode, place the sidebar trigger on a glass navigation strip. Dark mode keeps the standalone trigger. Put the Theos name, theme switch, Settings, and conversation actions in the mobile sidebar. Preserve the desktop header and toolbar. Use fixed 44px composer controls with an 8px gap between microphone and send |
+| Browser message statistics | Show estimated output tokens and elapsed time during each model generation. Use final provider usage when available. Save UTC message timestamps and generation duration in application history metadata. Show local dates with the year, as `6 Oct 2026 14:32`. Preserve unknown dates for older messages. Keep display metadata out of provider and generic harness serialization |
 | OpenRouter accounting | Keep its adapter in the application runtime. Retain readable reasoning, replay signed blocks only for the same model, and prefer reported request costs over token-rate estimates |
 | OpenRouter retention | Enforce `provider.zdr=true` in the application adapter for every OpenRouter request, including chat, delegates, compaction, and titles. Preserve other provider preferences. No request can disable ZDR. External Mem0 and voice services keep separate policies |
 | OpenRouter reasoning routing | For OpenAI models, replay encrypted reasoning from only the latest known provider format in each wire request. Omit incompatible sequences without changing saved messages or signed blocks. Recover a mixed-provider HTTP 400 once before generation, with the same restrictions as the ZDR routing retry. If OpenRouter rejects encrypted OpenAI reasoning with a ZDR routing 404 before generation, retry once without those reasoning sequences. Preserve messages, tool exchanges, model options, saved history, and ZDR. Do not retry unrelated errors, Claude signatures, or streams that emitted events. A retry is a transport attempt within the same harness model call |
@@ -60,8 +64,8 @@ Updated: 2026-10-17.
 | Pi Connect memory | Upgrade the host package to 2.13.0. Set its Go memory target to 192 MiB and check resident memory each minute. Restart only `rpi-connect.service` above 512 MiB. This is a service guard, not a hard kernel limit. Preserve SSH, Tailscale, Theos, and account isolation. Browser Connect access currently requires operator sign-in |
 | Tool execution batches | Replace the hard 16-call response rejection with `ExecutionLimits.tool_batch_size`, default 16. Process every valid call in ordered batches. Only tools declared safe may overlap. Keep each call ID and approval check. Append each batch's results before the next batch. Tell the model to request at most 16 calls per response and provide explicit feedback after larger groups. Reject invalid arguments per call as `not_started` before approval or execution, with correction instructions and a new call ID. Keep `failed`, `denied`, and `unknown` outcomes distinct. Duplicate IDs and malformed response identities remain fatal before execution. Retain transcript and checkpoint guarantees. Record exact generated call counts in trace metadata and only fixed harness error codes in logs |
 | Approval policy | Global approval prompts apply to Gmail draft sending and Zepto cart confirmation, checkout, order placement, and payment-related tools. Gmail approval binds the draft contents and checks them again immediately before sending. Search, read, draft creation, delivery-store setup, ordinary cart updates, all sandbox actions, deletion, and memory settings do not prompt. Keep owner isolation, validation, durable attempts, exact approval snapshots, and unknown-outcome recovery. Retire old pending cards for ungated tools without executing anything during cleanup |
-| Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity and the legacy renew action cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. The model must not use lifecycle controls for routine recovery. Status and explicit restart remain available. Destroying an absent sandbox does not create one |
-| Workspace tool names | Expose ordinary actions as `run_command`, `execute_code`, `read_file`, `write_file`, `list_files`, `upload_file`, `send_file_to_user`, `view_image`, `browser`, and `manage_workspace`. Model-facing descriptions and workspace instructions describe task actions without naming the execution backend. Keep backend terminology in internal code and operator documentation |
+| Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. Lifecycle controls stay internal; the model does not need them for routine recovery. Destroying an absent sandbox does not create one |
+| Workspace tool names | Expose ordinary actions as `run_command`, `execute_code`, `read_file`, `write_file`, `list_files`, `upload_file`, `send_file_to_user`, `view_image`, and `browser`. Model-facing descriptions and workspace instructions describe task actions without naming the execution backend. Keep backend terminology in internal code and operator documentation |
 | Skill selection | Include installed skill descriptions in model context. Match task intent to descriptions and load relevant instructions before work without requiring skill names from the user. Do not load every skill or treat names as the whole selection policy. Supply report-style and document-format instructions automatically for document requests. New reports default to styled PDF. Explicit formats and existing document styles retain precedence. Count automatically supplied skills in turn stats. The shared sandbox image contains report-style files and the declared runtime dependencies for all eight skills; load other skill scripts and text resources from the host as needed |
 | Model-call allowances | Theos disables call allocations and research deadlines by default through `Runtime(enforce_budgets=False)`. Preserve all budget fields and their validation for callers that explicitly enable bounded mode. Parent, delegate, summary, and recovery calls retain usage accounting without enforced call ceilings. Root traces mark enforcement false and limits as -1. Provider, context, output, tool, concurrency, approval, and cancellation limits remain active. See `docs/runtime/context-recovery.md` |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
@@ -73,19 +77,22 @@ Updated: 2026-10-17.
 | Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user explicit opt-in for future user-message consolidation through Mem0 inference |
 | Scheduled agent tasks | Durable one-time and cron schedules run through the normal conversation runtime and approval policy. Interrupted or uncertain runs pause the schedule |
 | Remote sandbox | Keep the Mac mini configuration, database, and server logs under `/Volumes/extssd/opensandbox`. Pin the native server to `1.1.1`. Use server proxy mode with `resolve_internal=false`. Keep launchd console logs under the user's Library because macOS blocks its removable-volume access. Docker storage remains on the SSD |
-| Model context | Use the pinned middle-turn compression policy in `src/harness/compression_policy.py`: tool-output pruning first, protected head, token-budget tail, iterative auxiliary summaries, distributed samples, and scaled budgets. One async adapter in `lean_context.py` serves all agents. Default fraction 0.5 with the upstream small-window floor. Pi 100,000 context and 8,192 output imply a 68,856-token trigger. Keep raw sources outside model context and checkpoint working state in R2 |
-| Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. The auxiliary summary uses a scaled prompt target without a hard output cap. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
+| Model context | Keep one rolling checkpoint in `src/harness/compaction.py`. Default to a 50% trigger and a 2.5% recent tail, both configurable. Use the conversation model for summaries unless `AGENT_COMPACTION_MODEL` selects another provider model. Summarize earlier history and a split turn separately. Include the covered original request in the checkpoint, then append only retained messages. Keep new unanswered user messages and unfinished tool batches verbatim. Preserve the full transcript. On provider overflow, retry with shorter summary tiers without replaying tools. `history_read` and `history_search` recover exact saved messages |
+| Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. Summary calls use no tools and cap output at the configured tail ratio of the summary model's context. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
 | Final voice | Kokoro `am_michael(0.7)+bm_george(0.3)`, speed `0.9`, with the approved subtle robotic treatment in the separate `speech` gateway. Keep DSP dependencies out of the Pi application image. Authenticate gateway requests with `AGENT_KOKORO_KEY`. Existing environment overrides require an explicit rollout update. The louder audition is not the selected profile |
-| Personality | Calm, deliberate, curious, philosophical, and lightly dry in humor. Connect ideas to concrete choices without lectures. Complete practical work first. Use relevant philosopher quotations sparingly, verify uncertain attribution, and clearly label paraphrases. Honor requested tone and urgency. See `docs/personality.md` |
+| Personality | Straightforward, commanding, self-assured, philosophical, and darkly witty, with deliberate cadence and restrained theatrical weight. Ordinary discouragement and procrastination receive firm, masculine encouragement and one achievable action. Challenge avoidance without insulting the user. Honor requested gentleness and treat serious distress with care. Describe these traits directly without naming a fictional character. Chat and speech preparation share one persona. Facts, source fidelity, requested tone, and urgency take precedence over style. Use original observations and verify attributed quotations. Keep research delegates and harness summaries factual. See `docs/personality.md` |
 | Expressive TTS text | Every browser or tool synthesis request first uses one bounded, tool-free model call to write an expressive spoken rendition. Preserve facts, numbers, quotations, uncertainty, and action outcomes. Use words and punctuation rather than unsupported emotion tags. Retain display text and history. Record model usage under the owner and conversation. Fail preparation rather than silently reading plain source text |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
 | Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
 | Shared sandbox runtime | Build the ARM64 image from `skills/sandbox-runtime/Dockerfile` on the Mac mini. Keep report scripts and style assets at `/opt/theos/report-style`. Install the locked PDF, DOCX, XLSX, OCR, browser, arXiv, and pinned Papers with Code dependencies in the image. Representative PDF, DOCX, XLSX, OCR, and browser checks passed under the existing one-CPU, 512 MiB sandbox limit |
 | Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. The shared sandbox image installs the CLI at the recorded source revision |
-| Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
-| Comments | Explain constraints and number the major workflow steps |
+| Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Space Grotesk typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Bundle fonts in PDF and DOCX output and install them in the sandbox for chart labels and conversion. Code retains its monospace style. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
+| Prompt organization | Store Theos prompts in Markdown Jinja templates under `src/theos/prompts`. Store harness production prompts under `src/harness/prompts`. Use plain `.md` filenames for normal Markdown previews. The shared package-aware renderer uses StrictUndefined and caches compiled templates without request data. Python resolves capabilities and external data. Templates compose text with conditionals and includes. Version templates with code and deploy them through normal releases |
+| Compaction prompt ownership | The harness owns the exact production compaction prompts, including shared, initial, update, split-turn, and shortening instructions. Start the shared system prompt with an explicit context summarization assistant role, then state its task and constraints. Theos uses those defaults and can override individual prompts through `CompactionConfig`. Optional Theos override files live under `src/theos/prompts/compaction`. Omitted overrides use the corresponding harness production prompt. Theos currently ships no overrides. The harness owns prompt selection and the compaction algorithm. See `docs/runtime/prompts.md` for filenames and fields |
+| Comments | Explain constraints and number the major workflow steps. Use nearby ASCII diagrams for message order and complex flows |
+| Tests | Keep cases for distinct observable behavior, meaningful input boundaries, and important regressions. Consolidate related request and response assertions into contract tests. Remove constructor-only checks, framework introspection, and repeated examples of the same branch. Expand parameter matrices only when their interactions matter. Retain approvals, owner isolation, uncertain-action recovery, persistence, compaction, and supported provider contracts. See `docs/runtime/testing.md` |
 | Documentation | Task-based Markdown guides, Simplified Technical English, and existing Excalidraw PNG diagrams |
 
 Application and deployment environment variables use the `AGENT_` prefix.
@@ -94,7 +101,7 @@ The package name, storage paths, and existing deployment resource names remain s
 
 The user requested removal of unrelated starter examples and historical planning documents.
 The required mock API fixture now lives under `tests/fixtures`.
-Keep harness tests, source notices, provenance manifests, and editable architecture sources.
+Keep harness tests, provenance manifests, and editable architecture sources.
 Keep only reusable building blocks in the separate `agents-intro` repository.
 
 ## Implemented application
@@ -570,3 +577,111 @@ Remove the global order field and both prepared order variables from the private
 Retain generic latency and throughput preferences. OpenRouter selects compatible ZDR endpoints for the selected model.
 Reasoning, context and output limits, retries, signed state, approvals, and safe recovery retain their existing behavior.
 Prepare release 0.1.16 through a topic PR, Pi promotion, and immutable release tag.
+
+## Rolling summary and research scratchpad, 2026-10-18
+
+The harness uses one rolling summary, with configurable 50% context trigger and 2.5% recent-tail defaults.
+The harness owns shared summary rules and separate initial, update, split-turn, and shortening prompts.
+Runtime supplies model settings, persistence, and usage callbacks.
+Update prompts retain relevant prior information and apply user corrections, confirmed progress, and resolved blockers.
+When compaction splits a turn, a separate call summarizes its original request and earlier progress.
+Combine that result with the history summary before the retained messages.
+Do not repeat a covered original request after the checkpoint.
+Reuse previous history when no new history summary is needed. Update an existing checkpoint when its request is already covered.
+Both summary parts must succeed before the checkpoint replaces the previous view.
+Optional `CompactionConfig.additional_instructions` supplies summary focus.
+Shortening tiers omit structured headings to avoid conflicting output requirements.
+The summary model is configurable and defaults to the conversation model.
+New unanswered user requests and unfinished tool batches stay verbatim. The saved transcript remains unchanged.
+New checkpoints use memory schema version 5.
+Recover the omitted request inside version 4 checkpoints from saved history until a successful compaction replaces them.
+The active model writes summaries without tools. Large messages stay in history and receive an index marker in summary input.
+History tools return exact saved text. Provider overflow retries use shorter summary tiers and never rerun completed tools.
+
+Deep Research evidence stays in the separate `research_scratchpad` table.
+Migration 013 renames the earlier evidence table and preserves its rows.
+Compaction does not summarize or alter scratchpad records.
+Gmail and Health service tools return compact summaries and fetch selected details by provider IDs or date/metric filters. Do not archive full provider responses or register generic provider-source readers.
+
+## Runtime provider context limits, 2026-10-18
+
+Read context and output limits from OpenRouter, Gemini, and Anthropic model metadata, then cache them for one hour. OpenAI's model endpoint does not publish context limits, so direct OpenAI uses a 272,000-token conservative cap for GPT-6 Luna and GPT-5.6 Luna. Other hosts may support more; use that host's metadata when available. Unknown models or providers use a 24,000-token fallback unless an operator sets `AGENT_CONTEXT_TOKENS`. An operator cap can lower, but never raise, a known provider limit.
+
+## Temporary provider result files, 2026-10-18
+
+Provider services decide when a normalized read result needs staging. Results under 8 KiB stay inline; larger results up to 1 MiB can be written under `/tmp/theos-results` through the sandbox peripheral.
+The helper returns a path and bounded instructions rather than copying full results into model context. If staging fails or exceeds the file limit, it returns a bounded preview and asks for a narrower provider read.
+Temporary result files are outside `/workspace` and are not checkpointed to R2. The runtime owns sandbox lifecycle; do not expose a model-facing `manage_workspace` tool.
+Keep `upload_file` for selected owner files and Gmail attachments that need workspace analysis.
+
+## Structured prompts and shared persona, 2026-10-18
+
+Main prompts separate role, instructions, output rules, examples, and runtime context with Markdown headings.
+Reusable fragments use only the sections they need. Templates remain ordinary `.md` files.
+Place the persona near the main identity and keep dynamic preferences and retrieved memory in labeled context blocks.
+The same persona guides chat and speech preparation. Speech source preservation takes precedence over style.
+Keep factual research handoffs, titles, and generic harness compaction separate from user-facing personality.
+The selected voice branch already supplies the Michael/George blend, speed 0.9, and `theos-subtle-v1` processing.
+The operator requested removal of standalone upstream license files and attribution notices. Do not restore those copies.
+Keep the project's root license and provenance manifests.
+Exception: the operator explicitly removed `src/harness/compression_provenance.json`. Do not restore that file.
+
+## Light navigation readability and favicon, 2026-10-18
+
+Keep the existing frost, opacity, blur, saturation, and refraction settings.
+Use darker text for light-mode sidebar labels, costs, account identity, and conversation actions.
+The collapsed mobile sidebar trigger needs a header box so the existing optical layer can blur messages beneath it.
+Apply this navigation change only in light mode. Preserve dark-mode colors and layout.
+Use the existing Theos Daylight image as the browser favicon and touch icon.
+
+## Binary workspace transfers and research reports, 2026-10-18
+
+Use an inclusive HTTP byte range to read sandbox files, with one extra byte to detect the transfer limit.
+The sandbox SDK's `offset` and `limit` arguments select text lines and can normalize binary CRLF bytes.
+Preserve original bytes for image inspection, file delivery, workspace hashes, and restored files.
+The lead researcher needs configured workspace tools to generate and deliver requested report files in the same turn.
+Research delegates keep their existing read-only tools. Personal account tools remain excluded from explicit research.
+
+## Reports serve the user, 2026-10-18
+
+Reports must answer the user's question and support their understanding or decisions.
+Lead with findings and implications. Use charts and diagrams where they make patterns, comparisons, or relationships easier to understand.
+Select those visuals automatically. Users do not need to request charts or diagrams explicitly.
+Verify plotted values, bar heights, and axis ticks against the data. Preserve Space Grotesk in standalone SVG charts through embedded fonts or text paths.
+
+Use distinct revision tags for sandbox runtime builds. Retain image records referenced by running sandboxes.
+Rebuilding a reused local tag removed image metadata during acceptance testing and broke OpenSandbox status requests for the old instance.
+Keep agent activity, read counts, generation details, and provenance out of the main report unless explicitly requested.
+Retain citations and concise material limitations without making them the report's purpose.
+Do not impose arbitrary total Gmail message, page, or body limits. Read the evidence needed for the requested period and task.
+Per-response pagination and body ranges remain bounded for transfer and context management. Continue them as needed.
+Earlier 100-header and 30-body limits were acceptance-prompt sampling choices, not production limits.
+
+## Production sandbox candidate, 2026-10-19
+
+Use `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` for new local sandboxes.
+The image adds locked Matplotlib with headless Agg and Space Grotesk defaults.
+Export SVG text as paths and embed TrueType fonts in chart PDFs.
+Keep the existing OpenSandbox interpreter entrypoint and one-CPU, 512 MiB resource request.
+Exclude caches and environment files from the Docker build context.
+
+The Mac mini retains this image, its runtime dependencies, and the older image required by the Pi.
+Retire acceptance sandboxes before removing their images. Remove unused build cache without pruning service volumes.
+The Pi environment and application stay unchanged until the separate release step.
+
+## Navigation contrast in both themes, 2026-10-19
+
+Apply the existing collapsed mobile topbar layout in both light and dark modes.
+Use brighter dark sidebar text and text halos to preserve readability over reflected content.
+Keep the existing frost, opacity, blur, saturation, and refraction settings.
+This extends the earlier light-only navigation decision.
+
+## Pi release 1.2.1 preparation, 2026-10-19
+
+The operator requested the changes in PR #86 on `dev`, `main`, and `rpi`, followed by a Pi release.
+Merge the topic PR into `dev`, then promote `dev` through separate merge-commit PRs to `main` and `rpi`.
+Package version 1.2.1 uses the immutable tag `rpi-v1.2.1` from the current `rpi` tip.
+The Mac mini already has sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3`.
+The Pi still uses the 2026-10-15 image. Set the new tag in local `.env.pi` and the Pi deployment environment.
+Preserve other private settings and file mode 0600. Prepare report skills and run the live sandbox probe before tagging.
+Confirm the release workflow and active Pi manifest before claiming deployment.

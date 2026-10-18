@@ -24,7 +24,7 @@ from openai.types.responses import (
 )
 
 from harness.events import ReasoningDelta, TextDelta, ToolCallDelta
-from harness.model import ChatModel
+from harness.model import ChatModel, default_estimate_tokens
 from harness.providers.openai import OpenAIChatModel, accumulate_chunks
 from harness.types import (
     AssistantMessage,
@@ -210,23 +210,17 @@ class StubClient:
 # --------------------------------------------------------------------------
 
 
-def test_adapter_satisfies_chat_model_without_inheriting():
+async def test_adapter_contract_and_estimator_forwarding():
     model = adapter()
     assert ChatModel not in type(model).__mro__
     assert isinstance(model, ChatModel)
     assert model.provider == "openai"
     assert model.model_id == MODEL_ID
-
-
-def test_capabilities_report_tools_json_schema_and_vision():
-    caps = adapter().capabilities
+    caps = model.capabilities
     assert caps.tools and caps.parallel_tool_calls and caps.forced_tool_choice
     assert caps.json_schema_output and caps.vision
-
-
-async def test_estimate_tokens_uses_the_shared_heuristic():
-    request = ModelRequest([UserMessage("Where is order 9127412?")], [spec()])
-    assert await adapter().estimate_tokens(request) > 0
+    request = ModelRequest([UserMessage("Evidence. " * 100)], [spec()])
+    assert await model.estimate_tokens(request) == default_estimate_tokens(request)
 
 
 # --------------------------------------------------------------------------
@@ -234,45 +228,49 @@ async def test_estimate_tokens_uses_the_shared_heuristic():
 # --------------------------------------------------------------------------
 
 
-def test_responses_encode_joins_system_messages_into_instructions():
+def test_responses_encode_complete_request_contract():
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
     request = ModelRequest(
         [
             SystemMessage("You are helpful."),
             SystemMessage("Answer in one line."),
             UserMessage("Where is order 9127412?"),
-        ]
+        ],
+        [spec()],
+        {"json_schema": schema, "temperature": 0.2, "max_output_tokens": 64},
     )
     payload = adapter().encode_request(request)
-    assert payload["model"] == MODEL_ID
-    assert payload["instructions"] == "You are helpful.\n\nAnswer in one line."
-    assert payload["input"] == [{"role": "user", "content": "Where is order 9127412?"}]
-    assert payload["store"] is False
-    assert payload["include"] == ["reasoning.encrypted_content"]
-    assert payload["parallel_tool_calls"] is True
-    assert "stream" not in payload
-    assert "previous_response_id" not in payload
+    assert payload == {
+        "model": MODEL_ID,
+        "instructions": "You are helpful.\n\nAnswer in one line.",
+        "input": [{"role": "user", "content": "Where is order 9127412?"}],
+        "store": False,
+        "include": ["reasoning.encrypted_content"],
+        "parallel_tool_calls": True,
+        "tools": [
+            {
+                "type": "function",
+                "name": "lookup_order",
+                "description": "Look one order up",
+                "parameters": spec().parameters,
+                "strict": False,
+            }
+        ],
+        "text": {
+            "format": {"type": "json_schema", "name": "output", "schema": schema, "strict": False}
+        },
+        "temperature": 0.2,
+        "max_output_tokens": 64,
+    }
 
 
-def test_responses_encode_omits_instructions_when_no_system_message():
+def test_responses_encode_minimal_request_omits_optional_fields():
     payload = adapter().encode_request(ModelRequest([UserMessage("hi")]))
     assert "instructions" not in payload
-
-
-def test_responses_encode_tools_use_the_flat_function_shape():
-    payload = adapter().encode_request(ModelRequest([UserMessage("hi")], [spec()]))
-    assert payload["tools"] == [
-        {
-            "type": "function",
-            "name": "lookup_order",
-            "description": "Look one order up",
-            "parameters": spec().parameters,
-            "strict": False,
-        }
-    ]
-
-
-def test_responses_encode_omits_tools_when_there_are_none():
-    assert "tools" not in adapter().encode_request(ModelRequest([UserMessage("hi")]))
+    assert "tools" not in payload
+    assert "text" not in payload
+    assert "previous_response_id" not in payload
+    assert "stream" not in payload
 
 
 @pytest.mark.parametrize(
@@ -287,29 +285,6 @@ def test_responses_encode_omits_tools_when_there_are_none():
 def test_responses_encode_translates_tool_choice(given, expected):
     request = ModelRequest([UserMessage("hi")], [spec()], {"tool_choice": given})
     assert adapter().encode_request(request)["tool_choice"] == expected
-
-
-def test_responses_encode_translates_json_schema():
-    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
-    request = ModelRequest([UserMessage("hi")], options={"json_schema": schema})
-    payload = adapter().encode_request(request)
-    assert payload["text"] == {
-        "format": {
-            "type": "json_schema",
-            "name": "output",
-            "schema": schema,
-            "strict": False,
-        }
-    }
-    assert "json_schema" not in payload
-
-
-def test_responses_encode_passes_other_options_through():
-    options = {"temperature": 0.2, "max_output_tokens": 64}
-    request = ModelRequest([UserMessage("hi")], options=options)
-    payload = adapter().encode_request(request)
-    assert payload["temperature"] == 0.2
-    assert payload["max_output_tokens"] == 64
 
 
 def test_responses_encode_assistant_message_without_provider_data():
@@ -426,23 +401,31 @@ def test_responses_encode_ignores_the_view_and_status_on_a_tool_result():
 # --------------------------------------------------------------------------
 
 
-def test_responses_decode_text_and_stop_reason():
+def test_responses_decode_plain_text_without_usage():
     message = adapter().decode_response(response([message_item("Order 9127412 shipped.")]))
     assert message.text == "Order 9127412 shipped."
-    assert message.reasoning is None
-    assert message.tool_calls == []
+    assert message.reasoning is None and message.tool_calls == []
     assert message.stop_reason == "stop"
     assert message.provider_data["openai"]["model"] == MODEL_ID
     assert message.provider_data["openai"]["status"] == "completed"
+    assert message.usage == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "total_tokens": 0,
+    }
 
 
-def test_responses_decode_parallel_tool_calls():
+def test_responses_decode_preserves_reasoning_text_parallel_calls_and_usage():
     raw = response(
         [
+            reasoning_item(["Look the order up first.", "Then answer."]),
             message_item("Working on it."),
             function_call_item("call_1", "lookup_order", '{"order_id": "1"}', item_id="fc_1"),
             function_call_item("call_2", "send_email", '{"to": "a@b.com"}', item_id="fc_2"),
-        ]
+        ],
+        usage=responses_usage(),
     )
     message = adapter().decode_response(raw)
     assert message.stop_reason == "tool_calls"
@@ -451,39 +434,11 @@ def test_responses_decode_parallel_tool_calls():
         ToolCall("call_2", "send_email", {"to": "a@b.com"}),
     ]
     assert message.text == "Working on it."
-
-
-def test_responses_decode_invalid_argument_json():
-    raw = response([function_call_item("call_1", "lookup_order", '{"order_id": ')])
-    message = adapter().decode_response(raw)
-    assert message.tool_calls == [ToolCall("call_1", "lookup_order", {})]
-    assert message.provider_data["openai"]["invalid_arguments"] == {
-        "call_1": '{"order_id": '
-    }
-
-
-def test_responses_decode_reasoning_summary_and_keeps_encrypted_content():
-    raw = response(
-        [
-            reasoning_item(["Look the order up first.", "Then answer."]),
-            message_item("Shipped."),
-        ]
-    )
-    message = adapter().decode_response(raw)
     assert message.reasoning == "Look the order up first.\n\nThen answer."
     replayed = message.provider_data["openai"]["output"]
     assert replayed[0]["encrypted_content"] == "enc-abc"
     assert replayed[0]["type"] == "reasoning"
-
-
-def test_responses_decode_leaves_reasoning_none_without_a_summary():
-    raw = response([reasoning_item([]), message_item("Shipped.")])
-    assert adapter().decode_response(raw).reasoning is None
-
-
-def test_responses_decode_usage_with_cached_tokens():
-    raw = response([message_item("ok")], usage=responses_usage())
-    assert adapter().decode_response(raw).usage == {
+    assert message.usage == {
         "input_tokens": 11,
         "output_tokens": 7,
         "reasoning_tokens": 3,
@@ -493,8 +448,16 @@ def test_responses_decode_usage_with_cached_tokens():
     }
 
 
-def test_responses_decode_without_usage_returns_zero_counters():
-    assert adapter().decode_response(response([message_item("ok")])).usage == {"input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "total_tokens": 0}
+def test_responses_decode_invalid_argument_json():
+    raw = response([function_call_item("call_1", "lookup_order", '{"order_id": ')])
+    message = adapter().decode_response(raw)
+    assert message.tool_calls == [ToolCall("call_1", "lookup_order", {})]
+    assert message.provider_data["openai"]["invalid_arguments"] == {"call_1": '{"order_id": '}
+
+
+def test_responses_decode_leaves_reasoning_none_without_a_summary():
+    raw = response([reasoning_item([]), message_item("Shipped.")])
+    assert adapter().decode_response(raw).reasoning is None
 
 
 def test_responses_decode_maps_max_output_tokens_to_length():
@@ -523,13 +486,6 @@ def test_responses_decode_output_replays_through_encode_unchanged():
     assert payload["input"][1:] == [item.model_dump(exclude_none=True) for item in raw.output]
 
 
-def test_responses_decode_keeps_the_requested_id_and_the_snapshot_separately():
-    raw = response([message_item("ok")], model="gpt-5-2025-08-07")
-    data = adapter().decode_response(raw).provider_data["openai"]
-    assert data["model"] == MODEL_ID
-    assert data["response_model"] == "gpt-5-2025-08-07"
-
-
 def test_responses_decode_of_a_dated_snapshot_still_replays_through_encode():
     raw = response(
         [reasoning_item(["Thinking"]), function_call_item("call_1", "lookup_order", "{}")],
@@ -539,6 +495,8 @@ def test_responses_decode_of_a_dated_snapshot_still_replays_through_encode():
     message = model.decode_response(raw)
     payload = model.encode_request(ModelRequest([UserMessage("hi"), message]))
     assert payload["input"][1:] == [item.model_dump(exclude_none=True) for item in raw.output]
+    assert message.provider_data["openai"]["model"] == MODEL_ID
+    assert message.provider_data["openai"]["response_model"] == "gpt-5-2025-08-07"
 
 
 def test_responses_encode_rebuilds_what_another_requested_id_decoded():
@@ -563,20 +521,27 @@ def test_responses_encode_rebuilds_what_another_requested_id_decoded():
 # --------------------------------------------------------------------------
 
 
-def test_chat_encode_messages_and_tools():
+def test_chat_encode_complete_request_contract():
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
     request = ModelRequest(
         [SystemMessage("You are helpful."), UserMessage("Where is order 9127412?")],
         [spec()],
+        {"json_schema": schema, "temperature": 0.1},
     )
     payload = adapter("chat_completions").encode_request(request)
-    assert payload["model"] == MODEL_ID
-    assert payload["messages"] == [
-        {"role": "system", "content": "You are helpful."},
-        {"role": "user", "content": "Where is order 9127412?"},
-    ]
-    assert payload["tools"] == [spec().to_openai()]
-    assert "stream" not in payload
-    assert "instructions" not in payload
+    assert payload == {
+        "model": MODEL_ID,
+        "messages": [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Where is order 9127412?"},
+        ],
+        "tools": [spec().to_openai()],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "output", "schema": schema},
+        },
+        "temperature": 0.1,
+    }
 
 
 def test_chat_encode_assistant_tool_calls():
@@ -614,9 +579,7 @@ def test_chat_encode_uses_empty_content_when_an_assistant_message_has_no_text():
 def test_chat_encode_tool_result_uses_the_tool_role():
     result = ToolResultMessage(call_id="call_1", name="lookup_order", content="shipped")
     payload = adapter("chat_completions").encode_request(ModelRequest([result]))
-    assert payload["messages"] == [
-        {"role": "tool", "tool_call_id": "call_1", "content": "shipped"}
-    ]
+    assert payload["messages"] == [{"role": "tool", "tool_call_id": "call_1", "content": "shipped"}]
 
 
 def test_chat_encode_ignores_the_view_and_status_on_a_tool_result():
@@ -648,22 +611,6 @@ def test_chat_encode_translates_tool_choice(given, expected):
     assert adapter("chat_completions").encode_request(request)["tool_choice"] == expected
 
 
-def test_chat_encode_translates_json_schema():
-    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
-    request = ModelRequest([UserMessage("hi")], options={"json_schema": schema})
-    payload = adapter("chat_completions").encode_request(request)
-    assert payload["response_format"] == {
-        "type": "json_schema",
-        "json_schema": {"name": "output", "schema": schema},
-    }
-    assert "json_schema" not in payload
-
-
-def test_chat_encode_passes_other_options_through():
-    request = ModelRequest([UserMessage("hi")], options={"temperature": 0.1})
-    assert adapter("chat_completions").encode_request(request)["temperature"] == 0.1
-
-
 def test_chat_encode_replays_nothing_from_provider_data():
     history = [
         AssistantMessage(
@@ -685,7 +632,13 @@ def test_chat_decode_text_and_usage():
     message = adapter("chat_completions").decode_response(raw)
     assert message.text == "Shipped."
     assert message.stop_reason == "stop"
-    assert message.usage == {"input_tokens": 21, "output_tokens": 5, "cache_read_tokens": 8, "cache_write_tokens": 0, "total_tokens": 26}
+    assert message.usage == {
+        "input_tokens": 21,
+        "output_tokens": 5,
+        "cache_read_tokens": 8,
+        "cache_write_tokens": 0,
+        "total_tokens": 26,
+    }
     assert message.provider_data["openai"]["finish_reason"] == "stop"
     assert message.provider_data["openai"]["model"] == MODEL_ID
     assert message.provider_data["openai"]["response_model"] == "gpt-4.1-mini"
@@ -762,7 +715,13 @@ def test_chat_decode_maps_a_refusal_message_to_refusal():
 
 def test_chat_decode_without_usage_returns_zero_counters():
     raw = completion({"role": "assistant", "content": "ok"})
-    assert adapter("chat_completions").decode_response(raw).usage == {"input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "total_tokens": 0}
+    assert adapter("chat_completions").decode_response(raw).usage == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "total_tokens": 0,
+    }
 
 
 # --------------------------------------------------------------------------
@@ -783,9 +742,7 @@ def chunk(
         "choices": [],
     }
     if delta is not None or finish_reason is not None:
-        payload["choices"] = [
-            {"index": 0, "delta": delta or {}, "finish_reason": finish_reason}
-        ]
+        payload["choices"] = [{"index": 0, "delta": delta or {}, "finish_reason": finish_reason}]
     if usage is not None:
         payload["usage"] = usage
     return payload
@@ -1075,11 +1032,7 @@ async def test_chat_stream_yields_a_tool_call_delta_per_fragment():
         ),
         ChatCompletionChunk.model_validate(
             chunk(
-                {
-                    "tool_calls": [
-                        {"index": 0, "function": {"arguments": '{"order_id": "9127412"}'}}
-                    ]
-                }
+                {"tool_calls": [{"index": 0, "function": {"arguments": '{"order_id": "9127412"}'}}]}
             )
         ),
         ChatCompletionChunk.model_validate(chunk({}, finish_reason="tool_calls")),

@@ -1,4 +1,8 @@
-"""OpenAI adapter for the Responses and Chat Completions APIs."""
+"""Translate harness requests/events to and from OpenAI APIs.
+
+This is the provider-specific edge of the path: the harness loop calls ChatModel.stream(),
+and this class makes the SDK request and converts its response back to shared message types.
+"""
 
 from __future__ import annotations
 
@@ -88,6 +92,8 @@ class OpenAIChatModel:
 
     def encode_request(self, request: ModelRequest) -> dict[str, Any]:
         """Return the exact create kwargs for this request, minus `stream`."""
+        # Select the wire format configured by runtime/models.py. The harness itself builds
+        # one common ModelRequest regardless of which OpenAI API is selected.
         if self.api == "responses":
             return self._encode_responses(request)
         return self._encode_chat(request)
@@ -96,6 +102,8 @@ class OpenAIChatModel:
         payload: dict[str, Any] = {
             "model": self.model_id,
             "input": self._responses_input(request.messages),
+            # Do not retain prompts on the provider side. Encrypted reasoning can still be
+            # returned for compatible same-model continuation where the app needs it.
             "store": False,
             "include": ["reasoning.encrypted_content"],
             "parallel_tool_calls": True,
@@ -105,6 +113,7 @@ class OpenAIChatModel:
         )
         if instructions:
             payload["instructions"] = instructions
+        # Only advertise the tools the caller registered for this conversation.
         if request.tools:
             payload["tools"] = [
                 {
@@ -133,6 +142,8 @@ class OpenAIChatModel:
         return payload
 
     def _responses_input(self, messages: list[Message]) -> list[dict[str, Any]]:
+        # Convert the harness transcript into Responses API items. System messages travel
+        # through the separate instructions field, and tool results use call IDs for pairing.
         items: list[dict[str, Any]] = []
         for message in messages:
             if isinstance(message, SystemMessage):
@@ -170,6 +181,8 @@ class OpenAIChatModel:
 
     def _responses_assistant_items(self, message: AssistantMessage) -> list[dict[str, Any]]:
         """Replay same-model output, or rebuild it from common message fields."""
+        # Some Responses output items contain provider continuation state. Reuse it only
+        # for the same model; otherwise reconstruct a portable assistant/tool-call message.
         data = message.provider_data.get("openai")
         if isinstance(data, dict) and data.get("output") and data.get("model") == self.model_id:
             return copy.deepcopy(list(data["output"]))
@@ -279,6 +292,8 @@ class OpenAIChatModel:
         return self._decode_chat(raw)
 
     def _decode_responses(self, raw: Any) -> AssistantMessage:
+        # Reassemble streamed text, reasoning summaries, and tool calls into one common
+        # AssistantMessage. The harness loop makes its next decision from this object.
         texts: list[str] = []
         summaries: list[str] = []
         calls: list[ToolCall] = []
@@ -299,6 +314,8 @@ class OpenAIChatModel:
                 if bad is not None:
                     invalid[item.call_id] = bad
                 calls.append(ToolCall(id=item.call_id, name=item.name, arguments=arguments))
+        # The stop reason tells the harness whether to execute tools, finish, or recover
+        # from an output limit/refusal.
         if calls:
             stop_reason = "tool_calls"
         elif getattr(raw.incomplete_details, "reason", None) == "max_output_tokens":
@@ -408,14 +425,16 @@ class OpenAIChatModel:
         """Consume `stream()` and return its final message."""
         return await collect_model_stream(self.stream(request))
 
-    async def _stream_responses(
-        self, payload: dict[str, Any]
-    ) -> AsyncIterator[ModelEvent]:
+    async def _stream_responses(self, payload: dict[str, Any]) -> AsyncIterator[ModelEvent]:
+        # Non-streaming mode returns one complete response. Normal Theos chat streams so
+        # runtime events can reach Telegram before the entire answer is ready.
         if not self.streaming:
             raw = await self.client.responses.create(**payload)
             log_detail("openai responses raw response=%r", raw)
             yield GenerationComplete(self.decode_response(raw))
             return
+        # This is the actual Responses API call. Following events below turns its provider
+        # event names into the harness' provider-neutral event types.
         stream = await self.client.responses.create(**payload, stream=True)
         final = None
         async for event in stream:

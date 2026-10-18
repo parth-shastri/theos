@@ -63,6 +63,14 @@ def test_public_names_are_re_exported():
         "unanswered_calls",
     }
     assert expected <= set(harness.__all__)
+    import harness.hooks as hooks
+    import harness.tools as tools
+    from harness.types import PendingApproval
+
+    assert hooks.PendingApproval is harness.PendingApproval is PendingApproval
+    for name in ("OutcomeUnknown", "Tool", "execute_tool", "execute_tools", "tool"):
+        assert name in harness.__all__
+        assert getattr(harness, name) is getattr(tools, name)
     for name in harness.__all__:
         assert getattr(harness, name) is not None
 

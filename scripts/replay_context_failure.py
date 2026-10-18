@@ -20,6 +20,7 @@ from harness import (
     ContextMemory,
     Hooks,
     ToolResultMessage,
+    history_tools,
 )
 from harness.context_size import ContextOverflowError, request_size
 from harness.events import ContextCompaction, GenerationComplete
@@ -27,9 +28,7 @@ from harness.loop import TurnFinished
 from harness.output import requested_output_tokens
 from harness.types import message_from_dict, message_to_dict
 from theos.runtime.budgets import TurnBudget
-from theos.runtime.context import SUMMARY_PROMPT
 from theos.runtime.errors import CheckedModel
-from theos.runtime.history_tools import history_tools
 from theos.runtime.models import model_client, session_options
 from theos.settings import Settings
 
@@ -189,17 +188,11 @@ async def replay(args):
             hooks=Hooks(before_model=options, after_tool=after_tool),
             context_window=args.window,
             compaction=CompactionConfig(
-                SUMMARY_PROMPT,
-                {
+                options={
                     "max_tokens"
                     if settings.provider == "openrouter"
                     else "max_output_tokens": args.output_tokens
                 },
-                max_summary_tokens=None,
-                resilient=True,
-                retrieval_tools=("history_read", "history_search"),
-                trigger_ratio=0.5,
-                target_ratio=0.20,
             ),
         )
         # This deadline belongs to the manual test, not the Theos harness.

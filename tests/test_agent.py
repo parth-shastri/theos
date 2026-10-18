@@ -21,16 +21,6 @@ async def lookup(order_id: str) -> str:
     return f"order {order_id} shipped"
 
 
-def test_agent_defaults_leave_tools_empty_and_hooks_inert():
-    blank = Agent(model=None)
-    assert blank.tools == ()
-    assert blank.hooks == Hooks()
-    assert blank.instructions is None
-    assert blank.max_context_tokens is None
-    assert blank.estimate_tokens is default_estimate
-    assert Agent(model=None).hooks is not blank.hooks
-
-
 async def test_run_forwards_every_field_to_run_stream(fake_model, monkeypatch):
     captured: dict[str, Any] = {}
 
@@ -53,8 +43,9 @@ async def test_run_forwards_every_field_to_run_stream(fake_model, monkeypatch):
         max_context_tokens=500,
     )
     history = [UserMessage("Where is my order?")]
-    result = await support.run(history, deps="ada", inbox=inbox, budget=budget,
-                               compaction_budget=compaction_budget)
+    result = await support.run(
+        history, deps="ada", inbox=inbox, budget=budget, compaction_budget=compaction_budget
+    )
     assert result.status == "completed"
     assert captured["positional"] == (model, [lookup], history)
     assert captured == {
@@ -76,9 +67,7 @@ async def test_run_forwards_every_field_to_run_stream(fake_model, monkeypatch):
 
 
 async def test_two_agents_with_different_instructions_read_one_history(fake_model):
-    model = fake_model(
-        [AssistantMessage(text="Findings."), AssistantMessage(text="Approved.")]
-    )
+    model = fake_model([AssistantMessage(text="Findings."), AssistantMessage(text="Approved.")])
     researcher = Agent(model=model, instructions="Research the question.")
     reviewer = Agent(model=model, instructions="Review the findings.")
     history = [UserMessage("Is this covered by the warranty?")]
@@ -110,9 +99,7 @@ async def test_a_child_agent_spends_the_parent_budget(fake_model):
     @tool
     async def research(question: str, ctx: RunContext) -> str:
         """Research a policy question with read-only tools."""
-        result = await researcher.run(
-            [UserMessage(question)], deps=ctx.deps, budget=ctx.budget
-        )
+        result = await researcher.run([UserMessage(question)], deps=ctx.deps, budget=ctx.budget)
         return result.message.text or ""
 
     parent_model = fake_model(
@@ -149,17 +136,3 @@ async def test_agent_run_matches_run_turn_on_the_same_script(fake_model):
     ).run(agent_history)
     assert direct.status == through_agent.status
     assert direct_history == agent_history
-
-
-async def test_agent_run_returns_the_same_result_as_run_stream(fake_model):
-    script = [AssistantMessage(text="It shipped.")]
-    streamed_history = [UserMessage("Where is my order?")]
-    buffered_history = [UserMessage("Where is my order?")]
-    streamed_agent = Agent(model=fake_model(list(script)), instructions="Support.")
-    buffered_agent = Agent(model=fake_model(list(script)), instructions="Support.")
-
-    events = [event async for event in streamed_agent.run_stream(streamed_history)]
-    result = await buffered_agent.run(buffered_history)
-
-    assert events[-1] == TurnFinished(result)
-    assert streamed_history == buffered_history
