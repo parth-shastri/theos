@@ -1,5 +1,15 @@
 # Feature and acceptance checklist
 
+## Direct motivation, 2026-10-18
+
+The shared persona now specifies firm, masculine encouragement for ordinary discouragement and procrastination.
+It calls for one achievable action, respects requested gentleness, and treats grief or serious distress with care.
+The main prompt includes a low-motivation example.
+
+All 33 focused prompt, speech, identity, and override checks passed. No pytest cases were added.
+Four tool-free live model probes covered discouragement, procrastination, requested gentleness, and grief.
+The first two gave direct next actions. The latter two adjusted their tone to the request and context.
+
 ## Local account and light navigation checks, 2026-10-18
 
 The ARM64 image completed explicit research, Gmail search/body/thread reads, and a bounded spending-analysis scenario.
