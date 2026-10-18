@@ -4,6 +4,7 @@ import hmac
 import time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from theos.services.errors import ServiceError
 from theos.services.preferences.tools import preferences
 from theos.storage.telegram_access import code_fingerprint, has_access
 
@@ -115,6 +116,62 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             return True
         return False
 
+    # A ready user can restart the profile form, but /start must not reset their
+    # saved name or timezone without a clear choice.
+    if callback and callback.get("data") in {
+        "onboarding:restart",
+        "onboarding:continue",
+    }:
+        if not row or row["state"] != "ready":
+            await bot.api(
+                "answerCallbackQuery",
+                {"callback_query_id": callback["id"], "text": "Setup is already in progress."},
+            )
+            if row:
+                await prompt(bot, owner, chat, topic)
+            else:
+                await bot.send(chat, "Send /start to register and complete setup.", topic)
+            return True
+
+        restart = callback["data"] == "onboarding:restart"
+        await bot.api(
+            "answerCallbackQuery",
+            {
+                "callback_query_id": callback["id"],
+                "text": "Starting onboarding again." if restart else "Your profile is ready.",
+            },
+        )
+        try:
+            await bot.api(
+                "editMessageReplyMarkup",
+                {
+                    "chat_id": chat,
+                    "message_id": message["message_id"],
+                    "reply_markup": {"inline_keyboard": []},
+                },
+            )
+        except ServiceError:
+            # A stale confirmation must not block the selected profile action.
+            pass
+        if restart:
+            bot.db.execute(
+                "UPDATE telegram_enrollments SET state='name' WHERE user_id=?",
+                (user_id,),
+            )
+            await bot.send(
+                chat,
+                "Your saved conversations and records will stay available.",
+                topic,
+            )
+            await prompt(bot, owner, chat, topic)
+        else:
+            await bot.send(
+                chat,
+                "Your profile is ready. Send me a message whenever you want to continue.",
+                topic,
+            )
+        return True
+
     # 3. Only /start can claim a slot. Pending setup counts toward the same user cap so
     # abandoned onboarding cannot bypass the configured enrollment limit.
     if not row:
@@ -145,6 +202,22 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
     # 4. Keep consuming updates until both fields are valid and saved. Returning False means
     # setup is complete, so polling.py can continue to commands, media, or a model turn.
     if row["state"] == "ready":
+        if action == "/start" and not callback:
+            await bot.send(
+                chat,
+                "You already have a profile. Would you like to start onboarding again? "
+                "Your saved conversations and records will stay available.",
+                topic,
+                {
+                    "inline_keyboard": [
+                        [
+                            {"text": "Start onboarding", "callback_data": "onboarding:restart"},
+                            {"text": "Continue chatting", "callback_data": "onboarding:continue"},
+                        ]
+                    ]
+                },
+            )
+            return True
         return False
     if callback:
         await bot.api(
