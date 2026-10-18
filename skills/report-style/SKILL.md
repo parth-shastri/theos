@@ -18,7 +18,7 @@ Follow any explicit style or format request.
 Use Space Grotesk for body text, headings, tables, chart labels, legends, and diagram text.
 The builders bundle this font in PDF output and embed it in DOCX files.
 The sandbox installs the same font for charts and document conversion.
-For Matplotlib charts, set `font.family` to `Space Grotesk` before plotting.
+Use the preinstalled Matplotlib for numeric charts. Its sandbox defaults use Space Grotesk and portable SVG text paths.
 For standalone SVG charts, embed the font data or convert text to paths so other viewers retain the typeface.
 Keep code in the supplied monospace style. Use a fallback only for characters the font does not contain.
 

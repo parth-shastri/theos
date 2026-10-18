@@ -342,6 +342,7 @@ See [shared skill maintenance](../skills/README.md) for installation and updates
 | --- | --- |
 | `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, bundled Space Grotesk and local DejaVu Sans Mono fonts |
 | `build_docx.py` | python-docx, Markdown, Beautiful Soup, Playwright, Chrome or Chromium |
+| Numeric report charts | Matplotlib with headless Agg, bundled Space Grotesk, SVG text paths, and embedded TrueType fonts in PDF |
 | PDF and OCR skills | pypdf, pdfplumber, reportlab, pdf2image, pytesseract, Poppler, and Tesseract |
 | DOCX and XLSX skills | npm `docx`, Pandoc, openpyxl, pandas, markitdown, and LibreOffice Writer/Calc |
 | Paper skills | `arxiv` Python package and the pinned `pwc` command |

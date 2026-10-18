@@ -11,6 +11,7 @@ ENV NODE_PATH="/opt/node/lib/node_modules"
 ENV CHROME="/usr/local/bin/google-chrome"
 ENV AGENT_BROWSER_EXECUTABLE_PATH="/usr/local/bin/google-chrome"
 ENV PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
+ENV MATPLOTLIBRC="/opt/theos/report-style/assets/matplotlibrc"
 
 RUN set -eux; \
     test "$(dpkg --print-architecture)" = "arm64"; \
@@ -63,7 +64,7 @@ RUN set -eux; \
     test -x /opt/code-interpreter/code-interpreter.sh; \
     test -x "${CHROME}"; \
     command -v theos-report; \
-    python -c 'import arxiv, bs4, docx, markdown, markitdown, openpyxl, pandas, pdf2image, pdfplumber, pypdf, pypdfium2, playwright, pytesseract, reportlab'; \
+    python -c 'import arxiv, bs4, docx, markdown, markitdown, matplotlib, openpyxl, pandas, pdf2image, pdfplumber, pypdf, pypdfium2, playwright, pytesseract, reportlab'; \
     pwc version; \
     node -e 'require("docx")'; \
     rm -f /tmp/requirements.lock

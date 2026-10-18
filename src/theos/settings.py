@@ -55,7 +55,7 @@ class SandboxSettings(BaseModel):
     domain: str = "localhost:8080"
     api_key: SecretStr = SecretStr("")
     use_server_proxy: bool = False
-    image: str = "opensandbox/code-interpreter:v1.0.1"
+    image: str = "theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3"
     timeout_seconds: int = Field(default=3600, ge=60, le=3600)
 
 

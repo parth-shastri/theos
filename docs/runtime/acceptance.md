@@ -1171,3 +1171,25 @@ All three delivered files matched the verified sources byte-for-byte. PDF struct
 
 The local application uses the updated prompt image and the isolated font runtime for new sandboxes.
 PR #86 remains open. No connector PR, production deployment, or branch promotion was merged.
+
+## Final sandbox candidate and Docker cleanup, 2026-10-19
+
+The ARM64 image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` built from the shared runtime Dockerfile.
+Its local image digest is `sha256:977e17829f78f5aee9c02bab0d1ec3457688c37093b181f4fae37875ab34a311`.
+A fresh sandbox passed creation, status inspection, file transfer, execution, and destruction through OpenSandbox.
+The checks used the normal one-CPU, 512 MiB resource request.
+
+Matplotlib generated bar and line charts with checked values and accurate axis labels.
+Space Grotesk was the default chart font. SVG exports used text paths.
+The PDF and editable DOCX contained both a chart and a decision diagram.
+Both rendered pages passed visual inspection. Font inspection confirmed Space Grotesk in both document conversions.
+Spreadsheet formula recalculation, OCR, Chromium automation, and Papers with Code checks also passed.
+A separate fresh Python kernel imported Matplotlib and pandas and returned the expected result.
+The existing integration and sandbox recovery tests passed 14 cases.
+
+The local application now selects the final sandbox image. Its data volume and generated files remain intact.
+The Mac mini cleanup removed three test sandboxes, four obsolete image tags, and temporary build directories.
+Docker reported 32.09 GB of removed build cache. No service volume was pruned.
+Mem0, its dashboard, PostgreSQL, Kokoro, and Whisper remain running.
+The previous production sandbox image remains available for the Pi. The Pi environment remains unchanged.
+PR #86 remains open. No branch promotion or Pi deployment occurred.

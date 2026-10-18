@@ -656,3 +656,15 @@ Retain citations and concise material limitations without making them the report
 Do not impose arbitrary total Gmail message, page, or body limits. Read the evidence needed for the requested period and task.
 Per-response pagination and body ranges remain bounded for transfer and context management. Continue them as needed.
 Earlier 100-header and 30-body limits were acceptance-prompt sampling choices, not production limits.
+
+## Production sandbox candidate, 2026-10-19
+
+Use `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` for new local sandboxes.
+The image adds locked Matplotlib with headless Agg and Space Grotesk defaults.
+Export SVG text as paths and embed TrueType fonts in chart PDFs.
+Keep the existing OpenSandbox interpreter entrypoint and one-CPU, 512 MiB resource request.
+Exclude caches and environment files from the Docker build context.
+
+The Mac mini retains this image, its runtime dependencies, and the older image required by the Pi.
+Retire acceptance sandboxes before removing their images. Remove unused build cache without pruning service volumes.
+The Pi environment and application stay unchanged until the separate release step.
