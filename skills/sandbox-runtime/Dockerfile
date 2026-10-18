@@ -17,7 +17,7 @@ RUN set -eux; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates curl xz-utils \
-        fonts-inter fonts-dejavu-core fonts-liberation \
+        fonts-dejavu-core fonts-liberation \
         libreoffice-writer libreoffice-calc pandoc poppler-utils qpdf tesseract-ocr; \
     node_file="node-v${NODE_VERSION}-linux-arm64.tar.xz"; \
     curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/${node_file}" -o /tmp/node.tar.xz; \
@@ -28,7 +28,6 @@ RUN set -eux; \
     npm install --global --prefix /opt/node --allow-scripts=agent-browser \
         "agent-browser@${AGENT_BROWSER_VERSION}" "docx@${DOCX_JS_VERSION}"; \
     fc-cache -f; \
-    fc-match Inter; \
     fc-match "DejaVu Sans Mono"; \
     command -v soffice; \
     command -v pandoc; \
@@ -41,6 +40,12 @@ RUN set -eux; \
 
 COPY sandbox-runtime/requirements.lock /tmp/requirements.lock
 COPY report-style /opt/theos/report-style/
+
+RUN set -eux; \
+    mkdir -p /usr/local/share/fonts/space-grotesk; \
+    cp /opt/theos/report-style/assets/fonts/*.ttf /usr/local/share/fonts/space-grotesk/; \
+    fc-cache -f; \
+    test "$(fc-match -f '%{family}' 'Space Grotesk')" = 'Space Grotesk'
 
 ENV PYTHONPATH="/opt/theos/report-style/.venv/lib/python3.14/site-packages"
 

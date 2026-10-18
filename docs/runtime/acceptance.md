@@ -1104,3 +1104,44 @@ Tagged deployment and the active Pi manifest must confirm application activation
 The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
 Every request retains ZDR and generic performance preferences without an endpoint order.
 Runtime configuration contains no model-specific order map. No provider call is required for these checks.
+
+## User reports and report typography, 2026-10-18
+
+Local browser scenarios exercised public-source research and read-only Gmail spending analysis.
+The research parent now retains workspace tools to create and deliver requested documents.
+Delegates retain their separate read-only tool set.
+
+The first document runs exposed binary corruption in bounded sandbox reads.
+The SDK limit counted lines rather than bytes. Byte ranges now preserve PDF, DOCX, PNG, and checkpoint content.
+The focused recovery and integration checks passed. The full local suite passed 1,021 tests before the report wording and font changes.
+CI also passed on Python 3.12, Python 3.13, and ARM64.
+
+After the transfer fix, one deep research turn delivered a four-page PDF and an editable five-page DOCX.
+Both files passed structural checks. Native Word rendering retained the diagrams and active source links.
+A synthetic spending scenario verified refunds, duplicates, pending transactions, malformed amounts, date boundaries, and separate currencies.
+An independent audit matched the earlier mailbox report totals to its transaction CSV and inspected source bodies.
+
+The earlier 100-header and 30-body limits came from the acceptance prompt.
+Production instructions now require task-driven pagination and relevant body, thread, and attachment reads without an invented total allowance.
+An uncapped scenario completed 34 message-body calls before a provider timeout interrupted delivery.
+Its saved evidence remains available for recovery. No scenario used Gmail write tools.
+
+Report instructions now lead with findings, implications, and actions for the user.
+They exclude agent activity logs from the main report and select useful visuals without a separate user request.
+The first natural-language visual scenario still produced tables without a diagram.
+The revised skill explicitly requires a diagram for choices or multistep processes and a chart for supported spending comparisons.
+End-to-end verification of that revision remains in progress.
+
+Report builders now use bundled Space Grotesk for prose, tables, headings, and diagram labels.
+PDF HTML embeds its font data. DOCX embeds regular and bold font parts.
+The sandbox installs the same font for charts and document conversion. Code retains its monospace face.
+The font data comes from the existing browser asset and needs no runtime CDN request.
+
+An isolated ARM64 acceptance image rendered both formats under the existing one-CPU, 512 MiB sandbox limit.
+PDF font inspection confirmed Space Grotesk in both the PDF and native Word conversion.
+A separate Word conversion on a host without the font installed also used the embedded Space Grotesk faces.
+The rendered smoke pages passed visual inspection. The focused prompt and identity checks passed 24 tests.
+The configured CI lint and formatting checks passed. No additional pytest cases were added.
+
+The local application uses the updated prompt image and the isolated font runtime for new sandboxes.
+PR #86 remains open. No connector PR, production deployment, or branch promotion was merged.

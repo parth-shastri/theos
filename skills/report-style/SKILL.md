@@ -13,12 +13,23 @@ New reports default to PDF with the preinstalled style.
 Preserve an existing document's style when editing.
 Follow any explicit style or format request.
 
+## Typography
+
+Use Space Grotesk for body text, headings, tables, chart labels, legends, and diagram text.
+The builders bundle this font in PDF output and embed it in DOCX files.
+The sandbox installs the same font for charts and document conversion.
+For Matplotlib charts, set `font.family` to `Space Grotesk` before plotting.
+Keep code in the supplied monospace style. Use a fallback only for characters the font does not contain.
+
 ## Content and visuals
 
 Write for the user's decision or understanding. Lead with the answer, key findings, and their implications.
 Structure the report around the subject, rather than the steps the agent performed.
 Use evidence-based charts for trends, comparisons, and distributions. Use diagrams for relationships, flows, and choices.
 Choose useful visuals automatically. The user does not need to ask for charts or diagrams.
+For a report about choices or a multistep process, include a labeled decision or flow diagram.
+For a spending report with enough evidence, include a category comparison or time-series chart.
+Draw these visuals with the supplied diagram blocks or chart images. A table or an arrow-separated sentence alone is insufficient.
 Choose visuals that answer the user's question. Add clear labels, units, periods, and a short explanation of each takeaway.
 Keep currencies separate unless the task requires a supported conversion. Never invent data for a chart.
 Include useful next steps, concise material limitations, and source references where they support the findings.
@@ -26,7 +37,7 @@ Keep tool logs, read counts, generation details, and provenance tables out of th
 
 ## Build and deliver
 
-For flow or sequence diagrams, load the relevant guide under `references/` with `load_skill`.
+For flow or sequence diagrams, load the relevant guide under `references/` with `load_skill` before drafting.
 Ensure each selected output format contains the visuals, rather than silently omitting them during conversion.
 Write the report as Markdown at `/workspace/report.md`.
 The report style files and builders are preinstalled at `/opt/theos/report-style`.

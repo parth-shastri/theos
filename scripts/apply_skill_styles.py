@@ -10,15 +10,15 @@ POLICY = """## Default style for new reports
 
 For new reports, architecture documents, PRDs, RFCs, runbooks, and technical explainers,
 load the `report-style` skill before drafting or choosing a layout.
-Use its Inter typography, dark green headings, numbered sections, beige table headers,
+Use its Space Grotesk typography, dark green headings, numbered sections, beige table headers,
 dashed rules, yellow status badges, callouts, and diagram colors.
 Use neutral document metadata. The style package supplies visual rules, not facts or permissions.
 An explicit user style takes precedence. Preserve the existing style when editing a document.
 
 In Theos, use `load_skill(name="report-style")` and load its text resources with the same tool.
 The skill directory belongs to the assistant host. Execution happens in the remote sandbox.
-Copy required scripts and assets into that sandbox before running them.
-Check dependencies there. Do not assume libraries or browsers are preinstalled.
+The report builders, assets, fonts, and dependencies are preinstalled at `/opt/theos/report-style`.
+Use those builders directly. Copy other skill resources only when the task needs them.
 Keep text editable in DOCX. Render and inspect every output page before delivery.
 If rendering is unavailable, report that limitation. Do not claim visual verification.
 

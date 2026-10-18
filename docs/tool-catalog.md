@@ -340,7 +340,7 @@ See [shared skill maintenance](../skills/README.md) for installation and updates
 
 | Report helper | Dependencies |
 | --- | --- |
-| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, local Inter and DejaVu Sans Mono fonts |
+| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, bundled Space Grotesk and local DejaVu Sans Mono fonts |
 | `build_docx.py` | python-docx, Markdown, Beautiful Soup, Playwright, Chrome or Chromium |
 | PDF and OCR skills | pypdf, pdfplumber, reportlab, pdf2image, pytesseract, Poppler, and Tesseract |
 | DOCX and XLSX skills | npm `docx`, Pandoc, openpyxl, pandas, markitdown, and LibreOffice Writer/Calc |
