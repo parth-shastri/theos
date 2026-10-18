@@ -1,0 +1,5 @@
+# Keep sandbox charts consistent with the report builders.
+backend: Agg
+font.family: Space Grotesk
+pdf.fonttype: 42
+svg.fonttype: path

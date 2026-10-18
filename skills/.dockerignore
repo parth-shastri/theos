@@ -1,0 +1,10 @@
+*
+!sandbox-runtime/
+!sandbox-runtime/Dockerfile
+!sandbox-runtime/requirements.lock
+!report-style/
+!report-style/**
+**/__pycache__/
+**/*.pyc
+**/.env*
+**/*.env

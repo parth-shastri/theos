@@ -11,13 +11,14 @@ ENV NODE_PATH="/opt/node/lib/node_modules"
 ENV CHROME="/usr/local/bin/google-chrome"
 ENV AGENT_BROWSER_EXECUTABLE_PATH="/usr/local/bin/google-chrome"
 ENV PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
+ENV MATPLOTLIBRC="/opt/theos/report-style/assets/matplotlibrc"
 
 RUN set -eux; \
     test "$(dpkg --print-architecture)" = "arm64"; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates curl xz-utils \
-        fonts-inter fonts-dejavu-core fonts-liberation \
+        fonts-dejavu-core fonts-liberation \
         libreoffice-writer libreoffice-calc pandoc poppler-utils qpdf tesseract-ocr; \
     node_file="node-v${NODE_VERSION}-linux-arm64.tar.xz"; \
     curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/${node_file}" -o /tmp/node.tar.xz; \
@@ -28,7 +29,6 @@ RUN set -eux; \
     npm install --global --prefix /opt/node --allow-scripts=agent-browser \
         "agent-browser@${AGENT_BROWSER_VERSION}" "docx@${DOCX_JS_VERSION}"; \
     fc-cache -f; \
-    fc-match Inter; \
     fc-match "DejaVu Sans Mono"; \
     command -v soffice; \
     command -v pandoc; \
@@ -41,6 +41,12 @@ RUN set -eux; \
 
 COPY sandbox-runtime/requirements.lock /tmp/requirements.lock
 COPY report-style /opt/theos/report-style/
+
+RUN set -eux; \
+    mkdir -p /usr/local/share/fonts/space-grotesk; \
+    cp /opt/theos/report-style/assets/fonts/*.ttf /usr/local/share/fonts/space-grotesk/; \
+    fc-cache -f; \
+    test "$(fc-match -f '%{family}' 'Space Grotesk')" = 'Space Grotesk'
 
 ENV PYTHONPATH="/opt/theos/report-style/.venv/lib/python3.14/site-packages"
 
@@ -58,7 +64,7 @@ RUN set -eux; \
     test -x /opt/code-interpreter/code-interpreter.sh; \
     test -x "${CHROME}"; \
     command -v theos-report; \
-    python -c 'import arxiv, bs4, docx, markdown, markitdown, openpyxl, pandas, pdf2image, pdfplumber, pypdf, pypdfium2, playwright, pytesseract, reportlab'; \
+    python -c 'import arxiv, bs4, docx, markdown, markitdown, matplotlib, openpyxl, pandas, pdf2image, pdfplumber, pypdf, pypdfium2, playwright, pytesseract, reportlab'; \
     pwc version; \
     node -e 'require("docx")'; \
     rm -f /tmp/requirements.lock

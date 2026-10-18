@@ -1,4 +1,4 @@
-"""Telegram commands for conversations, settings, and private accounts."""
+"""Handle Telegram commands directly, outside the normal model/tool loop."""
 
 import json
 
@@ -10,6 +10,7 @@ from theos.storage.telegram_access import account_access
 async def command(bot, session, command, argument, chat, topic):
     """Handle chat commands and enforce private account access."""
     owner = session["owner"]
+    # Keep older command spellings working while routing all behavior to one implementation.
     aliases = {
         "/thinking": "/reasoning",
         "/connect_gmail": "/gmail",
@@ -17,6 +18,8 @@ async def command(bot, session, command, argument, chat, topic):
         "/zepto": "/connect_zepto",
     }
     command = aliases.get(command, command)
+    # Account commands can reveal private data or grant external access. Gate them before
+    # calling an account service, even though polling.py has already identified the sender.
     if command in {
         "/gmail",
         "/health",
@@ -34,6 +37,8 @@ async def command(bot, session, command, argument, chat, topic):
             chat, "Complete /start setup in a private chat before connecting accounts.", topic
         )
         return
+    # These commands do not need a model turn: read/update the account service directly and
+    # send a bounded, literal response to Telegram.
     if command in {
         "/disconnect_gmail",
         "/disconnect_health",
@@ -60,6 +65,7 @@ async def command(bot, session, command, argument, chat, topic):
             result = bot.db.record(owner, "health", "summary")
         await bot.send(chat, json.dumps(result, ensure_ascii=False)[:4000], topic)
         return
+    # Conversation commands either reply directly or deliberately start a runtime turn.
     if command in {"/start", "/help"}:
         await bot.send(
             chat,
@@ -71,14 +77,17 @@ async def command(bot, session, command, argument, chat, topic):
         await bot.runtime.reset(owner, session["id"])
         await bot.send(chat, "Conversation reset. Your saved records remain available.", topic)
     elif command == "/research":
+        # Explicit command syntax is the user's consent to create saved research records.
         if not argument.strip():
             raise ValueError("Use /research followed by your question.")
         await bot.render(
             bot.runtime.start(owner, session["id"], argument, mode="deep_research"), chat, topic
         )
     elif command == "/resume":
+        # Resume saved pending tool calls or a turn stopped at a model-call boundary.
         await bot.render(bot.runtime.start(owner, session["id"]), chat, topic)
     elif command == "/model":
+        # Validate choices against operator-supported models before changing session state.
         allowed = model_choices(bot.settings)
         if argument not in allowed:
             await bot.send(chat, "Available models: " + ", ".join(allowed), topic)
@@ -86,6 +95,7 @@ async def command(bot, session, command, argument, chat, topic):
             bot.db.execute("UPDATE sessions SET model=? WHERE id=?", (argument, session["id"]))
             await bot.send(chat, "Model saved: " + argument, topic)
     elif command == "/reasoning":
+        # Reasoning options vary by model/provider, so only persist a supported choice.
         choices = reasoning_choices(bot.settings.provider, session["model"])
         if argument not in choices:
             raise ValueError("Use one of: " + ", ".join(choices))

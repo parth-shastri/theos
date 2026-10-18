@@ -1,4 +1,17 @@
-"""A small model → tools → model loop. (the inner loop)"""
+"""The reusable inner loop: build a request, call the model, run tools, repeat.
+
+This module stays unaware of Telegram, SQLite, or Theos services. The caller supplies
+history, tools, hooks, and a model that implements the ChatModel interface.
+
+    history -> build / compact -> model
+                                  |
+                   +--------------+-------------+
+                   | tool calls                 | final answer
+                   v                            v
+               execute tools                  return
+                   |
+               append results -> next request from history
+"""
 
 from __future__ import annotations
 
@@ -9,7 +22,7 @@ from contextlib import aclosing, suppress
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
-from harness.compaction import CompactionConfig, ContextMemory
+from harness.compaction import CompactingModel, CompactionConfig, ContextMemory
 from harness.context import (
     ContextLimitError,
     RunContext,
@@ -24,6 +37,7 @@ from harness.inbox import Inbox
 from harness.limits import DEFAULT_EXECUTION_LIMITS, ExecutionLimits, validate_assistant_message
 from harness.model import ChatModel
 from harness.output import DEFAULT_OUTPUT_RESERVATION, requested_output_tokens
+from harness.prompting import render_prompt
 from harness.tools import Tool, execute_tools
 from harness.types import (
     AssistantMessage,
@@ -189,8 +203,10 @@ async def _build_request(
         raise ValueError("context_window must be positive and output reservation non-negative")
 
     if compaction is not None:
+        # Keep one request builder for the first view and every compaction candidate.
+        # Hooks must run again so size checks include the current prefix, tools, and options.
         request = await prepare(ctx.memory.view(history))
-        async for event in model.prepare(request):
+        async for event in model.prepare(request, rebuild=prepare):
             yield event
         return
 
@@ -242,7 +258,11 @@ async def run_turn_stream(
     memory: ContextMemory | None = None,
 ) -> AsyncIterator[RunEvent]:
     """Yield events until the model answers, pauses, or uses the budget."""
+    # A direct harness caller gets a modest default. Theos supplies its own shared budget
+    # so parent calls, compaction, recovery, and delegates can coordinate limits.
     budget = budget or Budget(max_model_calls=10)
+    # RunContext is shared with tools and hooks. It carries this run's mutable history,
+    # services/dependencies, steering inbox, and working context memory.
     ctx = RunContext(
         deps=deps,
         history=history,
@@ -251,10 +271,9 @@ async def run_turn_stream(
         memory=memory if memory is not None else ContextMemory(),
     )
     hooks = hooks or Hooks()
+    # The compactor changes only the model's working view. The caller-owned history stays whole.
     if compaction is not None and context_window is not None:
-        from harness.lean_context import LeanModel
-
-        model = LeanModel(
+        model = CompactingModel(
             model,
             context_window,
             compaction,
@@ -277,7 +296,8 @@ async def run_turn_stream(
     )
 
     while True:
-        # 1. Finish tool calls left by this run or by an earlier paused run.
+        # 1. Finish tool calls left by this run or by an earlier paused run. The assistant
+        # message containing a call is in history; unanswered_calls finds its missing result.
         calls = unanswered_calls(history)
         log_detail(
             "turn cycle run_id=%s history_len=%d unanswered_calls=%r budget=%r inbox=%r",
@@ -290,6 +310,8 @@ async def run_turn_stream(
         if calls:
             results: list[ToolResultMessage | PendingApproval] = []
             for start in range(0, len(calls), limits.tool_batch_size):
+                # Large batches are split without changing call IDs, so saved results still
+                # match the exact requests the model made.
                 batch = calls[start : start + limits.tool_batch_size]
                 # Closing the public stream also cancels its active execution batch.
                 async with aclosing(_stream_tools(batch, tools, ctx, hooks, limits)) as events:
@@ -304,18 +326,22 @@ async def run_turn_stream(
 
             pending = [r for r in results if isinstance(r, PendingApproval)]
             if pending:
+                # A tool that needs user approval is not run yet. End the turn here and let
+                # the transport collect the user's decision before resuming this history.
                 finished = TurnFinished(TurnResult("waiting_for_approval", pending))
                 log_event(finished, phase="turn-finished")
                 yield finished
                 return
 
-        # 2. Add user steering only between tool execution and the next model call.
+        # 2. Add user steering only between tool execution and the next model call. This
+        # keeps new user input from interrupting an external action halfway through.
         if inbox:
             steering = inbox.drain()
             log_detail("inbox drain before model run_id=%s messages=%r", ctx.run_id, steering)
             history.extend(steering)
 
-        # 3. Avoid building a request when the shared budget is already spent.
+        # 3. Avoid building a request when the shared budget is already spent. Tool results
+        # are already in history, so returning now cannot lose their durable record.
         if budget.used >= budget.max_model_calls:
             result = TurnResult("budget_exhausted", message=_last_assistant(history))
             finished = TurnFinished(result)
@@ -323,25 +349,19 @@ async def run_turn_stream(
             yield finished
             return
 
-        # 4. Build a fresh request. Instructions stay out of saved history.
+        # 4. Build a fresh request. Instructions and generic tool guidance are request
+        # context, not transcript messages, so they are not saved as user/assistant history.
         prefix = [SystemMessage(await _resolve(instructions, ctx))] if instructions else []
         if tools:
-            guidance = (
-                f"Request at most {limits.tool_batch_size} tool calls per response. "
-                "Wait for their results before requesting the next group. "
-                "A not_started result means no tool executed. Correct the stated problem "
-                "before submitting a new call with a new ID. A failed result means the tool "
-                "ran and failed. An unknown result means the action may have happened. "
-                "Never repeat completed or unknown actions merely because a batch was split."
-            )
+            # These generic reminders teach the model how this harness labels tool outcomes;
+            # they do not grant permissions. Hooks and tool definitions enforce policy.
             previous = _last_assistant(history)
-            if previous and len(previous.tool_calls) > limits.tool_batch_size:
-                guidance += (
-                    f" Your last response requested {len(previous.tool_calls)} calls, above the "
-                    f"recommended {limits.tool_batch_size}. They were processed in bounded batches "
-                    "with their original IDs and approval checks. Read each result and keep future "
-                    f"responses within {limits.tool_batch_size} calls. Do not resubmit this batch."
-                )
+            guidance = render_prompt(
+                "harness",
+                "execution/tool_batches.md",
+                batch_size=limits.tool_batch_size,
+                previous_count=len(previous.tool_calls) if previous else 0,
+            )
             prefix.append(SystemMessage(guidance))
         request = None
         async with aclosing(
@@ -373,8 +393,8 @@ async def run_turn_stream(
             request,
         )
 
-        # Charge only after request sizing and hooks succeeded, immediately
-        # before the provider call.
+        # Charge only after request sizing and hooks succeeded, immediately before the API
+        # call. A malformed or overlarge request should not consume a model-call allowance.
         if not budget.spend():
             result = TurnResult("budget_exhausted", message=_last_assistant(history))
             finished = TurnFinished(result)
@@ -383,8 +403,8 @@ async def run_turn_stream(
             return
         log_detail("budget spent run_id=%s budget=%r", ctx.run_id, budget)
 
-        # 5. Forward every delta (text, reasoning, tool arguments) and keep the
-        #    one complete message.
+        # 5. Forward text, reasoning summaries, and partial tool-call data as events while
+        # retaining the one complete assistant message needed to continue the conversation.
         called = ModelCalled(request)
         log_event(called, phase="model-called")
         yield called
@@ -400,11 +420,14 @@ async def run_turn_stream(
         if msg is None:
             raise RuntimeError("model stream ended without a final message")
 
+        # Application code can normalize and durably save the completed model response
+        # before the harness appends it or starts any requested tool.
         if hooks.after_model:
             log_detail("after_model hook start run_id=%s message=%r", ctx.run_id, msg)
             msg = await hooks.after_model(msg, ctx)
             log_detail("after_model hook complete run_id=%s message=%r", ctx.run_id, msg)
-        # Keep identity errors fatal. Argument errors receive a result for the affected call.
+        # Keep malformed message identity fatal. Bad tool arguments are handled per call so
+        # the rest of a valid response can still be examined or corrected by the model.
         validate_assistant_message(msg, limits, validate_arguments=False)
         responded = ModelResponded(msg)
         log_event(responded, phase="model-responded")
@@ -412,7 +435,8 @@ async def run_turn_stream(
         history.append(msg)
         log_detail("history updated run_id=%s history=%r", ctx.run_id, history)
 
-        # 6. Tool calls continue the loop; plain text completes the turn.
+        # 6. A response with tool calls loops back to step 1. Plain text ends the turn unless
+        # a user steered more input while generation was running.
         if msg.tool_calls:
             continue
         steering = inbox.drain() if inbox else []

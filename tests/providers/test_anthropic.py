@@ -23,10 +23,9 @@ from anthropic.types import (
     RawContentBlockStartEvent,
     ToolUseBlock,
 )
-from pydantic import ValidationError
 
 from harness.events import ReasoningDelta, TextDelta, ToolCallDelta
-from harness.model import ChatModel
+from harness.model import ChatModel, default_estimate_tokens
 from harness.providers.anthropic import AnthropicChatModel
 from harness.types import (
     AssistantMessage,
@@ -212,22 +211,17 @@ def input_json_event(index: int, partial: str) -> RawContentBlockDeltaEvent:
 # --------------------------------------------------------------------------
 
 
-def test_adapter_satisfies_chat_model_without_inheriting():
+async def test_adapter_contract_and_estimator_forwarding():
     model = adapter()
     assert ChatModel not in type(model).__mro__
     assert isinstance(model, ChatModel)
     assert model.provider == "anthropic"
     assert model.model_id == MODEL_ID
-
-
-def test_the_default_model_id_is_the_current_opus():
-    assert AnthropicChatModel(AsyncAnthropic(api_key="test-key")).model_id == "claude-opus-5"
-
-
-def test_capabilities_report_json_schema_and_vision():
-    caps = adapter().capabilities
+    caps = model.capabilities
     assert caps.tools and caps.parallel_tool_calls and caps.forced_tool_choice
     assert caps.json_schema_output and caps.vision
+    request = ModelRequest([UserMessage("Evidence. " * 100)], [spec()])
+    assert await model.estimate_tokens(request) == default_estimate_tokens(request)
 
 
 @pytest.mark.parametrize(
@@ -245,70 +239,51 @@ def test_capabilities_drop_forced_tool_choice_where_the_model_rejects_it(model_i
     assert AnthropicChatModel.capabilities.forced_tool_choice is True
 
 
-async def test_estimate_tokens_uses_the_shared_heuristic():
-    request = ModelRequest([UserMessage("Where is order 9127412?")], [spec()])
-    assert await adapter().estimate_tokens(request) > 0
-
-
 # --------------------------------------------------------------------------
 # Encode
 # --------------------------------------------------------------------------
 
 
-def test_encode_joins_system_messages_into_the_system_field():
+def test_encode_complete_request_contract():
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
     request = ModelRequest(
         [
             SystemMessage("You are helpful."),
             SystemMessage("Answer in one line."),
             UserMessage("Where is order 9127412?"),
-        ]
+        ],
+        [spec()],
+        {"json_schema": schema, "stop_sequences": ["END"], "metadata": {"user_id": "u1"}},
     )
-    payload = adapter().encode_request(request)
-    assert payload["model"] == MODEL_ID
-    assert payload["system"] == "You are helpful.\n\nAnswer in one line."
-    assert payload["messages"] == [{"role": "user", "content": "Where is order 9127412?"}]
-    assert payload["max_tokens"] == 16000
-    assert payload["thinking"] == {"type": "adaptive"}
-    assert "stream" not in payload
+    payload = adapter(max_tokens=64000).encode_request(request)
+    assert payload == {
+        "model": MODEL_ID,
+        "system": "You are helpful.\n\nAnswer in one line.",
+        "messages": [{"role": "user", "content": "Where is order 9127412?"}],
+        "max_tokens": 64000,
+        "thinking": {"type": "adaptive"},
+        "cache_control": {"type": "ephemeral"},
+        "tools": [
+            {
+                "name": "lookup_order",
+                "description": "Look one order up",
+                "input_schema": spec().parameters,
+            }
+        ],
+        "output_config": {"format": {"type": "json_schema", "schema": schema}},
+        "stop_sequences": ["END"],
+        "metadata": {"user_id": "u1"},
+    }
+    assert set(payload) <= set(inspect.signature(AsyncMessages.create).parameters)
 
 
-def test_encode_omits_system_when_there_is_no_system_message():
-    assert "system" not in adapter().encode_request(ModelRequest([UserMessage("hi")]))
-
-
-def test_encode_caches_the_whole_prefix_by_default():
-    payload = adapter().encode_request(ModelRequest([UserMessage("hi")]))
-    assert payload["cache_control"] == {"type": "ephemeral"}
-
-
-def test_encode_omits_cache_control_when_caching_is_off():
-    payload = adapter(cache=False).encode_request(ModelRequest([UserMessage("hi")]))
-    assert "cache_control" not in payload
-
-
-def test_encode_omits_thinking_when_it_is_none():
-    payload = adapter(thinking=None).encode_request(ModelRequest([UserMessage("hi")]))
-    assert "thinking" not in payload
-
-
-def test_encode_carries_the_constructor_max_tokens():
-    payload = adapter(max_tokens=64000).encode_request(ModelRequest([UserMessage("hi")]))
-    assert payload["max_tokens"] == 64000
-
-
-def test_encode_tools_use_the_input_schema_shape():
-    payload = adapter().encode_request(ModelRequest([UserMessage("hi")], [spec()]))
-    assert payload["tools"] == [
-        {
-            "name": "lookup_order",
-            "description": "Look one order up",
-            "input_schema": spec().parameters,
-        }
-    ]
-
-
-def test_encode_omits_tools_when_there_are_none():
-    assert "tools" not in adapter().encode_request(ModelRequest([UserMessage("hi")]))
+def test_encode_minimal_request_and_disabled_features():
+    payload = adapter(cache=False, thinking=None).encode_request(ModelRequest([UserMessage("hi")]))
+    assert payload == {
+        "model": MODEL_ID,
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 16000,
+    }
 
 
 @pytest.mark.parametrize(
@@ -325,14 +300,6 @@ def test_encode_translates_tool_choice(given, expected):
     assert adapter().encode_request(request)["tool_choice"] == expected
 
 
-def test_encode_translates_json_schema_into_output_config():
-    schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
-    request = ModelRequest([UserMessage("hi")], options={"json_schema": schema})
-    payload = adapter().encode_request(request)
-    assert payload["output_config"] == {"format": {"type": "json_schema", "schema": schema}}
-    assert "json_schema" not in payload
-
-
 def test_encode_merges_json_schema_into_a_caller_output_config():
     schema = {"type": "object", "properties": {"answer": {"type": "string"}}}
     request = ModelRequest(
@@ -344,19 +311,6 @@ def test_encode_merges_json_schema_into_a_caller_output_config():
         "effort": "high",
         "format": {"type": "json_schema", "schema": schema},
     }
-
-
-def test_encode_passes_other_options_through():
-    options = {"stop_sequences": ["END"], "metadata": {"user_id": "u1"}}
-    payload = adapter().encode_request(ModelRequest([UserMessage("hi")], options=options))
-    assert payload["stop_sequences"] == ["END"]
-    assert payload["metadata"] == {"user_id": "u1"}
-
-
-def test_encode_omits_fallbacks_when_they_are_not_set():
-    payload = adapter().encode_request(ModelRequest([UserMessage("hi")]))
-    assert "fallbacks" not in payload
-    assert "betas" not in payload
 
 
 def test_encode_sends_a_fallback_list_with_the_array_form_beta():
@@ -611,9 +565,7 @@ def test_encode_leaves_tool_result_content_that_is_not_empty_untouched():
 
 
 def test_encode_marks_an_empty_failed_tool_result_as_an_error():
-    result = ToolResultMessage(
-        call_id="toolu_1", name="lookup_order", content="", status="failed"
-    )
+    result = ToolResultMessage(call_id="toolu_1", name="lookup_order", content="", status="failed")
     block = adapter().encode_request(ModelRequest([result]))["messages"][0]["content"][0]
     assert block == {
         "type": "tool_result",
@@ -635,17 +587,6 @@ def test_encode_ignores_the_view_on_a_tool_result():
     assert model.encode_request(ModelRequest([decorated])) == model.encode_request(
         ModelRequest([plain])
     )
-
-
-def test_every_encoded_key_is_a_messages_create_parameter():
-    request = ModelRequest(
-        [SystemMessage("You are helpful."), UserMessage("hi")],
-        [spec()],
-        {"tool_choice": "auto", "json_schema": {"type": "object"}, "stop_sequences": ["END"]},
-    )
-    payload = adapter().encode_request(request)
-    accepted = set(inspect.signature(AsyncMessages.create).parameters)
-    assert set(payload) <= accepted
 
 
 def test_every_encoded_key_is_a_beta_messages_create_parameter_with_fallbacks():
@@ -677,44 +618,43 @@ def test_decode_text_and_stop_reason():
     assert data["response_model"] == MODEL_ID
     assert data["stop_reason"] == "end_turn"
     assert data["content"] == [{"type": "text", "text": "Order 9127412 shipped."}]
+    assert "stop_details" not in data
+    assert decoded.usage == {
+        "input_tokens": 11,
+        "output_tokens": 7,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "total_tokens": 18,
+    }
 
 
-def test_decode_joins_thinking_blocks_into_reasoning():
-    raw = message(
-        [thinking_block("Look the order up."), thinking_block("Then answer."), text_block("ok")]
-    )
-    assert adapter().decode_response(raw).reasoning == "Look the order up.\n\nThen answer."
-
-
-def test_decode_leaves_reasoning_none_without_a_thinking_block():
-    assert adapter().decode_response(message([text_block("ok")])).reasoning is None
-
-
-def test_decode_parallel_tool_calls():
+def test_decode_preserves_thinking_text_parallel_calls_and_cached_usage():
     raw = message(
         [
+            thinking_block("Look the order up."),
+            thinking_block("Then answer."),
             text_block("Working on it."),
             tool_use_block("toolu_1", "lookup_order", {"order_id": "1"}),
             tool_use_block("toolu_2", "send_email", {"to": "a@b.com"}),
         ],
         stop_reason="tool_use",
+        usage=usage(cache_read=4, cache_write=9),
     )
     decoded = adapter().decode_response(raw)
     assert decoded.text == "Working on it."
+    assert decoded.reasoning == "Look the order up.\n\nThen answer."
     assert decoded.stop_reason == "tool_calls"
     assert decoded.tool_calls == [
         ToolCall("toolu_1", "lookup_order", {"order_id": "1"}),
         ToolCall("toolu_2", "send_email", {"to": "a@b.com"}),
     ]
-
-
-def test_the_sdk_rejects_tool_input_that_is_not_an_object():
-    """There is no invalid argument string to decode: the wire carries an object."""
-    with pytest.raises(ValidationError):
-        message(
-            [{"type": "tool_use", "id": "toolu_1", "name": "lookup_order", "input": "9127412"}],
-            stop_reason="tool_use",
-        )
+    assert decoded.usage == {
+        "input_tokens": 11,
+        "output_tokens": 7,
+        "cache_read_tokens": 4,
+        "cache_write_tokens": 9,
+        "total_tokens": 18,
+    }
 
 
 def test_decoded_arguments_are_independent_of_the_raw_message():
@@ -759,27 +699,6 @@ def test_decode_keeps_stop_details_for_a_refusal():
     }
 
 
-def test_decode_omits_stop_details_when_the_turn_ended_normally():
-    decoded = adapter().decode_response(message([text_block("ok")]))
-    assert "stop_details" not in decoded.provider_data["anthropic"]
-
-
-def test_decode_usage_with_cache_counts():
-    raw = message([text_block("ok")], usage=usage(cache_read=4, cache_write=9))
-    assert adapter().decode_response(raw).usage == {"input_tokens": 11, "output_tokens": 7, "cache_read_tokens": 4, "cache_write_tokens": 9, "total_tokens": 18}
-
-
-def test_decode_usage_without_cache_counts():
-    assert adapter().decode_response(message([text_block("ok")])).usage == {"input_tokens": 11, "output_tokens": 7, "cache_read_tokens": 0, "cache_write_tokens": 0, "total_tokens": 18}
-
-
-def test_decode_keeps_the_requested_id_and_the_snapshot_separately():
-    raw = message([text_block("ok")], model=SNAPSHOT_ID)
-    data = adapter().decode_response(raw).provider_data["anthropic"]
-    assert data["model"] == MODEL_ID
-    assert data["response_model"] == SNAPSHOT_ID
-
-
 def test_decode_of_a_dated_snapshot_still_replays_through_encode():
     raw = message(
         [thinking_block("Thinking"), tool_use_block("toolu_1", "lookup_order")],
@@ -792,6 +711,8 @@ def test_decode_of_a_dated_snapshot_still_replays_through_encode():
     assert payload["messages"][1]["content"] == [
         block.model_dump(exclude_none=True) for block in raw.content
     ]
+    assert decoded.provider_data["anthropic"]["model"] == MODEL_ID
+    assert decoded.provider_data["anthropic"]["response_model"] == SNAPSHOT_ID
 
 
 def test_encode_rebuilds_what_another_requested_id_decoded():

@@ -15,6 +15,36 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.2.1
+
+Package version 1.2.1 uses tag `rpi-v1.2.1` from the promoted `rpi` tip.
+Rolling compaction uses Markdown prompts with explicit roles, inputs, and output rules.
+Split turns preserve the original request and earlier progress in separate checkpoint summaries.
+Overflow recovery shortens summaries before retrying and never repeats completed tools.
+Research evidence stays in a separate scratchpad and survives compaction.
+Reports can include useful charts and diagrams, with bundled Space Grotesk in PDF and DOCX output.
+Mobile navigation improves contrast in both light and dark themes.
+Migration 013 renames `research_items` to `research_scratchpad` and preserves its rows.
+Use sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` for new sandboxes.
+Update `AGENT_SANDBOX__IMAGE` in the local and Pi deployment environments before activation.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
+## Release 1.2.0
+
+Package version 1.2.0 uses tag `rpi-v1.2.0` from the promoted `rpi` tip.
+This release adds the philosophical personality, expressive spoken-text preparation, and the approved subtle robotic voice.
+Every browser and tool speech request prepares spoken wording before synthesis while retaining displayed text and conversation history.
+Preparation records model usage and stops on invalid output instead of reading plain source text.
+
+The private local `.env`, local `.env.pi`, and Pi deployment environment use the selected Michael/George blend at speed `0.9`.
+They point to the authenticated Mac mini speech gateway at port `8881`.
+The gateway runs separately from Kokoro under the user's `com.parthshastri.theos-speech` launch agent.
+Its source stays under `/Volumes/extssd/voice/theos-speech`.
+Its runtime and private environment live under `~/.local/share/theos-speech` so macOS can launch its Python entry point.
+Console logs live under `~/Library/Logs/Theos`.
+Keep the speech key outside Git. Private backups retain the previous environment values.
+No database migration is required. Confirm release activation through the tagged workflow and the Pi manifest.
+
 ## Release 0.1.18
 
 Package version 0.1.18 uses tag `rpi-v0.1.18` from the promoted `rpi` tip.
@@ -106,9 +136,10 @@ Package version 0.1.11 uses the deployment tag `rpi-v0.1.11`.
 - Approval reviews group items and keep exact request details expandable. Zepto cart prices display paise as rupees without changing approval snapshots.
 
 No new private environment setting is required.
-Retain the existing Pi context cap of 100,000, output limit of 8,192, and trigger ratio of 0.7.
-The default tail remains `lean`, with at least one recent user message. Call budgets and research deadlines remain disabled.
-The example environment documents optional tail settings. Existing explicit conversation output settings retain precedence.
+At the time of this release, Pi used a 100,000-token context cap, an 8,192-token output limit,
+and a 70 percent compaction trigger. Current compaction defaults to a 50 percent trigger and
+2.5 percent tail. Both ratios and the summary model can be set in the environment.
+Existing explicit conversation output settings retain precedence.
 Promote the release through PRs before tagging. Confirm activation through the tagged release workflow.
 
 ## Release 0.1.10
@@ -126,7 +157,6 @@ Before tagging, set these values in the private deployment `.env.pi`:
 
 ```dotenv
 AGENT_CONTEXT_TOKENS=100000
-AGENT_COMPACTION_TRIGGER_RATIO=0.7
 AGENT_MAX_OUTPUT_TOKENS=8192
 ```
 

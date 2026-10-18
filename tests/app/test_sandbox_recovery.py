@@ -11,8 +11,6 @@ from opensandbox.exceptions import SandboxApiException
 from theos.services.errors import ServiceError
 from theos.services.sandbox.client import Sandboxes
 
-from .conftest import call_tool
-
 
 @pytest.fixture
 def boxes(runtime, monkeypatch):
@@ -72,16 +70,13 @@ def boxes(runtime, monkeypatch):
     return created, now
 
 
-async def test_one_hour_is_fixed_from_creation_and_renew_cannot_extend_it(runtime, boxes):
+async def test_one_hour_is_fixed_from_creation_and_runtime_replaces_expired_sandbox(runtime, boxes):
     created, now = boxes
     first = await runtime.sandboxes.get("alice", "chat")
     original = runtime.db.record("alice", "sandbox", "chat")
     assert first.expiry - first.created == timedelta(hours=1)
     now[0] += timedelta(minutes=30)
-    result = await call_tool(
-        runtime.sandboxes.tools("alice", "chat"), "manage_workspace", action="renew"
-    )
-    assert result["renewed"] is False and first.renewals == 0
+    assert first.renewals == 0
     assert runtime.db.record("alice", "sandbox", "chat") == original
     now[0] += timedelta(minutes=31)
     second = await runtime.sandboxes.get("alice", "chat")
@@ -122,14 +117,13 @@ async def test_transient_cached_error_preserves_reference_and_never_creates_repl
     first.error = None
 
 
-async def test_destroy_without_an_instance_does_not_create_one_and_restart_replaces_it(
+async def test_internal_destroy_without_an_instance_does_not_create_one_and_can_recreate_it(
     runtime, boxes
 ):
     created, _ = boxes
-    await call_tool(runtime.sandboxes.tools("alice", "chat"), "manage_workspace", action="destroy")
+    await runtime.sandboxes.destroy("alice", "chat")
     assert not created
     first = await runtime.sandboxes.get("alice", "chat")
-    result = await call_tool(
-        runtime.sandboxes.tools("alice", "chat"), "manage_workspace", action="restart"
-    )
-    assert result["id"] != first.id and first.kills == 1
+    await runtime.sandboxes.destroy("alice", "chat")
+    second = await runtime.sandboxes.get("alice", "chat")
+    assert second.id != first.id and first.kills == 1

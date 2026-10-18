@@ -20,14 +20,15 @@ All source paths below start at `src/theos`.
 | Server | Start one HTTP worker and scheduler | `server.py` |
 | Configuration | Validate environment settings | `settings.py` |
 | Runtime | Reserve turns and run the harness | `runtime/engine.py` |
+| Prompt templates | Render packaged Markdown Jinja templates and optional compaction overrides | `prompts/`, `../harness/prompts/`, `../harness/prompting.py` |
 | Approvals | Match decisions to unchanged actions | `runtime/approvals.py` |
 | Checkpoints | Save tool attempts and recover results | `runtime/checkpoints.py`, `runtime/hooks.py` |
 | Final answers and failures | Reserve a final model call after runtime limits. Explain failures without exposing raw findings | `runtime/recovery.py`, `runtime/errors.py` |
-| Context and output | Resolve provider capacities and share compaction rules across agents | `runtime/context.py` |
+| Context and output | Read provider capacity metadata, apply conservative OpenAI caps, and share compaction rules | `runtime/context.py` |
 | Call budgets | Count calls without enforcement by default. Retain optional bounded allocations | `runtime/budgets.py` |
-| Connector wrappers | Page verbose account results and retain complete sources | `runtime/connector_wrappers.py` |
-| History retrieval | Read bounded pages of original evidence after compaction | `runtime/history_tools.py`, `runtime/history_content.py` |
-| Deep research | Gate explicit mode and persist research evidence, notes, reports, and checkpoints | `runtime/research_mode.py`, `services/research/`, migration 010 |
+| Provider result shaping | Return concise Gmail and Health summaries, fetch selected details, and stage oversized reads | `services/gmail/tools.py`, `services/health/tools.py`, `services/result_files.py` |
+| History retrieval | Read exact saved messages after compaction | `../harness/tools.py` |
+| Deep research | Gate explicit mode and persist reports and a separate evidence scratchpad | `runtime/research_mode.py`, `services/research/`, migrations 010 and 013 |
 | Delivery events | Turn harness events into transport events | `runtime/events.py`, `runtime/turn.py` |
 | Providers and usage | Build model clients, retain OpenRouter reasoning and costs, and record usage | `runtime/models.py`, `runtime/model_catalog.py`, `runtime/openrouter.py`, `runtime/usage.py` |
 | Scheduler | Deliver reminders and run agent tasks, memory consolidation, and Health work | `runtime/scheduler.py`, `runtime/scheduled.py` |
@@ -40,10 +41,18 @@ All source paths below start at `src/theos`.
 
 ## Follow one turn
 
-The owned harness keeps the pinned summary template in `src/harness/compression_policy.py`.
-`src/harness/summary_references.py` extracts exact identifiers independently of model prose.
-`src/harness/lean_context.py` bounds their request index and commits working memory through the runtime callback.
-Application research ownership remains in `services/research/`.
+The harness keeps one rolling summary in `src/harness/compaction.py`.
+It owns shared summary rules and initial, update, split-turn, and shortening prompts.
+Production prompt text lives in `src/harness/prompts/`. Theos templates live in `src/theos/prompts/`.
+The runtime passes optional Theos prompt overrides through `CompactionConfig`.
+Read [prompt templates](runtime/prompts.md) for filenames, rendering, and override fields.
+Split turns use separate history and turn-prefix summaries, combined into one checkpoint before the retained messages.
+It builds a smaller model view and leaves the saved transcript unchanged.
+The runtime supplies model settings and persistence and usage callbacks in `runtime/context.py`.
+Research records stay in the separate `services/research/` scratchpad.
+Inline ASCII diagrams in `src/harness/compaction.py` show coverage, split-turn summaries, and model context order.
+The comments number the fit workflow and explain tool-batch retention and checkpoint rollback.
+The loop and runtime context modules show request flow and callback ownership.
 
 1. Read `Telegram.handle()` or the browser chat route to see how the transport identifies the owner.
 2. Read `Runtime.start()` to see the ownership checks and conversation reservation.
@@ -80,9 +89,9 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `custom_tables/` | Private SQLite tables and bounded query templates |
 | `memory/` | Mem0 HTTP client, ownership checks, bounded retrieval, consented consolidation, and explicit tools |
 | `search/`, `weather/`, `skills/` | Search fallback, forecasts, and bounded skill resources |
-| `files/` | Private catalog, image validation, R2 transfers, source objects, model checkpoints, and file tools |
+| `files/` | Private catalog, image validation, R2 transfers, workspace files, model checkpoints, and file tools |
 | `voice/` | Transcription and Kokoro clients with audio tools |
-| `sandbox/` | Remote lifecycle client, execution tools, and versioned task workspaces |
+| `sandbox/` | Remote lifecycle client, execution tools, temporary result files, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `gmail/` | Gmail requests, draft previews, and account tools |
 | `health/` | Imports, normalization, records, nutrition exports, job retries, and tools |
@@ -99,6 +108,10 @@ Telegram and browser conversation threads remain separate.
 
 `services/personal.py` and `services/information.py` only collect related tools.
 They contain no database rules or external requests.
+
+`runtime/speech.py` writes expressive spoken renditions through the configured model and records their usage.
+The voice service calls this step before browser or tool synthesis. Display text and history remain unchanged.
+The separate `speech/` project owns the optional Kokoro gateway and its audio effects on the speech host.
 The runtime creates clients explicitly and closes them during shutdown.
 `runtime/scheduled.py` claims durable scheduled occurrences and delivers ordinary runtime turns.
 `services/memory/automation.py` owns retrieval, consent policy, and consolidation batches.
@@ -153,9 +166,13 @@ Use a small class when it owns clients, locks, or other lifecycle state.
 Keep existing entry points working when moving internal files.
 Run the [acceptance checks](runtime/acceptance.md) after changing a service boundary.
 
-The generic compression policy lives in `src/harness/compression_policy.py`.
-`src/harness/lean_context.py` connects it to model calls and durable working context.
-`src/harness/context_fit.py` reduces full working requests without changing the transcript or tool validation contracts.
+The rolling summary uses a 50% context trigger and keeps a 2.5% recent tail.
+Covered user requests enter the checkpoint. They are not repeated after it.
+New unanswered requests and unfinished tool batches remain verbatim.
+On provider overflow, the harness asks for shorter summary tiers and retries without repeating tools.
+`history_read` and `history_search` live with the other generic tools in `src/harness/tools.py`.
+Gmail body decoding lives in `services/gmail/content.py`.
+Research evidence lives in `research_scratchpad` and remains separate from compaction.
 Runtime events expose scoped compaction activity. Transport renderers own its display and readable approval reviews.
 Assistant storage and sandbox dependencies stay under `src/theos/services`.
 

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "theos-speech"
+version = "0.1.0"
+description = "Kokoro gateway with the approved Theos voice treatment"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "httpx>=0.28,<1",
+    "numpy>=2.2,<3",
+    "pedalboard==0.9.26",
+    "pydantic-settings>=2.8,<3",
+    "pyloudnorm>=0.1.1,<1",
+    "scipy>=1.15,<2",
+    "soundfile>=0.13,<1",
+    "uvicorn>=0.34,<1",
+]
+
+[project.scripts]
+theos-speech = "theos_speech.server:main"
+
+[dependency-groups]
+dev = ["pytest>=9", "pytest-asyncio>=1.3", "ruff>=0.12"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]

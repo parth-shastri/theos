@@ -67,7 +67,6 @@ The [code guide](docs/code-structure.md) uses that runtime diagram to navigate t
 | [Architecture](docs/architecture.md) | Agent Harness framework, all six diagrams, and implementation mapping |
 | [Diagrams](docs/architecture/README.md) | Excalidraw PNG previews and editable drawings |
 | [Project memory](MEMORY.md) | Current decisions and implementation limits |
-| [Licenses](docs/runtime/notices.md) | Source and font attribution |
 
 ## Repository
 

@@ -2,20 +2,42 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"
+    />
     <title>{{AGENT_NAME}} / Personal assistant</title>
+    <link rel="icon" type="image/png" href="/static/brand-light.png" />
+    <link rel="apple-touch-icon" href="/static/brand-light.png" />
     <link rel="stylesheet" href="/static/style.css" />
     <script src="/static/vendor/marked.umd.js" defer></script>
     <script src="/static/vendor/purify.min.js" defer></script>
     <script src="/static/markdown.js" defer></script>
     <script src="/static/charts.js" defer></script>
+    <script src="/static/selects.js" defer></script>
     <script src="/static/app.js" defer></script>
+    <script src="/static/glass.js" defer></script>
   </head>
   <body>
+    <div id="voice-ambience" aria-hidden="true">
+      <svg viewBox="0 0 1440 320" preserveAspectRatio="none" focusable="false">
+        <path
+          class="voice-wave wave-back"
+          d="M-300 190C-60 85 180 265 420 170S900 70 1140 175 1620 245 1860 150V440H-300Z"
+        />
+        <path
+          class="voice-wave wave-middle"
+          d="M-300 210C-60 285 180 100 420 190S900 280 1140 180 1620 110 1860 230V440H-300Z"
+        />
+        <path
+          class="voice-wave wave-front"
+          d="M-300 245C-60 150 180 300 420 235S900 160 1140 250 1620 285 1860 205V440H-300Z"
+        />
+      </svg>
+    </div>
     <div id="login" class="login-wrap">
       <form id="login-form" class="login-card">
         <img src="/static/brand.png" data-brand width="48" height="48" alt="" />
-        <span class="eyebrow">PRIVATE WORKSPACE</span>
         <h1 id="agent-name">{{AGENT_NAME}}</h1>
         <p>
           Your personal assistant for conversations, saved information, and
@@ -42,7 +64,7 @@
         hidden
       >
         <img src="/static/brand.png" data-brand width="48" height="48" alt="" />
-        <span class="eyebrow">YOUR THEOS ACCOUNT</span>
+        <span class="eyebrow">Your Theos account</span>
         <h1 id="web-signin-title">Confirm in Telegram</h1>
         <p id="web-signin-instructions">
           Match this code with the message in your private bot chat, then select
@@ -97,9 +119,7 @@
           </div>
         </div>
         <div class="header-actions">
-          <span class="private-label"
-            ><span class="status-dot"></span> Private workspace</span
-          ><button
+          <button
             id="generation-button"
             aria-label="Settings"
             aria-haspopup="dialog"
@@ -124,14 +144,34 @@
         aria-label="Close conversation sidebar"
         hidden
       ></button>
-      <aside id="sidebar">
+      <aside id="sidebar" aria-label="Workspace navigation">
+        <div class="sidebar-brand">
+          <img src="/static/brand.png" data-brand class="brand-mark" alt="" />
+          <span>{{AGENT_NAME}}</span>
+          <button
+            id="sidebar-theme-toggle"
+            class="icon-button"
+            type="button"
+            aria-label="Switch color theme"
+          ></button>
+        </div>
         <button id="new-session" class="primary new-session">
           ＋ New conversation
         </button>
-        <div class="rail-title">CONVERSATIONS</div>
+        <div id="mobile-conversation-controls" class="mobile-only"></div>
+        <div class="rail-title">Conversations</div>
         <nav id="sessions" aria-label="Conversations"></nav>
         <div class="sidebar-bottom">
           <div id="user-cost" class="cost-label"></div>
+          <button
+            id="sidebar-settings-button"
+            class="mobile-only"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="generation-dialog"
+          >
+            Settings
+          </button>
           <button id="connections-button">Connections ↗</button>
           <button id="tools-button">Tools ↗</button>
           <button id="activity-button">Activity & usage ↗</button>
@@ -144,22 +184,37 @@
       <main>
         <div class="workspace-toolbar" id="conversation-toolbar">
           <div>
-            <span class="eyebrow">CONVERSATION</span>
+            <span class="eyebrow">Conversation</span>
             <h2 id="session-title">New conversation</h2>
             <span id="conversation-cost" class="cost-label"></span>
           </div>
-          <div class="header-actions">
-            <button
-              id="research-button"
-              type="button"
-              aria-haspopup="dialog"
-              aria-controls="research-dialog"
+          <details id="conversation-actions" class="conversation-actions">
+            <summary
+              aria-label="Conversation actions"
+              title="Conversation actions"
             >
-              Research
-            </button>
-            <button id="resume">↻ Resume</button
-            ><button id="reset">Reset</button>
-          </div>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="1.75" />
+                <circle cx="12" cy="12" r="1.75" />
+                <circle cx="19" cy="12" r="1.75" />
+              </svg>
+              <span class="conversation-actions-label"
+                >Conversation actions</span
+              >
+            </summary>
+            <div class="conversation-menu">
+              <button
+                id="research-button"
+                type="button"
+                aria-haspopup="dialog"
+                aria-controls="research-dialog"
+              >
+                Saved research
+              </button>
+              <button id="resume" type="button">Resume conversation</button>
+              <button id="reset" type="button">Reset conversation</button>
+            </div>
+          </details>
         </div>
         <section id="chat-view" class="chat-view">
           <div id="notifications" aria-live="polite"></div>
@@ -170,17 +225,8 @@
             tabindex="0"
             aria-live="polite"
           ></div>
-          <div id="approvals"></div>
           <div class="composer-wrap">
-            <div class="research-controls">
-              <label for="research-mode">Mode</label>
-              <select id="research-mode" aria-describedby="research-mode-hint">
-                <option value="normal">Normal</option>
-                <option value="deep_research">Deep research</option>
-              </select>
-              <small id="research-mode-hint">For this message only</small>
-            </div>
-            <p id="status" role="status">Ready when you are.</p>
+            <div id="approvals"></div>
             <form id="composer">
               <div
                 id="command-suggestions"
@@ -190,23 +236,74 @@
                 hidden
               ></div>
               <label class="sr-only" for="message">Message</label>
+              <div
+                id="composer-options"
+                class="composer-options"
+                role="group"
+                aria-label="Add files and options"
+                hidden
+              >
+                <button id="attach-files" class="composer-option" type="button">
+                  Attach files
+                </button>
+                <input id="upload" type="file" multiple hidden />
+                <button id="command-help" class="composer-option" type="button">
+                  Commands & connections
+                </button>
+                <button
+                  id="composer-settings"
+                  class="composer-option"
+                  type="button"
+                >
+                  Conversation settings
+                </button>
+              </div>
+              <div
+                id="mode-menu"
+                class="mode-menu"
+                role="listbox"
+                aria-label="Message mode"
+                hidden
+              >
+                <button
+                  type="button"
+                  role="option"
+                  data-mode="normal"
+                  aria-selected="true"
+                  tabindex="-1"
+                ></button>
+                <button
+                  type="button"
+                  role="option"
+                  data-mode="deep_research"
+                  aria-selected="false"
+                  tabindex="-1"
+                ></button>
+              </div>
               <div class="composer-row">
                 <div class="composer-tools">
                   <button
-                    class="icon-button composer-action"
-                    id="attach-files"
-                    type="button"
-                    aria-label="Attach files"
-                    title="Attach files"
-                  ></button>
-                  <input id="upload" type="file" multiple hidden />
-                  <button
-                    id="command-help"
+                    id="composer-add"
                     class="icon-button composer-action"
                     type="button"
-                    aria-label="Show command and connection help"
-                    title="Show command and connection help"
+                    aria-label="Add files and options"
+                    aria-expanded="false"
+                    aria-controls="composer-options"
                   ></button>
+                  <div class="research-controls composer-config">
+                    <input id="research-mode" type="hidden" value="normal" />
+                    <button
+                      id="mode-trigger"
+                      type="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-controls="mode-menu"
+                      aria-describedby="research-mode-hint"
+                    ></button>
+                    <small id="research-mode-hint" class="sr-only"
+                      >For this message only</small
+                    >
+                  </div>
                 </div>
                 <textarea
                   id="message"
@@ -215,7 +312,7 @@
                   aria-controls="command-suggestions"
                   aria-expanded="false"
                   aria-describedby="message-hint"
-                  placeholder="Ask… or mention a connection with @"
+                  placeholder="Sue the void"
                   rows="1"
                   maxlength="32000"
                   required
@@ -245,6 +342,7 @@
                   ></button>
                 </div>
               </div>
+              <p id="status" role="status" aria-atomic="true"></p>
               <div id="attachments"></div>
               <span id="message-hint" class="sr-only"
                 >Enter to send · Shift + Enter for a new line</span
@@ -255,19 +353,50 @@
             >
           </div>
         </section>
-        <section id="dashboard" hidden>
-          <div class="panel-heading">
-            <h1 id="dashboard-title">Your activity & usage</h1>
-            <button id="back-chat">← Back to chat</button>
+        <section id="dashboard" aria-labelledby="dashboard-title" hidden>
+          <div class="panel-heading dashboard-heading liquid-panel">
+            <div class="panel-identity">
+              <img
+                src="/static/brand.png"
+                data-brand
+                class="panel-brand"
+                width="40"
+                height="40"
+                alt=""
+              />
+              <div>
+                <span id="dashboard-eyebrow" class="eyebrow"
+                  >Personal insights</span
+                >
+                <h1 id="dashboard-title">Your activity & usage</h1>
+              </div>
+            </div>
+            <button
+              id="back-chat"
+              class="panel-back"
+              aria-label="Back to chat"
+              title="Back to chat"
+            >
+              <span>Back to chat</span>
+            </button>
           </div>
-          <div class="dashboard-controls">
-            <label for="dashboard-range">Chart range</label>
-            <select id="dashboard-range">
-              <option value="7">Last 7 days</option>
-              <option value="30" selected>Last 30 days</option>
-              <option value="90">Last 90 days</option>
-            </select>
-            <span>Charts use UTC dates. Totals and tables cover all time.</span>
+          <p id="dashboard-description" class="panel-description"></p>
+          <div class="dashboard-controls liquid-panel">
+            <div class="dashboard-range-field">
+              <label for="dashboard-range">Chart period</label>
+              <select
+                id="dashboard-range"
+                aria-describedby="dashboard-range-hint"
+              >
+                <option value="7">Last 7 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </div>
+            <span id="dashboard-range-hint"
+              >Charts use UTC dates. Totals and tables cover all time.</span
+            >
+            <button id="dashboard-refresh" class="soft-button">Refresh</button>
           </div>
           <p id="dashboard-status" role="status" hidden></p>
           <div id="dashboard-content"></div>
@@ -279,16 +408,31 @@
           aria-labelledby="connections-title"
         >
           <div class="panel-heading">
-            <h1 id="connections-title">Connections</h1>
-            <button id="back-connections">← Back to chat</button>
+            <div>
+              <span class="eyebrow">Your workspace</span>
+              <h1 id="connections-title">Connections</h1>
+            </div>
+            <button
+              id="back-connections"
+              class="panel-back"
+              aria-label="Back to chat"
+              title="Back to chat"
+            >
+              <span>Back to chat</span>
+            </button>
           </div>
-          <p>
+          <p class="panel-description">
             Connect your own accounts. Connections and personal records are
             available across your private conversations.
           </p>
           <div class="connection-heading">
-            <h2>Your accounts</h2>
-            <button id="refresh-connections">Refresh status</button>
+            <div class="section-title">
+              <h2>Your accounts</h2>
+              <span id="connection-summary"></span>
+            </div>
+            <button id="refresh-connections" class="soft-button">
+              Refresh
+            </button>
           </div>
           <p id="connections-status" role="status" aria-live="polite"></p>
           <div id="account-connections"></div>
@@ -297,7 +441,9 @@
             Configured by the operator. These labels show availability, not a
             live service check. Each conversation uses its own sandbox.
           </p>
-          <div id="workspace-services" class="service-grid"></div>
+          <div class="services-panel liquid-panel">
+            <div id="workspace-services" class="service-grid"></div>
+          </div>
         </section>
         <section
           id="tools-view"
@@ -324,7 +470,7 @@
       <form id="generation-form">
         <div class="dialog-heading">
           <div>
-            <span class="eyebrow">CONVERSATION</span>
+            <span class="eyebrow">Conversation</span>
             <h2 id="generation-title">Settings</h2>
           </div>
           <button
@@ -380,7 +526,7 @@
     <dialog id="research-dialog" aria-labelledby="research-title">
       <div class="dialog-heading">
         <div>
-          <span class="eyebrow">SAVED EVIDENCE</span>
+          <span class="eyebrow">Saved evidence</span>
           <h2 id="research-title">Research</h2>
         </div>
         <button id="research-close" type="button" aria-label="Close research">
@@ -397,7 +543,7 @@
     <dialog id="usage-dialog" aria-labelledby="usage-title">
       <div class="dialog-heading">
         <div>
-          <span class="eyebrow">YOUR WORKSPACE</span>
+          <span class="eyebrow">Your workspace</span>
           <h2 id="usage-title">Usage</h2>
         </div>
         <button
@@ -420,7 +566,7 @@
     <dialog id="help-dialog" aria-labelledby="help-title">
       <div class="dialog-heading">
         <div>
-          <span class="eyebrow">SHORTCUTS</span>
+          <span class="eyebrow">Shortcuts</span>
           <h2 id="help-title">Commands</h2>
         </div>
         <button

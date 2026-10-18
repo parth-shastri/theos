@@ -1,4 +1,4 @@
-"""Translate harness events into transport events and content-free traces."""
+"""Translate harness events into UI events and safe, compact SQLite traces."""
 
 import json
 import time
@@ -19,10 +19,15 @@ from .text import reply_text
 
 def publish_event(runtime, turn, event, status):
     """Publish one event and return the latest turn status."""
+    # Count tool outcomes before queueing display events: a slow client may cause old
+    # display updates to be dropped, but turn statistics must still include the work.
     if hasattr(turn, "observe_tool"):
         turn.observe_tool(event)
+    # Apply Theos' shared text rule to every generated stream chunk before it is displayed.
     if isinstance(event, (TextDelta, ReasoningDelta)):
         event = replace(event, text=reply_text(event.text))
+    # Terminal raw mode needs the original typed harness event for its adapter. Browser
+    # and Telegram receive a smaller transport-neutral dictionary below.
     if turn.raw_events:
         turn.emit({"type": "harness", "event": event})
     if isinstance(event, ContextCompaction) and not turn.raw_events:
@@ -37,7 +42,8 @@ def publish_event(runtime, turn, event, status):
                 "compaction_id": event.compaction_id,
             }
         )
-    # Child tool progress is Telegram-only. Child output cannot finish the parent answer.
+    # Delegate events are scoped by parent_call_id. Show child tool progress where supported,
+    # but never let a child's answer mark the parent conversation as complete.
     if getattr(event, "parent_call_id", None) is not None:
         if not turn.raw_events and getattr(turn, "include_delegate_tool_progress", False):
             if isinstance(event, ToolStarted):
@@ -75,6 +81,7 @@ def publish_event(runtime, turn, event, status):
                         }
                     )
         return status
+    # The remaining branch handles parent-turn events and records their safe summary.
     runtime.tracing.turn_event(event)
     if isinstance(event, ModelCalled):
         if not turn.raw_events:
@@ -89,6 +96,8 @@ def publish_event(runtime, turn, event, status):
                 payload["display_summary"] = True
             turn.emit(payload)
     elif isinstance(event, ModelResponded):
+        # Completion replaces streamed partial text and carries usage for statistics.
+        # Transports decide which display-safe fields they need from this event.
         if not turn.raw_events:
             turn.emit(
                 {
@@ -101,6 +110,8 @@ def publish_event(runtime, turn, event, status):
                 }
             )
     elif isinstance(event, ToolStarted):
+        # Keep arguments for the temporary tool-progress display; durable approvals and
+        # checkpoint records are handled by hooks, not by this event translation.
         if not turn.raw_events:
             turn.emit(
                 {
@@ -112,6 +123,8 @@ def publish_event(runtime, turn, event, status):
                 }
             )
     elif isinstance(event, ToolFinished):
+        # A pending approval is different from a finished tool result: show the saved
+        # approval list, and emit ordinary results only after the hook has persisted them.
         if isinstance(event.result, PendingApproval) and not turn.raw_events:
             turn.emit(
                 {
@@ -139,6 +152,7 @@ def publish_event(runtime, turn, event, status):
                 except (ValueError, LookupError):
                     pass
     elif isinstance(event, TurnFinished):
+        # Remember the final outcome so the done event and the durable trace agree.
         status = event.result.status
     if not isinstance(event, (TextDelta, ReasoningDelta)):
         runtime.db.execute(

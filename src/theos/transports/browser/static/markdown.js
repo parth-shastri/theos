@@ -1,5 +1,5 @@
 "use strict";
-// Pinned browser libraries and licenses are recorded in browser-vendor-provenance.json.
+// Pinned browser libraries are recorded in browser-vendor-provenance.json.
 window.TheosMarkdown = (() => {
   const sources = new WeakMap();
   const frames = new WeakMap();

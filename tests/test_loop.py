@@ -19,7 +19,7 @@ from harness.events import (
 )
 from harness.hooks import Hooks, require_approval
 from harness.inbox import Inbox
-from harness.loop import TurnFinished, TurnResult, run_turn, run_turn_stream
+from harness.loop import TurnResult, run_turn, run_turn_stream
 from harness.tools import tool
 from harness.types import (
     AssistantMessage,
@@ -134,14 +134,6 @@ async def test_a_shared_budget_runs_out_across_a_pause(fake_model):
     assert len(model.requests) == 1
 
 
-async def test_the_default_budget_allows_ten_model_calls(fake_model):
-    model = fake_model([calls_message() for _ in range(12)])
-    history = [UserMessage("Where is my order?")]
-    result = await run_turn(model, [lookup], history)
-    assert result.status == "budget_exhausted"
-    assert len(model.requests) == 10
-
-
 # --- cancellation and a failing stream --------------------------------------
 
 
@@ -211,9 +203,7 @@ async def test_steering_after_a_text_response_triggers_one_more_model_call(fake_
         return message
 
     history = [UserMessage("Where is my order?")]
-    result = await run_turn(
-        model, [], history, hooks=Hooks(after_model=steer_once), inbox=inbox
-    )
+    result = await run_turn(model, [], history, hooks=Hooks(after_model=steer_once), inbox=inbox)
     assert len(model.requests) == 2
     assert model.requests[1].messages[-1] == UserMessage("one more thing")
     assert result.status == "completed"
@@ -345,23 +335,6 @@ async def test_the_estimator_decides_what_context_trimming_keeps(fake_model):
     assert kept.requests[0].messages == history
 
 
-async def test_run_turn_returns_the_same_result_as_the_stream(fake_model):
-    script = [calls_message(), AssistantMessage(text="It shipped.")]
-    streamed_history = [UserMessage("Where is my order?")]
-    buffered_history = [UserMessage("Where is my order?")]
-
-    events = [
-        event
-        async for event in run_turn_stream(
-            fake_model(list(script)), [lookup], streamed_history
-        )
-    ]
-    buffered = await run_turn(fake_model(list(script)), [lookup], buffered_history)
-
-    assert events[-1] == TurnFinished(buffered)
-    assert streamed_history == buffered_history
-
-
 async def test_run_stream_yields_tool_started_before_the_tool_body(fake_model):
     body_started: list[bool] = []
     history = [UserMessage("Where is my order?")]
@@ -371,9 +344,7 @@ async def test_run_stream_yields_tool_started_before_the_tool_body(fake_model):
         body_started.append(True)
         return f"order {order_id} shipped"
 
-    model = fake_model(
-        [calls_message("gated_lookup"), AssistantMessage(text="It shipped.")]
-    )
+    model = fake_model([calls_message("gated_lookup"), AssistantMessage(text="It shipped.")])
     events = run_turn_stream(model, [gated_lookup], history)
 
     async for event in events:

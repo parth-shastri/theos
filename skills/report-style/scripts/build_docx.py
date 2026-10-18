@@ -13,20 +13,52 @@
 
 import argparse
 import tempfile
+import uuid
 from pathlib import Path
 
 from bs4 import BeautifulSoup, NavigableString
-from build_doc import build_html, find_chrome
+from build_doc import ASSETS, build_html, find_chrome
 from docx import Document
-from docx.oxml import OxmlElement
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.opc.packuri import PackURI
+from docx.opc.part import Part
+from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from docx.shared import Mm, Pt, RGBColor
+from lxml import etree
 
 GREEN = "186752"
 INK = "070707"
 MUTED = "5B5F58"
 TINT = "F1F2ED"
 YELLOW = "EFCC3A"
+FONT = "Space Grotesk"
+
+
+def embed_fonts(document):
+    """Keep the designated typeface available when Word opens the report elsewhere."""
+    table = document.part.part_related_by(RT.FONT_TABLE)
+    root = parse_xml(table.blob)
+    font = next((item for item in root if item.get(qn("w:name")) == FONT), None)
+    if font is None:
+        font = element(root, "font", name=FONT)
+    for tag, face in (("embedRegular", "Regular"), ("embedBold", "Bold")):
+        key = uuid.uuid4()
+        payload = bytearray((Path(ASSETS) / "fonts" / f"SpaceGrotesk-{face}.ttf").read_bytes())
+        # OOXML font embedding reverses the GUID bytes and XORs the first 32 font bytes.
+        mask = key.bytes[::-1]
+        for index in range(32):
+            payload[index] ^= mask[index % 16]
+        part = Part(
+            PackURI(f"/word/fonts/SpaceGrotesk-{face}.odttf"),
+            "application/vnd.openxmlformats-officedocument.obfuscatedFont",
+            bytes(payload),
+            document.part.package,
+        )
+        reference = element(font, tag, fontKey="{" + str(key).upper() + "}", subsetted="false")
+        reference.set(qn("r:id"), table.relate_to(part, RT.FONT))
+    table._blob = etree.tostring(root, encoding="UTF-8", xml_declaration=True, standalone=True)
+    element(document.settings.element, "embedTrueTypeFonts")
 
 
 def element(parent, tag, **attributes):
@@ -45,7 +77,7 @@ def inline(paragraph, node, bold=None, italic=None, code=False):
     if isinstance(node, NavigableString):
         run = paragraph.add_run(str(node))
         run.bold, run.italic = bold, italic
-        run.font.name = "Inter"
+        run.font.name = FONT
         if code:
             run.font.name = "DejaVu Sans Mono"
             run.font.size = Pt(7.6)
@@ -81,13 +113,13 @@ def configure(document):
     section.left_margin = section.right_margin = Mm(19)
     for name in ("Normal", "Title", "Heading 1", "Heading 2", "List Bullet", "List Number"):
         style = document.styles[name]
-        style.font.name = "Inter"
+        style.font.name = FONT
         style.font.color.rgb = RGBColor.from_string(INK)
         fonts = style._element.rPr.rFonts
         for attribute in ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "csTheme"):
             fonts.attrib.pop(qn("w:" + attribute), None)
-        fonts.set(qn("w:eastAsia"), "Inter")
-        fonts.set(qn("w:cs"), "Inter")
+        fonts.set(qn("w:eastAsia"), FONT)
+        fonts.set(qn("w:cs"), FONT)
         properties = style._element.pPr
         if properties is not None:
             for border in list(properties.findall(qn("w:pBdr"))):
@@ -217,6 +249,7 @@ def build(source, output):
     soup = BeautifulSoup(page, "html.parser")
     document = Document()
     configure(document)
+    embed_fonts(document)
     figures = soup.select(".fig")
     with tempfile.TemporaryDirectory(prefix="report-docx-") as temporary:
         images = []

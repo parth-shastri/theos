@@ -93,8 +93,11 @@ async def test_file_archive_restore_delete_and_ownership(runtime, monkeypatch):
 
 
 async def test_voice_contracts_and_generated_file(runtime):
+    from pydantic import SecretStr
+
     runtime.settings.transcription_url = "http://speech/v1"
     runtime.settings.kokoro_url = "http://kokoro/v1"
+    runtime.settings.kokoro_key = SecretStr("private-speech-key")
 
     def endpoint(request):
         if request.url.path.endswith("/transcriptions"):
@@ -102,10 +105,15 @@ async def test_voice_contracts_and_generated_file(runtime):
             return httpx.Response(200, json={"text": "Please set a reminder."})
         payload = json.loads(request.content)
         assert payload["model"] == "kokoro" and payload["response_format"] == "mp3"
+        assert payload["voice"] == "am_michael(0.7)+bm_george(0.3)"
+        assert payload["speed"] == 0.9
+        assert request.headers["Authorization"] == "Bearer private-speech-key"
         return httpx.Response(200, content=b"ID3audio", headers={"Content-Type": "audio/mpeg"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:
-        files = Files(runtime.settings, runtime.db, http)
+        files = Files(
+            runtime.settings, runtime.db, http, speech_renderer=runtime.files.voice.prepare
+        )
         voice = files.save("alice", "voice.ogg", "audio/ogg", b"voice")
         assert await files.transcribe("alice", voice["id"]) == "Please set a reminder."
         result = await call_tool(
@@ -139,7 +147,8 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
             return remote_files[path]
 
         async def read_bytes(self, path, **kwargs):
-            return remote_files[path]
+            assert kwargs == {"range_header": f"bytes=0-{runtime.settings.max_upload_bytes}"}
+            return remote_files[path][: runtime.settings.max_upload_bytes + 1]
 
         async def list_directory(self, entry):
             assert entry.path == "/tmp"
@@ -182,6 +191,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
 
     monkeypatch.setattr(CodeInterpreter, "create", interpreter)
     tools = runtime.sandboxes.tools("alice", "session1")
+    assert "manage_workspace" not in {item.name for item in tools}
     await call_tool(tools, "write_file", path="/tmp/note", content="hello")
     assert (await call_tool(tools, "read_file", path="/tmp/note"))["content"] == "hello"
     assert await call_tool(tools, "list_files", path="/tmp")
@@ -191,12 +201,24 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     assert commands[-1] == "agent-browser open 'https://example.org/a;echo bad'"
     result = await call_tool(tools, "view_image", path="/tmp/image.png")
     assert runtime.files.image("alice", result["file_id"])
-    upload = runtime.files.save("alice", "input.txt", "text/plain", b"input")
+    assert (
+        Path(runtime.files.get("alice", result["file_id"])["path"]).read_bytes()
+        == output.getvalue()
+    )
+    payload = b"binary\r\n\x00\xff\r\n"
+    upload = runtime.files.save("alice", "input.txt", "application/octet-stream", payload)
     await call_tool(tools, "upload_file", file_id=upload["id"], path="/tmp/input.txt")
     delivered = await call_tool(tools, "send_file_to_user", path="/tmp/input.txt")
-    assert runtime.files.get("alice", delivered["file_id"])["size"] == 5
-    assert await call_tool(tools, "manage_workspace", action="renew")
-    assert await call_tool(tools, "manage_workspace", action="status")
+    assert Path(runtime.files.get("alice", delivered["file_id"])["path"]).read_bytes() == payload
+    runtime.settings.max_upload_bytes = 1024
+    remote_files["/tmp/oversized.bin"] = b"x" * 1025
+    with pytest.raises(ValueError, match="upload limit"):
+        await call_tool(tools, "send_file_to_user", path="/tmp/oversized.bin")
+    staged = await runtime.sandboxes.stage_result(
+        "alice", "session1", "gmail_get_message", '{"body": "selected text"}'
+    )
+    assert staged["path"].startswith("/tmp/theos-results/gmail_get_message-")
+    assert remote_files[staged["path"]] == b'{"body": "selected text"}'
     await runtime.sandboxes.close()
     restarted = Sandboxes(runtime.settings, runtime.db, runtime.files)
     await restarted.get("alice", "session1")
@@ -204,7 +226,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     assert len(created) == 1
     await restarted.get("bob", "session1")
     assert len(created) == 2
-    await call_tool(restarted.tools("bob", "session1"), "manage_workspace", action="destroy")
+    await restarted.destroy("bob", "session1")
     with pytest.raises(LookupError):
         runtime.db.record("bob", "sandbox", "session1")
     await restarted.close()

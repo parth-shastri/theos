@@ -56,6 +56,7 @@ class TranscriptionInput(BaseModel):
 
 class SpeechInput(BaseModel):
     text: str = Field(min_length=1, max_length=12000)
+    session_id: str | None = None
 
 
 class SessionSettings(BaseModel):
@@ -280,7 +281,7 @@ def create_app(settings=None, runtime=None):
         row = store.get(owner, session_id, run_id)
         row["history"] = json.loads(row["history"])
         row["memory"] = json.loads(row["memory"])
-        row["items"] = store.items(owner, session_id, run_id, family=True)
+        row["scratchpad"] = store.scratchpad(owner, session_id, run_id, family=True)
         row["checkpoints"] = current(request).db.rows(
             "SELECT id,history,memory,created FROM research_checkpoints WHERE run=? ORDER BY id",
             (run_id,),
@@ -407,7 +408,12 @@ def create_app(settings=None, runtime=None):
 
     @app.post("/api/audio/speech")
     async def speech(body: SpeechInput, request: Request, owner=Depends(identity)):
-        row = await current(request).files.speech(owner, body.text)
+        active = current(request)
+        if body.session_id:
+            active.session(owner, body.session_id)
+            row = await active.files.speech(owner, body.text, session_id=body.session_id)
+        else:
+            row = await active.files.speech(owner, body.text)
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
     @app.get("/api/notifications")

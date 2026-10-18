@@ -1,4 +1,4 @@
-"""Durable private-chat enrollment before commands, media, or model turns."""
+"""Gate Telegram access and collect the minimum profile before normal conversations."""
 
 import hmac
 import time
@@ -15,6 +15,7 @@ def enroll(bot, sender):
     user_id = sender["id"]
     owner = f"telegram:{user_id}"
     # Count and insert without an await so concurrent starts cannot exceed the limit.
+    # The transaction also makes the enrollment row and starter preferences appear together.
     with bot.db.transaction():
         row = bot.db.one("SELECT * FROM telegram_enrollments WHERE user_id=?", (user_id,))
         if row:
@@ -36,6 +37,8 @@ def enroll(bot, sender):
 
 async def prompt(bot, owner, chat, topic):
     """Ask for the pending preference without sending setup text to the model."""
+    # Enrollment is a deterministic form flow. Read its state from SQLite so a restart
+    # resumes at the same question instead of asking the model to remember setup progress.
     current = preferences(bot.db, owner, bot.settings.timezone)
     row = bot.db.one("SELECT state FROM telegram_enrollments WHERE owner=?", (owner,))
     if row["state"] == "name":
@@ -53,13 +56,15 @@ async def prompt(bot, owner, chat, topic):
 
 
 async def handle(bot, message, owner, channel, chat, topic, callback=None):
-    """Return true when enrollment consumes an update before normal routing."""
+    """Handle setup; return True when it consumes the update before normal routing."""
     text = message.get("text", "").strip()
     action = text.partition(" ")[0].split("@")[0]
     user_id = (callback["from"] if callback else message["from"])["id"]
     row = bot.db.one("SELECT * FROM telegram_enrollments WHERE user_id=?", (user_id,))
 
-    # 1. Validate the code before reserving a slot or running any account command.
+    # 1. Check the optional access code before reserving a slot or running an account command.
+    # The inbox stores a fingerprint, not the user's plain code, and compare_digest avoids
+    # leaking a useful timing difference while comparing the submitted fingerprint.
     fingerprint = code_fingerprint(bot.settings)
     if message.get("_theos_access_attempt") and not callback:
         try:
@@ -95,7 +100,7 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             (owner, fingerprint, time.time()),
         )
 
-    # 2. Enrollment always belongs to the sender's private identity, never a group.
+    # 2. Collect profile details only in private chat. A group must not set personal details.
     if channel != "telegram-private":
         if not row or row["state"] != "ready" or action == "/start":
             if callback:
@@ -110,7 +115,8 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             return True
         return False
 
-    # 3. Only /start can claim a slot. Pending setup counts toward the same cap.
+    # 3. Only /start can claim a slot. Pending setup counts toward the same user cap so
+    # abandoned onboarding cannot bypass the configured enrollment limit.
     if not row:
         if action != "/start" or callback:
             if callback:
@@ -136,7 +142,8 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             topic,
         )
 
-    # 4. Validate and commit preferences before allowing any model or media work.
+    # 4. Keep consuming updates until both fields are valid and saved. Returning False means
+    # setup is complete, so polling.py can continue to commands, media, or a model turn.
     if row["state"] == "ready":
         return False
     if callback:
@@ -147,12 +154,15 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
     elif text and (not text.startswith("/") or action == "/skip"):
         current = preferences(bot.db, owner, bot.settings.timezone)
         if row["state"] == "name":
+            # /skip keeps the name copied from Telegram (or an earlier saved preference).
             name = current.get("display_name", "") if action == "/skip" else text
             name = " ".join(name.split())
             if not 1 <= len(name) <= 200:
                 await bot.send(chat, "Send a name from 1 to 200 characters.", topic)
             else:
                 current["display_name"] = name
+                # Save the preference and advance the state atomically: a crash cannot
+                # leave the name saved while the enrollment still asks for a name.
                 with bot.db.transaction():
                     bot.db.put_record(owner, "preferences", "settings", current)
                     bot.db.execute(
@@ -162,6 +172,8 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
                 await bot.send(chat, f"I will call you {name}.", topic)
             await prompt(bot, owner, chat, topic)
             return True
+        # Timezone is validated with the standard IANA timezone database before saving;
+        # reminders and scheduled work rely on it to interpret local times correctly.
         timezone = current["timezone"] if action == "/skip" else text
         try:
             ZoneInfo(timezone)
@@ -171,6 +183,8 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             )
         else:
             current["timezone"] = timezone
+            # The ready state is committed with the preference so later routing sees a
+            # complete profile, never half-finished setup.
             with bot.db.transaction():
                 bot.db.put_record(owner, "preferences", "settings", current)
                 bot.db.execute(
