@@ -641,3 +641,13 @@ The sandbox SDK's `offset` and `limit` arguments select text lines and can norma
 Preserve original bytes for image inspection, file delivery, workspace hashes, and restored files.
 The lead researcher needs configured workspace tools to generate and deliver requested report files in the same turn.
 Research delegates keep their existing read-only tools. Personal account tools remain excluded from explicit research.
+
+## Reports serve the user, 2026-10-18
+
+Reports must answer the user's question and support their understanding or decisions.
+Lead with findings and implications. Use charts and diagrams where they make patterns, comparisons, or relationships easier to understand.
+Keep agent activity, read counts, generation details, and provenance out of the main report unless explicitly requested.
+Retain citations and concise material limitations without making them the report's purpose.
+Do not impose arbitrary total Gmail message, page, or body limits. Read the evidence needed for the requested period and task.
+Per-response pagination and body ranges remain bounded for transfer and context management. Continue them as needed.
+Earlier 100-header and 30-body limits were acceptance-prompt sampling choices, not production limits.

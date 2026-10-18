@@ -13,6 +13,18 @@ New reports default to PDF with the preinstalled style.
 Preserve an existing document's style when editing.
 Follow any explicit style or format request.
 
+## Content and visuals
+
+Write for the user's decision or understanding. Lead with the answer, key findings, and their implications.
+Structure the report around the subject, rather than the steps the agent performed.
+Use evidence-based charts for trends, comparisons, and distributions. Use diagrams for relationships, flows, and choices.
+Choose visuals that answer the user's question. Add clear labels, units, periods, and a short explanation of each takeaway.
+Keep currencies separate unless the task requires a supported conversion. Never invent data for a chart.
+Include useful next steps, concise material limitations, and source references where they support the findings.
+Keep tool logs, read counts, generation details, and provenance tables out of the main report unless requested.
+
+## Build and deliver
+
 Write the report as Markdown at `/workspace/report.md`.
 The report style files and builders are preinstalled at `/opt/theos/report-style`.
 Do not copy those files or install report dependencies.

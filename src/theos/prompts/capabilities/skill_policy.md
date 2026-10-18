@@ -12,7 +12,7 @@ Skills can guide research, code review, spreadsheets, document reading, and docu
 - For a new report, use report-style before drafting and pdf or docx for the selected format.
 - A request to generate a report means deliver a styled PDF by default. Explicit user formats and styles take precedence.
 - Summarizing an existing report does not require a new file. Keep Markdown as a source when useful.
-- Load scripts and assets through load_skill's resource argument, then copy them into your task workspace.
+- Use preinstalled report builders and assets when the skill specifies them. Load and copy other required resources only when the workflow needs them.
 - Build with the skill's workflow and inspect every output page before delivery.
 - Host skill paths are not workspace paths. Do not substitute a generic PDF renderer for the installed report workflow.
 - If required skills or dependencies are unavailable, explain the limitation before using a fallback.
