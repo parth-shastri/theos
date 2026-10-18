@@ -1,5 +1,7 @@
 """Convert Markdown to Telegram text/entities and split it within Telegram's limits."""
 
+import json
+import shlex
 from urllib.parse import urlsplit
 
 from markdown_it import MarkdownIt
@@ -203,7 +205,37 @@ def plain_messages(text):
 
 
 def format_tool_activity(name, arguments, status, action="Calling"):
-    """Render exact JSON arguments as temporary literal tool progress."""
+    """Render sandbox commands clearly and other exact arguments as temporary progress."""
+    try:
+        payload = json.loads(arguments)
+    except (TypeError, ValueError):
+        payload = {}
+    language, literal = None, None
+    if name == "run_command" and isinstance(payload.get("command"), str):
+        language, literal = "bash", payload["command"]
+    elif name == "execute_code" and isinstance(payload.get("code"), str):
+        language, literal = "python", payload["code"]
+    elif name == "browser" and isinstance(payload.get("arguments"), list):
+        args = payload["arguments"]
+        if all(isinstance(argument, str) for argument in args):
+            language, literal = "bash", shlex.join(["agent-browser", *args])
+
+    if literal is not None:
+        heading = f"{tool_icon(name)} {action} {tool_label(name)}:"
+        prefix = heading + "\n\n"
+        text = prefix + literal + "\n\n" + status
+        entities = [{"type": "bold", "offset": 0, "length": utf16_length(heading)}]
+        if literal:
+            entities.append(
+                {
+                    "type": "pre",
+                    "offset": utf16_length(prefix),
+                    "length": utf16_length(literal),
+                    "language": language,
+                }
+            )
+        return _chunks(text, entities, 3900)
+
     # Keep arguments in a code entity so punctuation and values remain exact and readable.
     heading = f"{tool_icon(name)} {action} {tool_label(name)} with args:"
     prefix = heading + "\n\n"
