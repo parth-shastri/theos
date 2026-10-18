@@ -92,7 +92,7 @@ const generationFields = {
 const commands = [
   {
     name: "research",
-    argument: "QUESTION",
+    argument: "question",
     description: "Start explicit deep research",
   },
   { name: "help", description: "Show commands and keyboard shortcuts" },
@@ -101,12 +101,12 @@ const commands = [
   { name: "resume", description: "Continue saved work" },
   {
     name: "model",
-    argument: "NAME",
+    argument: "name",
     description: "Show or choose an available model",
   },
   {
     name: "reasoning",
-    argument: "EFFORT",
+    argument: "effort",
     description: "Show or choose reasoning effort",
   },
   {
@@ -135,6 +135,8 @@ function renderReasoning(value) {
     }),
   );
   $("reasoning").value = choices.includes(value) ? value : "default";
+  TheosSelects.sync("model");
+  TheosSelects.sync("reasoning");
 }
 
 function generationValues() {
@@ -199,18 +201,22 @@ function openSettings(section = "") {
   $("auto-speech").checked =
     me.voice.tts && sessionStorage.getItem(`theos-tts-${me.id}`) === "true";
   $("generation-dialog").showModal();
-  if (section === "model" || section === "reasoning") $(section).focus();
+  if (section === "model" || section === "reasoning")
+    ($(section + "-trigger") || $(section)).focus();
   if (section === "voice") $("auto-speech").focus();
 }
 $("generation-button").onclick = () => openSettings();
+$("sidebar-settings-button").onclick = () => openSettings();
 $("generation-close").onclick = () => $("generation-dialog").close();
 $("generation-cancel").onclick = () => $("generation-dialog").close();
 $("generation-dialog").addEventListener("cancel", (event) => {
   if (settingsSaving) event.preventDefault();
 });
 $("generation-dialog").addEventListener("close", () => {
+  TheosSelects.close();
   $("model").value = savedModel;
   renderReasoning(savedReasoning);
+  if (sidebarMedia.matches) $("toggle-sidebar").focus();
 });
 $("generation-defaults").onclick = () => {
   for (const input of $("generation-fields").querySelectorAll("input"))
@@ -279,6 +285,27 @@ function controlIcon(name) {
     ],
     command: ["m15 4-6 16"],
     send: ["M12 19V5m-6 6 6-6 6 6"],
+    plus: ["M12 5v14M5 12h14"],
+    chat: ["M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 0 1 18 0Z", "M8 10h8M8 14h5"],
+    chevron: ["m8 14 4-4 4 4"],
+    check: ["m5 12 4 4L19 6"],
+    calendar: [
+      "M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z",
+      "M7 2v4M17 2v4M3 10h18M7 14h2M13 14h4",
+    ],
+    refresh: ["M20 7a9 9 0 1 0 1 8", "M20 2v6h-6"],
+    back: ["M19 12H5m6-6-6 6 6 6"],
+    users: [
+      "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2",
+      "M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
+      "M18 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.9",
+    ],
+    activity: ["M3 12h4l3-8 4 16 3-8h4"],
+    wallet: [
+      "M20 7H5a2 2 0 0 1 0-4h13v4",
+      "M3 5v14a2 2 0 0 0 2 2h16V7",
+      "M21 12h-6v5h6M17 14.5h.01",
+    ],
     microphone: [
       "M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3Z",
       "M5 10v2a7 7 0 0 0 14 0v-2",
@@ -343,12 +370,32 @@ function setIconButton(button, icon, label) {
   button.title = label;
 }
 setIconButton($("microphone"), "microphone", "Record a voice message");
+TheosSelects.enhance($("model"), controlIcon("memory"), controlIcon("check"));
+TheosSelects.enhance(
+  $("reasoning"),
+  controlIcon("settings"),
+  controlIcon("check"),
+);
+TheosSelects.enhance(
+  $("dashboard-range"),
+  controlIcon("calendar"),
+  controlIcon("check"),
+);
+for (const id of ["back-chat", "back-connections"])
+  $(id).prepend(controlIcon("back"));
+for (const id of ["dashboard-refresh", "refresh-connections"])
+  $(id).prepend(controlIcon("refresh"));
 setIconButton($("cancel-recording"), "cancel", "Cancel recording");
 setIconButton($("attach-files"), "attach", "Attach files");
 setIconButton($("command-help"), "command", "Show command and connection help");
+$("attach-files").append(node("span", "Attach files"));
+$("command-help").append(node("span", "Commands & connections"));
+$("composer-settings").prepend(controlIcon("settings"));
+setIconButton($("composer-add"), "plus", "Add files and options");
 setIconButton($("send"), "send", "Send message");
 setIconButton($("toggle-sidebar"), "sidebar", "Toggle conversation sidebar");
 $("generation-button").prepend(controlIcon("settings"));
+$("sidebar-settings-button").prepend(controlIcon("settings"));
 setIconButton($("generation-close"), "cancel", "Close settings");
 setIconButton($("usage-close"), "cancel", "Close usage");
 setIconButton($("help-close"), "cancel", "Close command help");
@@ -482,6 +529,74 @@ function speechControl(body) {
   messageFooter(body).prepend(box);
   return button;
 }
+const composerPrompts = [
+  "Make me a billionaire...",
+  "Initiate a worldwide peacekeeping mission...",
+  "Plan my next great escape...",
+  "Find me a new rabbit hole...",
+  "Make Monday feel like Friday...",
+];
+const mobileComposerPrompts = [
+  "Sue the void",
+  "Tax my soul",
+  "Fire my ego",
+  "Hire a god",
+  "Fix free will",
+];
+const composerPromptMedia = matchMedia("(max-width: 700px)");
+let composerPromptIndex = 0;
+let composerPromptTimer;
+let composerVoiceActivity = "";
+function syncComposerPlaceholder() {
+  const message = $("message");
+  const prompts = composerPromptMedia.matches
+    ? mobileComposerPrompts
+    : composerPrompts;
+  message.placeholder =
+    composerVoiceActivity ||
+    (document.activeElement === message
+      ? "Start Typing..."
+      : prompts[composerPromptIndex]);
+  $("status").classList.toggle(
+    "placeholder-status",
+    !!composerVoiceActivity &&
+      !message.value &&
+      $("status").classList.contains("voice-status"),
+  );
+}
+function setComposerVoiceActivity(activity) {
+  composerVoiceActivity = activity;
+  const status = $("status");
+  if (activity) {
+    status.textContent = activity;
+    status.className = "voice-status";
+  } else if (status.classList.contains("voice-status")) {
+    status.textContent = "";
+    status.className = "";
+  }
+  if (activity === "Transcribing...")
+    $("message").setAttribute("aria-busy", "true");
+  else $("message").removeAttribute("aria-busy");
+  syncComposerPlaceholder();
+}
+function rotateComposerPrompt() {
+  if (
+    document.hidden ||
+    $("workspace").hidden ||
+    $("message").value ||
+    document.activeElement === $("message") ||
+    composerVoiceActivity
+  )
+    return;
+  composerPromptIndex = (composerPromptIndex + 1) % composerPrompts.length;
+  syncComposerPlaceholder();
+}
+function startComposerPrompts() {
+  clearInterval(composerPromptTimer);
+  syncComposerPlaceholder();
+  composerPromptTimer = setInterval(rotateComposerPrompt, 8000);
+}
+composerPromptMedia.addEventListener("change", syncComposerPlaceholder);
 function stopRecordingMeter() {
   const meter = recordingMeter;
   recordingMeter = null;
@@ -493,6 +608,7 @@ function stopRecordingMeter() {
     meter.context.close().catch(() => {});
   }
   $("composer").style.removeProperty("--voice-level");
+  $("voice-ambience").style.removeProperty("--voice-level");
 }
 async function startRecordingMeter(stream) {
   stopRecordingMeter();
@@ -530,6 +646,7 @@ async function startRecordingMeter(stream) {
       const target = Math.min(1, Math.max(0, (rms - 0.008) * 8));
       level += (target - level) * (target > level ? 0.35 : 0.12);
       $("composer").style.setProperty("--voice-level", level.toFixed(3));
+      $("voice-ambience").style.setProperty("--voice-level", level.toFixed(3));
       meter.frame = requestAnimationFrame(measure);
     };
     measure();
@@ -546,7 +663,9 @@ function releaseRecording() {
   setIconButton($("microphone"), "microphone", "Record a voice message");
   $("microphone").classList.remove("is-recording");
   $("composer").classList.remove("is-recording");
+  document.body.classList.remove("is-recording");
   $("cancel-recording").hidden = true;
+  setComposerVoiceActivity("");
 }
 function stopRecording(cancelled = false) {
   recordingCancelled = cancelled;
@@ -557,6 +676,7 @@ $("microphone").onclick = async () => {
   if (recorder?.state === "recording") return stopRecording();
   if (busy) return;
   setBusy(true);
+  setComposerVoiceActivity("Opening microphone...");
   try {
     recordingStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -594,7 +714,7 @@ $("microphone").onclick = async () => {
         return;
       }
       $("microphone").disabled = true;
-      $("status").textContent = "Transcribing recording…";
+      setComposerVoiceActivity("Transcribing...");
       try {
         const type = recorder.mimeType || "audio/webm";
         const audio = new Blob(chunks, { type });
@@ -620,11 +740,10 @@ $("microphone").onclick = async () => {
         $("message").value = draft;
         resizeComposer();
         $("message").focus();
-        $("status").textContent =
-          "Transcription ready. Review the text, then send.";
       } catch (error) {
         showError(error);
       } finally {
+        setComposerVoiceActivity("");
         setBusy(false);
         $("microphone").disabled = false;
       }
@@ -633,12 +752,11 @@ $("microphone").onclick = async () => {
     setIconButton($("microphone"), "stop", "Stop voice recording");
     $("microphone").classList.add("is-recording");
     $("composer").classList.add("is-recording");
+    document.body.classList.add("is-recording");
     startRecordingMeter(recordingStream);
     $("microphone").disabled = false;
     $("cancel-recording").hidden = false;
-    $("status").className = "recording-status";
-    $("status").textContent =
-      "Recording… Stop to transcribe, or cancel. Maximum two minutes.";
+    setComposerVoiceActivity("Listening...");
     recordingTimer = setTimeout(() => stopRecording(), 120000);
   } catch (error) {
     stopRecording(true);
@@ -654,9 +772,9 @@ $("microphone").onclick = async () => {
 };
 $("cancel-recording").onclick = () => {
   stopRecording(true);
-  $("status").textContent = "Recording cancelled.";
 };
 window.addEventListener("pagehide", () => {
+  clearInterval(composerPromptTimer);
   stopRecording(true);
   releaseAudio();
   for (const timer of messageTimers) clearInterval(timer);
@@ -1011,6 +1129,7 @@ async function runCommand(text) {
 }
 
 function showView(id) {
+  TheosSelects.close();
   clearInterval(connectionTimer);
   $("conversation-toolbar").hidden = ["dashboard", "connections-view"].includes(
     id,
@@ -1140,10 +1259,14 @@ function setBusy(value) {
     "reasoning",
     "upload",
     "generation-button",
+    "sidebar-settings-button",
     "research-mode",
+    "mode-trigger",
     "command-help",
     "new-session",
     "attach-files",
+    "composer-add",
+    "composer-settings",
     "tools-button",
     "connections-button",
     "activity-button",
@@ -1162,7 +1285,11 @@ function setBusy(value) {
     typeof MediaRecorder === "undefined";
   if (value || !$("status").classList.contains("error"))
     $("status").className = "";
-  if (value) hideCommands();
+  if (value) {
+    hideCommands();
+    closeComposerOptions();
+    closeModeMenu();
+  }
 }
 $("messages").addEventListener("scroll", () => {
   const messages = $("messages");
@@ -1252,6 +1379,7 @@ function messageMetadata(body, display = {}, usage = {}, estimate = null) {
       new Intl.DateTimeFormat(undefined, {
         day: "numeric",
         month: "short",
+        year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
         hourCycle: "h23",
@@ -1261,7 +1389,7 @@ function messageMetadata(body, display = {}, usage = {}, estimate = null) {
     );
     const timestamp = node(
       "time",
-      `${values.day} ${values.month} ${values.hour}:${values.minute}`,
+      `${values.day} ${values.month} ${values.year} ${values.hour}:${values.minute}`,
     );
     timestamp.dateTime = date.toISOString();
     timestamp.title = date.toLocaleString(undefined, {
@@ -1341,12 +1469,30 @@ function empty() {
   mark.setAttribute("data-brand", "");
   box.append(
     mark,
-    node("h1", "Start a conversation"),
+    node("span", "A little space to think", "eyebrow"),
+    node("h1", "What’s on your mind?"),
     node(
       "p",
-      "Choose a model, then ask a question or describe a task. Attach files when you need more context.",
+      "Ask a question, make a plan, or work through an idea. Your next step starts here.",
     ),
   );
+  const starters = node("div", "", "conversation-starters");
+  for (const [icon, label, draft] of [
+    ["skills", "Make a plan", "Help me make a plan for "],
+    ["search", "Explore a topic", "Help me understand "],
+    ["attach", "Work with a file", "Help me with the file I attach. "],
+  ]) {
+    const button = node("button", label);
+    button.type = "button";
+    button.prepend(controlIcon(icon));
+    button.onclick = () => {
+      $("message").value = draft;
+      resizeComposer();
+      $("message").focus();
+    };
+    starters.append(button);
+  }
+  box.append(starters);
   $("messages").append(box);
 }
 async function listSessions() {
@@ -1372,6 +1518,7 @@ async function openSession(id) {
   const session = await json(`/api/sessions/${id}`);
   selected = id;
   $("research-mode").value = "normal";
+  resizeComposer();
   $("session-title").textContent = session.title;
   $("model").value = session.model;
   savedModel = session.model;
@@ -1442,7 +1589,7 @@ async function openSession(id) {
   $("status").textContent =
     session.status === "running"
       ? "This turn is still running. Reopen the conversation to load its result."
-      : "Ready when you are.";
+      : "";
   $("status").className = "";
   scrollChat(true);
   await listSessions();
@@ -1855,7 +2002,6 @@ $("composer").onsubmit = async (event) => {
   if ($("messages").querySelector(".empty")) $("messages").replaceChildren();
   messageMetadata(bubble("user", text), { created_at: Date.now() / 1000 });
   $("message").value = "";
-  resizeComposer();
   const attached = files.map((f) => f.id);
   files = [];
   $("attachments").textContent = "";
@@ -1863,6 +2009,7 @@ $("composer").onsubmit = async (event) => {
   try {
     const mode = $("research-mode").value;
     $("research-mode").value = "normal";
+    resizeComposer();
     await stream(`/api/sessions/${selected}/turn`, {
       text,
       files: attached,
@@ -1902,11 +2049,20 @@ $("message").onkeydown = (event) => {
   }
 };
 function resizeComposer() {
+  syncModePicker();
+  syncComposerPlaceholder();
   const message = $("message");
+  $("composer").classList.toggle(
+    "has-draft",
+    !!message.value || !!files.length || $("research-mode").value !== "normal",
+  );
   message.style.height = "auto";
-  message.style.height = `${Math.max(28, Math.min(message.scrollHeight, 140))}px`;
+  if (!message.value) return;
+  message.style.height = `${Math.max(44, Math.min(message.scrollHeight, 140))}px`;
 }
 $("message").oninput = (event) => {
+  closeComposerOptions();
+  closeModeMenu();
   mentionsDismissed = false;
   resizeComposer();
   if (event.isComposing) hideCommands();
@@ -1917,12 +2073,138 @@ $("message").onclick = () => {
   mentionsDismissed = false;
   suggestCommands();
 };
-$("message").onblur = hideCommands;
+$("message").onblur = () => {
+  hideCommands();
+  syncComposerPlaceholder();
+};
 $("message").onkeyup = (event) => {
   if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
     suggestCommands();
 };
 $("command-help").onclick = commandHelp;
+function closeComposerOptions(restoreFocus = false) {
+  if ($("composer-options").hidden) return;
+  $("composer-options").hidden = true;
+  $("composer-add").setAttribute("aria-expanded", "false");
+  if (restoreFocus) $("composer-add").focus();
+}
+$("composer-add").onclick = () => {
+  closeModeMenu();
+  const open = $("composer-options").hidden;
+  hideCommands();
+  $("composer-options").hidden = !open;
+  $("composer-add").setAttribute("aria-expanded", String(open));
+  if (open)
+    $("composer-options").querySelector("button:not(:disabled)").focus();
+};
+$("composer-options").addEventListener("click", (event) => {
+  if (event.target.closest("button")) closeComposerOptions();
+});
+$("composer-settings").onclick = () => openSettings();
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#composer-options, #composer-add"))
+    closeComposerOptions();
+});
+$("composer").addEventListener("focusout", () => {
+  requestAnimationFrame(() => {
+    if (!$("composer").contains(document.activeElement)) {
+      closeComposerOptions();
+      closeModeMenu();
+    }
+    resizeComposer();
+  });
+});
+$("message").addEventListener("focus", resizeComposer);
+startComposerPrompts();
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) startComposerPrompts();
+});
+const messageModes = {
+  normal: { label: "Normal", icon: "chat", detail: "Everyday conversations" },
+  deep_research: {
+    label: "Deep research",
+    icon: "search",
+    detail: "Explore sources in depth",
+  },
+};
+const modeOptions = [...$("mode-menu").querySelectorAll("[data-mode]")];
+for (const option of modeOptions) {
+  const mode = messageModes[option.dataset.mode];
+  const copy = node("span", "", "mode-copy");
+  copy.append(node("strong", mode.label), node("small", mode.detail));
+  const check = controlIcon("check");
+  check.classList.add("mode-check");
+  option.append(controlIcon(mode.icon), copy, check);
+  option.onclick = () => {
+    $("research-mode").value = option.dataset.mode;
+    closeModeMenu(true);
+    resizeComposer();
+  };
+}
+function syncModePicker() {
+  const mode = messageModes[$("research-mode").value];
+  const trigger = $("mode-trigger");
+  if (trigger.dataset.mode === $("research-mode").value) return;
+  trigger.dataset.mode = $("research-mode").value;
+  trigger.replaceChildren(
+    controlIcon(mode.icon),
+    node("span", mode.label),
+    controlIcon("chevron"),
+  );
+  trigger.setAttribute("aria-label", `Message mode: ${mode.label}`);
+  for (const option of modeOptions)
+    option.setAttribute(
+      "aria-selected",
+      String(option.dataset.mode === trigger.dataset.mode),
+    );
+}
+function closeModeMenu(restoreFocus = false) {
+  if ($("mode-menu").hidden) return;
+  $("mode-menu").hidden = true;
+  $("mode-trigger").setAttribute("aria-expanded", "false");
+  if (restoreFocus) $("mode-trigger").focus();
+}
+function openModeMenu() {
+  if (busy) return;
+  closeComposerOptions();
+  hideCommands();
+  $("mode-menu").hidden = false;
+  $("mode-trigger").setAttribute("aria-expanded", "true");
+  modeOptions
+    .find((option) => option.dataset.mode === $("research-mode").value)
+    .focus();
+}
+$("mode-trigger").onclick = () =>
+  $("mode-menu").hidden ? openModeMenu() : closeModeMenu();
+$("mode-trigger").onkeydown = (event) => {
+  if (["ArrowUp", "ArrowDown"].includes(event.key)) {
+    event.preventDefault();
+    openModeMenu();
+  }
+};
+$("mode-menu").onkeydown = (event) => {
+  const index = modeOptions.indexOf(document.activeElement);
+  if (["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+    event.preventDefault();
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? modeOptions.length - 1
+          : (index +
+              (event.key === "ArrowDown" ? 1 : -1) +
+              modeOptions.length) %
+            modeOptions.length;
+    modeOptions[next].focus();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeModeMenu(true);
+  } else if (event.key === "Tab") closeModeMenu(true);
+};
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#mode-menu, #mode-trigger")) closeModeMenu();
+});
+syncModePicker();
 $("upload").onchange = async () => {
   try {
     for (const file of $("upload").files) {
@@ -1932,6 +2214,8 @@ $("upload").onchange = async () => {
     }
     $("attachments").textContent = files.map((f) => f.name).join(" · ");
     $("message").required = !files.length;
+    resizeComposer();
+    if (files.length) $("message").focus();
   } catch (error) {
     showError(error);
   }
@@ -1964,8 +2248,10 @@ $("model").onchange = () => {
   renderReasoning($("reasoning").value);
   renderGeneration(generationValues());
 };
-$("resume").onclick = () =>
-  stream(`/api/sessions/${selected}/resume`).catch(showError);
+$("resume").onclick = () => {
+  if (sidebarMedia.matches) setSidebar(false);
+  return stream(`/api/sessions/${selected}/resume`).catch(showError);
+};
 $("reset").onclick = async () => {
   if (
     !confirm(
@@ -1981,33 +2267,84 @@ $("reset").onclick = async () => {
   }
 };
 function table(title, rows, keys) {
-  const section = node("section", "");
-  section.append(node("h2", title));
+  const section = node("details", "", "data-panel liquid-panel");
+  const summary = node("summary", "", "data-panel-heading");
+  const label = node("span", "", "data-panel-title");
+  label.append(
+    node("strong", title),
+    node(
+      "small",
+      `${rows.length.toLocaleString()} ${rows.length === 1 ? "record" : "records"} · all time`,
+    ),
+  );
+  summary.append(label, controlIcon("chevron"));
+  section.append(summary);
   if (!rows.length) {
-    section.append(node("p", "No records yet."));
+    section.append(node("p", "No records yet.", "table-empty"));
     return section;
   }
+  const labels = {
+    owner: "User",
+    id: "Conversation",
+    input_tokens: "Input tokens",
+    output_tokens: "Output tokens",
+    cache_tokens: "Cached tokens",
+    cost: "Recorded USD",
+    unpriced_requests: "Unpriced",
+    error_type: "Error type",
+  };
   const scroll = node("div", "", "table-scroll");
-  const table = node("table", "");
-  const head = node("tr", "");
-  for (const key of keys) head.append(node("th", key.replaceAll("_", " ")));
-  table.append(head);
-  for (const row of rows) {
-    const tr = node("tr", "");
-    for (const key of keys)
-      tr.append(
-        node(
-          "td",
-          key === "cost"
-            ? formatCost(row)
-            : row[key] === null
-              ? "Not configured"
-              : String(row[key] ?? ""),
-        ),
-      );
-    table.append(tr);
+  scroll.tabIndex = 0;
+  scroll.setAttribute("role", "region");
+  scroll.setAttribute(
+    "aria-label",
+    `${title} table. Scroll horizontally for more columns.`,
+  );
+  const data = node("table");
+  const caption = node("caption", `${title} · all-time records`, "sr-only");
+  const head = node("tr");
+  const thead = node("thead");
+  const numeric = new Set([
+    "requests",
+    "input_tokens",
+    "output_tokens",
+    "cache_tokens",
+    "cost",
+    "unpriced_requests",
+    "attempts",
+  ]);
+  for (const key of keys) {
+    const cell = node(
+      "th",
+      labels[key] || key.replaceAll("_", " "),
+      numeric.has(key) ? "numeric" : "",
+    );
+    cell.scope = "col";
+    head.append(cell);
   }
-  scroll.append(table);
+  thead.append(head);
+  const body = node("tbody");
+  for (const row of rows) {
+    const tr = node("tr");
+    for (const key of keys) {
+      const cell = node(
+        "td",
+        key === "cost"
+          ? formatCost(row)
+          : row[key] == null
+            ? "Unavailable"
+            : typeof row[key] === "number"
+              ? row[key].toLocaleString()
+              : String(row[key]),
+        numeric.has(key) ? "numeric" : "",
+      );
+      if (["id", "session"].includes(key)) cell.classList.add("record-id");
+      tr.append(cell);
+    }
+    body.append(tr);
+  }
+  data.append(caption, thead, body);
+  scroll.append(data);
   section.append(scroll);
   return section;
 }
@@ -2018,14 +2355,24 @@ async function loadDashboard(scope = dashboardScope) {
   const admin = scope === "admin";
   const request = ++dashboardRequest;
   showView("dashboard");
-  $("dashboard-content").replaceChildren();
+  const content = $("dashboard-content");
+  content.replaceChildren();
+  content.setAttribute("aria-busy", "true");
   $("dashboard-title").textContent = admin
     ? "Admin dashboard"
-    : "Your activity & usage";
+    : "Activity & usage";
+  $("dashboard-eyebrow").textContent = admin
+    ? "Workspace insights"
+    : "Personal insights";
+  $("dashboard-description").textContent = admin
+    ? "A clear view of usage across all users and transports."
+    : "Your conversations, model usage, and recorded costs in one place.";
   $("dashboard-status").hidden = false;
   $("dashboard-status").textContent = "Loading activity…";
-  $("dashboard-status").className = "";
+  $("dashboard-status").className = "panel-status";
   $("dashboard-range").disabled = true;
+  $("dashboard-refresh").disabled = true;
+  $("dashboard-refresh").setAttribute("aria-busy", "true");
   try {
     const [data, logs] = await Promise.all([
       json(
@@ -2034,58 +2381,80 @@ async function loadDashboard(scope = dashboardScope) {
       admin ? json("/api/logs") : Promise.resolve([]),
     ]);
     if (request !== dashboardRequest) return;
-    const content = $("dashboard-content");
-    content.replaceChildren();
-    const stats = node("div", "", "stats");
-    for (const [value, label] of [
-      ...(admin ? [[data.totals.users, "Users"]] : []),
-      [data.totals.conversations, "Conversations"],
-      [
-        (data.totals.input_tokens + data.totals.output_tokens).toLocaleString(),
-        "Tokens",
-      ],
-      [formatCost(data.totals), "Total cost · USD"],
-    ]) {
-      const stat = node("div", "", "stat");
-      stat.append(node("strong", value), node("span", label));
-      stats.append(stat);
-    }
-    content.append(
+    const overview = node("section", "", "dashboard-overview liquid-panel");
+    overview.append(
+      node("h2", "Lifetime overview"),
       node(
         "p",
-        admin ? "All-time workspace totals" : "Your all-time totals",
+        admin ? "All users · all time" : "Your account · all time",
         "dashboard-caption",
       ),
+    );
+    const stats = node("div", "", "stats");
+    for (const [value, label, icon] of [
+      ...(admin
+        ? [[data.totals.users.toLocaleString(), "Users", "users"]]
+        : []),
+      [data.totals.conversations.toLocaleString(), "Conversations", "chat"],
+      [
+        (data.totals.input_tokens + data.totals.output_tokens).toLocaleString(),
+        "Tokens processed",
+        "activity",
+      ],
+      [formatCost(data.totals), "Recorded cost · USD", "wallet"],
+    ]) {
+      const stat = node("div", "", "stat");
+      const title = node("span", "", "stat-label");
+      title.append(controlIcon(icon), node("span", label));
+      stat.append(title, node("strong", value));
+      stats.append(stat);
+    }
+    overview.append(
       stats,
       node(
         "p",
-        `Costs use provider-reported amounts or configured token rates. ${data.totals.unpriced_requests} requests have no recorded price.`,
+        data.totals.unpriced_requests
+          ? `${data.totals.unpriced_requests.toLocaleString()} requests have no recorded price. Cost totals include priced requests only.`
+          : "Costs use provider-reported amounts or configured token rates.",
         "cost-label",
       ),
-      TheosCharts.activity(data.activity),
-      ...(admin
-        ? [
-            table("Usage per user", data.cost_per_user, [
-              "owner",
-              "requests",
-              "input_tokens",
-              "output_tokens",
-              "cache_tokens",
-              "cost",
-              "unpriced_requests",
-            ]),
-          ]
-        : []),
+    );
+    const chartHeading = node("div", "", "section-title chart-section-heading");
+    chartHeading.append(
+      node("h2", "Activity at a glance"),
+      node("span", `Last ${data.activity.days} days · UTC`),
+    );
+    content.append(overview, chartHeading, TheosCharts.activity(data.activity));
+    const records = node("section", "", "dashboard-records");
+    const recordHeading = node("div", "", "section-title");
+    recordHeading.append(
+      node("h2", "Explore the details"),
+      node("span", "All-time records"),
+    );
+    records.append(recordHeading);
+    if (admin)
+      records.append(
+        table("Usage per user", data.cost_per_user, [
+          "owner",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "cache_tokens",
+          "cost",
+          "unpriced_requests",
+        ]),
+      );
+    records.append(
       table("Cost per conversation", data.cost_per_conversation, [
-        "owner",
+        ...(admin ? ["owner"] : []),
         "id",
         "channel",
         "requests",
         "cost",
         "unpriced_requests",
       ]),
-      table("Usage", data.usage, [
-        "owner",
+      table("Usage by model", data.usage, [
+        ...(admin ? ["owner"] : []),
         "model",
         "requests",
         "input_tokens",
@@ -2094,42 +2463,44 @@ async function loadDashboard(scope = dashboardScope) {
         "cost",
         "unpriced_requests",
       ]),
-      ...(admin
-        ? [
-            table("Conversations", data.sessions, [
-              "owner",
-              "id",
-              "channel",
-              "status",
-            ]),
-            table("Background work", data.jobs, [
-              "kind",
-              "owner",
-              "status",
-              "attempts",
-            ]),
-            table("Traces", data.traces, [
-              "session",
-              "event",
-              "tool",
-              "status",
-            ]),
-            table("Application logs", logs, ["time", "event", "error_type"]),
-          ]
-        : []),
     );
+    if (admin)
+      records.append(
+        table("Conversations", data.sessions, [
+          "owner",
+          "id",
+          "channel",
+          "status",
+        ]),
+        table("Background work", data.jobs, [
+          "kind",
+          "owner",
+          "status",
+          "attempts",
+        ]),
+        table("Traces", data.traces, ["session", "event", "tool", "status"]),
+        table("Application logs", logs, ["time", "event", "error_type"]),
+      );
+    content.append(records);
+    window.TheosGlass?.enhance(content);
     $("dashboard-status").hidden = true;
   } catch (error) {
     if (request !== dashboardRequest) return;
     $("dashboard-status").textContent = error.message;
-    $("dashboard-status").className = "error";
+    $("dashboard-status").className = "panel-status error";
   } finally {
-    if (request === dashboardRequest) $("dashboard-range").disabled = false;
+    if (request === dashboardRequest) {
+      content.removeAttribute("aria-busy");
+      $("dashboard-range").disabled = false;
+      $("dashboard-refresh").disabled = false;
+      $("dashboard-refresh").removeAttribute("aria-busy");
+    }
   }
 }
 $("activity-button").onclick = () => loadDashboard("personal");
 $("dashboard-button").onclick = () => loadDashboard("admin");
 $("dashboard-range").onchange = () => loadDashboard();
+$("dashboard-refresh").onclick = () => loadDashboard();
 $("back-chat").onclick = () => {
   showView("chat-view");
 };
@@ -2204,6 +2575,8 @@ function signInLink(url) {
 }
 async function connectionAction(action) {
   connectionBusy = true;
+  $("refresh-connections").disabled = true;
+  $("refresh-connections").setAttribute("aria-busy", "true");
   for (const button of $("account-connections").querySelectorAll("button"))
     button.disabled = true;
   $("connections-status").className = "";
@@ -2220,6 +2593,8 @@ async function connectionAction(action) {
       button.disabled = false;
   } finally {
     connectionBusy = false;
+    $("refresh-connections").disabled = false;
+    $("refresh-connections").removeAttribute("aria-busy");
   }
 }
 async function refreshConnections() {
@@ -2234,10 +2609,12 @@ async function refreshConnections() {
   )
     return;
   $("account-connections").replaceChildren();
+  $("connection-summary").textContent =
+    `${data.accounts.filter((account) => account.connected).length} connected · ${data.accounts.length} accounts`;
   for (const account of data.accounts) {
     const setup = account.setup;
     const pending = ["starting", "waiting"].includes(setup.status);
-    const card = node("article", "", "connection-card");
+    const card = node("article", "", "connection-card liquid-panel");
     const header = node("div", "", "connection-heading");
     const identity = node("div", "", "connection-identity");
     identity.append(connectionIcon(account.id));
@@ -2253,7 +2630,7 @@ async function refreshConnections() {
             : account.connected
               ? "Connected"
               : "Not connected",
-        account.connected ? "tool-badge" : "connection-badge",
+        `status-pill ${account.connected ? "is-connected" : pending ? "is-pending" : "is-unavailable"}`,
       ),
     );
     card.append(header, node("p", accountDescriptions[account.id]));
@@ -2272,6 +2649,7 @@ async function refreshConnections() {
           : account.connected
             ? "Reconnect"
             : "Connect",
+        account.connected ? "soft-button" : "primary",
       );
       connect.disabled = setup.status === "starting";
       connect.onclick = () =>
@@ -2287,6 +2665,7 @@ async function refreshConnections() {
       const disconnect = node(
         "button",
         account.connected ? "Disconnect" : "Cancel setup",
+        "soft-button",
       );
       disconnect.onclick = () => {
         if (
@@ -2351,13 +2730,14 @@ async function refreshConnections() {
         node(
           "span",
           service.configured ? "Configured" : "Not configured",
-          service.configured ? "tool-badge" : "connection-badge",
+          `status-pill ${service.configured ? "is-connected" : "is-unavailable"}`,
         ),
       );
       return row;
     }),
   );
   connectionSnapshot = snapshot;
+  window.TheosGlass?.enhance($("connections-view"));
 }
 $("connections-button").onclick = async () => {
   showView("connections-view");
@@ -2485,11 +2865,12 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   for (const image of document.querySelectorAll("[data-brand]"))
     image.src = brandSource();
-  setIconButton(
-    $("theme-toggle"),
-    theme === "dark" ? "sun" : "moon",
-    `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
-  );
+  for (const id of ["theme-toggle", "sidebar-theme-toggle"])
+    setIconButton(
+      $(id),
+      theme === "dark" ? "sun" : "moon",
+      `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
+    );
 }
 const savedTheme = localStorage.getItem("theos-theme");
 applyTheme(
@@ -2499,19 +2880,37 @@ applyTheme(
       ? "dark"
       : "light",
 );
-$("theme-toggle").onclick = () => {
+function toggleTheme() {
   const theme =
     document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   applyTheme(theme);
   localStorage.setItem("theos-theme", theme);
-};
+}
+$("theme-toggle").onclick = toggleTheme;
+$("sidebar-theme-toggle").onclick = toggleTheme;
 const sidebarMedia = matchMedia("(max-width: 700px)");
+const conversationActions = $("conversation-actions");
+const desktopConversationControls = conversationActions.parentElement;
+function closeConversationActions(restoreFocus = false) {
+  if (!conversationActions.open) return;
+  conversationActions.open = false;
+  if (restoreFocus) conversationActions.querySelector("summary").focus();
+}
+conversationActions.addEventListener("click", (event) => {
+  if (event.target.closest("button")) closeConversationActions();
+});
+document.addEventListener("click", (event) => {
+  if (!conversationActions.contains(event.target)) closeConversationActions();
+});
 function setSidebar(open) {
+  closeConversationActions();
   $("workspace").classList.toggle("sidebar-collapsed", !open);
   $("toggle-sidebar").setAttribute("aria-expanded", String(open));
   $("sidebar").inert = !open;
   $("sidebar-backdrop").hidden = !(sidebarMedia.matches && open);
   document.querySelector("main").inert = sidebarMedia.matches && open;
+  document.querySelector(".app-header .header-actions").inert =
+    sidebarMedia.matches && open;
 }
 $("toggle-sidebar").onclick = () => {
   const open = $("workspace").classList.contains("sidebar-collapsed");
@@ -2523,6 +2922,28 @@ $("sidebar-backdrop").onclick = () => {
   $("toggle-sidebar").focus();
 };
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeComposerOptions(true);
+  if (event.key === "Escape") closeModeMenu(true);
+  if (event.key === "Escape") closeConversationActions(true);
+  if (
+    event.key === "Tab" &&
+    sidebarMedia.matches &&
+    !$("sidebar-backdrop").hidden
+  ) {
+    const controls = [
+      $("toggle-sidebar"),
+      ...$("sidebar").querySelectorAll("button:not(:disabled):not([hidden])"),
+    ].filter((control) => control.getClientRects().length);
+    const first = controls[0],
+      last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
   if (
     event.key === "Escape" &&
     sidebarMedia.matches &&
@@ -2532,10 +2953,56 @@ document.addEventListener("keydown", (event) => {
     $("toggle-sidebar").focus();
   }
 });
-sidebarMedia.addEventListener("change", () =>
-  setSidebar(!sidebarMedia.matches),
-);
+function placeConversationControls() {
+  const parent = sidebarMedia.matches
+    ? $("mobile-conversation-controls")
+    : desktopConversationControls;
+  parent.append(conversationActions);
+}
+sidebarMedia.addEventListener("change", () => {
+  placeConversationControls();
+  setSidebar(!sidebarMedia.matches);
+});
+placeConversationControls();
 setSidebar(!sidebarMedia.matches);
+
+// Mobile keyboards resize the visual viewport without always resizing CSS vh.
+function fitViewport() {
+  const viewport = window.visualViewport;
+  if (!viewport || viewport.scale !== 1) return;
+  const keyboardOpen = window.innerHeight - viewport.height > 120;
+  document.documentElement.style.setProperty(
+    "--viewport-height",
+    `${Math.round(viewport.height)}px`,
+  );
+  document.documentElement.classList.toggle("keyboard-open", keyboardOpen);
+  if (followChat) scrollChat();
+}
+window.visualViewport?.addEventListener("resize", fitViewport);
+fitViewport();
+
+// Leave scroll space for the floating composer, including approval cards.
+const composerSize = new ResizeObserver(() => {
+  const height = document
+    .querySelector(".composer-wrap")
+    .getBoundingClientRect().height;
+  if (!height) return;
+  $("chat-view").style.setProperty(
+    "--composer-space",
+    `${Math.ceil(height)}px`,
+  );
+  const menuSpace =
+    $("composer").getBoundingClientRect().top -
+    document.querySelector("main").getBoundingClientRect().top -
+    12;
+  $("composer").style.setProperty(
+    "--composer-menu-space",
+    `${Math.max(44, Math.floor(menuSpace))}px`,
+  );
+  scrollChat();
+});
+composerSize.observe(document.querySelector(".composer-wrap"));
+composerSize.observe($("chat-view"));
 
 document
   .getElementById("attach-files")
@@ -2545,6 +3012,7 @@ document
 let researchRequest = 0;
 async function showResearch() {
   if (!selected) return;
+  if (sidebarMedia.matches) setSidebar(false);
   const sessionId = selected,
     request = ++researchRequest;
   $("research-dialog").showModal();
@@ -2634,3 +3102,6 @@ $("research-close").onclick = () => {
   researchRequest++;
   $("research-dialog").close();
 };
+$("research-dialog").addEventListener("close", () => {
+  if (sidebarMedia.matches) $("toggle-sidebar").focus();
+});
