@@ -77,7 +77,6 @@ The application does not implement that consolidation path.
 
 The traditional handwriting font uses Excalidraw font family `1`.
 The local previews use the same bundled font.
-The bundled [font license](fonts/LICENSE.md) is the SIL Open Font License.
 
 These diagrams describe the architecture. They do not claim that every component is implemented.
 Read the [code guide](../code-structure.md) and [acceptance checks](../runtime/acceptance.md) for implementation status.

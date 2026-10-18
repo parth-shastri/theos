@@ -5,7 +5,6 @@ import mimetypes
 import shlex
 from datetime import timedelta
 from pathlib import Path, PurePosixPath
-from typing import Literal
 
 from harness import tool
 
@@ -59,7 +58,7 @@ def sandbox_tools(client, owner, session_id):
 
     @tool
     async def read_file(path: str):
-        """Read a text file from your task workspace."""
+        """Read up to 64,000 characters from the task workspace or a staged result file."""
         sandbox = await client.get(owner, session_id)
         return {"content": await sandbox.files.read_file(workspace_path(path), limit=64000)}
 
@@ -80,8 +79,10 @@ def sandbox_tools(client, owner, session_id):
     async def send_file_to_user(path: str):
         """Share a file from your task workspace with the user."""
         sandbox = await client.get(owner, session_id)
+        # SDK offset/limit arguments select text lines and normalize CRLF bytes.
+        # An inclusive byte range preserves binary files and reads one overflow byte.
         data = await sandbox.files.read_bytes(
-            workspace_path(path), limit=client.settings.max_upload_bytes + 1
+            workspace_path(path), range_header=f"bytes=0-{client.settings.max_upload_bytes}"
         )
         media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
         row = client.files.save(owner, PurePosixPath(path).name, media_type, data)
@@ -92,7 +93,7 @@ def sandbox_tools(client, owner, session_id):
         """Load an image from your task workspace for visual inspection."""
         sandbox = await client.get(owner, session_id)
         data = await sandbox.files.read_bytes(
-            workspace_path(path), limit=client.settings.max_upload_bytes + 1
+            workspace_path(path), range_header=f"bytes=0-{client.settings.max_upload_bytes}"
         )
         media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
         if not media_type.startswith("image/"):
@@ -102,7 +103,7 @@ def sandbox_tools(client, owner, session_id):
 
     @tool
     async def upload_file(file_id: str, path: str):
-        """Copy one of your uploaded files into your task workspace."""
+        """Copy a selected uploaded file or Gmail attachment into your task workspace."""
         row = client.files.get(owner, file_id)
         sandbox = await client.get(owner, session_id)
         await sandbox.files.write_file(workspace_path(path), Path(row["path"]).read_bytes())
@@ -118,25 +119,6 @@ def sandbox_tools(client, owner, session_id):
         result = await sandbox.commands.run(shlex.join(["agent-browser", *arguments]))
         return result.model_dump(mode="json")
 
-    @tool
-    async def manage_workspace(
-        action: Literal["status", "renew", "restart", "destroy", "forget"],
-    ):
-        """Inspect or control your workspace when the user asks. Routine recovery is automatic."""
-        if action == "forget":
-            return await client.forget(owner, session_id)
-        if action in {"destroy", "restart"}:
-            await client.destroy(owner, session_id)
-            if action == "destroy":
-                return {"destroyed": True}
-        sandbox = await client.get(owner, session_id)
-        info = await sandbox.get_info()
-        result = info.model_dump(mode="json")
-        if action == "renew":
-            result["renewed"] = False
-            result["reason"] = "Workspace expiry is fixed from creation and cannot be extended."
-        return result
-
     return [
         run_command,
         execute_code,
@@ -147,5 +129,4 @@ def sandbox_tools(client, owner, session_id):
         upload_file,
         view_image,
         browser,
-        manage_workspace,
     ]

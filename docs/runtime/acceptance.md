@@ -1,5 +1,119 @@
 # Feature and acceptance checklist
 
+## Direct motivation, 2026-10-18
+
+The shared persona now specifies firm, masculine encouragement for ordinary discouragement and procrastination.
+It calls for one achievable action, respects requested gentleness, and treats grief or serious distress with care.
+The main prompt includes a low-motivation example.
+
+All 33 focused prompt, speech, identity, and override checks passed. No pytest cases were added.
+Four tool-free live model probes covered discouragement, procrastination, requested gentleness, and grief.
+The first two gave direct next actions. The latter two adjusted their tone to the request and context.
+
+## Local account and light navigation checks, 2026-10-18
+
+The ARM64 image completed explicit research, Gmail search/body/thread reads, and a bounded spending-analysis scenario.
+Research returned six primary documentation links and saved its evidence separately from conversation compaction.
+Gmail reads exercised temporary result files and selected message and thread access.
+The spending answer retained four inspected source IDs and evidence amounts. Its two currency subtotals passed an independent arithmetic check.
+The answer reported sample coverage and exclusions. No Gmail write tool ran.
+Private mailbox contents and amounts remain outside project artifacts.
+
+A synthetic long conversation reproduced low-contrast sidebar labels behind the original glass material.
+Darker light-mode ink resolved the cost, identity, and conversation-action labels without changing frost parameters.
+The mobile header now supplies a box for the existing optical layer.
+Native checks passed at 320px, 390px, and 1280px without horizontal overflow.
+Computed dark-mode header, toggle, sidebar, optical layer, cost, identity, and conversation-action styles matched the baseline.
+The page declares the existing Theos image as its PNG favicon and touch icon.
+
+## Structured prompts and shared voice, 2026-10-18
+
+All 27 prompt templates now use explicit sections or sectioned composition.
+Main chat separates identity, persona, instructions, response format, examples, and runtime context.
+Preferences and retrieved memory use labeled context blocks.
+Chat and speech preparation include the same persona. Source preservation takes precedence during speech preparation.
+Delegates, titles, and harness summaries retain factual task roles. Compaction selection and split-turn ordering remain unchanged.
+
+The full local suite passed 1,021 tests, with three live-provider tests excluded.
+The 18 focused speech and identity checks passed after the final composition change.
+Existing checks now verify persona delivery to the speech request and the main prompt's section order.
+No new pytest cases were added. Python lint, formatting, lock validation, and whitespace checks passed.
+The wheel contains all 27 templates and no standalone upstream license or notice copies.
+
+Four tool-free live model probes covered decisive advice, uncertain actions, duplicate receipt evidence, and requested gentleness.
+The uncertain backup remained uncertain. Matching receipt IDs did not establish separate payments.
+A separate speech probe preserved `16:30`, `3`, and `2500 USD` exactly.
+These probes used synthetic examples. The connected local account checks are recorded above.
+
+The speech gateway and client match `feature/philosophical-voice`.
+Configured synthesis uses `am_michael(0.7)+bm_george(0.3)` at speed `0.9`.
+The reachable gateway reported profile `theos-subtle-v1`.
+A live synthesis request returned decodable MP3 audio with the selected blend and speed.
+
+## Test consolidation, 2026-10-18
+
+The local suite passed 1,017 cases, down from 1,153. Three live provider checks remain deselected.
+The cleanup removed 136 cases through redundant-check removal, smaller independent-flag matrices, and consolidated request and response contracts.
+Approval, ownership, recovery, persistence, compaction, and provider failure scenarios remain covered.
+Source coverage retained the same 11,171 executed lines and 3,218 branch outcomes.
+Application source hashes remained unchanged. The retained estimator contracts reject a constant-one estimator.
+Python lint, formatting, and whitespace checks passed for the changed tests.
+See [test selection](testing.md) for the retained-case policy and coverage commands.
+
+## Packaged Markdown prompts, 2026-10-18
+
+Theos runtime prompts and harness production prompts now live in separate package-owned `.md` directories.
+Jinja supplies includes and text conditions. Python retains capability checks, data retrieval, and compaction decisions.
+Theos can override individual compaction prompts through `CompactionConfig`. Missing overrides retain harness production defaults.
+See [prompt templates](prompts.md) for the supported filenames and fields.
+
+The full local suite passed 1,153 tests, with three live checks deselected.
+Prompt checks cover conditional composition, missing variables, literal inserted data, isolated renders, and per-operation overrides.
+Baseline comparisons retained exact text across 32 chat combinations and all six summary operations.
+They also retained delegate, speech, title, recovery, skill, tool-batch, and checkpoint wrapper text.
+A clean wheel installation loaded and rendered all 27 prompt resources outside the repository with core dependencies only.
+Python lint, formatting, lock validation, and whitespace checks passed.
+These checks used scripted model responses and local data. They did not deploy a release.
+
+## Temporary provider result files and workspace tools, 2026-10-18
+
+Selected Gmail search, message, thread, and draft reads, plus Health summary and export-status reads, keep normalized results up to 8 KiB inline. Larger results up to 1 MiB use temporary files under `/tmp/theos-results`, outside the durable `/workspace` checkpoint tree.
+If staging fails or the result is too large, the tool returns a bounded preview with instructions to narrow the provider read. Model-facing file and execution tools can inspect selected sections.
+The model-facing `manage_workspace` lifecycle tool is removed. Sandbox recovery remains automatic, and `upload_file` remains for selected user files and downloaded attachments.
+
+`tests/test_result_files.py` checks inline results, temporary staging, bounded fallback, and the size limit.
+`tests/app/test_integrations.py` checks temporary sandbox writes and the available sandbox tool list.
+`tests/app/test_sandbox_recovery.py` checks lifecycle recovery through the internal sandbox service.
+
+## Rolling summary and research scratchpad, 2026-10-18
+
+The harness keeps one rolling summary and the full transcript.
+It defaults to a 50% trigger and a 2.5% recent tail. Both ratios and the summary model are configurable.
+The harness owns shared summary rules and initial, update, split-turn, and shortening prompts.
+Runtime supplies model settings and persistence and usage callbacks.
+Split turns use separate history and turn-prefix summary calls.
+The checkpoint contains the covered original request and precedes the retained messages.
+New unanswered user requests and unfinished tool batches remain verbatim.
+Provider overflow retries use shorter summary tiers and do not repeat completed tools.
+Large messages remain available through exact history tools.
+Deep Research evidence remains in the separate `research_scratchpad` table.
+
+`tests/test_compaction.py` checks summary updates, tool batches, retry tiers, and exact history reads.
+It checks separate split-turn calls, prompt selection, optional focus, and context order without request replay.
+It checks atomic failure when either summary is unavailable and retains unfinished tool batches during overflow recovery.
+Shortening checks verify that the three length tiers omit structured heading requirements.
+`tests/app/test_text_summary_state.py` checks checkpoints, version 4 recovery, schema migration rollback, and scratchpad independence.
+Prompt checks use scripted model responses.
+The local suite passed 1,117 tests, with three live checks deselected.
+Python lint, formatting, and whitespace checks passed for the changed code.
+
+## Runtime provider context limits, 2026-10-18
+
+OpenRouter, Gemini, and Anthropic context and output limits come from their model metadata and are cached for one hour. Direct OpenAI uses a conservative 272,000-token cap for GPT-6 Luna and GPT-5.6 Luna; available model profiles differ by host, and OpenAI's model endpoint does not return a context limit.
+Unknown models or providers use a 24,000-token fallback unless `AGENT_CONTEXT_TOKENS` is set. Explicit context settings can reduce known limits but cannot exceed provider metadata or the conservative OpenAI cap.
+
+`tests/app/test_context_policy.py` checks provider metadata, both OpenAI Luna aliases with and without an operator setting, cache behavior, and the unknown-model fallback.
+
 ## Browser glass UI and expanding composer, 2026-10-17
 
 The focused browser and dashboard suite passed 48 tests after the workspace-panel changes.
@@ -220,7 +334,7 @@ Test files are in [`tests/app`](../../tests/app).
 | --- | --- | --- |
 | Persistent conversations, resets, model and reasoning choices | `runtime/`, `server.py`, `runtime/models.py` | `test_runtime.py`, `test_interfaces.py` |
 | Streaming, tool progress, approvals, bounded concurrent turns | `runtime/` | `test_runtime.py`, `test_interfaces.py` |
-| Compaction and bounded research delegates | Existing harness, `runtime/` | Existing compaction tests, `test_integrations.py` |
+| Rolling summary, history retrieval, and bounded research delegates | `harness/compaction.py`, `harness/tools.py`, `runtime/`, `services/research/` | `test_compaction.py`, `test_text_summary_state.py`, `test_integrations.py` |
 | Telegram private chats, allowlists, groups, topics, commands | `transports/telegram/` | `test_interfaces.py` |
 | Telegram `/start` onboarding, access code, preferred name, timezone, 50-user cap, restart recovery | `transports/telegram/onboarding.py`, `storage/telegram_access.py`, SQLite migrations 003, 004, and 008 | `test_telegram_onboarding.py` |
 | Photos, image documents, albums, voice, uploads, file delivery | `transports/telegram/`, `services/files/`, `services/voice/` | `test_interfaces.py`, `test_integrations.py`, `test_regressions.py` |
@@ -240,7 +354,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Exa search, Brave fallback, current weather, forecasts | `services/search/`, `services/weather/`, `services/skills/` | Mock service contracts in `test_integrations.py` |
 | Skill discovery and text resources | `services/skills/` | Resource loading and path restrictions in `test_integrations.py` |
 | Shell, Python, files, images, browser automation | `services/sandbox/` | OpenSandbox SDK contracts in `test_integrations.py` |
-| Sandbox creation, reconnection, renewal, destruction | `services/sandbox/` | Lifecycle and owner isolation in `test_integrations.py` |
+| Sandbox creation, reconnection, expiry, destruction | `services/sandbox/` | Lifecycle and owner isolation in `test_sandbox_recovery.py`, `test_integrations.py` |
 | File catalog, R2 archive, restore, deletion | `services/files/` | Storage contracts and ownership in `test_integrations.py` |
 | Voice transcription and Kokoro speech | `services/voice/` | Request formats and generated files in `test_integrations.py` |
 | Per-user Google authorization and disconnection | `services/google/oauth.py` | State, scopes, encryption, expiry, races, and ownership tests |
@@ -990,3 +1104,109 @@ Tagged deployment and the active Pi manifest must confirm application activation
 The automatic-routing correction checks encoded requests for all seven OpenRouter model aliases.
 Every request retains ZDR and generic performance preferences without an endpoint order.
 Runtime configuration contains no model-specific order map. No provider call is required for these checks.
+
+## User reports and report typography, 2026-10-18
+
+Local browser scenarios exercised public-source research and read-only Gmail spending analysis.
+The research parent now retains workspace tools to create and deliver requested documents.
+Delegates retain their separate read-only tool set.
+
+The first document runs exposed binary corruption in bounded sandbox reads.
+The SDK limit counted lines rather than bytes. Byte ranges now preserve PDF, DOCX, PNG, and checkpoint content.
+The focused recovery and integration checks passed. The full local suite passed 1,021 tests before the report wording and font changes.
+CI also passed on Python 3.12, Python 3.13, and ARM64.
+
+After the transfer fix, one deep research turn delivered a four-page PDF and an editable five-page DOCX.
+Both files passed structural checks. Native Word rendering retained the diagrams and active source links.
+A synthetic spending scenario verified refunds, duplicates, pending transactions, malformed amounts, date boundaries, and separate currencies.
+An independent audit matched the earlier mailbox report totals to its transaction CSV and inspected source bodies.
+
+The earlier 100-header and 30-body limits came from the acceptance prompt.
+Production instructions now require task-driven pagination and relevant body, thread, and attachment reads without an invented total allowance.
+An uncapped scenario retrieved 181 unique headers across 21 search results and completed 34 message-body calls.
+A provider timeout interrupted delivery. Recovery reused the saved workspace and retried outstanding message reads.
+Recovery delivered a three-page PDF with daily spending bars and a category comparison, plus the transaction CSV.
+All pages passed visual inspection. Font inspection confirmed Space Grotesk in the report and chart labels.
+The delivered CSV matched the independently audited snapshot: 33 rows, separate currencies, and no repeated purchase keys.
+The audit matched counted amounts to retrieved bodies or source headers. One counted row relied on two retrieved headers.
+Password-protected or unavailable statement attachments remain explicit coverage limitations.
+No scenario used Gmail write tools.
+
+Report instructions now lead with findings, implications, and actions for the user.
+They exclude agent activity logs from the main report and select useful visuals without a separate user request.
+The first natural-language visual scenario still produced tables without a diagram.
+The revised skill explicitly requires a diagram for choices or multistep processes and a chart for supported spending comparisons.
+A fresh request for a concise decision guide did not mention visuals.
+The completed response included a decision diagram in both its two-page PDF and editable two-page DOCX.
+All four rendered pages passed visual inspection. Word retained the editable prose and tables.
+
+Report builders now use bundled Space Grotesk for prose, tables, headings, and diagram labels.
+PDF HTML embeds its font data. DOCX embeds regular and bold font parts.
+The sandbox installs the same font for charts and document conversion. Code retains its monospace face.
+The font data comes from the existing browser asset and needs no runtime CDN request.
+
+An isolated ARM64 acceptance image rendered both formats under the existing one-CPU, 512 MiB sandbox limit.
+PDF font inspection confirmed Space Grotesk in both the PDF and native Word conversion.
+A separate Word conversion on a host without the font installed also used the embedded Space Grotesk faces.
+The rendered smoke pages passed visual inspection. The focused prompt and identity checks passed 24 tests.
+The configured CI lint and formatting checks passed. No additional pytest cases were added.
+CI passed on Python 3.12, Python 3.13, and ARM64 for the font commit `4d24332`.
+
+A separate chart scenario used a synthetic CSV with 22 rows across three months and two currencies.
+The request asked for spending analysis and did not mention charts or diagrams.
+The completed two-page PDF contained stacked monthly category bars and a separate USD chart.
+All 26 derived CSV rows matched independent calculations of gross expenses, refunds, and net spending.
+Transfers were excluded and currencies retained separate scales. Chart labels matched the derived totals.
+The geometry check caught two truncated tick labels: 2,500 and 7,500 appeared as `2k` and `7k`.
+The correction uses `2.5k` and `7.5k`. Both PDF pages and the standalone chart preview passed inspection after correction.
+Independent geometry checks verified the tick values, all 12 INR stack segments, and all three USD bars.
+Space Grotesk covered the prose and chart labels. Only unsupported currency and arrow glyphs used fallback fonts.
+The corrected standalone SVG embeds its font data. The derived CSV remained byte-for-byte unchanged.
+An uncertain workspace checkpoint interrupted delivery. Recovered files passed validation without repeating the generation command.
+The cause was the acceptance image tag being rebuilt while a sandbox still referenced its old image record.
+Docker Desktop removed that record. OpenSandbox status returned HTTP 500, while direct execution and file reads still worked.
+The local runtime now uses a distinct revision tag. Keep referenced image records until their sandboxes expire.
+A fresh sandbox using that revision delivered the verified PDF, chart PNG, and CSV through normal Theos tools.
+All three delivered files matched the verified sources byte-for-byte. PDF structure and PNG decoding also passed.
+
+The local application uses the updated prompt image and the isolated font runtime for new sandboxes.
+PR #86 remains open. No connector PR, production deployment, or branch promotion was merged.
+
+## Final sandbox candidate and Docker cleanup, 2026-10-19
+
+The ARM64 image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` built from the shared runtime Dockerfile.
+Its local image digest is `sha256:977e17829f78f5aee9c02bab0d1ec3457688c37093b181f4fae37875ab34a311`.
+A fresh sandbox passed creation, status inspection, file transfer, execution, and destruction through OpenSandbox.
+The checks used the normal one-CPU, 512 MiB resource request.
+
+Matplotlib generated bar and line charts with checked values and accurate axis labels.
+Space Grotesk was the default chart font. SVG exports used text paths.
+The PDF and editable DOCX contained both a chart and a decision diagram.
+Both rendered pages passed visual inspection. Font inspection confirmed Space Grotesk in both document conversions.
+Spreadsheet formula recalculation, OCR, Chromium automation, and Papers with Code checks also passed.
+A separate fresh Python kernel imported Matplotlib and pandas and returned the expected result.
+The existing integration and sandbox recovery tests passed 14 cases.
+
+The local application now selects the final sandbox image. Its data volume and generated files remain intact.
+The Mac mini cleanup removed three test sandboxes, four obsolete image tags, and temporary build directories.
+Docker reported 32.09 GB of removed build cache. No service volume was pruned.
+Mem0, its dashboard, PostgreSQL, Kokoro, and Whisper remain running.
+The previous production sandbox image remains available for the Pi. The Pi environment remains unchanged.
+PR #86 remains open. No branch promotion or Pi deployment occurred.
+
+## Navigation visibility in both themes, 2026-10-19
+
+The collapsed mobile topbar now uses the existing light-mode layout in both themes.
+Dark sidebar labels, conversation titles, costs, and account text use brighter ink.
+Text halos separate navigation labels from reflected content in both themes.
+No blur, saturation, opacity, refraction, or glass material setting changed.
+Computed sidebar and optical styles matched the baseline after excluding inherited color on a nonexistent border.
+
+Browser previews at 320 and 390 pixels showed readable labels over normal, white, and green surfaces.
+Both topbars retained their glass layers while messages scrolled beneath them. No horizontal overflow occurred.
+The live 1280-pixel workspace retained its conversation list, costs, account, and stored report links after container replacement.
+The served stylesheet matches the verified source bytes. The application readiness check passed.
+The existing focused glass, composer, view, and replacement checks passed 12 tests.
+
+The local container runs `theos:local-acceptance-navigation-20261019-74cc202` with the final sandbox image.
+PR #86 remains open. The Pi and connector branches remain unchanged.

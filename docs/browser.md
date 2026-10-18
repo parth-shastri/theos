@@ -375,3 +375,12 @@ You can also use `/research QUESTION`. Ordinary questions do not enable this mod
 Select **Research** above the conversation to inspect saved researchers, reports, sources, notes, transcripts, and summary checkpoints.
 The records remain in the conversation's persistent SQLite database after a restart or conversation reset.
 See [research behavior](runtime/deep-research.md) and the [call budget map](runtime/call-budgets.md).
+
+## Light navigation readability
+
+Light mode uses darker sidebar text for costs, account identity, conversation actions, and navigation controls.
+The optical material retains its existing opacity, blur, saturation, and refraction.
+The collapsed mobile navigation now has a header box behind its sidebar trigger.
+This box lets the existing glass layer separate the trigger from messages during scrolling.
+Dark mode retains its previous styles and layout.
+The browser favicon and touch icon use the existing Theos Daylight image.

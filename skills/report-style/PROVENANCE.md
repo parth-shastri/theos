@@ -9,4 +9,5 @@ The DOCX builder maps the same typography, page dimensions, colors, tables, and 
 The PDF builder retains the supplied CSS and diagram renderer.
 
 Theos installs this skill's scripts, CSS, JavaScript, examples, and references inside the shared sandbox image.
-The CSS uses local Inter and DejaVu Sans Mono fonts so report rendering does not fetch fonts from a CDN.
+The report builders bundle Space Grotesk and use DejaVu Sans Mono for code.
+Report rendering does not fetch fonts from a CDN.

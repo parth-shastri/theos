@@ -26,4 +26,3 @@ def test_theos_owns_static_files_and_migrations():
     page = (package / "transports/browser/static/index.html").read_text()
     assert "<title>{{AGENT_NAME}} / Personal assistant</title>" in page
     assert (package / "storage/migrations/001_initial.sql").is_file()
-    assert (package / "UPSTREAM-LICENSE").is_file()

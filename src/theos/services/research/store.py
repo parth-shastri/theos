@@ -1,4 +1,4 @@
-"""Conversation-owned research records in the existing SQLite database."""
+"""Conversation-owned deep-research runs and evidence scratchpads."""
 
 import json
 import time
@@ -8,7 +8,7 @@ from harness import AssistantMessage, message_to_dict
 
 
 class Research:
-    """Save complete evidence and checkpoints without copying personal memory."""
+    """Save research runs and keep their evidence in a separate scratchpad."""
 
     def __init__(self, db):
         self.db = db
@@ -48,22 +48,22 @@ class Research:
         run = self.get(owner, session, run_id)
         return run["parent"] or run_id
 
-    def item(self, owner, session, item_id):
+    def scratchpad_item(self, owner, session, item_id):
         self.db.session(owner, session)
         row = self.db.one(
-            "SELECT i.* FROM research_items i JOIN research_runs r ON r.id=i.run "
+            "SELECT i.* FROM research_scratchpad i JOIN research_runs r ON r.id=i.run "
             "WHERE r.owner=? AND r.session=? AND i.id=?",
             (owner, session, item_id),
         )
         if row is None:
-            raise LookupError("Research item not found.")
+            raise LookupError("Research scratchpad record not found.")
         return {**row, "content": json.loads(row["content"])}
 
-    def items(self, owner, session, run_id, *, family=False):
+    def scratchpad(self, owner, session, run_id, *, family=False):
         run = self.get(owner, session, run_id)
         root = run["parent"] or run_id
         rows = self.db.rows(
-            "SELECT i.* FROM research_items i JOIN research_runs r ON r.id=i.run "
+            "SELECT i.* FROM research_scratchpad i JOIN research_runs r ON r.id=i.run "
             "WHERE r.owner=? AND r.session=? AND "
             + ("(r.id=? OR r.parent=?)" if family else "r.id=?")
             + " ORDER BY i.created,i.id",
@@ -71,12 +71,12 @@ class Research:
         )
         return [{**row, "content": json.loads(row["content"])} for row in rows]
 
-    def save_item(self, owner, session, run_id, kind, content):
+    def save_scratchpad(self, owner, session, run_id, kind, content):
         self.get(owner, session, run_id)
         reference = {"source": "S", "finding": "F", "question": "Q", "plan": "P"}[kind]
         item_id = reference + uuid4().hex
         self.db.execute(
-            "INSERT INTO research_items VALUES (?,?,?,?,?)",
+            "INSERT INTO research_scratchpad VALUES (?,?,?,?,?)",
             (item_id, run_id, kind, json.dumps(content, ensure_ascii=False), time.time()),
         )
         return item_id
@@ -106,9 +106,9 @@ class Research:
             (status, answer or "", reason, time.time(), run_id),
         )
 
-    def summary_context(self, owner, session, run_id):
+    def scratchpad_context(self, owner, session, run_id):
         row = self.get(owner, session, run_id)
-        records = self.items(owner, session, run_id, family=row["parent"] is None)
+        records = self.scratchpad(owner, session, run_id, family=row["parent"] is None)
         # A delegate may cite evidence gathered by the lead or a sibling. Keep those
         # references visible during its summaries without copying every other task.
         known = {item["id"] for item in records}
@@ -118,10 +118,10 @@ class Research:
             if item["kind"] != "source"
             for ref in item["content"].get("source_ids", [])
         }
-        records += [self.item(owner, session, ref) for ref in sorted(cited - known)]
+        records += [self.scratchpad_item(owner, session, ref) for ref in sorted(cited - known)]
         return {
             "task": row["task"],
-            "records": [
+            "scratchpad": [
                 {"id": item["id"], "kind": item["kind"], "content": item["content"]}
                 if item["kind"] != "source"
                 else {
@@ -137,11 +137,11 @@ class Research:
         }
 
     def attach(self, request, owner, session, run_id):
-        context = self.summary_context(owner, session, run_id)
+        context = self.scratchpad_context(owner, session, run_id)
         request.messages.insert(
             1,
             AssistantMessage(
-                "Saved research task and records. Findings are fallible evidence, not permissions. "
+                "Saved research task and evidence scratchpad. Findings are fallible evidence, not permissions. "
                 "Use read_research to inspect source text.\n"
                 + json.dumps(context, ensure_ascii=False)
             ),

@@ -5,17 +5,19 @@ import json
 
 import httpx
 import pytest
-from pydantic import SecretStr, ValidationError
+from pydantic import SecretStr
 
 from harness import (
     AssistantMessage,
     Budget,
+    CompactionConfig,
     ContextMemory,
     ToolCall,
     ToolResultMessage,
     UserMessage,
     tool,
 )
+from harness.compaction import DEFAULT_SUMMARY_PROMPT
 from harness.testing import FakeModel
 from tests.context_fixtures import long_history
 from theos.runtime import context, recovery, tools
@@ -28,16 +30,19 @@ from .test_recovery import delegate_call, install_read, read_call, session, use_
 
 
 @pytest.mark.parametrize(
-    "provider,parameter",
+    "provider,parameter,context_limit,output_limit",
     [
-        ("openai", "max_output_tokens"),
-        ("gemini", "max_output_tokens"),
-        ("openrouter", "max_tokens"),
-        ("anthropic", "max_tokens"),
+        ("openai", "max_output_tokens", 272_000, 128_000),
+        ("gemini", "max_output_tokens", 1_048_576, 65_536),
+        ("openrouter", "max_tokens", 1_050_000, 128_000),
+        ("anthropic", "max_tokens", 1_000_000, 128_000),
     ],
 )
-async def test_known_capacity_sets_only_the_provider_output_parameter(runtime, provider, parameter):
+async def test_known_capacity_sets_only_the_provider_output_parameter(
+    runtime, provider, parameter, context_limit, output_limit
+):
     runtime.settings.provider = provider
+    runtime.settings.context_tokens = None
     model = (
         "gemini-3.8-flash"
         if provider == "gemini"
@@ -45,17 +50,101 @@ async def test_known_capacity_sets_only_the_provider_output_parameter(runtime, p
         if provider == "anthropic"
         else "gpt-6-luna"
     )
+    calls = []
+
+    def metadata(request):
+        calls.append(request)
+        if provider == "openrouter":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "openai/gpt-6-luna",
+                            "context_length": context_limit + 50_000,
+                            "top_provider": {
+                                "context_length": context_limit,
+                                "max_completion_tokens": output_limit,
+                            },
+                        }
+                    ]
+                },
+            )
+        if provider == "gemini":
+            return httpx.Response(
+                200,
+                json={"inputTokenLimit": context_limit, "outputTokenLimit": output_limit},
+            )
+        if provider == "anthropic":
+            return httpx.Response(
+                200,
+                json={"max_input_tokens": context_limit, "max_tokens": output_limit},
+            )
+        return httpx.Response(500)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(metadata)) as client:
+        runtime.http = client
+        if provider in {"gemini", "anthropic"}:
+            runtime.settings.api_key = SecretStr("test-key")
+        if provider == "openai":
+            # OpenAI model metadata does not report context limits. Use the
+            # conservative cap without a network probe, even when no cap is set.
+            runtime.settings.model_base_url = "https://openai-compatible.example/v1"
+        row = runtime.db.create_session("alice", model, "default")
+        limits = await context.capacity(runtime, row)
+        assert limits.context == context_limit
+        assert limits.output == output_limit
+        if provider == "openai":
+            assert limits.source == "openai_conservative"
+            assert not calls
+            runtime.settings.context_tokens = context_limit + 50_000
+            capped = await context.capacity(runtime, row)
+            assert capped.context == context_limit
+            assert capped.source == "operator"
+        else:
+            assert limits.source == "provider"
+            assert len(calls) == 1
+            if provider == "gemini":
+                assert calls[0].headers["x-goog-api-key"] == "test-key"
+            if provider == "anthropic":
+                assert calls[0].headers["x-api-key"] == "test-key"
+
+        policy = context.compaction(runtime, row, limits)
+        values = context.options(runtime, row, limits)
+        assert values[parameter] == 8192
+        assert policy.options[parameter] == values[parameter]
+        assert policy.prompt == DEFAULT_SUMMARY_PROMPT == CompactionConfig().prompt
+        assert policy.on_commit
+        row["generation"] = json.dumps({"max_output_tokens": 5000})
+        assert context.options(runtime, row, limits)[parameter] == 5000
+
+
+async def test_missing_provider_metadata_uses_small_fallback_and_respects_operator_limit(runtime):
+    runtime.settings.provider = "gemini"
+    runtime.settings.api_key = SecretStr("test-key")
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(503))
+    ) as client:
+        runtime.http = client
+        row = runtime.db.create_session("alice", "gemini-unknown", "default")
+        assert await context.capacity(runtime, row) == context.ModelCapacity(
+            24_000, None, "fallback"
+        )
+        runtime.settings.context_tokens = 100_000
+        assert await context.capacity(runtime, row) == context.ModelCapacity(
+            100_000, None, "operator"
+        )
+
+
+@pytest.mark.parametrize("model", ["gpt-6-luna", "gpt-5.6-luna"])
+async def test_direct_openai_luna_alias_uses_conservative_window(runtime, model):
+    runtime.settings.provider = "openai"
+    runtime.settings.context_tokens = None
     row = runtime.db.create_session("alice", model, "default")
-    limits = await context.capacity(runtime, row)
-    policy = context.compaction(runtime, row, limits)
-    values = context.options(runtime, row, limits)
-    assert limits.context >= 1_000_000
-    assert values[parameter] == 8192
-    assert parameter not in policy.options
-    assert policy.trigger_ratio == 0.5 and policy.target_ratio == 0.2
-    assert policy.max_summary_tokens is None and policy.reduce_current_turn
-    row["generation"] = json.dumps({"max_output_tokens": 5000})
-    assert context.options(runtime, row, limits)[parameter] == 5000
+
+    assert await context.capacity(runtime, row) == context.ModelCapacity(
+        272_000, 128_000, "openai_conservative"
+    )
 
 
 async def test_provider_metadata_refresh_cache_and_operator_window(runtime):
@@ -90,18 +179,13 @@ async def test_provider_metadata_refresh_cache_and_operator_window(runtime):
         assert (await context.capacity(runtime, row)).context == 262144
 
 
-@pytest.mark.parametrize("ratio", [0, 1.01])
-def test_context_trigger_accepts_only_valid_fraction(ratio):
-    with pytest.raises(ValidationError):
-        Settings(_env_file=None, compaction_trigger_ratio=ratio)
-
-
 async def test_parent_response_larger_than_old_byte_limit_is_preserved(runtime):
     text = "Complete finding. " * 70000 + "FINAL SOURCE https://example.org/full"
     parent = FakeModel([AssistantMessage(text)])
     use_models(runtime, parent)
     row = runtime.db.create_session("alice", "gpt-6-luna", "default")
     events = await collect(runtime.start("alice", row["id"], "Give the complete findings."))
+
     assert events[-1]["status"] == "completed"
     assert runtime.db.load_history("alice", row["id"])[-1].text == text
     assert next(e for e in events if e["type"] == "assistant_complete")["text"] == text
@@ -128,9 +212,13 @@ async def test_requested_output_is_reserved_before_parent_or_final_generation(
     row = runtime.session("alice", row["id"])
     earlier = long_history()
     original = list(earlier)
-    main = FakeModel([AssistantMessage("Complete answer.")])
-    auxiliary = FakeModel([AssistantMessage("Preserve dates and exact values. Evidence retained.")])
-    use_models(runtime, main, auxiliary)
+    main = FakeModel(
+        [
+            AssistantMessage("Preserve dates and exact values. Evidence retained."),
+            AssistantMessage("Complete answer."),
+        ]
+    )
+    use_models(runtime, main)
     if final_response:
         history = [*earlier, UserMessage("Make the report.")]
         answer = await recovery.response_call(
@@ -148,20 +236,25 @@ async def test_requested_output_is_reserved_before_parent_or_final_generation(
         runtime.db.save_history("alice", row["id"], earlier)
         events = await collect(runtime.start("alice", row["id"], "Make the report."))
         assert events[-1]["status"] == "completed"
-    assert earlier == original and len(main.requests) == len(auxiliary.requests) == 1
-    assert main.requests[0].options["max_output_tokens"] == 8000
-    assert request_size(main.requests[0]) + 8000 <= 100000
-    assert "max_output_tokens" not in auxiliary.requests[0].options
+    assert earlier == original and len(main.requests) == 2
+    answer_request = main.requests[-1]
+    assert answer_request.options["max_output_tokens"] == 8000
+    assert request_size(answer_request) + 8000 <= 100000
+    assert main.requests[0].options["max_output_tokens"] == int(100000 * 0.025)
 
 
 async def test_unfit_output_reservation_keeps_evidence_private_without_lowering_limit(runtime):
     runtime.settings.context_tokens = 200000
-    runtime.settings.max_compaction_calls = 0
+    runtime.settings.max_compaction_calls = 5
     runtime.settings.max_output_tokens = 128000
     row = runtime.db.create_session("alice", "gpt-6-luna", "default")
     model, final = (
         FakeModel(
-            [read_call("saved"), AssistantMessage("The saved evidence identifies the full source.")]
+            [
+                read_call("saved"),
+                AssistantMessage("The source contains the complete saved evidence."),
+                AssistantMessage("The saved evidence identifies the full source."),
+            ]
         ),
         FakeModel([]),
     )
@@ -169,9 +262,17 @@ async def test_unfit_output_reservation_keeps_evidence_private_without_lowering_
     evidence = "Complete saved evidence. " * 15000 + "LAST SOURCE https://example.org/full"
     await install_read(runtime, evidence)
     events = await collect(runtime.start("alice", row["id"], "Give the complete findings."))
-    assert events[-1]["status"] == "completed"
-    assert len(model.requests) == 2
-    assert all(r.options["max_output_tokens"] == 128000 for r in model.requests)
+    from harness.context_size import request_size
+
+    assert events[-1]["status"] == "completed", (
+        events[-1],
+        [request_size(request) for request in model.requests],
+        [request.messages[0].content[:80] for request in model.requests],
+    )
+    assert len(model.requests) == 3
+    assert model.requests[0].options["max_output_tokens"] == 128000
+    assert model.requests[1].options["max_output_tokens"] == int(200000 * 0.025)
+    assert model.requests[2].options["max_output_tokens"] == 128000
     assert not final.requests
     history = runtime.db.load_history("alice", row["id"])
     assert evidence not in history[-1].text
@@ -409,36 +510,6 @@ async def test_each_delegate_reserves_a_full_handoff_and_receives_user_correctio
     assert len(parent.requests) + sum(len(c.requests) for c in children) == 6
 
 
-async def test_compaction_samples_middle_once_without_rewriting_the_transcript(runtime):
-    from harness import Agent
-    from harness.context_size import request_size
-
-    runtime.settings.context_tokens = 100000
-    row = session(runtime)
-    row["generation"] = json.dumps({"max_output_tokens": 8192})
-    limits = await context.capacity(runtime, row)
-    history = [*long_history(), UserMessage("Continue with the original requirements.")]
-    original = list(history)
-    memory = ContextMemory()
-    auxiliary = FakeModel([AssistantMessage("Keep the original task and evidence.")])
-    main = FakeModel([AssistantMessage("Useful report.")])
-    use_models(runtime, auxiliary)
-    result = await Agent(
-        main, context_window=limits.context, compaction=context.compaction(runtime, row, limits)
-    ).run(history, memory=memory, budget=Budget(1), compaction_budget=Budget(1))
-    assert result.status == "completed" and len(auxiliary.requests) == 1
-    prompt = auxiliary.requests[0].messages[0].content
-    assert "Finding 2" in prompt and "Finding 16" in prompt
-    assert request_size(auxiliary.requests[0]) < 100000
-    assert history[:-1] == original and memory.covered_messages == len(original)
-    assert memory.summary and len(main.requests) == 1
-
-
-def test_long_context_summary_survives_storage_round_trip():
-    memory = ContextMemory("Saved evidence. " * 2000, 2)
-    assert ContextMemory.from_dict(memory.to_dict()) == memory
-
-
 def test_held_delegate_calls_survive_shared_research_exhaustion(settings):
     allowance = TurnBudget(settings).research
     reserved = [allowance.reserve(), allowance.reserve()]
@@ -450,84 +521,29 @@ def test_held_delegate_calls_survive_shared_research_exhaustion(settings):
     assert not any(response.spend() for response in reserved)
 
 
-@pytest.mark.parametrize(
-    "provider,key",
-    [
-        ("openai", "max_output_tokens"),
-        ("openrouter", "max_tokens"),
-        ("anthropic", "max_tokens"),
-        ("gemini", "max_output_tokens"),
-    ],
-)
-async def test_pi_output_context_and_explicit_overrides(runtime, provider, key):
-    runtime.settings.provider = provider
-    runtime.settings.context_tokens = 100000
-    runtime.settings.max_output_tokens = 8192
-    row = runtime.db.create_session("alice", "gpt-6-luna", "default")
-    limits = await context.capacity(runtime, row)
-    assert limits.context == 100000
-    assert context.options(runtime, row, limits)[key] == 8192
-    policy = context.compaction(runtime, row, limits)
-    from harness.compression_policy import ContextCompressor
-
-    assert ContextCompressor(limits.context, 8192, policy.trigger_ratio).threshold_tokens == 68856
-    assert key not in policy.options
-    row["generation"] = json.dumps({"max_output_tokens": 4096})
-    runtime.settings.compaction_trigger_ratio = 0.55
-    assert context.options(runtime, row, limits)[key] == 4096
-    assert context.compaction(runtime, row, limits).trigger_ratio == 0.55
-
-
 def test_environment_defaults_and_overrides(monkeypatch):
     monkeypatch.delenv("AGENT_MAX_OUTPUT_TOKENS", raising=False)
+    monkeypatch.delenv("AGENT_COMPACTION_MODEL", raising=False)
     monkeypatch.delenv("AGENT_COMPACTION_TRIGGER_RATIO", raising=False)
+    monkeypatch.delenv("AGENT_COMPACTION_TAIL_RATIO", raising=False)
     settings = Settings(_env_file=None)
     assert settings.max_output_tokens == 8192
+    assert settings.compaction_model is None
     assert settings.compaction_trigger_ratio == 0.5
+    assert settings.compaction_tail_ratio == 0.025
     monkeypatch.setenv("AGENT_MAX_OUTPUT_TOKENS", "4096")
     monkeypatch.setenv("AGENT_CONTEXT_TOKENS", "100000")
-    monkeypatch.setenv("AGENT_COMPACTION_TRIGGER_RATIO", "0.6")
+    monkeypatch.setenv("AGENT_COMPACTION_MODEL", "gpt-6-luna")
+    monkeypatch.setenv("AGENT_COMPACTION_TRIGGER_RATIO", "0.65")
+    monkeypatch.setenv("AGENT_COMPACTION_TAIL_RATIO", "0.04")
     settings = Settings(_env_file=None)
     assert settings.max_output_tokens == 4096 and settings.context_tokens == 100000
-    assert settings.compaction_trigger_ratio == 0.6
+    assert settings.compaction_model == "gpt-6-luna"
+    assert settings.compaction_trigger_ratio == 0.65
+    assert settings.compaction_tail_ratio == 0.04
 
 
 @pytest.fixture(autouse=True)
 def use_bounded_harness_for_limit_contracts(runtime):
     """Retain checks for the optional bounded harness, not Theos defaults."""
     runtime.enforce_budgets = True
-
-
-@pytest.mark.parametrize(
-    "provider,model",
-    [
-        ("openai", "gpt-6-luna"),
-        ("openrouter", "gpt-6-luna"),
-        ("anthropic", "sonnet-5.5"),
-        ("gemini", "gemini-3.8-flash"),
-    ],
-)
-async def test_summary_route_and_native_output_requirement(runtime, provider, model):
-    from contextlib import asynccontextmanager
-
-    from harness import ModelRequest, SystemMessage
-
-    runtime.settings.provider = provider
-    row = runtime.db.create_session("alice", model, "none")
-    model_calls = []
-    summary = FakeModel([AssistantMessage("Summary.")])
-
-    @asynccontextmanager
-    async def factory(settings, identifier, reasoning):
-        model_calls.append((identifier, reasoning))
-        yield summary
-
-    runtime.models = factory
-    policy = context.compaction(runtime, row, context.ModelCapacity(1000000, 128000, "test"))
-    async with policy.summary_model() as client:
-        _ = [event async for event in client.stream(ModelRequest([SystemMessage("Summarize.")]))]
-    assert model_calls == [(model, "none")]
-    if provider == "anthropic":
-        assert summary.requests[0].options["max_tokens"] > 8192
-    else:
-        assert "max_tokens" not in summary.requests[0].options

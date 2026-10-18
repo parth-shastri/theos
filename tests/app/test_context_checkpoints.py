@@ -1,8 +1,9 @@
-"""R2 checkpoint durability, connector paging, and sandbox workspace recovery."""
+"""R2 checkpoint durability and sandbox workspace recovery."""
 
 import base64
 import io
 import json
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,7 +11,6 @@ import pytest
 from pydantic import SecretStr
 
 from harness import ContextMemory, RunContext, UserMessage, tool
-from theos.runtime.connector_wrappers import ConnectorResults
 
 from .conftest import call_tool
 
@@ -51,80 +51,194 @@ def storage(runtime, monkeypatch):
     return client
 
 
-async def test_gmail_wrapper_preserves_raw_source_pages_and_owner_boundary(runtime, storage):
-    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
-    body = "Invoice USD 42.00\n" + "Details. " * 6000
+async def test_gmail_detail_is_bounded_and_omits_attachment_payloads(runtime):
+    body = "Invoice USD 42.00\n" + "Details. " * 600
     raw = {
         "id": "receipt-1",
+        "threadId": "thread-1",
+        "snippet": "Invoice USD 42.00",
         "payload": {
-            "mimeType": "text/plain",
-            "body": {"data": base64.urlsafe_b64encode(body.encode()).decode()},
+            "mimeType": "multipart/mixed",
+            "headers": [
+                {"name": "From", "value": "billing@example.com"},
+                {"name": "Subject", "value": "October invoice"},
+            ],
+            "parts": [
+                {
+                    "mimeType": "text/plain",
+                    "body": {"data": base64.urlsafe_b64encode(body.encode()).decode()},
+                },
+                {
+                    "filename": "invoice.pdf",
+                    "mimeType": "application/pdf",
+                    "body": {"attachmentId": "pdf-1", "size": 480_000, "data": "large-pdf"},
+                },
+            ],
         },
     }
     calls = []
 
-    @tool
-    async def gmail_get_message(message_id: str):
-        """Read a message."""
-        calls.append(message_id)
+    async def request(owner, method, path, **kwargs):
+        calls.append(path)
         return raw
 
-    adapters = ConnectorResults(runtime, row)
-    wrapped = adapters.wrap(gmail_get_message)
-    result = await wrapped.execute(
-        wrapped.input_model(message_id="receipt-1"), RunContext(deps=None)
+    runtime.gmail.request = request
+    tools = runtime.gmail.tools("alice")
+    result = await call_tool(
+        tools,
+        "gmail_get_message",
+        message_id="receipt-1",
+        body_limit=100,
     )
-    assert (
-        calls == ["receipt-1"] and result["next_offset"] == 12000 and result["storage"] == "pending"
+    assert calls == ["messages/receipt-1"]
+    assert result["subject"] == "October invoice"
+    assert len(result["body"]) == 100 and result["next_body_offset"] == 100
+    assert result["attachments"] == [
+        {
+            "attachment_id": "pdf-1",
+            "filename": "invoice.pdf",
+            "mime_type": "application/pdf",
+            "size": 480_000,
+        }
+    ]
+    assert "large-pdf" not in json.dumps(result)
+    later = await call_tool(
+        tools,
+        "gmail_get_message",
+        message_id="receipt-1",
+        body_offset=100,
+        body_limit=100,
     )
-    assert (
-        "Invoice USD 42.00" in result["content"]
-        and raw["payload"]["body"]["data"] not in result["content"]
-    )
-    source = result["source_id"]
-    assert await runtime.checkpoints.drain()
-    record = runtime.db.one("SELECT * FROM context_objects WHERE id=?", (source,))
-    Path(record["path"]).unlink()
-    saved = await runtime.checkpoints.get("alice", row["id"], source)
-    assert saved["raw"] == raw
-    page = await call_tool(adapters.tools(), "source_read", source_id=source, offset=12000)
-    assert page["content"] == saved["text"][12000:16000]
-    with pytest.raises(LookupError):
-        await runtime.checkpoints.get("bob", row["id"], source)
-    other = runtime.db.create_session("alice", "gpt-6-luna", "none")
-    with pytest.raises(LookupError):
-        await runtime.checkpoints.get("alice", other["id"], source)
-    assert len(calls) == 1
+    assert later["body"] == body[100:200]
 
 
-async def test_health_wrapper_preserves_units_and_complete_source(runtime, storage):
-    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+async def test_gmail_search_returns_small_metadata_and_pagination(runtime):
+    calls = []
 
-    @tool
-    async def get_health_summary():
-        """Read daily health."""
+    async def request(owner, method, path, **kwargs):
+        calls.append((path, kwargs.get("params", {})))
+        if path == "messages":
+            return {
+                "messages": [{"id": "mail-1"}],
+                "nextPageToken": "page-2",
+                "resultSizeEstimate": 80,
+            }
         return {
-            "days": [
-                {"date": f"2026-10-{i:02}", "steps": 12000, "distance": {"value": 8, "unit": "km"}}
-                for i in range(1, 31)
-            ],
-            "status": "complete",
+            "threadId": "thread-1",
+            "snippet": "Invoice from Northwind",
+            "labelIds": ["INBOX", "CATEGORY_PROMOTIONS"],
+            "payload": {
+                "headers": [
+                    {"name": "From", "value": "billing@example.com"},
+                    {"name": "Subject", "value": "October invoice"},
+                ],
+                "body": {"data": "large-message-body"},
+            },
+            "internalPayload": "not for the model",
         }
 
-    adapters = ConnectorResults(runtime, row)
-    wrapper = adapters.wrap(get_health_summary)
-    result = await wrapper.execute(wrapper.input_model(), RunContext(deps=None))
-    saved = await runtime.checkpoints.get("alice", row["id"], result["source_id"])
-    assert saved["raw"]["days"][0]["distance"] == {"value": 8, "unit": "km"}
-    assert saved["raw"]["status"] == "complete"
+    runtime.gmail.request = request
+    result = await call_tool(
+        runtime.gmail.tools("alice"),
+        "gmail_search_messages",
+        query="from:billing@example.com",
+        max_results=5,
+    )
+    assert result == {
+        "messages": [
+            {
+                "id": "mail-1",
+                "thread_id": "thread-1",
+                "snippet": "Invoice from Northwind",
+                "labels": ["INBOX"],
+                "from": "billing@example.com",
+                "subject": "October invoice",
+            }
+        ],
+        "next_page_token": "page-2",
+        "total_results": 80,
+    }
+    assert calls[0][1]["maxResults"] == 5
+    assert "-in:spam -in:trash" in calls[0][1]["q"]
+
+
+async def test_health_tool_returns_compact_summary_and_selected_detail(runtime):
+    snapshot = {
+        "from": "2026-10-01T00:00:00+00:00",
+        "to": "2026-10-04T00:00:00+00:00",
+        "days": [
+            {
+                "date": "2026-10-01",
+                "source": "google_health",
+                "steps": 12000,
+                "distance_meters": 8000,
+                "sleep": [{"minutes": 420, "stages": [{"stage": "deep", "minutes": 80}]}],
+                "workouts": [{"type": "run", "minutes": 30, "calories_kcal": 240}],
+                "heart_rate_zone_thresholds": [{"zone": "moderate", "min_bpm": 100}],
+            },
+            {"date": "2026-10-02", "steps": 9000, "distance_meters": 6000},
+        ],
+    }
+    runtime.db.put_record("alice", "health", "summary", snapshot)
+    tools = runtime.health.tools("alice")
+    summary = await call_tool(tools, "get_health_summary")
+    assert summary["days"][0] == {
+        "date": "2026-10-01",
+        "steps": 12000,
+        "distance_meters": 8000,
+        "sleep_minutes": 420,
+        "workout_count": 1,
+        "workout_minutes": 30,
+    }
+    assert "sleep" not in summary["days"][0]
+
+    detail = await call_tool(
+        tools,
+        "get_health_summary",
+        start_date="2026-10-01",
+        end_date="2026-10-01",
+        metrics=["sleep", "heart_rate_zone_thresholds"],
+    )
+    assert detail["days"] == [
+        {
+            "date": "2026-10-01",
+            "sleep": [{"minutes": 420, "stages": [{"stage": "deep", "minutes": 80}]}],
+            "heart_rate_zone_thresholds": [{"zone": "moderate", "min_bpm": 100}],
+        }
+    ]
+
+    requested = {}
+
+    async def import_summary(owner, start_date, end_date, *, save):
+        requested.update(start=start_date, end=end_date, save=save)
+        return {
+            "from": "2026-10-05T00:00:00+00:00",
+            "to": "2026-10-06T00:00:00+00:00",
+            "days": [{"date": "2026-10-05", "sleep": [{"minutes": 360}]}],
+        }
+
+    runtime.health.import_summary = import_summary
+    older = await call_tool(
+        tools,
+        "get_health_summary",
+        start_date="2026-10-05",
+        end_date="2026-10-05",
+        metrics=["sleep"],
+    )
+    assert requested == {
+        "start": date.fromisoformat("2026-10-05"),
+        "end": date.fromisoformat("2026-10-05"),
+        "save": False,
+    }
+    assert older["days"] == [{"date": "2026-10-05", "sleep": [{"minutes": 360}]}]
+
+    assert {tool.name for tool in tools}.isdisjoint({"source_read", "source_to_workspace"})
 
 
 async def test_pending_transfer_retries_without_repeating_connector(runtime, storage):
     row = runtime.db.create_session("alice", "gpt-6-luna", "none")
     storage.fail = True
-    identity = await runtime.checkpoints.put(
-        "alice", row["id"], "source", {"raw": {"value": 42}, "text": "42"}
-    )
+    identity = await runtime.checkpoints.put("alice", row["id"], "test_object", {"value": 42})
     assert (
         runtime.db.one("SELECT status FROM context_objects WHERE id=?", (identity,))["status"]
         == "pending"
@@ -148,23 +262,13 @@ async def test_r2_restore_recovers_model_state_and_uncertain_actions(runtime, st
         "INSERT INTO tool_runs VALUES (?,?,?,?,?)",
         (sid, "call1", "gmail_send_draft", "running", None),
     )
-    memory = ContextMemory(
-        "summary",
-        1,
-        working_messages=[{"type": "user", "content": "task", "images": []}],
-        state={
-            "compression_count": 2,
-            "usage_anchor": {"tokens": 42000},
-            "references": {"anchors": [], "record_ids": ["Ssaved-source"], "unknown_tools": []},
-        },
-    )
+    memory = ContextMemory("summary", 1)
     await runtime.checkpoints.save("alice", sid, [UserMessage("task")], memory, "after_model")
     assert await runtime.checkpoints.drain()
     runtime.db.execute("DELETE FROM tool_runs WHERE session=?", (sid,))
     await runtime.checkpoints.restore("alice", sid)
     restored = runtime.session("alice", sid)
-    assert json.loads(restored["memory"])["state"]["usage_anchor"]["tokens"] == 42000
-    assert json.loads(restored["memory"])["state"]["references"] == memory.state["references"]
+    assert json.loads(restored["memory"]) == memory.to_dict()
     assert (
         runtime.db.one("SELECT status FROM tool_runs WHERE call_id=?", ("call1",))["status"]
         == "unknown"
@@ -187,8 +291,9 @@ async def test_workspace_saves_changed_versions_and_restores_after_loss(
     async def write(path, content):
         data[path] = content.encode() if isinstance(content, str) else content
 
-    async def read(path, limit):
-        return data[path][:limit]
+    async def read(path, *, range_header):
+        assert range_header == f"bytes=0-{runtime.settings.max_upload_bytes}"
+        return data[path][: runtime.settings.max_upload_bytes + 1]
 
     async def listing(spec):
         return [{"path": p, "entry_type": "file"} for p in data]
@@ -206,13 +311,13 @@ async def test_workspace_saves_changed_versions_and_restores_after_loss(
     first = await runtime.workspaces.write("alice", sid, "purchases.csv", "amount,currency\n42,USD")
     assert first["workspace"]["files"]["/workspace/purchases.csv"]["version"] == 1
     second = await runtime.workspaces.write(
-        "alice", sid, "purchases.csv", "amount,currency\n84,USD"
+        "alice", sid, "purchases.csv", "amount,currency\r\n84,USD"
     )
     assert second["workspace"]["files"]["/workspace/purchases.csv"]["version"] == 2
     data.clear()
     sandbox.id = "sandbox-2"
     await runtime.workspaces.save("alice", sid)
-    assert b"84,USD" in data["/workspace/purchases.csv"]
+    assert data["/workspace/purchases.csv"] == b"amount,currency\r\n84,USD"
     with pytest.raises(ValueError):
         await runtime.workspaces.write("alice", sid, "../escape", "bad")
 
@@ -232,8 +337,9 @@ async def test_workspace_reconnect_keeps_newer_files_and_walks_nested_directorie
             return [{"path": "/workspace/nested", "entry_type": "directory"}]
         return [{"path": p, "entry_type": "file"} for p in data]
 
-    async def read(path, limit):
-        return data[path][:limit]
+    async def read(path, *, range_header):
+        assert range_header == f"bytes=0-{runtime.settings.max_upload_bytes}"
+        return data[path][: runtime.settings.max_upload_bytes + 1]
 
     async def write(path, value):
         data[path] = value
@@ -284,6 +390,30 @@ async def test_wrappers_preserve_execution_metadata_and_save_failed_command_file
     with pytest.raises(RuntimeError):
         await wrapped.execute(wrapped.input_model(command="example"), RunContext(None))
     assert saved == [True]
+
+
+async def test_read_only_workspace_tools_do_not_require_a_checkpoint(runtime, monkeypatch):
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+
+    @tool
+    async def read_file(path: str):
+        """Read a staged file."""
+        return {"content": f"read {path}"}
+
+    wrapped = runtime.workspaces.wrap(read_file, "alice", row["id"])
+
+    async def prepare(*args):
+        pass
+
+    async def save(*args):
+        pytest.fail("a read-only operation must not checkpoint /workspace")
+
+    monkeypatch.setattr(runtime.workspaces, "prepare", prepare)
+    monkeypatch.setattr(runtime.workspaces, "save", save)
+    result = await wrapped.execute(
+        wrapped.input_model(path="/tmp/theos-results/read.json"), RunContext(None)
+    )
+    assert result == {"content": "read /tmp/theos-results/read.json"}
 
 
 async def test_slow_replication_never_blocks_local_checkpoint_or_recovery(runtime, storage):
@@ -420,11 +550,17 @@ async def test_remote_restore_never_executes_calls_that_lack_attempt_records(
     row = runtime.db.create_session("alice", "gpt-6-luna", "none")
     call = ToolCall("old-call", "save_once", {"value": 42})
     history = [UserMessage("Save this value."), AssistantMessage(tool_calls=[call])]
-    memory = ContextMemory(
-        "Keep the task and uncertain outcomes.",
-        len(history) if working_view else 0,
-        working_messages=[message_to_dict(m) for m in history] if working_view else None,
-        state={"usage_anchor": {"tokens": 42000}},
+    memory = (
+        ContextMemory.from_dict(
+            {
+                "schema_version": 3,
+                "summary": "Keep the task and uncertain outcomes.",
+                "covered_messages": len(history),
+                "working_messages": [message_to_dict(message) for message in history],
+            }
+        )
+        if working_view
+        else ContextMemory("Keep the task and uncertain outcomes.", 0)
     )
     await runtime.checkpoints.save("alice", row["id"], history, memory, "after_model")
     assert await runtime.checkpoints.drain()
@@ -441,10 +577,8 @@ async def test_remote_restore_never_executes_calls_that_lack_attempt_records(
 
     runtime.tools = registry
     restored = await runtime.checkpoints.restore("alice", row["id"])
-    assert (
-        json.loads(runtime.session("alice", row["id"])["memory"])["state"]["usage_anchor"]["tokens"]
-        == 42000
-    )
+    restored_memory = json.loads(runtime.session("alice", row["id"])["memory"])
+    assert restored_memory["summary"] == memory.summary
     model = FakeModel([AssistantMessage("Check the external service before another write.")])
 
     @asynccontextmanager

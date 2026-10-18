@@ -17,7 +17,7 @@ AGENT_SANDBOX__ENABLED=true
 AGENT_SANDBOX__DOMAIN=sandbox.example.internal:8080
 AGENT_SANDBOX__API_KEY=replace-me
 AGENT_SANDBOX__USE_SERVER_PROXY=false
-AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261015
+AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3
 AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
@@ -74,7 +74,7 @@ AGENT_SANDBOX__ENABLED=true
 AGENT_SANDBOX__DOMAIN=100.x.y.z:8085
 AGENT_SANDBOX__API_KEY=replace-with-generated-key
 AGENT_SANDBOX__USE_SERVER_PROXY=true
-AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261015
+AGENT_SANDBOX__IMAGE=theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3
 AGENT_SANDBOX__TIMEOUT_SECONDS=3600
 ```
 
@@ -125,17 +125,22 @@ The checks did not cover Telegram delivery or browser automation.
 
 ## Shared skill runtime image
 
-Build the ARM64 image on the Mac mini. It keeps the OpenSandbox code-interpreter entrypoint and adds the tools declared by the eight shared skills: PDF and spreadsheet libraries, arXiv and Papers with Code clients, DOCX support, LibreOffice, Pandoc, Poppler, OCR, Chromium, and `agent-browser`. The report style files live at `/opt/theos/report-style`, with Python dependencies and the `theos-report` command ready to use. Local fonts remove the renderer's external font downloads.
+Build the ARM64 image on the Mac mini. It keeps the OpenSandbox code-interpreter entrypoint and adds the tools declared by the eight shared skills: PDF and spreadsheet libraries, arXiv and Papers with Code clients, DOCX support, LibreOffice, Pandoc, Poppler, OCR, Chromium, and `agent-browser`. The report style files live at `/opt/theos/report-style`, with Python dependencies and the `theos-report` command ready to use. Bundled Space Grotesk fonts remove external font downloads. Matplotlib supplies numeric charts through headless Agg. Its default PDF fonts are embedded, and SVG text uses paths.
 
 The dependency lock is `skills/sandbox-runtime/requirements.lock`. It targets Python 3.14, which the code-interpreter kernel uses. The image exposes the locked packages to both that kernel and shell commands. Update the lock from `requirements.in` with `uv pip compile` when skill dependencies change. Copy both skill directories to the Mac mini, then build the image there:
 
 ```sh
-rsync -a --delete skills/sandbox-runtime/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-skill-build/skills/sandbox-runtime/
-rsync -a --delete skills/report-style/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-skill-build/skills/report-style/
-ssh parths-mac-mini 'docker build -f /Volumes/extssd/opensandbox/theos-skill-build/skills/sandbox-runtime/Dockerfile -t theos/sandbox-skills:v1.1.0-20261015 /Volumes/extssd/opensandbox/theos-skill-build/skills'
+rsync -a --delete skills/sandbox-runtime/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-production-18e1cc81d4c3/skills/sandbox-runtime/
+rsync -a --delete skills/report-style/ parths-mac-mini:/Volumes/extssd/opensandbox/theos-production-18e1cc81d4c3/skills/report-style/
+rsync skills/.dockerignore parths-mac-mini:/Volumes/extssd/opensandbox/theos-production-18e1cc81d4c3/skills/.dockerignore
+ssh parths-mac-mini 'docker image inspect theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3 >/dev/null 2>&1 || docker build -f /Volumes/extssd/opensandbox/theos-production-18e1cc81d4c3/skills/sandbox-runtime/Dockerfile -t theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3 /Volumes/extssd/opensandbox/theos-production-18e1cc81d4c3/skills'
 ```
 
 Update the image tag in the Pi deployment environment when the runtime changes, then recreate Theos. The image stays in the Mac mini's local Docker store because OpenSandbox and its container runtime use that Docker host. New sandboxes use the new image. Existing sandboxes retain their files and old image until they expire or are explicitly replaced.
+
+Use a new revision tag for each runtime build. Keep image records while running sandboxes reference them.
+Rebuilding a reused tag removed an old image record during local Docker Desktop acceptance testing.
+The container kept running, but OpenSandbox status requests returned HTTP 500 when they inspected the missing image.
 
 ## Browser dependencies
 
@@ -150,7 +155,6 @@ Update the image tag in the Pi deployment environment when the runtime changes, 
 | File transfer | `upload_file`, `send_file_to_user` |
 | Images | `view_image` |
 | Browser | `browser` |
-| Lifetime | `manage_workspace` |
 
 Sandbox execution does not require approval.
 Uploaded files remain bound to the authenticated owner.
@@ -162,16 +166,15 @@ The model can receive a checked workspace image through `view_image`.
 Each conversation owns a remote sandbox ID.
 The application saves the ID and reconnects after an application restart.
 A saved ID does not guarantee that the remote sandbox still exists.
-Routine startup, reconnection, and checkpoint restoration are automatic. Use `manage_workspace` with `status`, `restart`, `destroy`, or `forget` only when the user asks to inspect or control the workspace.
-The legacy `renew` action returns status without extending expiry.
-`forget` removes the saved connection reference without destroying a remote instance.
+Routine startup, reconnection, expiry handling, and checkpoint restoration are automatic. The model has no workspace lifecycle control tool.
 
 The default lifetime is one hour from creation. Reconnection and activity do not reset this deadline.
 The client checks cached instances before execution and replaces confirmed missing or expired instances automatically.
 Transient connection failures retain the existing reference. They do not trigger replacement or repeat a command.
 Managed workspaces restore saved files before saving a replacement instance.
-Download important generated files before destroying the remote environment.
-SQLite and R2 retain versioned workspace checkpoints. Unsaved work in a dead sandbox cannot be recovered.
+SQLite and R2 retain versioned `/workspace` checkpoints. Unsaved work in a dead sandbox cannot be recovered.
+
+Large, normalized Gmail search, message, thread, and draft results, plus Health summary and export-status results, can be staged under `/tmp/theos-results` when they exceed 8 KiB. Staging stops at 1 MiB. The runtime does not checkpoint this directory, so staged results disappear when the sandbox is replaced or expires. If staging fails, the provider tool returns a bounded preview and the model can repeat the read with narrower arguments.
 
 ## Credential boundary
 

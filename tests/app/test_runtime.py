@@ -9,6 +9,7 @@ import pytest
 
 from harness import AssistantMessage, ToolCall, ToolResultMessage, UserMessage
 from harness.events import GenerationComplete, TextDelta
+from harness.testing import FakeModel
 from theos.runtime import Runtime
 from theos.storage.database import Database
 
@@ -34,6 +35,41 @@ async def test_stream_and_persist(runtime, scripted_models):
     assert history[-1].text == "Saved answer"
     assert runtime.db.one("SELECT input_tokens FROM usage")["input_tokens"] == 7
     assert "Hello" not in json.dumps(runtime.db.rows("SELECT * FROM traces"))
+
+
+async def test_configured_summary_model_runs_only_for_compaction(runtime):
+    session = new_session(runtime)
+    runtime.settings.compaction_model = "summary-model"
+    runtime.settings.compaction_trigger_ratio = 0.01
+    runtime.settings.compaction_tail_ratio = 0.025
+    runtime.settings.context_tokens = 16_000
+    runtime.settings.max_output_tokens = 512
+    runtime.db.save_history(
+        "alice",
+        session["id"],
+        [UserMessage("Old request."), AssistantMessage("Old fact. " * 1500)],
+    )
+    main = FakeModel([AssistantMessage("Current answer.")])
+    summary = FakeModel([AssistantMessage("Old fact summarized.")])
+    opened = []
+
+    @asynccontextmanager
+    async def factory(_settings, model_id, _reasoning):
+        opened.append(model_id)
+        yield summary if model_id == "summary-model" else main
+
+    runtime.models = factory
+    events = await collect(runtime.start("alice", session["id"], "New question."))
+
+    assert events[-1]["status"] == "completed"
+    assert opened == ["test-model", "summary-model"]
+    assert len(summary.requests) == 1 and not summary.requests[0].tools
+    assert summary.requests[0].options["max_output_tokens"] == 400
+    assert len(main.requests) == 1
+    assert any(
+        isinstance(message, UserMessage) and "Old fact summarized." in message.content
+        for message in main.requests[0].messages
+    )
 
 
 async def test_approval_denial_and_owner_isolation(runtime, scripted_models, checkout_tool):
@@ -155,7 +191,9 @@ def test_database_reopen_migrations_backup_and_single_worker(settings, tmp_path)
     db.close()
     db = Database(settings.data_dir)
     assert db.load_history("alice", session["id"])[0].content == "durable"
-    assert db.one("PRAGMA user_version")["user_version"] == 12
+    assert db.one("PRAGMA user_version")["user_version"] == 13
+    tables = {row["name"] for row in db.rows("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "research_scratchpad" in tables and "research_items" not in tables
     db.close()
 
 

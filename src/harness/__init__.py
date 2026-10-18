@@ -9,6 +9,7 @@ from harness.context import (
     select_context,
     unanswered_calls,
 )
+from harness.context_size import ContextOverflowError
 from harness.events import (
     ContextCompaction,
     Emit,
@@ -68,12 +69,15 @@ from harness.tools import (
     Tool,
     execute_tool,
     execute_tools,
+    history_tools,
     tool,
 )
 from harness.types import (
+    DEFAULT_MAX_IMAGE_BYTES,
+    SUPPORTED_IMAGE_MEDIA_TYPES,
+    TOKEN_USAGE_KEYS,
     AssistantMessage,
     Budget,
-    DEFAULT_MAX_IMAGE_BYTES,
     ImageDetail,
     ImageInput,
     Message,
@@ -84,9 +88,7 @@ from harness.types import (
     ToolOutput,
     ToolResultMessage,
     ToolSpec,
-    TOKEN_USAGE_KEYS,
     UserMessage,
-    SUPPORTED_IMAGE_MEDIA_TYPES,
     View,
     message_from_dict,
     message_to_dict,
@@ -97,6 +99,7 @@ __all__ = [
     "CompactionConfig",
     "ContextMemory",
     "ContextCompaction",
+    "ContextOverflowError",
     "ALLOW",
     "ASK",
     "DENY",
@@ -122,6 +125,7 @@ __all__ = [
     "Hooks",
     "HarnessError",
     "HarnessErrorCode",
+    "history_tools",
     "ImageDetail",
     "ImageInput",
     "Inbox",

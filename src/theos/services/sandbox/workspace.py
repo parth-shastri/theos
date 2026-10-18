@@ -8,33 +8,18 @@ from dataclasses import replace
 from pathlib import PurePosixPath
 
 from harness import OutcomeUnknown
+from theos.prompts import render
 from theos.services.errors import ServiceError
 
 from .errors import WorkspaceUnavailable
 
 ROOT = "/workspace"
-INSTRUCTIONS = (
-    "Use your task workspace whenever computation, data processing, scripts, "
-    "document creation, or file inspection helps. The user does not need to request it. "
-    "Keep task files under /workspace. Save intermediate tables and scripts as well "
-    "as final reports. Files here are saved automatically after execution. "
-    "Use source_to_workspace to move complete connector results into your workspace "
-    "without copying them through chat. Read relevant rows or file sections and keep "
-    "exact source IDs in derived data. Check calculations and generated files before "
-    "delivery. The runtime prepares and restores your workspace automatically. "
-    "Do not use workspace lifecycle controls to recover from routine tool failures. "
-    "If a workspace tool says the requested action did not start because the workspace was unavailable, "
-    "retry that same tool once with the same arguments. If that retry fails, stop and explain that the workspace is unavailable. "
-    "If the result says the action may have started "
-    "or its outcome is unknown, do not repeat it; explain the uncertainty and ask the user before retrying. "
-    "Do not reset or discard the workspace just because a command failed. "
-    "Never claim a workspace save succeeded while its status is pending."
-)
+INSTRUCTIONS = render("capabilities/sandbox.md")
 
 RETRYABLE_WORKSPACE_FAILURE = (
     "The requested action did not start because the workspace could not be reached. "
     "Saved files remain available. Retry this same tool once with the same arguments; "
-    "the runtime will handle reconnection and restoration. Do not use lifecycle controls."
+    "the runtime will handle reconnection and restoration."
 )
 RETRYABLE_STATUS_CODES = {404, 408, 410, 425, 429, 500, 502, 503, 504}
 
@@ -143,8 +128,9 @@ class Workspaces:
                 if row.get("entry_type") not in {"file", "regular"}:
                     continue
                 path = self.path(row["path"])
+                # Line-based limits would rewrite binary files before hashing and restore.
                 data = await sandbox.files.read_bytes(
-                    path, limit=self.runtime.settings.max_upload_bytes + 1
+                    path, range_header=f"bytes=0-{self.runtime.settings.max_upload_bytes}"
                 )
                 if len(data) > self.runtime.settings.max_upload_bytes:
                     raise ValueError(
@@ -175,7 +161,7 @@ class Workspaces:
             return manifest
 
     def wrap(self, original, owner, session):
-        if original.name not in {
+        workspace_tools = {
             "run_command",
             "execute_code",
             "write_file",
@@ -185,8 +171,16 @@ class Workspaces:
             "read_file",
             "list_files",
             "view_image",
-        }:
+        }
+        if original.name not in workspace_tools:
             return original
+        saves_workspace = original.name in {
+            "run_command",
+            "execute_code",
+            "write_file",
+            "upload_file",
+            "browser",
+        }
 
         async def execute(args, ctx):
             try:
@@ -202,7 +196,9 @@ class Workspaces:
                 # Every workspace tool acquires its connection before doing the requested work.
                 raise ServiceError(RETRYABLE_WORKSPACE_FAILURE) from error
             except BaseException as operation_error:
-                # A failed command can still create useful files. Preserve them before returning.
+                # An operation may fail after changing files, so save its partial work.
+                if not saves_workspace:
+                    raise
                 try:
                     await self.save(owner, session)
                 except Exception as save_error:
@@ -214,6 +210,9 @@ class Workspaces:
                     ) from save_error
                 raise
 
+            # Reads and file delivery cannot change /workspace, so they need no R2 write.
+            if not saves_workspace:
+                return result
             try:
                 await self.save(owner, session)
             except Exception as save_error:

@@ -1,4 +1,3 @@
-/* Visual tokens adapted from parth-shastri/ocr-checker. See OCR-CHECKER-LICENSE. */
 @font-face {
   font-family: "Space Grotesk";
   font-style: normal;
@@ -3362,6 +3361,48 @@ tr:last-child td {
     padding: 8px 12px 16px;
   }
 }
+/* Keep navigation ink legible over reflected content. Only glyph styling changes here. */
+:root:not([data-theme="dark"]) #sidebar {
+  --text: #111b15;
+  --text-soft: #17271d;
+  --text-muted: #1c3023;
+  --sidebar-text-shadow: 0 0 2px #fff, 0 1px 3px rgb(255 255 255 / 85%);
+  color: var(--text);
+}
+[data-theme="dark"] #sidebar {
+  --text: #f7fbf9;
+  --text-soft: #edf5f0;
+  --text-muted: #e3eee7;
+  --sidebar-text-shadow: 0 0 2px #08110c, 0 1px 3px rgb(8 17 12 / 90%);
+  color: var(--text);
+}
+#sidebar
+  :is(.rail-title, .cost-label, .account-row, nav button, .sidebar-bottom > button),
+#mobile-conversation-controls summary {
+  text-shadow: var(--sidebar-text-shadow);
+}
+#mobile-conversation-controls summary {
+  color: var(--text-soft);
+}
+@media (max-width: 700px) {
+  /* A display:contents header has no backdrop to separate the fixed toggle from messages. */
+  .sidebar-collapsed .app-header {
+    display: flex;
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    left: max(8px, env(safe-area-inset-left, 0px));
+    height: 60px;
+    margin: 0;
+    padding: 8px;
+    border-radius: 18px;
+  }
+  .sidebar-collapsed .app-header.glass-surface > .glass-optics,
+  .sidebar-collapsed .app-header.glass-surface::before,
+  .sidebar-collapsed .app-header.glass-surface::after {
+    display: block;
+  }
+}
 @media (max-width: 450px) {
   dialog > .glass-content {
     padding: 16px;
@@ -3532,6 +3573,11 @@ tr:last-child td {
   .glass-surface > .glass-optics,
   .glass-surface::before,
   .glass-surface::after {
+    display: none;
+  }
+  .sidebar-collapsed .app-header.glass-surface > .glass-optics,
+  .sidebar-collapsed .app-header.glass-surface::before,
+  .sidebar-collapsed .app-header.glass-surface::after {
     display: none;
   }
   .glass-surface:is(

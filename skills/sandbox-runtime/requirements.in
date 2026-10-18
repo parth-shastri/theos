@@ -1,6 +1,7 @@
 arxiv
 beautifulsoup4
 markdown
+matplotlib
 markitdown[xlsx]
 openpyxl
 pandas

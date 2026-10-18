@@ -1,9 +1,17 @@
 # Implemented tool catalog
 
-Context summaries use the pinned Markdown template without JSON generation.
-The harness supplies bounded exact references from the original transcript and owned research records.
-The full reference index stays in saved memory. Existing `history_read`, `history_search`, and research tools recover omitted details.
-This extension adds no tool or runtime dependency.
+Context compaction keeps one rolling summary beside the full transcript.
+The harness registers `history_read` and `history_search` as ordinary tools for exact history retrieval.
+The Deep Research evidence scratchpad stays separate and keeps its existing service behavior.
+Prompt templates use Jinja2 as a core dependency, with MarkupSafe as its transitive dependency.
+The shared renderer loads Markdown files from installed packages and fails on missing template variables.
+Theos can override harness production compaction prompts through configuration.
+See [prompt templates](runtime/prompts.md) for the resource directories, section structure, and override fields.
+Theos chat and speech preparation share one persona fragment. Research delegates and harness summaries keep factual task roles.
+
+Test audits can use Coverage.py through `uv run --with coverage` for source-line and branch comparisons.
+Coverage.py remains an optional audit tool outside the locked project dependencies.
+See [test selection](runtime/testing.md) for the retained-case policy and commands.
 
 Tool responses can contain more than 16 calls. The harness processes valid calls in ordered batches of at most 16.
 It preserves call IDs, approval checks, and completed results. Only tools declared safe may overlap.
@@ -25,6 +33,8 @@ This diagram shows how tool groups fit into the framework.
 It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
+
+Gmail search, message, thread, and draft reads, plus Health summary and export-status reads, keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `read_file` for small staged files or `run_command` with `grep` or `sed` to inspect selected sections.
 
 ## CI coverage selection
 
@@ -102,7 +112,7 @@ The application saves UTC timestamps and durations in history JSON through `stor
 Native browser timers and Intl formatters supply live updates and local timestamps.
 
 Markdown uses locally served [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16.
-The [vendor manifest](browser-vendor-provenance.json) records pinned package sources, file hashes, and included license files.
+The [vendor manifest](browser-vendor-provenance.json) records pinned package sources and file hashes.
 The renderer treats raw HTML as text and removes unsafe links from generated markup.
 
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.
@@ -330,8 +340,9 @@ See [shared skill maintenance](../skills/README.md) for installation and updates
 
 | Report helper | Dependencies |
 | --- | --- |
-| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, local Inter and DejaVu Sans Mono fonts |
+| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, bundled Space Grotesk and local DejaVu Sans Mono fonts |
 | `build_docx.py` | python-docx, Markdown, Beautiful Soup, Playwright, Chrome or Chromium |
+| Numeric report charts | Matplotlib with headless Agg, bundled Space Grotesk, SVG text paths, and embedded TrueType fonts in PDF |
 | PDF and OCR skills | pypdf, pdfplumber, reportlab, pdf2image, pytesseract, Poppler, and Tesseract |
 | DOCX and XLSX skills | npm `docx`, Pandoc, openpyxl, pandas, markitdown, and LibreOffice Writer/Calc |
 | Paper skills | `arxiv` Python package and the pinned `pwc` command |
@@ -411,13 +422,15 @@ This uses the existing SDK and lets remote clients connect without access to con
 | `run_command` | Run a shell command in your task workspace. |
 | `execute_code` | Run Python in your persistent workspace. Imports and variables persist between calls. |
 | `write_file` | Write a text file in your task workspace. |
-| `read_file` | Read a text file from your task workspace. |
+| `read_file` | Read up to 64,000 characters from your task workspace or a staged result file. |
 | `list_files` | List files in a workspace directory. |
 | `send_file_to_user` | Share a generated file with the user. |
 | `view_image` | Load an image from your workspace for visual inspection. |
-| `upload_file` | Copy one of your uploaded files into your workspace. |
+| `upload_file(file_id, path)` | Copy a selected uploaded file or Gmail attachment into your workspace for analysis. |
 | `browser` | Open pages and interact with them. Use open, snapshot, click, fill, or screenshot commands. |
-| `manage_workspace` | Inspect or control the workspace on explicit user request. Routine recovery is automatic. |
+
+Binary file reads use bounded HTTP byte ranges for delivery, image inspection, and workspace checkpoints.
+The SDK's line-based limits must not handle binary files because they can alter line endings.
 
 ## Gmail
 
@@ -429,12 +442,12 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | --- | --- |
 | `gmail_connect` | Create a Google authorization link for your Gmail account. |
 | `gmail_disconnect` | Disconnect your Gmail account and revoke its grant. |
-| `gmail_search_messages` | Search Gmail messages outside Spam and Trash. |
-| `gmail_get_message` | Read a Gmail message, including its MIME body and attachment IDs. |
-| `gmail_get_thread` | Read a Gmail thread outside Spam and Trash. |
-| `gmail_download_attachment` | Download an attachment from one of your accessible messages. |
-| `gmail_list_drafts` | List your Gmail drafts. |
-| `gmail_get_draft` | Read a draft with its recipients, subject, body, and content hash. |
+| `gmail_search_messages(query, page_token?, max_results=10)` | Return up to 25 message headers and short snippets outside Spam and Trash. Pass `next_page_token` to continue. |
+| `gmail_get_message(message_id, body_offset=0, body_limit=4000, include_body=true, include_quoted=false)` | Read one bounded body range and attachment metadata; use `next_body_offset` to continue or `include_quoted=true` to include quoted replies. Attachment contents stay out of the result. |
+| `gmail_get_thread(thread_id, message_limit=10)` | Return recent thread headers; fetch a selected message by ID for its body. |
+| `gmail_download_attachment(message_id, attachment_id)` | Download one selected attachment after reviewing its metadata; use its returned `file_id` with `upload_file(file_id, path)` for workspace analysis. |
+| `gmail_list_drafts(page_token?, max_results=10)` | List draft and message IDs without loading draft bodies. |
+| `gmail_get_draft(draft_id, body_offset=0, body_limit=4000)` | Read a bounded draft body range and its review metadata. |
 | `gmail_create_draft` | Create a draft in your connected account. |
 | `gmail_send_draft` | Send after explicit approval of the current draft. Recheck its contents immediately before sending. |
 | `gmail_list_labels` | List Gmail labels. |
@@ -451,8 +464,8 @@ Source: [service tools](../src/theos/services/health/tools.py).
 | --- | --- |
 | `health_connect` | Create an authorization link for Google Health. |
 | `health_disconnect` | Disconnect Google Health and stop pending imports and exports. |
-| `get_health_summary` | Read your latest seven-day health import, or request a refresh. |
-| `get_meal_sync_status` | List nutrition export states, including uncertain writes. |
+| `get_health_summary(start_date?, end_date?, metrics?, refresh=false)` | Read compact daily metrics or selected details for up to 31 days. Pass both dates or neither. `metrics` accepts `steps`, `distance_meters`, `active_calories_kcal`, `active_minutes`, `active_zone_minutes`, `resting_heart_rate_bpm`, `weight_kg`, `body_fat_percent`, `heart_rate_zones`, `heart_rate_zone_thresholds`, `workouts`, and `sleep`. |
+| `get_meal_sync_status` | List recent nutrition export states without meal contents. |
 | `retry_meal_sync` | Queue failed exports for reconciliation before any retry. |
 | `backfill_nutrition` | Queue historical meals that have no backfill marker. |
 
@@ -497,16 +510,20 @@ Source: [runtime tool registration](../src/theos/runtime/tools.py).
 
 Deep research requires the browser mode or an explicit user command. It applies to one turn.
 The `deep_research` tool runs independent assignments within the same shared call ceiling.
-Each researcher saves its full transcript, report, evidence, notes, and summary checkpoints in SQLite migration 010.
+Each researcher saves its full transcript, report, notes, and summary checkpoints in SQLite migration 010.
+Evidence records live in the separate `research_scratchpad` table from migration 013.
 The browser **Research** view permits later inspection within the same account and conversation.
 Normal questions do not receive these tools or create research records.
+
+The lead researcher retains configured workspace tools to compute results and deliver report files.
+Research delegates remain read-only, and personal account tools remain outside explicit research.
 
 | Tool | Behavior | Dependency |
 | --- | --- | --- |
 | `deep_research` | Up to three named delegates with relevant briefs and durable records | Existing harness and runtime |
 | `save_research_note` | Save plans, findings, conflicts, and questions with source IDs and status | Existing SQLite database |
 | `list_research` | List research in the current conversation | Existing SQLite database |
-| `read_research` | Reopen full saved reports and evidence | Existing SQLite database |
+| `read_research` | Reopen full saved reports and the evidence scratchpad | Existing SQLite database |
 | `read_source` | Read and save extracted source text without an application excerpt limit | Exa contents API and `AGENT_EXA_KEY` |
 
 Source extraction uses `POST https://api.exa.ai/contents` with `urls` and `text: true`.
@@ -523,10 +540,14 @@ The runtime caches metadata for one hour and uses verified catalog values when r
 Unknown models use a logged 24,000-token context fallback unless the operator sets a window.
 Unknown Anthropic models use the configured output default because that API requires an output maximum.
 `AGENT_CONTEXT_TOKENS` optionally selects a smaller window, within known provider capacity.
-The shared policy prunes old tool output before summarizing middle turns.
-It protects the head and a tail selected by token cost, and updates the previous summary with an auxiliary model.
-The default trigger fraction is 0.5, with the upstream floor for small windows.
-See [compression and workspaces](runtime/context-recovery.md) for the formulas and execution boundaries.
+The harness updates one rolling summary with the active model.
+It compacts at 50% of the context window or when input plus output does not fit.
+It keeps a 2.5% recent tail and summarizes a split turn's original request with its earlier progress.
+Separate history and turn-prefix summary calls form one checkpoint before the retained messages.
+New unanswered user requests and unfinished tool batches remain verbatim.
+Context overflow triggers shorter summary tiers and a smaller retry without replaying tools.
+History tools read the untouched transcript. Research scratchpad records remain separate.
+See [compression and workspaces](runtime/context-recovery.md) for the full algorithm.
 
 For agents, only `max_output_tokens` enforces response length, through the provider's supported parameter.
 OpenAI Responses and Gemini use `max_output_tokens`. OpenRouter and Anthropic use the equivalent `max_tokens` field.
@@ -534,11 +555,12 @@ Requests default to `AGENT_MAX_OUTPUT_TOKENS`, which defaults to 8,192, bounded 
 An explicit conversation output setting overrides this default.
 Space checks reserve the full requested output before reducing input through summaries.
 Answer and summary requests must fit their input and requested output within the model window.
-The runtime does not silently lower the output setting to fit an oversized input.
+The runtime does not silently lower the answer output setting to fit an oversized input.
 Application code never clips generated answers or rejects them by byte size.
 Calls without a known output setting use one shared 8,192-token space estimate.
-`harness/output.py` defines that estimate for agents, turn entry points, and summary requests.
-Known output settings replace the estimate. The estimate never enters a generation parameter or cuts returned text.
+`harness/output.py` defines that estimate for agents and turn entry points.
+Summary calls use up to 2.5% of the model context for output.
+The estimate never enters a generation parameter or cuts returned text.
 Provider-stopped answers remain intact and carry an incomplete notice.
 
 ## Optional bounded mode and partial answers
@@ -643,17 +665,20 @@ Old pending cards for tools that no longer need approval are retired without cha
 Source: [approval policy](../src/theos/runtime/approvals.py).
 
 
-## Context compression and durable workspaces
+## Context compaction and durable workspaces
 
-The generic policy lives in `src/harness/compression_policy.py` and its asynchronous adapter in `src/harness/lean_context.py`.
-The source manifest pins the upstream revision and preserves its MIT license.
-Request sizing uses provider usage anchors and the upstream UTF-8-aware rough estimator. No tokenizer package is required.
+The harness stores one rolling summary and coverage index in `src/harness/compaction.py`.
+It preserves the raw transcript and places the checkpoint before the retained messages.
+Covered original requests enter the checkpoint and are not repeated after it.
+Split turns use a separate turn-prefix summary call.
+It uses a 50% trigger and a 2.5% recent tail.
+It retries provider context errors with shorter summaries and does not rerun completed tools.
+Large messages remain in history. The summary points to their message indexes for exact retrieval.
+Research evidence uses the separate `research_scratchpad` table and is not part of the summary.
 
-The runtime owns `history_read` and `history_search` for bounded access to original agent history.
-The Gmail and Health wrappers add `source_read` and `source_to_workspace` for complete saved connector responses.
-They preserve raw results in fsynced local objects and queue R2 replication.
-Returned pages include source IDs, offsets, and pagination tokens.
-MIME text views identify unread attachments and do not download them.
+The harness registers `history_read` and `history_search` in `src/harness/tools.py`.
+Gmail and Health tools return concise first-pass results and accept provider-specific arguments for details.
+The Gmail service excludes MIME attachment contents from message results and downloads only a selected attachment.
 MCP tools and connector implementations remain unchanged.
 
 `services/files/checkpoints.py` uses the existing boto3 dependency for R2 objects and the SQLite transfer index.

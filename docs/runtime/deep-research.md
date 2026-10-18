@@ -54,3 +54,9 @@ They cannot create nested delegates or change account data.
 Normal delegation and deep research use [context recovery without fixed call allocations](context-recovery.md).
 The [call budget map](call-budgets.md) applies only when a caller explicitly enables bounded mode.
 Deep research does not add another model-call pool.
+
+## Report files
+
+When a workspace is configured, the lead researcher can compute results and create, inspect, and deliver report files.
+This permits a research request to return PDF, DOCX, and supporting files in the same turn.
+Delegates retain their read-only tools. Explicit research does not expose personal account tools.

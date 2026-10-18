@@ -1,4 +1,8 @@
-"""Create tools from functions and execute model tool calls."""
+"""Turn Python functions into model-callable tools and safely run their calls.
+
+This module validates generic tool schemas and runs hooks. Theos supplies the functions,
+permissions, and persistence behavior through its runtime layer.
+"""
 
 from __future__ import annotations
 
@@ -8,10 +12,10 @@ import json
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Literal, get_origin, get_type_hints
+from typing import Annotated, Any, Literal, get_origin, get_type_hints
 
 import pydantic_core
-from pydantic import BaseModel, ConfigDict, ValidationError, create_model
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 
 from harness.context import RunContext
 from harness.debug import log_detail, log_event
@@ -24,11 +28,14 @@ from harness.limits import (
     validate_tool_arguments,
 )
 from harness.types import (
+    AssistantMessage,
     PendingApproval,
+    SystemMessage,
     ToolCall,
     ToolOutput,
     ToolResultMessage,
     ToolSpec,
+    UserMessage,
     View,
 )
 
@@ -40,12 +47,128 @@ __all__ = [
     "Tool",
     "execute_tool",
     "execute_tools",
+    "history_tools",
     "tool",
 ]
 
 
 class OutcomeUnknown(Exception):
     """The tool may have succeeded, but its final result is unknown."""
+
+
+def _history_text(message):
+    """Render only saved, user-visible message content for exact read and search."""
+    if isinstance(message, (SystemMessage, UserMessage, ToolResultMessage)):
+        return message.content
+    if isinstance(message, AssistantMessage):
+        parts = [message.text] if message.text else []
+        parts.extend(
+            json.dumps(
+                {"call_id": call.id, "tool": call.name, "arguments": call.arguments},
+                ensure_ascii=False,
+            )
+            for call in message.tool_calls
+            if call.name not in {"history_read", "history_search"}
+        )
+        return "\n".join(parts)
+    return ""
+
+
+def _history_match(text, query):
+    """Find case-insensitively and map folded text back to original character offsets."""
+    folded = []
+    original_offsets = []
+    for index, char in enumerate(text):
+        value = char.casefold()
+        folded.append(value)
+        original_offsets.extend([index] * len(value))
+    position = "".join(folded).find(query.casefold())
+    return original_offsets[position] if position >= 0 else -1
+
+
+def history_tools():
+    """Return tools that page and search the original, append-only transcript."""
+
+    @tool
+    async def history_read(
+        ctx: RunContext,
+        message_index: Annotated[int | None, Field(ge=0)] = None,
+        call_id: str | None = None,
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=12000)] = 4000,
+    ):
+        """Read exact saved message text by index or tool call ID. Continue with next_offset until null."""
+        index = message_index
+        if call_id is not None:
+            index = next(
+                (
+                    number
+                    for number, message in enumerate(ctx.history)
+                    if isinstance(message, ToolResultMessage) and message.call_id == call_id
+                ),
+                None,
+            )
+        if index is None or index >= len(ctx.history):
+            raise ValueError("No matching message exists in this agent's history.")
+
+        message = ctx.history[index]
+        text = _history_text(message)
+        page = text[offset : offset + limit]
+        return {
+            "message_index": index,
+            "role": (
+                "tool"
+                if isinstance(message, ToolResultMessage)
+                else "assistant"
+                if isinstance(message, AssistantMessage)
+                else "user"
+                if isinstance(message, UserMessage)
+                else "system"
+            ),
+            "tool": message.name if isinstance(message, ToolResultMessage) else None,
+            "offset": offset,
+            "total_chars": len(text),
+            "content": page,
+            "next_offset": offset + len(page) if offset + len(page) < len(text) else None,
+        }
+
+    @tool
+    async def history_search(
+        query: Annotated[str, Field(min_length=0, max_length=200)],
+        ctx: RunContext,
+        start_index: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=20)] = 10,
+    ):
+        """Find exact text in saved history and return message indexes for history_read. An empty query lists saved tool results."""
+        matches = []
+        for index in range(start_index, len(ctx.history)):
+            message = ctx.history[index]
+            if isinstance(message, ToolResultMessage) and message.name in {
+                "history_read",
+                "history_search",
+            }:
+                continue
+            if not query and not isinstance(message, ToolResultMessage):
+                continue
+
+            text = _history_text(message)
+            found = _history_match(text, query) if query else 0
+            if found < 0:
+                continue
+            start = max(0, found - 120)
+            matches.append(
+                {
+                    "message_index": index,
+                    "snippet": text[start : start + 600],
+                    "tool": message.name if isinstance(message, ToolResultMessage) else None,
+                    "total_chars": len(text),
+                }
+            )
+            if len(matches) >= limit:
+                return {"matches": matches, "next_index": index + 1}
+        return {"matches": matches, "next_index": None}
+
+    return [history_read, history_search]
 
 
 @dataclass
@@ -128,6 +251,8 @@ def tool(
     """Turn a function into a tool with a generated input schema."""
 
     def build(target: Callable[..., Any]) -> Tool:
+        # The model sees a JSON schema derived from Python annotations and the first
+        # docstring paragraph. Application-only RunContext is injected during execution.
         tool_name = name or target.__name__
         input_model, context_param = _build_input_model(target, tool_name)
         is_async = inspect.iscoroutinefunction(target)
@@ -260,7 +385,8 @@ async def execute_tool(
 ) -> ToolResultMessage | PendingApproval:
     """Validate, authorize, and run one tool call."""
     log_detail("execute_tool start call=%r", call)
-    # 1. Find the tool and validate the model's arguments.
+    # 1. Find the registered tool and validate the model's arguments. Invalid calls return
+    # a not_started result so the model can correct them without an external side effect.
     resolved = _resolve(call, tools, limits)
     if isinstance(resolved, ToolResultMessage):
         return await _finish(resolved, ctx, hooks)
@@ -286,6 +412,7 @@ async def _run(
         call,
         args.model_dump(),
     )
+    # A user's saved approval response takes precedence over a new approval prompt.
     approval = ctx.inbox.take_approval(call.id) if ctx.inbox is not None else None
     if approval is not None:
         decision = ALLOW if approval.approved else DENY(approval.reason or "Denied by user")
@@ -295,6 +422,8 @@ async def _run(
     else:
         decision = await hooks.before_tool(tool_obj, args, ctx)
         log_detail("before_tool hook decision tool=%s decision=%r", tool_obj.name, decision)
+    # Only ALLOW reaches the function body. ASK returns a pending record for the transport;
+    # DENY returns a result that explains why no action ran.
     if decision.kind == "deny":
         denied = ToolResultMessage(
             call_id=call.id,
@@ -310,7 +439,8 @@ async def _run(
         _emit(ctx, ToolFinished(pending))
         return pending
 
-    # 2. Only allowed calls reach the tool body.
+    # 2. Only allowed calls reach the tool body. Emit the start event first so a live
+    # transport can show progress while a slow service request is running.
     _emit(ctx, ToolStarted(call, _call_view(tool_obj, args)))
     log_detail(
         "tool execution started tool=%s call=%r args=%r", tool_obj.name, call, args.model_dump()
@@ -326,11 +456,14 @@ async def _run(
             _tool_scope.reset(scope)
         log_detail("tool invocation returned tool=%s result=%r", tool_obj.name, result)
 
-        # 3. Add a default view, run the final hook, and emit ToolFinished.
+        # 3. Run the after-tool hook before announcing completion. The application can
+        # persist the result here, before the loop starts another model request.
         return await _finish(_with_default_view(result, tool_obj, args), ctx, hooks)
     except asyncio.CancelledError:
         # ToolStarted is now part of history's story. Preserve a known result if
         # the body returned; otherwise record that its outcome is uncertain.
+        # Cancellation after a tool started may have interrupted an external write. Record
+        # unknown unless the body already returned a known result; never blindly repeat it.
         if result is None:
             result = ToolResultMessage(
                 call_id=call.id,
@@ -360,6 +493,8 @@ async def _invoke(
         )
 
     try:
+        # A tool's returned Python value must also serialize successfully before it counts
+        # as completed. Otherwise the model would not receive a usable result.
         # Keep execution and serialization together: either one can fail the call.
         log_detail(
             "tool body start tool=%s call_id=%s timeout_s=%r args=%r",
@@ -379,6 +514,8 @@ async def _invoke(
         return result
     # Cancellation is intentionally not caught: CancelledError is a BaseException.
     except TimeoutError:
+        # A timeout does not prove that a remote service stopped its work, so mark the
+        # outcome unknown rather than failed or safe to retry.
         result = answer(
             f"Outcome unknown: {tool_obj.name} did not respond within {tool_obj.timeout_s}s",
             "unknown",
@@ -438,7 +575,8 @@ async def execute_tools(
 ) -> list[ToolResultMessage | PendingApproval]:
     """Run a batch in call order. Neighboring parallel-safe calls overlap."""
     log_detail("execute_tools start calls=%r tool_count=%d", calls, len(tools))
-    # 1. Resolve every call once. Validation errors are answered inline.
+    # 1. Resolve every call once. Validation errors are answered inline; valid calls are
+    # kept with their original index so the final result order matches the model's calls.
     results: list[ToolResultMessage | PendingApproval | None] = [None] * len(calls)
     scheduled: list[tuple[int, ToolCall, Tool, BaseModel]] = []
     for index, call in enumerate(calls):
@@ -448,7 +586,8 @@ async def execute_tools(
             continue
         scheduled.append((index, call) + resolved)
 
-    # 2. Run one group at a time. gather() keeps the order within a group.
+    # 2. Run one group at a time. _groups places only declared parallel-safe calls together;
+    # gather() waits for each group before starting the next one.
     for group in _groups(scheduled, limits.tool_batch_size):
         gathered = await asyncio.gather(
             *(_run(call, tool_obj, args, ctx=ctx, hooks=hooks) for _, call, tool_obj, args in group)
@@ -456,7 +595,7 @@ async def execute_tools(
         for (index, _, _, _), result in zip(group, gathered, strict=True):
             results[index] = result
 
-    # 3. Merge inline validation errors and executed calls into call order.
+    # 3. Merge validation responses, approvals, and executed results in original call order.
     final_results = [result for result in results if result is not None]
     log_detail("execute_tools complete results=%r", final_results)
     return final_results
