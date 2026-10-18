@@ -1170,7 +1170,7 @@ A fresh sandbox using that revision delivered the verified PDF, chart PNG, and C
 All three delivered files matched the verified sources byte-for-byte. PDF structure and PNG decoding also passed.
 
 The local application uses the updated prompt image and the isolated font runtime for new sandboxes.
-PR #86 remains open. No connector PR, production deployment, or branch promotion was merged.
+At this stage, PR #86 was open. No connector PR, production deployment, or branch promotion had merged.
 
 ## Final sandbox candidate and Docker cleanup, 2026-10-19
 
@@ -1192,7 +1192,7 @@ The Mac mini cleanup removed three test sandboxes, four obsolete image tags, and
 Docker reported 32.09 GB of removed build cache. No service volume was pruned.
 Mem0, its dashboard, PostgreSQL, Kokoro, and Whisper remain running.
 The previous production sandbox image remains available for the Pi. The Pi environment remains unchanged.
-PR #86 remains open. No branch promotion or Pi deployment occurred.
+At this stage, PR #86 was open. No branch promotion or Pi deployment had occurred.
 
 ## Navigation visibility in both themes, 2026-10-19
 
@@ -1209,4 +1209,4 @@ The served stylesheet matches the verified source bytes. The application readine
 The existing focused glass, composer, view, and replacement checks passed 12 tests.
 
 The local container runs `theos:local-acceptance-navigation-20261019-74cc202` with the final sandbox image.
-PR #86 remains open. The Pi and connector branches remain unchanged.
+PR #86 merged into `dev` on 2026-10-19. Promotions and Pi deployment remain pending.

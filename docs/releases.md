@@ -15,6 +15,20 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.2.1
+
+Package version 1.2.1 uses tag `rpi-v1.2.1` from the promoted `rpi` tip.
+Rolling compaction uses Markdown prompts with explicit roles, inputs, and output rules.
+Split turns preserve the original request and earlier progress in separate checkpoint summaries.
+Overflow recovery shortens summaries before retrying and never repeats completed tools.
+Research evidence stays in a separate scratchpad and survives compaction.
+Reports can include useful charts and diagrams, with bundled Space Grotesk in PDF and DOCX output.
+Mobile navigation improves contrast in both light and dark themes.
+Migration 013 renames `research_items` to `research_scratchpad` and preserves its rows.
+Use sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` for new sandboxes.
+Update `AGENT_SANDBOX__IMAGE` in the local and Pi deployment environments before activation.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
 ## Release 1.2.0
 
 Package version 1.2.0 uses tag `rpi-v1.2.0` from the promoted `rpi` tip.

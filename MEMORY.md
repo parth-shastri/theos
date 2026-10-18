@@ -675,3 +675,13 @@ Apply the existing collapsed mobile topbar layout in both light and dark modes.
 Use brighter dark sidebar text and text halos to preserve readability over reflected content.
 Keep the existing frost, opacity, blur, saturation, and refraction settings.
 This extends the earlier light-only navigation decision.
+
+## Pi release 1.2.1 preparation, 2026-10-19
+
+The operator requested the changes in PR #86 on `dev`, `main`, and `rpi`, followed by a Pi release.
+Merge the topic PR into `dev`, then promote `dev` through separate merge-commit PRs to `main` and `rpi`.
+Package version 1.2.1 uses the immutable tag `rpi-v1.2.1` from the current `rpi` tip.
+The Mac mini already has sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3`.
+The Pi still uses the 2026-10-15 image. Set the new tag in local `.env.pi` and the Pi deployment environment.
+Preserve other private settings and file mode 0600. Prepare report skills and run the live sandbox probe before tagging.
+Confirm the release workflow and active Pi manifest before claiming deployment.
