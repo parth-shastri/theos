@@ -22,6 +22,13 @@ export default function WorkspaceHeader({ agentName }) {
             <span>Personal assistant workspace</span>
           </div>
         </div>
+        <div
+          id="mobile-conversation-heading"
+          className="mobile-conversation-heading"
+        >
+          <span id="mobile-session-title">New conversation</span>
+          <span id="mobile-conversation-cost" className="cost-label"></span>
+        </div>
         <div className="header-actions">
           <button
             id="generation-button"

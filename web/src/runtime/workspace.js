@@ -1131,8 +1131,7 @@ export function mountWorkspace() {
         $("usage-content").append(card);
       }
       $("usage-status").textContent = "Recorded usage · USD";
-      $("conversation-cost").textContent =
-        `Conversation cost: ${formatCost(session.usage)}`;
+      renderConversationCost(session.usage);
       $("user-cost").textContent = `Your total cost: ${formatCost(usage)}`;
     } catch (error) {
       if (request !== usageRequest) return;
@@ -1205,6 +1204,7 @@ export function mountWorkspace() {
   function showView(id) {
     TheosSelects.close();
     scope.clearInterval(connectionTimer);
+    $("mobile-conversation-heading").hidden = id !== "chat-view";
     $("conversation-toolbar").hidden = [
       "dashboard",
       "connections-view",
@@ -1231,9 +1231,18 @@ export function mountWorkspace() {
     }).format(usage.cost);
     return usage.unpriced_requests ? `${cost} (partial)` : cost;
   }
+  function renderConversationTitle(title) {
+    $("session-title").textContent = title;
+    $("mobile-session-title").textContent = title;
+    $("mobile-session-title").title = title;
+  }
+  function renderConversationCost(usage) {
+    const text = `Conversation cost: ${formatCost(usage)}`;
+    $("conversation-cost").textContent = text;
+    $("mobile-conversation-cost").textContent = text;
+  }
   async function refreshCosts(session) {
-    $("conversation-cost").textContent =
-      `Conversation cost: ${formatCost(session.usage)}`;
+    renderConversationCost(session.usage);
     const usage = await json("/api/usage");
     $("user-cost").textContent = `Your total cost: ${formatCost(usage)}`;
   }
@@ -1616,7 +1625,7 @@ export function mountWorkspace() {
     selected = id;
     $("research-mode").value = "normal";
     resizeComposer();
-    $("session-title").textContent = session.title;
+    renderConversationTitle(session.title);
     $("model").value = session.model;
     savedModel = session.model;
     savedReasoning = session.reasoning;
@@ -1871,7 +1880,7 @@ export function mountWorkspace() {
             $("status").classList.remove("thinking-status");
           }
           if (event.type === "title") {
-            $("session-title").textContent = event.title;
+            renderConversationTitle(event.title);
           }
           if (event.type === "thinking") {
             if (!body) {
@@ -1977,7 +1986,7 @@ export function mountWorkspace() {
       const session = await json(`/api/sessions/${sessionId}`);
       approvals(session.approvals);
       approvalsSynced = true;
-      $("session-title").textContent = session.title;
+      renderConversationTitle(session.title);
       await listSessions();
       await refreshCosts(session);
       if (

@@ -723,3 +723,9 @@ The operator rejected the white halo around sidebar text and requested the exist
 Remove the light and dark sidebar text shadows added by the 2026-10-19 navigation contrast change.
 Keep the font, text colors, geometry, glass material, blur, refraction, and responsive behavior.
 This decision supersedes the text-halo part of the earlier navigation contrast decision.
+
+## Mobile conversation heading, 2026-10-20
+
+The collapsed mobile topbar shows the active conversation title and conversation cost in both themes.
+Use the existing title and usage updates, including streamed title changes and completed-turn costs.
+Long titles truncate within the existing glass topbar. Desktop layout and glass settings stay unchanged.

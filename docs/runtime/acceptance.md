@@ -1,5 +1,13 @@
 # Feature and acceptance checklist
 
+## Mobile conversation heading, 2026-10-20
+
+The collapsed mobile topbar shows the active conversation title and conversation cost in light and dark themes.
+The title and cost share the desktop update paths. Long titles truncate within the existing 60-pixel glass header.
+Native inspection at 344 by 741 pixels confirmed both themes, visible costs, and no horizontal page overflow.
+Selecting another saved conversation updated both values. The drawer retained its existing layout and hid the heading while open.
+The production frontend image built successfully and replaced the local web container. Both local services report healthy.
+
 ## Plain sidebar text, 2026-10-20
 
 The sidebar no longer applies white or dark text halos.

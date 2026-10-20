@@ -332,6 +332,7 @@ h2 {
   display: none;
 }
 .mobile-only,
+.mobile-conversation-heading,
 .conversation-actions-label {
   display: none;
 }
@@ -3389,6 +3390,27 @@ tr:last-child td {
     margin: 0;
     padding: 8px;
     border-radius: 18px;
+  }
+  .sidebar-collapsed .mobile-conversation-heading {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    margin-inline-start: 56px;
+  }
+  #mobile-session-title {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #mobile-conversation-cost {
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
   }
   .sidebar-collapsed .app-header.glass-surface > .glass-optics,
   .sidebar-collapsed .app-header.glass-surface::before,
