@@ -753,3 +753,7 @@ React portals move the existing panel heading and back control into the mobile h
 Hide the pinned heading while the sidebar drawer is open.
 Chat retains its conversation title and cost. Desktop layout rules and the existing glass material stay unchanged.
 This requested layout change supersedes stylesheet preservation for these mobile headers.
+
+Keep the mobile panel scroll area behind the entire navigation row.
+Reserve its initial header space with padding inside the scroller, so content continues behind both frosted surfaces.
+The separate round control and title tab use the same optical material and navigation shadow on every panel in both themes.

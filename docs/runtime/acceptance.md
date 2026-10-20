@@ -13,6 +13,14 @@ Connections, tools, and administrator navigation retained visible headings and b
 The preview reported no browser errors or warnings. Production Next.js and ARM64 frontend image builds passed.
 Desktop layout rules, fonts, colors, and glass settings remain unchanged.
 
+The panel scroll area now extends behind both frosted header pieces.
+Internal padding preserves the initial content position without clipping scrolled material below the header.
+Native inspection covered Activity, Admin, Connections, and Tools in both themes at 431 pixels.
+All eight views retained matching optical tint, blur, saturation, and navigation shadows.
+The scroll area began at four pixels, while the separate header pieces remained fixed at eight pixels.
+The 320-pixel Tools view also retained this scroll area without horizontal overflow.
+The browser reported no errors or warnings. The production ARM64 frontend image built successfully.
+
 ## React workspace ownership, 2026-10-20
 
 React state now owns chat messages, streaming, approvals, attachments, voice controls, composer menus, settings, navigation, sign-in, research, connections, and charts.

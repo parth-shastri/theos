@@ -3065,8 +3065,10 @@ tr:last-child td {
   }
   #dashboard,
   .workspace-panel {
-    margin-top: calc(64px + env(safe-area-inset-top, 0px));
-    padding: 16px;
+    /* Reserve header space inside the scroller so its content can pass behind the frost. */
+    margin-top: 0;
+    padding: calc(80px + env(safe-area-inset-top, 0px)) 16px 16px;
+    scroll-padding-top: calc(80px + env(safe-area-inset-top, 0px));
   }
   .header-brand span {
     font-size: 10px;
@@ -3443,6 +3445,7 @@ tr:last-child td {
     flex-wrap: nowrap;
     gap: 8px;
     border-radius: 18px;
+    box-shadow: var(--glass-shadow);
   }
   .mobile-panel-header .panel-identity,
   .mobile-panel-header .panel-heading > div {
