@@ -1,12 +1,12 @@
-"use strict";
-
 // Keep optical effects separate from chat state and provider behavior.
-(() => {
+export function createGlass(scope) {
   if (
     !CSS.supports("backdrop-filter", "blur(1px)") &&
     !CSS.supports("-webkit-backdrop-filter", "blur(1px)")
   )
-    return;
+    return {
+      enhance() {},
+    };
   const surfaceSelector =
     ".app-header, aside, dialog, #composer, .composer-options, .conversation-menu, .mode-menu, .settings-select-menu, .liquid-panel";
   let lensId = 0;
@@ -28,7 +28,6 @@
     CSS.supports("backdrop-filter", 'url("#glass-lens")') &&
     /(?:Chrome|Chromium|Edg)\//.test(navigator.userAgent);
   const optics = new Map();
-
   function updateLens(surface, width, height) {
     if (!canRefract || reducedTransparency.matches || width < 1 || height < 1)
       return;
@@ -85,12 +84,13 @@
     state.map.setAttribute("height", height);
     surface.classList.add("has-refraction");
   }
-
-  const observer = new ResizeObserver((entries) => {
-    for (const { target } of entries) {
-      updateLens(target, target.clientWidth, target.clientHeight);
-    }
-  });
+  const observer = scope.observe(
+    new ResizeObserver((entries) => {
+      for (const { target } of entries) {
+        updateLens(target, target.clientWidth, target.clientHeight);
+      }
+    }),
+  );
   function enhance(root = document) {
     for (const [surface, state] of optics) {
       if (surface.isConnected) continue;
@@ -115,7 +115,6 @@
       layer.setAttribute("aria-hidden", "true");
       surface.prepend(layer);
       surface.classList.add("glass-surface");
-
       const filter = document.createElementNS(svgNS, "filter");
       filter.id = `glass-lens-${lensId++}`;
       for (const [key, value] of Object.entries({
@@ -140,40 +139,70 @@
         displacement.setAttribute(key, value);
       filter.append(map, displacement);
       defs.append(filter);
-      optics.set(surface, { map, filter, signature: "" });
+      optics.set(surface, {
+        map,
+        filter,
+        signature: "",
+      });
       surface.style.setProperty("--glass-refraction", `url("#${filter.id}")`);
       observer.observe(surface);
-
       let lightFrame = 0;
       function moveLight(event) {
         if (reducedMotion.matches || reducedTransparency.matches || lightFrame)
           return;
         const { clientX, clientY } = event;
-        lightFrame = requestAnimationFrame(() => {
+        lightFrame = scope.requestAnimationFrame(() => {
           const rect = surface.getBoundingClientRect();
           surface.style.setProperty("--light-x", `${clientX - rect.left}px`);
           surface.style.setProperty("--light-y", `${clientY - rect.top}px`);
           lightFrame = 0;
         });
       }
-      surface.addEventListener("pointermove", moveLight, { passive: true });
-      surface.addEventListener(
+      scope.listen(surface, "pointermove", moveLight, {
+        passive: true,
+      });
+      scope.listen(
+        surface,
         "pointerdown",
         (event) => {
           if (event.pointerType === "mouse") return;
           moveLight(event);
           surface.classList.add("glass-pressed");
         },
-        { passive: true },
+        {
+          passive: true,
+        },
       );
       for (const event of ["pointerup", "pointercancel", "pointerleave"])
-        surface.addEventListener(
+        scope.listen(
+          surface,
           event,
           () => surface.classList.remove("glass-pressed"),
-          { passive: true },
+          {
+            passive: true,
+          },
         );
     }
   }
-  window.TheosGlass = { enhance };
+  scope.onDispose(() => {
+    for (const [surface] of optics) {
+      surface.querySelector(":scope > .glass-optics")?.remove();
+      const content = surface.querySelector(":scope > .glass-content");
+      if (content) {
+        content.replaceWith(...content.childNodes);
+      }
+      surface.classList.remove(
+        "glass-surface",
+        "has-refraction",
+        "glass-pressed",
+      );
+      surface.style.removeProperty("--glass-refraction");
+    }
+    optics.clear();
+    svg.remove();
+  });
   enhance();
-})();
+  return {
+    enhance,
+  };
+}

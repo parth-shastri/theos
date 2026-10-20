@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-18.
+Updated: 2026-10-20.
 
 ## Confirmed decisions
 
@@ -25,6 +25,8 @@ Updated: 2026-10-18.
 | Assistant punctuation | Never use em dashes in assistant replies, reasoning summaries, or generated titles. Add shared model instructions and replace any emitted em dash with an ASCII hyphen before display and persistence. Preserve user input, tool arguments, and opaque provider data |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
 | Telegram enrollment limit | 50 unique senders per database, including incomplete setup. Operators can lower the limit |
+| Browser framework and deployment | Next.js App Router and React components under `web/`. Preserve existing CSS, assets, glass effects, native interactions, and responsive layouts. Run Next.js separately from FastAPI. The `web` Compose service owns the public origin and forwards requests to the private `theos` API service. Release and roll back both immutable images together |
+| Browser authentication | Preserve Telegram confirmation and private access-token identities. Both browser sign-ins use opaque HttpOnly sessions. Never retain access tokens in browser storage. Hash session credentials in SQLite. Enforce seven-day absolute and twelve-hour idle expiry, logout revocation, configured token rotation, CSRF checks, and persistent login throttling. HTTPS sessions use `__Host-` cookies. Keep the frontend service credential server-only. Terminal clients retain bearer access to the private API |
 | Browser style | Retain the existing green palette and light/dark theme colors. Start the green background tint along the full bottom edge in both themes. Keep the top-corner tint minimal and reduce dark-mode tint strength. Avoid bright light pools. Keep panes transparent enough to show blurred content underneath. Use moving edge highlights, pointer light, and shadows on the sidebar, dialogs, and menus. Use cached SVG rim displacement in Chromium, with CSS blur and edge highlights as the fallback. Keep controls above a separate optical layer. Scroll dialog content inside the fixed pane. Use simple child-control fills instead of stacked glass. Keep the floating composer subtle and allow content to scroll behind it. Preserve solid fallbacks and reduced-motion and reduced-transparency preferences |
 | Browser usage and tools | Owner and conversation USD estimates. Administrator totals and cost breakdowns include all transports. Missing prices stay visible. Collapsed reasoning summaries and tool calls. Searchable conversation tool registry with approval labels |
 | Usage view access | Every browser user has personal Activity & usage through their token. Administrators have a separate Admin dashboard for all users and transports. Personal charts always use the authenticated owner, including administrator tokens. Administrator responses exclude conversation titles and message content |
@@ -693,3 +695,24 @@ When a ready private user sends `/start`, ask before restarting onboarding.
 The continue choice keeps the saved profile and conversation history available.
 The restart choice collects the name and timezone again without deleting saved records.
 Show `run_command` input as shell code, `browser` input as its `agent-browser` command, and `execute_code` input as Python code in Telegram progress events.
+
+## Next.js frontend and browser authentication, 2026-10-20
+
+The browser now runs in a separate Next.js App Router service under `web/`.
+FastAPI owns the API, runtime, SQLite, and scheduler. It serves no frontend page or assets.
+React defines the page structure. The mounted browser controller retains native behavior and cleans its listeners, timers, requests, observers, and audio.
+The original stylesheet and image and font assets retain their bytes.
+One hundred visual comparisons retained measured geometry at five widths in both themes.
+
+Browser sign-in preserves configured and Telegram-owned identities through revocable opaque sessions.
+Tokens no longer remain in browser storage. HTTPS cookies use Secure, HttpOnly, SameSite Strict, and host-only prefixes.
+The API enforces absolute and idle expiry, logout revocation, configured token rotation, CSRF checks, and persistent login throttling.
+The frontend service secret stays on the server. A configured trusted ingress can supply validated client addresses for separate login limits.
+The terminal retains direct bearer access to the private API.
+
+Compose retains host port 8080 for the frontend and uses private host port 8081 for the API.
+Pi releases publish and record both immutable image digests. Rollback restores the prior pair and data volume.
+The frontend source, dependencies, development steps, and migration configuration are documented in the browser, development, and deployment guides.
+Local acceptance passed 1,030 Python cases, four proxy checks, sixteen production browser scenarios, and a 10 MiB upload/download.
+Docker image builds remain CI checks because the local daemon was unavailable.
+Production deployment and branch promotions have not occurred.

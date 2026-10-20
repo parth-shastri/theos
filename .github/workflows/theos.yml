@@ -40,10 +40,10 @@ jobs:
         run: python3 scripts/ci_policy.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: '24.18.0'
       - name: Check every owned browser JavaScript file
         run: |
-          for file in src/theos/transports/browser/static/*.js; do
+          rg --files web/src web/scripts -g '*.js' -g '*.mjs' | while IFS= read -r file; do
             node --check "$file"
           done
       - name: Install workflow and secret scanners
@@ -85,13 +85,68 @@ jobs:
           uv venv /tmp/client-check
           uv pip install --python /tmp/client-check/bin/python "${wheel}[client]"
           cd /tmp
-          /tmp/package-check/bin/python -c 'import theos, harness, renderer; from importlib.resources import files; assert (files("theos") / "transports/browser/static/index.html").is_file()'
+          /tmp/package-check/bin/python -c 'import theos, harness, renderer; from importlib.resources import files; assert (files("theos") / "storage/migrations/014_browser_sessions.sql").is_file()'
           /tmp/package-check/bin/theos --help
           /tmp/client-check/bin/theos --help
           /tmp/client-check/bin/python -c 'from importlib.util import find_spec; assert find_spec("fastapi") is None; assert find_spec("openai") is None'
       - run: cp .env.minimal .env
       - run: docker compose config --quiet
       - run: docker compose -f compose.yaml -f compose.dev.yaml config --quiet
+  web:
+    name: Next.js frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.18.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.26'
+          python-version: '3.13'
+          enable-cache: true
+      - run: uv sync --locked --extra server
+      - run: npm ci --prefix web --no-audit --no-fund
+      - run: npm --prefix web run check
+      - run: npm --prefix web test
+      - run: npm --prefix web run build
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Run separate frontend and API acceptance
+        env:
+          AGENT_NAME: 'Theos <preview>'
+          AGENT_PROVIDER: fake
+          AGENT_USERS: '{"preview":"nextjs-browser-preview-token-123456789"}'
+          AGENT_ADMINS: '["preview"]'
+          AGENT_DATA_DIR: /tmp/theos-web-ci
+          AGENT_WEB_URL: http://127.0.0.1:3000
+          AGENT_FRONTEND_SECRET: ci-private-service-secret-123456789
+          THEOS_FRONTEND_SECRET: ci-private-service-secret-123456789
+          THEOS_API_URL: http://127.0.0.1:8080
+          HOSTNAME: 127.0.0.1
+          PORT: '3000'
+        run: |
+          uv run --no-sync python -m theos.server > "$RUNNER_TEMP/theos-api.log" 2>&1 &
+          npm --prefix web start > "$RUNNER_TEMP/theos-web.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ready; then break; fi
+            sleep 1
+          done
+          npm --prefix web run test:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: web-acceptance-failure
+          path: |
+            web/test-results
+            ${{ runner.temp }}/theos-api.log
+            ${{ runner.temp }}/theos-web.log
   container:
     name: Container ${{ matrix.architecture }}
     needs: quality
@@ -156,7 +211,7 @@ jobs:
   passed:
     name: CI passed
     if: always()
-    needs: [quality, tests, container]
+    needs: [quality, tests, web, container]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -164,11 +219,13 @@ jobs:
         env:
           QUALITY: ${{ needs.quality.result }}
           TESTS: ${{ needs.tests.result }}
+          WEB: ${{ needs.web.result }}
           CONTAINER: ${{ needs.container.result }}
           ARCHITECTURES: ${{ needs.quality.outputs.architectures }}
         run: |
           test "$QUALITY" = success
           test "$TESTS" = success
+          test "$WEB" = success
           test -n "$ARCHITECTURES"
           if test "$ARCHITECTURES" = '[]'; then
             test "$CONTAINER" = skipped

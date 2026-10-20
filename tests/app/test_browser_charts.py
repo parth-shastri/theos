@@ -9,9 +9,20 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is unavailable")
 def test_chart_interaction_preserves_unknown_prices_and_full_breakdowns():
-    source = Path("src/theos/transports/browser/static/charts.js").read_text()
+    source = Path("web/src/runtime/charts.js").read_text().replace("export function", "function")
     script = r"""
 const assert = require('node:assert/strict');
+const scope = {
+  observe: observer => observer,
+  onDispose() {},
+  listen: (target, ...args) => target?.addEventListener?.(...args),
+  setTimeout: (...args) => setTimeout(...args),
+  clearTimeout: id => clearTimeout(id),
+  setInterval: (...args) => setInterval(...args),
+  clearInterval: id => clearInterval(id),
+  requestAnimationFrame: callback => requestAnimationFrame(callback),
+  cancelAnimationFrame: id => cancelAnimationFrame(id),
+};
 function all(root, predicate) {
   return root.children.flatMap(child => [ ...(predicate(child) ? [child] : []), ...all(child, predicate) ]);
 }
@@ -60,7 +71,8 @@ const data = {days: 7, daily, models, tools, totals: {
 """
     script += source
     script += r"""
-const grid = window.TheosCharts.activity(data);
+const TheosCharts = createCharts(scope);
+const grid = TheosCharts.activity(data);
 const requests = byClass(grid, 'chart-requests')[0];
 const costs = byClass(grid, 'chart-cost')[0];
 assert.equal(byClass(costs, 'cost-unknown').length, 2);
@@ -99,11 +111,11 @@ assert.equal(all(modelCard, child => child.tag === 'tbody')[0].children.length, 
 byClass(requests, 'chart-hit')[3].onclick();
 assert.ok(byClass(requests, 'chart-inspection')[0].textContent.includes('400 input'));
 const oldObservers = [...observers];
-const empty = window.TheosCharts.activity({...data, daily: daily.map(row => ({...row, requests: 0, cost: 0, unpriced_requests: 0, input_tokens: 0, output_tokens: 0})), models: [], tools: [], totals: {requests: 0, cost: 0, unpriced_requests: 0, input_tokens: 0, output_tokens: 0}});
+const empty = TheosCharts.activity({...data, daily: daily.map(row => ({...row, requests: 0, cost: 0, unpriced_requests: 0, input_tokens: 0, output_tokens: 0})), models: [], tools: [], totals: {requests: 0, cost: 0, unpriced_requests: 0, input_tokens: 0, output_tokens: 0}});
 assert.ok(oldObservers.every(observer => observer.disconnected));
 assert.ok(empty.textContent.includes('No model requests in this period.'));
 assert.ok(empty.textContent.includes('No tool calls in this period.'));
-const unknown = window.TheosCharts.activity({...data, daily: daily.map(row => ({...row, cost: null, unpriced_requests: row.requests})), totals: {...data.totals, cost: null}});
+const unknown = TheosCharts.activity({...data, daily: daily.map(row => ({...row, cost: null, unpriced_requests: row.requests})), totals: {...data.totals, cost: null}});
 assert.equal(byClass(byClass(unknown, 'chart-cost')[0], 'chart-value')[0].textContent, 'Unavailable');
 """
     result = subprocess.run(["node"], input=script, text=True, capture_output=True, timeout=10)

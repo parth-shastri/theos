@@ -1,6 +1,8 @@
-"use strict";
-// Pinned browser libraries are recorded in browser-vendor-provenance.json.
-window.TheosMarkdown = (() => {
+import { Marked } from "marked";
+import createDOMPurify from "dompurify";
+// npm locks the Markdown parser and sanitizer versions.
+export function createMarkdown(scope) {
+  const DOMPurify = createDOMPurify(window);
   const sources = new WeakMap();
   const frames = new WeakMap();
   const rendered = new WeakMap();
@@ -16,7 +18,7 @@ window.TheosMarkdown = (() => {
           "'": "&#39;",
         })[character],
     );
-  const parser = new marked.Marked({
+  const parser = new Marked({
     gfm: true,
     breaks: false,
     renderer: {
@@ -29,7 +31,6 @@ window.TheosMarkdown = (() => {
       },
     },
   });
-
   function draw(element, source) {
     if (rendered.get(element) === source) return;
     const fragment = DOMPurify.sanitize(parser.parse(source), {
@@ -130,7 +131,7 @@ window.TheosMarkdown = (() => {
           );
           copy.title = "Select the code and copy it manually.";
         }
-        setTimeout(() => {
+        scope.setTimeout(() => {
           copy.textContent = "Copy";
           copy.setAttribute("aria-label", "Copy code");
         }, 1600);
@@ -142,21 +143,22 @@ window.TheosMarkdown = (() => {
     element.replaceChildren(fragment);
     rendered.set(element, source);
   }
-
   function render(element, source = "", streaming = false) {
     sources.set(element, source);
     element.classList.add("markdown");
-    if (frames.has(element)) cancelAnimationFrame(frames.get(element));
+    if (frames.has(element)) scope.cancelAnimationFrame(frames.get(element));
     frames.delete(element);
     if (!streaming) return draw(element, source);
     frames.set(
       element,
-      requestAnimationFrame(() => {
+      scope.requestAnimationFrame(() => {
         frames.delete(element);
         if (element.isConnected) {
           draw(element, sources.get(element));
           element.dispatchEvent(
-            new Event("markdown-rendered", { bubbles: true }),
+            new Event("markdown-rendered", {
+              bubbles: true,
+            }),
           );
         }
       }),
@@ -174,4 +176,4 @@ window.TheosMarkdown = (() => {
     text,
     source: (element) => sources.get(element) ?? element.textContent,
   };
-})();
+}

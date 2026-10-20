@@ -9,12 +9,23 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is unavailable")
 def test_browser_replacement_handles_streaming_and_completed_drafts():
-    source = Path("src/theos/transports/browser/static/app.js").read_text()
+    source = Path("web/src/runtime/workspace.js").read_text()
     handler = source[
         source.index("async function stream(") : source.index("async function newSession(")
     ]
     script = r"""
 const assert = require('node:assert/strict');
+const scope = {
+  observe: observer => observer,
+  onDispose() {},
+  listen: (target, ...args) => target?.addEventListener?.(...args),
+  setTimeout: (...args) => setTimeout(...args),
+  clearTimeout: id => clearTimeout(id),
+  setInterval: (...args) => setInterval(...args),
+  clearInterval: id => clearInterval(id),
+  requestAnimationFrame: callback => requestAnimationFrame(callback),
+  cancelAnimationFrame: id => cancelAnimationFrame(id),
+};
 let selected = 'session', rows = [], input = [];
 const me = {id: 'alice'}, speechControls = new Set();
 let activityRows = [];

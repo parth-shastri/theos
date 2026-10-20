@@ -1,17 +1,13 @@
 """FastAPI entry point for private chat, approvals, files, and operations."""
 
 import asyncio
-import hmac
 import json
 import logging
 from contextlib import asynccontextmanager
-from html import escape
-from pathlib import Path
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from theos.operations.logging import configure_logging
@@ -32,7 +28,13 @@ from theos.settings import Settings
 from theos.storage import browser_access
 from theos.storage.database import Database
 from theos.transports.browser.activity import activity_summary
-from theos.transports.browser.auth import SESSION_COOKIE, register_auth, same_origin
+from theos.transports.browser.auth import (
+    SESSION_COOKIE,
+    cookie_value,
+    frontend_access,
+    register_auth,
+    same_origin,
+)
 from theos.transports.telegram.polling import Telegram
 
 
@@ -145,17 +147,12 @@ def create_app(settings=None, runtime=None):
     async def identity(request: Request):
         authorization = request.headers.get("Authorization", "")
         token = authorization.removeprefix("Bearer ") if authorization.startswith("Bearer ") else ""
-        owner = None
-        for user, secret in settings.users.items():
-            if hmac.compare_digest(token.encode(), secret.get_secret_value().encode()):
-                owner = user
         db = request.app.state.runtime.db
-        if not owner and token:
-            owner = browser_access.credential_owner(settings, db, token, "token")
-        if not authorization and request.cookies.get(SESSION_COOKIE):
-            owner = browser_access.credential_owner(
-                settings, db, request.cookies[SESSION_COOKIE], "session"
-            )
+        owner = browser_access.token_owner(settings, db, token)
+        session = cookie_value(request, SESSION_COOKIE, settings)
+        if not authorization and session:
+            frontend_access(request, settings)
+            owner = browser_access.credential_owner(settings, db, session, "session")
             if request.method not in {"GET", "HEAD", "OPTIONS"}:
                 same_origin(request, settings)
         if not owner:
@@ -208,6 +205,8 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/ready")
     async def ready(request: Request):
+        if request.headers.get("X-Theos-Frontend-Secret"):
+            frontend_access(request, settings)
         active = current(request)
         active.db.one("SELECT 1")
         configured = (
@@ -533,13 +532,5 @@ def create_app(settings=None, runtime=None):
             "<!doctype html><title>Account connected</title>"
             "<p>Account connected. Return to the workspace or private chat that started setup.</p>"
         )
-
-    static = Path(__file__).parent / "static"
-    app.mount("/static", StaticFiles(directory=static), name="static")
-
-    @app.get("/")
-    async def index():
-        page = (static / "index.html").read_text(encoding="utf-8")
-        return HTMLResponse(page.replace("{{AGENT_NAME}}", escape(settings.name)))
 
     return app

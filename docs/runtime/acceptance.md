@@ -1,5 +1,35 @@
 # Feature and acceptance checklist
 
+## Separate Next.js frontend and browser sessions, 2026-10-20
+
+The Next.js frontend and FastAPI API run as separate processes and Compose services.
+FastAPI no longer serves the browser page or static assets.
+React components retain the original workspace structure. The stylesheet, font, logos, and provider icons retain their original bytes.
+
+The full Python suite passed 1,030 tests, with three credential-dependent checks excluded.
+Six session checks cover cookie attributes, CSRF, rotation, expiry, logout, role boundaries, and login throttling.
+The existing Telegram enrollment and connected-terminal checks retain their owner and approval rules.
+Four Node checks cover the proxy's credentials, origin checks, separate cookies, validated ingress addresses, and immediate SSE delivery.
+
+Sixteen production browser scenarios passed at 320, 390, 768, and 1280 pixels in both themes.
+They cover cookie sign-in, reload, logout revocation, CSRF rejection, streaming, settings, native glass pickers, workspace navigation, and draft preservation.
+Nonce values differ between requests. Production CSP permits no arbitrary inline scripts.
+A separate HTTP smoke check uploaded and downloaded a 10 MiB file byte-for-byte through Next.js.
+API routes bypass middleware body cloning. The upstream stream client retains disconnect cancellation without idle timeouts.
+
+The [visual comparison](nextjs-ui-comparison.json) records 100 pairs against commit `0fc71659b90a8d5253e95cf5bd9a1296f5ff4e5a`.
+Checks covered ten workspace states at 320, 390, 700, 768, and 1280 pixels in both themes.
+Measured geometry matched in every pair. Isolated glass pixels differed by at most one channel level out of 255.
+No captured state had horizontal overflow or an unexpected browser error.
+These checks used a fake provider, reduced motion, and disposable databases.
+
+Production Next.js and Python package builds, Ruff, Prettier, workflow validation, dependency-lock validation, and both Compose configurations passed.
+The Python wheel contains the API migrations. The source distribution contains frontend sources without Node modules or build caches.
+The npm production dependency audit reported no known vulnerabilities.
+Docker was unavailable locally, so image builds and live container replacement remain CI checks.
+The release workflow publishes separate immutable image digests. Deployment tests cover replacement and rollback of both services.
+No branch promotion or production deployment occurred.
+
 ## Direct motivation, 2026-10-18
 
 The shared persona now specifies firm, masculine encouragement for ordinary discouragement and procrastination.

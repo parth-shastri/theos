@@ -1,5 +1,4 @@
-"use strict";
-window.TheosCharts = (() => {
+export function createCharts(scope) {
   const observers = new Set();
   let chartId = 0;
   const number = (value) => Number(value || 0).toLocaleString();
@@ -186,8 +185,12 @@ window.TheosCharts = (() => {
       const labelCount = width < 380 ? 2 : width < 540 ? 3 : 5;
       const labelIndexes = [
         ...new Set(
-          Array.from({ length: labelCount }, (_, index) =>
-            Math.round((index * (daily.length - 1)) / (labelCount - 1)),
+          Array.from(
+            {
+              length: labelCount,
+            },
+            (_, index) =>
+              Math.round((index * (daily.length - 1)) / (labelCount - 1)),
           ),
         ),
       ];
@@ -234,7 +237,12 @@ window.TheosCharts = (() => {
                 class: "cost-area",
               }),
             );
-          svg.append(svgNode("path", { d: path, class: "cost-line" }));
+          svg.append(
+            svgNode("path", {
+              d: path,
+              class: "cost-line",
+            }),
+          );
         }
       }
       daily.forEach((row, index) => {
@@ -295,7 +303,9 @@ window.TheosCharts = (() => {
                       ),
                     );
             inspect(next);
-            hits[next].focus({ preventScroll: true });
+            hits[next].focus({
+              preventScroll: true,
+            });
           } else if (["Enter", " "].includes(event.key)) {
             event.preventDefault();
             inspect(index);
@@ -337,10 +347,12 @@ window.TheosCharts = (() => {
       plot.replaceChildren(svg);
     }
     draw(600);
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry.contentRect.width > 0)
-        draw(Math.max(220, entry.contentRect.width));
-    });
+    const observer = scope.observe(
+      new ResizeObserver(([entry]) => {
+        if (entry.contentRect.width > 0)
+          draw(Math.max(220, entry.contentRect.width));
+      }),
+    );
     observer.observe(plot);
     observers.add(observer);
     figure.append(plot, detail, hint);
@@ -528,5 +540,7 @@ window.TheosCharts = (() => {
     grid.append(requests, cost, models, tools);
     return grid;
   }
-  return { activity };
-})();
+  return {
+    activity,
+  };
+}

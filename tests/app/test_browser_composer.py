@@ -9,17 +9,28 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is unavailable")
 def test_composer_prompts_and_voice_feedback_preserve_drafts():
-    source = Path("src/theos/transports/browser/static/app.js").read_text()
+    source = Path("web/src/runtime/workspace.js").read_text()
     prompts = source[
         source.index("const composerPrompts =") : source.index("function stopRecordingMeter()")
     ]
     recording = source[
         source.index("function releaseRecording()") : source.index(
-            'window.addEventListener("pagehide"'
+            'scope.listen(window, "pagehide"'
         )
     ]
     script = r"""
 const assert = require('node:assert/strict');
+const scope = {
+  observe: observer => observer,
+  onDispose() {},
+  listen: (target, ...args) => target?.addEventListener?.(...args),
+  setTimeout: (...args) => setTimeout(...args),
+  clearTimeout: id => clearTimeout(id),
+  setInterval: (...args) => setInterval(...args),
+  clearInterval: id => clearInterval(id),
+  requestAnimationFrame: callback => requestAnimationFrame(callback),
+  cancelAnimationFrame: id => cancelAnimationFrame(id),
+};
 function element() {
   return {value: '', textContent: '', className: '', hidden: false, disabled: false,
     attributes: new Map(),

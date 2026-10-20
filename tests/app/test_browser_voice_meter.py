@@ -9,12 +9,23 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is unavailable")
 def test_voice_meter_drives_both_surfaces_and_releases_audio_resources():
-    source = Path("src/theos/transports/browser/static/app.js").read_text()
+    source = Path("web/src/runtime/workspace.js").read_text()
     meter = source[
         source.index("function stopRecordingMeter()") : source.index("function releaseRecording()")
     ]
     script = r"""
 const assert = require('node:assert/strict');
+const scope = {
+  observe: observer => observer,
+  onDispose() {},
+  listen: (target, ...args) => target?.addEventListener?.(...args),
+  setTimeout: (...args) => setTimeout(...args),
+  clearTimeout: id => clearTimeout(id),
+  setInterval: (...args) => setInterval(...args),
+  clearInterval: id => clearInterval(id),
+  requestAnimationFrame: callback => requestAnimationFrame(callback),
+  cancelAnimationFrame: id => cancelAnimationFrame(id),
+};
 let recordingMeter = null, amplitude = 0.12, contexts = 0, closed = 0, disconnected = 0;
 let nextFrame = 0;
 const frames = new Map(), cancelled = [];

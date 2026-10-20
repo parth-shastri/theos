@@ -1,10 +1,7 @@
-"use strict";
-
 // Native select elements remain the source of truth for settings validation.
-window.TheosSelects = (() => {
+export function createSelects(scope) {
   const pickers = new Map();
   let active = null;
-
   function close(restoreFocus = false) {
     if (!active) return;
     const picker = active;
@@ -13,7 +10,6 @@ window.TheosSelects = (() => {
     picker.trigger.setAttribute("aria-expanded", "false");
     if (restoreFocus) picker.trigger.focus();
   }
-
   function sync(id) {
     const picker = pickers.get(id);
     if (!picker) return;
@@ -23,17 +19,17 @@ window.TheosSelects = (() => {
     trigger.setAttribute("aria-label", `${picker.label}: ${value.textContent}`);
     if (trigger.disabled && active === picker) close();
   }
-
   function focusOption(picker, option) {
     if (!option) return;
-    option.focus({ preventScroll: true });
+    option.focus({
+      preventScroll: true,
+    });
     const { list } = picker;
     const top = option.offsetTop;
     if (top < list.scrollTop) list.scrollTop = top;
     else if (top + option.offsetHeight > list.scrollTop + list.clientHeight)
       list.scrollTop = top + option.offsetHeight - list.clientHeight;
   }
-
   function open(picker) {
     const { select, trigger, menu, list, check } = picker;
     if (select.disabled || !select.options.length) return;
@@ -53,7 +49,11 @@ window.TheosSelects = (() => {
       button.onclick = () => {
         select.value = option.value;
         close(true);
-        select.dispatchEvent(new Event("change", { bubbles: true }));
+        select.dispatchEvent(
+          new Event("change", {
+            bubbles: true,
+          }),
+        );
         sync(select.id);
       };
       list.append(button);
@@ -96,7 +96,6 @@ window.TheosSelects = (() => {
       ) || options.find((option) => !option.disabled),
     );
   }
-
   function enhance(select, icon, check) {
     // Keep a working native picker in browsers without top-layer popovers.
     if (!HTMLElement.prototype.showPopover) return;
@@ -192,22 +191,22 @@ window.TheosSelects = (() => {
         );
       }
     };
-    menu.addEventListener("toggle", (event) => {
+    scope.listen(menu, "toggle", (event) => {
       if (event.newState === "closed") {
         trigger.setAttribute("aria-expanded", "false");
         if (active === picker) active = null;
       }
     });
-    new MutationObserver(() => sync(select.id)).observe(select, {
+    scope.observe(new MutationObserver(() => sync(select.id))).observe(select, {
       childList: true,
       subtree: true,
       attributes: true,
       attributeFilter: ["disabled"],
     });
-    select.addEventListener("change", () => sync(select.id));
+    scope.listen(select, "change", () => sync(select.id));
     sync(select.id);
   }
-  document.addEventListener("pointerdown", (event) => {
+  scope.listen(document, "pointerdown", (event) => {
     if (
       active &&
       !active.menu.contains(event.target) &&
@@ -215,14 +214,30 @@ window.TheosSelects = (() => {
     )
       close();
   });
-  document.addEventListener(
+  scope.listen(
+    document,
     "scroll",
     (event) => {
       if (active && !active.menu.contains(event.target)) close();
     },
     true,
   );
-  window.addEventListener("resize", () => close());
-  window.visualViewport?.addEventListener("resize", () => close());
-  return { enhance, sync, close };
-})();
+  scope.listen(window, "resize", () => close());
+  scope.listen(window.visualViewport, "resize", () => close());
+  scope.onDispose(() => {
+    close();
+    for (const { select, trigger, menu } of pickers.values()) {
+      const label = document.querySelector('label[for="' + trigger.id + '"]');
+      if (label) label.htmlFor = select.id;
+      select.hidden = false;
+      trigger.remove();
+      menu.remove();
+    }
+    pickers.clear();
+  });
+  return {
+    enhance,
+    sync,
+    close,
+  };
+}
