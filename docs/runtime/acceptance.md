@@ -1,5 +1,17 @@
 # Feature and acceptance checklist
 
+## Plain sidebar text, 2026-10-20
+
+The sidebar no longer applies white or dark text halos.
+The stylesheet differs from the pre-migration baseline only by removal of seven text-shadow lines.
+All seven font, logo, and provider icon assets match the baseline bytes.
+
+Native browser comparison covered light and dark themes at 519 by 741 pixels.
+Thirty sidebar elements retained their font settings, colors, backgrounds, and glass filter styles.
+Visible geometry matched after accounting for the drawer's open or closed position.
+The settled light view retained the original blurred green backdrop without the white glyph outline.
+The rebuilt local frontend is healthy. The backend and existing conversations remain available.
+
 ## Separate Next.js frontend and browser sessions, 2026-10-20
 
 The Next.js frontend and FastAPI API run as separate processes and Compose services.

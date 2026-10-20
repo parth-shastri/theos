@@ -3366,20 +3366,13 @@ tr:last-child td {
   --text: #111b15;
   --text-soft: #17271d;
   --text-muted: #1c3023;
-  --sidebar-text-shadow: 0 0 2px #fff, 0 1px 3px rgb(255 255 255 / 85%);
   color: var(--text);
 }
 [data-theme="dark"] #sidebar {
   --text: #f7fbf9;
   --text-soft: #edf5f0;
   --text-muted: #e3eee7;
-  --sidebar-text-shadow: 0 0 2px #08110c, 0 1px 3px rgb(8 17 12 / 90%);
   color: var(--text);
-}
-#sidebar
-  :is(.rail-title, .cost-label, .account-row, nav button, .sidebar-bottom > button),
-#mobile-conversation-controls summary {
-  text-shadow: var(--sidebar-text-shadow);
 }
 #mobile-conversation-controls summary {
   color: var(--text-soft);

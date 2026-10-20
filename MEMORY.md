@@ -716,3 +716,10 @@ The frontend source, dependencies, development steps, and migration configuratio
 Local acceptance passed 1,030 Python cases, four proxy checks, sixteen production browser scenarios, and a 10 MiB upload/download.
 Docker image builds remain CI checks because the local daemon was unavailable.
 Production deployment and branch promotions have not occurred.
+
+## Plain sidebar text, 2026-10-20
+
+The operator rejected the white halo around sidebar text and requested the existing interface without typography degradation.
+Remove the light and dark sidebar text shadows added by the 2026-10-19 navigation contrast change.
+Keep the font, text colors, geometry, glass material, blur, refraction, and responsive behavior.
+This decision supersedes the text-halo part of the earlier navigation contrast decision.
