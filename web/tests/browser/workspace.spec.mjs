@@ -100,6 +100,8 @@ test("cookie sign-in, reload, CSRF rejection, streaming, and revocation", async 
 test("composer, glass pickers, workspace panels, and mobile navigation", async ({
   page,
 }) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await signIn(page);
   const draft = "Preserve this draft while I inspect the workspace.";
   await page.locator("#message").fill(draft);
@@ -134,6 +136,12 @@ test("composer, glass pickers, workspace panels, and mobile navigation", async (
     await noOverflow(page);
     if (panel === "dashboard") {
       const hits = page.locator(".chart-requests .chart-hit");
+      await expect(hits.last()).toBeVisible();
+      await expect(page.locator(".dashboard-caption")).toHaveText(
+        button === "dashboard-button"
+          ? "All users · all time"
+          : "Your account · all time",
+      );
       const count = await hits.count();
       expect(count).toBeGreaterThan(1);
       await hits.last().focus();
@@ -156,5 +164,6 @@ test("composer, glass pickers, workspace panels, and mobile navigation", async (
   await page.locator("#send").click();
   await expect(page.locator("#usage-dialog")).toBeVisible();
   await page.locator("#usage-close").click();
+  expect(errors).toEqual([]);
   await noOverflow(page);
 });

@@ -18,6 +18,12 @@ Five existing frontend contract checks passed after migration to the React reduc
 Prettier, Ruff for the changed checks, the production Next.js build, and the ARM64 frontend image build passed.
 Live microphone capture, speech synthesis, Telegram confirmation, and connector writes were not exercised in this preview.
 
+The full local Python suite passed 1,030 tests, with three credential-dependent checks excluded, after the React migration.
+Four proxy checks, Ruff, Prettier, and a fresh production Next.js build also passed.
+CI exposed stale personal totals during navigation to the administrator dashboard.
+Activity results now retain their authenticated account and query, so each view renders only matching data.
+Browser acceptance waits for chart data and checks both dashboard scopes and uncaught page errors.
+
 ## Mobile conversation heading, 2026-10-20
 
 The collapsed mobile topbar shows the active conversation title and conversation cost in light and dark themes.

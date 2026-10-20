@@ -740,4 +740,6 @@ Abort stale requests and release media resources when their owner leaves the pag
 Keep native browser APIs for dialogs, popovers, focus, measurement, audio, and the existing optical effects.
 React owns the optical layers and content wrappers. The effect helper creates only rendering resources.
 Keep the stylesheet and font, logo, and provider assets unchanged from the accepted mobile-heading revision.
+Bind activity results to their authenticated account and query before rendering.
+Personal and administrator views must not reuse each other's results during navigation.
 This supersedes the earlier decision to retain the mounted browser controller.

@@ -93,7 +93,7 @@ function DataTable({ title, rows, keys }) {
   );
 }
 export default function Activity() {
-  const { view, navigate, brand, json } = useWorkspace();
+  const { view, navigate, brand, json, me } = useWorkspace();
   const active = ["dashboard", "dashboard-admin"].includes(view),
     admin = view === "dashboard-admin";
   const [range, setRange] = useState("30"),
@@ -101,6 +101,8 @@ export default function Activity() {
     [result, setResult] = useState(null),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
+  const endpoint =
+    "/api/" + (admin ? "dashboard" : "activity") + "?days=" + range;
   const options = useMemo(
     () =>
       ["7", "30", "90"].map((value) => ({
@@ -110,13 +112,13 @@ export default function Activity() {
     [],
   );
   useEffect(() => {
-    if (!active) return;
+    if (!active || !me) return;
     const controller = new AbortController();
     setResult(null);
     setLoading(true);
     setError("");
     Promise.all([
-      json("/api/" + (admin ? "dashboard" : "activity") + "?days=" + range, {
+      json(endpoint, {
         signal: controller.signal,
       }),
       admin
@@ -124,7 +126,8 @@ export default function Activity() {
         : Promise.resolve([]),
     ])
       .then(([data, logs]) => {
-        if (!controller.signal.aborted) setResult({ data, logs });
+        if (!controller.signal.aborted)
+          setResult({ endpoint, account: me, data, logs });
       })
       .catch((error) => {
         if (!controller.signal.aborted) setError(error.message);
@@ -133,8 +136,9 @@ export default function Activity() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [active, admin, range, refresh, json]);
-  const data = result?.data;
+  }, [active, admin, endpoint, refresh, json, me]);
+  const data =
+    result?.endpoint === endpoint && result.account === me ? result.data : null;
   return (
     <section id="dashboard" aria-labelledby="dashboard-title" hidden={!active}>
       <Glass className="panel-heading dashboard-heading liquid-panel">
