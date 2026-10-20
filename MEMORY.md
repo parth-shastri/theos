@@ -757,3 +757,13 @@ This requested layout change supersedes stylesheet preservation for these mobile
 Keep the mobile panel scroll area behind the entire navigation row.
 Reserve its initial header space with padding inside the scroller, so content continues behind both frosted surfaces.
 The separate round control and title tab use the same optical material and navigation shadow on every panel in both themes.
+
+## Shared conversation and panel headers, 2026-10-20
+
+The operator requires the conversation header format on larger screens for Activity, Admin, Connections, and Tools.
+Use one shared React heading component at every width, including chat.
+Keep the round sidebar control separate from the title tab and retain matching frost and continuous scrolling behind both.
+Desktop headings share the conversation typography, compact label, spacing, settings control, and theme control.
+Keep the conversation cost visible. Mobile settings and theme controls remain in the drawer.
+Move Theos branding into the desktop sidebar and remove the stacked app and page header rows.
+This request supersedes the earlier instruction to retain the desktop header layout.

@@ -5,6 +5,7 @@ import { formatCost } from "../state/chat";
 import { Glass } from "./Primitives";
 import { Approvals, MessageList } from "./Messages";
 import Composer from "./Composer";
+import PanelHeading from "./PanelHeading";
 
 export function ConversationActions() {
   const { busy, view, openDialog, resume, reset, perform } = useWorkspace();
@@ -153,22 +154,24 @@ export default function Conversation() {
   }, []);
   return (
     <>
-      <div
-        className="workspace-toolbar"
+      <PanelHeading
+        active={view === "chat-view"}
+        className="conversation-heading"
         id="conversation-toolbar"
-        hidden={["dashboard", "dashboard-admin", "connections-view"].includes(
-          view,
-        )}
       >
-        <div>
+        <div className="conversation-title" id="mobile-conversation-heading">
           <span className="eyebrow">Conversation</span>
-          <h2 id="session-title">{chat.title}</h2>
+          <h2 id="session-title" title={chat.title}>
+            <span id="mobile-session-title">{chat.title}</span>
+          </h2>
           <span id="conversation-cost" className="cost-label">
-            {chat.id ? "Conversation cost: " + formatCost(chat.usage) : ""}
+            <span id="mobile-conversation-cost">
+              {chat.id ? "Conversation cost: " + formatCost(chat.usage) : ""}
+            </span>
           </span>
         </div>
         {!mobile && <ConversationActions />}
-      </div>
+      </PanelHeading>
       <section
         id="chat-view"
         className="chat-view"
