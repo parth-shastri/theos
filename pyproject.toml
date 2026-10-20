@@ -51,7 +51,7 @@ design = ["pillow>=11.0"]
 packages = ["src/theos", "src/harness", "src/renderer", "src/config"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "scripts", "speech", "docs", "config/jaeger.yaml", "config/rpi-connect", "README.md", "MEMORY.md", "AGENTS.md", "LICENSE", "pyproject.toml", "uv.lock", "Dockerfile", "compose.yaml", "compose.dev.yaml", "compose.tracing.yaml", ".dockerignore", ".env.minimal", ".env.full.example", ".env.client.example"]
+include = ["src", "tests", "scripts", "speech", "docs", "web/src", "web/public", "web/scripts", "web/tests", "web/package.json", "web/package-lock.json", "web/next.config.mjs", "web/playwright.config.mjs", "web/.env.example", "config/jaeger.yaml", "config/rpi-connect", "README.md", "MEMORY.md", "AGENTS.md", "LICENSE", "pyproject.toml", "uv.lock", "Dockerfile", "compose.yaml", "compose.dev.yaml", "compose.tracing.yaml", ".dockerignore", ".env.minimal", ".env.full.example", ".env.client.example"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -428,3 +428,17 @@ python3 scripts/rehearse_rpi.py --image theos:rehearsal
 
 The rehearsal installs a release, writes a SQLite record, replaces the release, then starts an intentionally unhealthy image.
 It verifies rollback and the records in both retained databases before removing its containers and volumes.
+
+## Separate frontend releases
+
+The Next.js frontend uses the Docker `web-runtime` target. The API uses `runtime`.
+Pi releases publish both images and retain both immutable digests in the release manifest.
+Deployment checks both services before committing the release. Rollback restores the previous image pair and data volume.
+The API retains its existing architecture coverage. The Next.js frontend release currently targets ARM64.
+Local frontend builds also run on the development host.
+
+Before the first separate-service release, set a random `AGENT_FRONTEND_SECRET` in the deployment environment.
+Keep `AGENT_WEB_URL` pointed at the public frontend origin.
+The frontend retains the host browser port, 8080. Direct API and terminal access moves to the private API port, 8081.
+Existing browser tokens remain valid for sign-in. Previously stored tab tokens are removed by the new client.
+Sessions from earlier versions can require sign-in when their last activity exceeds the new idle limit.

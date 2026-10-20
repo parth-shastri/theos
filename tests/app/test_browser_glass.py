@@ -9,22 +9,36 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is unavailable")
 def test_glass_refresh_releases_removed_panes_and_keeps_press_feedback_for_touch():
-    source = Path("src/theos/transports/browser/static/glass.js").read_text()
+    source = Path("web/src/runtime/glass.js").read_text().replace("export function", "function")
     script = r"""
 const assert = require('node:assert/strict');
+const scope = {
+  observe: observer => observer,
+  onDispose() {},
+  listen: (target, ...args) => { target.addEventListener(...args); return () => target.removeEventListener(...args); },
+  setTimeout: (...args) => setTimeout(...args),
+  clearTimeout: id => clearTimeout(id),
+  setInterval: (...args) => setInterval(...args),
+  clearInterval: id => clearInterval(id),
+  requestAnimationFrame: callback => requestAnimationFrame(callback),
+  cancelAnimationFrame: id => cancelAnimationFrame(id),
+};
 class Element {
   constructor(tag, kind = '') {
     this.tag = tag; this.kind = kind; this.children = []; this.isConnected = true;
     this.classes = new Set(); this.handlers = {}; this.properties = new Map();
-    this.style = {setProperty: (key, value) => this.properties.set(key, value)};
-    this.classList = {add: value => this.classes.add(value), remove: value => this.classes.delete(value)};
+    this.style = {setProperty: (key, value) => this.properties.set(key, value), removeProperty: key => this.properties.delete(key)};
+    this.classList = {add: (...values) => values.forEach(value => this.classes.add(value)), remove: (...values) => values.forEach(value => this.classes.delete(value))};
+    if (kind) { const layer = new Element('span'); layer.classes.add('glass-optics'); this.append(layer); }
   }
   matches(selector) { return !!this.kind && selector.includes(this.kind); }
   querySelectorAll() { return []; }
+  querySelector() { return this.children.find(child => child.classes.has('glass-optics')); }
   append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } }
   prepend(child) { child.parent = this; this.children.unshift(child); }
   setAttribute() {}
   addEventListener(type, callback) { this.handlers[type] = callback; }
+  removeEventListener(type, callback) { if (this.handlers[type] === callback) delete this.handlers[type]; }
   getBoundingClientRect() { return {left: 10, top: 20}; }
   remove() { this.parent.children = this.parent.children.filter(child => child !== this); }
 }
@@ -41,11 +55,13 @@ class ResizeObserver { observe(target) { observed.add(target); } unobserve(targe
 const frames = new Map();
 let frameId = 0;
 const requestAnimationFrame = callback => { frames.set(++frameId, callback); return frameId; };
+const cancelAnimationFrame = id => frames.delete(id);
 function frame() { for (const [id, callback] of frames) { frames.delete(id); callback(); } }
 function filters(root) { return root.children.reduce((sum, child) => sum + (child.tag === 'filter') + filters(child), 0); }
 """
     script += source
     script += r"""
+const TheosGlass = createGlass(scope);
 assert.ok(header.classes.has('glass-surface'), 'The top navigation must share the pane material');
 assert.equal(filters(body), 2);
 oldPane.handlers.pointerdown({pointerType: 'mouse', clientX: 40, clientY: 60});
@@ -61,12 +77,12 @@ oldPane.handlers.pointerup();
 assert.equal(oldPane.classes.has('glass-pressed'), false);
 oldPane.isConnected = false;
 const fresh = new Element('section', '.liquid-panel');
-window.TheosGlass.enhance(fresh);
+TheosGlass.enhance(fresh);
 assert.equal(filters(body), 2, 'Refreshing data must release the old optical filter');
 assert.ok(unobserved.includes(oldPane));
 assert.equal(observed.has(oldPane), false);
 assert.ok(fresh.classes.has('glass-surface'));
-window.TheosGlass.enhance(fresh);
+TheosGlass.enhance(fresh);
 assert.equal(filters(body), 2, 'Enhancement must be idempotent');
 """
     result = subprocess.run(["node"], input=script, text=True, capture_output=True, timeout=10)

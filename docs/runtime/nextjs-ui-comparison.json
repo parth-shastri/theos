@@ -1,0 +1,436 @@
+{
+  "baseline_commit": "0fc71659b90a8d5253e95cf5bd9a1296f5ff4e5a",
+  "date": "2026-10-20",
+  "browser": "Brave Chromium on macOS",
+  "provider": "fake",
+  "widths": [
+    320,
+    390,
+    700,
+    768,
+    1280
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "states": [
+    "idle",
+    "expanded",
+    "plus",
+    "mode",
+    "settings",
+    "picker",
+    "activity",
+    "connections",
+    "tools",
+    "sidebar"
+  ],
+  "reduced_motion": true,
+  "geometry_differences": 0,
+  "channel_tolerance": 1,
+  "compared_pairs": 100,
+  "maximum_channel_difference": 1,
+  "pairs": [
+    {
+      "view": "1280-dark-activity",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "1280-dark-connections",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "1280-dark-expanded",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-dark-idle",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-dark-mode",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-dark-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-dark-plus",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-dark-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-dark-sidebar",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "1280-dark-tools",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "1280-light-activity",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-light-connections",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-light-expanded",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-light-idle",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "1280-light-mode",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-light-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-light-plus",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-light-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "1280-light-sidebar",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "1280-light-tools",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-dark-activity",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-dark-connections",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-dark-expanded",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-dark-idle",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-dark-mode",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-dark-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "320-dark-plus",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-dark-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "320-dark-sidebar",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "320-dark-tools",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-light-activity",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-light-connections",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-light-expanded",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-light-idle",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-light-mode",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-light-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "320-light-plus",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "320-light-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "320-light-sidebar",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "320-light-tools",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-dark-activity",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-dark-connections",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "390-dark-expanded",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "390-dark-idle",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "390-dark-mode",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "390-dark-picker",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-dark-plus",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "390-dark-settings",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-dark-sidebar",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-dark-tools",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "390-light-activity",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-connections",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-expanded",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-idle",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-mode",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-picker",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-plus",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-settings",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-sidebar",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "390-light-tools",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "700-dark-activity",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-connections",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-expanded",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-idle",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-mode",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-plus",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-sidebar",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-dark-tools",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-activity",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-connections",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-expanded",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-idle",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-mode",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-plus",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "700-light-sidebar",
+      "maximum_channel_difference": 0
+    },
+    {
+      "view": "700-light-tools",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-activity",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-connections",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-expanded",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-idle",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-mode",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-plus",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-sidebar",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-dark-tools",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-activity",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-connections",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-expanded",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-idle",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-mode",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-picker",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-plus",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-settings",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-sidebar",
+      "maximum_channel_difference": 1
+    },
+    {
+      "view": "768-light-tools",
+      "maximum_channel_difference": 1
+    }
+  ]
+}

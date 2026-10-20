@@ -332,6 +332,9 @@ h2 {
   display: none;
 }
 .mobile-only,
+.mobile-conversation-heading,
+.mobile-panel-header,
+.compact-panel-back-icon,
 .conversation-actions-label {
   display: none;
 }
@@ -500,6 +503,39 @@ main {
 }
 .workspace-toolbar .header-actions button {
   font-size: 12px;
+}
+.panel-toolbar-host {
+  flex-shrink: 0;
+  min-width: 0;
+}
+.panel-header-subtext {
+  display: none;
+}
+@media (min-width: 701px) {
+  .panel-tab-toolbar :is(h1, h2) {
+    margin: 4px 0 0;
+    font-size: 17px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .panel-tab-toolbar .panel-header-subtext {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #dashboard .panel-body-description {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .panel-toolbar-host {
+    display: none;
+  }
 }
 .conversation-actions {
   position: relative;
@@ -1767,6 +1803,14 @@ button.speech-button.is-playing {
   background: transparent;
   overscroll-behavior: contain;
   scrollbar-width: thin;
+}
+@media (min-width: 701px) {
+  #dashboard,
+  .workspace-panel {
+    border: 1px solid var(--glass-edge);
+    border-radius: 26px;
+    box-shadow: var(--glass-shadow);
+  }
 }
 #dashboard {
   container-type: inline-size;
@@ -3062,8 +3106,10 @@ tr:last-child td {
   }
   #dashboard,
   .workspace-panel {
-    margin-top: calc(64px + env(safe-area-inset-top, 0px));
-    padding: 16px;
+    /* Reserve header space inside the scroller so its content can pass behind the frost. */
+    margin-top: 0;
+    padding: calc(80px + env(safe-area-inset-top, 0px)) 16px 16px;
+    scroll-padding-top: calc(80px + env(safe-area-inset-top, 0px));
   }
   .header-brand span {
     font-size: 10px;
@@ -3366,20 +3412,13 @@ tr:last-child td {
   --text: #111b15;
   --text-soft: #17271d;
   --text-muted: #1c3023;
-  --sidebar-text-shadow: 0 0 2px #fff, 0 1px 3px rgb(255 255 255 / 85%);
   color: var(--text);
 }
 [data-theme="dark"] #sidebar {
   --text: #f7fbf9;
   --text-soft: #edf5f0;
   --text-muted: #e3eee7;
-  --sidebar-text-shadow: 0 0 2px #08110c, 0 1px 3px rgb(8 17 12 / 90%);
   color: var(--text);
-}
-#sidebar
-  :is(.rail-title, .cost-label, .account-row, nav button, .sidebar-bottom > button),
-#mobile-conversation-controls summary {
-  text-shadow: var(--sidebar-text-shadow);
 }
 #mobile-conversation-controls summary {
   color: var(--text-soft);
@@ -3397,10 +3436,89 @@ tr:last-child td {
     padding: 8px;
     border-radius: 18px;
   }
+  .sidebar-collapsed .mobile-conversation-heading {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    margin-inline-start: 56px;
+  }
+  #mobile-session-title {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #mobile-conversation-cost {
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
   .sidebar-collapsed .app-header.glass-surface > .glass-optics,
   .sidebar-collapsed .app-header.glass-surface::before,
   .sidebar-collapsed .app-header.glass-surface::after {
     display: block;
+  }
+  .sidebar-collapsed .app-header-compact {
+    right: auto;
+    width: 60px;
+    border-radius: 50%;
+  }
+  .mobile-panel-header {
+    display: block;
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    left: calc(max(8px, env(safe-area-inset-left, 0px)) + 68px);
+    z-index: 20;
+    min-width: 0;
+  }
+  .mobile-panel-header > .panel-heading {
+    position: relative;
+    top: auto;
+    height: 60px;
+    margin: 0;
+    padding: 8px 10px 8px 14px;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    border-radius: 18px;
+    box-shadow: var(--glass-shadow);
+  }
+  .mobile-panel-header .panel-identity,
+  .mobile-panel-header .panel-heading > div {
+    min-width: 0;
+    flex: 1;
+  }
+  .mobile-panel-header :is(.panel-brand, .eyebrow) {
+    display: none;
+  }
+  .mobile-panel-header .panel-heading h1 {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-panel-header .panel-heading button {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 12px;
+  }
+  .mobile-panel-header .panel-heading button span {
+    display: none;
+  }
+  .mobile-panel-header .panel-heading button svg {
+    display: block;
+    width: 18px;
+    height: 18px;
   }
 }
 @media (max-width: 450px) {

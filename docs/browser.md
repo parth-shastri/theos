@@ -2,7 +2,10 @@
 
 The browser supports private conversations, files, model choices, approvals, and an administrator dashboard.
 It stores conversation history in SQLite across restarts.
-The server presents the configured `AGENT_NAME` on the login page and conversation labels.
+The Next.js frontend presents `AGENT_NAME` on the login page and conversation labels.
+FastAPI serves the authenticated API as a separate process.
+Next.js forwards browser API requests over the private service connection.
+The frontend does not receive model keys, connector secrets, or the database.
 
 ## Configure a user
 
@@ -49,7 +52,10 @@ The code is a visual confirmation. It cannot replace the private browser cookie 
 The browser removes the invitation from its address bar before sending it in the setup request.
 Permanent tokens never enter URLs or Telegram messages.
 
-The approved browser receives an HttpOnly session cookie that expires after seven days.
+The approved browser receives an HttpOnly session cookie with a seven-day absolute lifetime.
+A session also expires after twelve hours without an authenticated request.
+HTTPS deployments use a Secure, host-only `__Host-theos-session` cookie with `SameSite=Strict`.
+Local HTTP development uses the unprefixed cookie name.
 You can reload the browser during confirmation or return to an active device session without entering the token.
 On another device, enter your saved token or send `/web` in Telegram for a new confirmation link.
 A new confirmed Telegram sign-in replaces your previous saved token. Other active device sessions remain valid.
@@ -64,7 +70,7 @@ Token reset and revocation retain personal records and history.
 
 ## Open a conversation
 
-1. Open `http://127.0.0.1:8080` through local access or an [SSH tunnel](DEPLOYMENT.md#private-browser-access).
+1. Open the Next.js frontend, on port 8080 with Compose or port 3000 during [local development](development.md#nextjs-frontend).
 2. Enter your token.
 3. Select **New conversation**.
 4. Open **Settings** in the header, or in the sidebar on mobile.
@@ -80,10 +86,16 @@ Use arrow keys, **Home**, **End**, or type a choice name to move through options
 Use **Enter** or **Space** to select a choice. **Escape** closes only the menu.
 Reasoning choices follow the selected model. **Cancel** discards changes to both fields.
 
-For manual token sign-in, the browser keeps the token in tab session storage until sign-out.
-It sends that token in the authorization header.
-It does not place the token in a URL.
-Telegram-confirmed sign-in uses a protected session cookie instead of storing its session secret in JavaScript.
+Manual sign-in submits the token once to `/api/auth/login` and receives a protected session cookie.
+The frontend clears the token field after successful sign-in and removes previously saved tab tokens.
+Both sign-in methods keep session credentials outside JavaScript storage and URLs.
+The API stores session fingerprints, checks expiry on each request, and revokes the current session at logout.
+Changing a configured account token also invalidates sessions created from that token.
+Origin checks and the custom request header protect browser mutations against CSRF.
+The API limits failed token sign-ins to twenty per upstream network address in fifteen minutes.
+It returns the same error for invalid and expired tokens.
+A configured trusted ingress can supply validated client addresses for separate limits.
+See [frontend service settings](base-infra/environment-variables.md#nextjs-service-settings).
 The conversation list contains only browser sessions for that user.
 The sidebar contains conversations and workspace links.
 Use the sidebar icon to hide or show conversations.
@@ -365,7 +377,7 @@ Keep each browser ID stable when rotating its token.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser owner's account access.
 
-Source: [browser application](../src/theos/transports/browser/app.py), [connection routes](../src/theos/transports/browser/connections.py), and [browser assets](../src/theos/transports/browser/static/).
+Source: [browser application](../src/theos/transports/browser/app.py), [connection routes](../src/theos/transports/browser/connections.py), and [browser assets](../web/src/).
 
 ## Explicit deep research
 

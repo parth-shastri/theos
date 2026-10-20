@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-18.
+Updated: 2026-10-20.
 
 ## Confirmed decisions
 
@@ -25,6 +25,8 @@ Updated: 2026-10-18.
 | Assistant punctuation | Never use em dashes in assistant replies, reasoning summaries, or generated titles. Add shared model instructions and replace any emitted em dash with an ASCII hyphen before display and persistence. Preserve user input, tool arguments, and opaque provider data |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
 | Telegram enrollment limit | 50 unique senders per database, including incomplete setup. Operators can lower the limit |
+| Browser framework and deployment | Next.js App Router and React components under `web/`. Preserve existing CSS, assets, glass effects, native interactions, and responsive layouts. Run Next.js separately from FastAPI. The `web` Compose service owns the public origin and forwards requests to the private `theos` API service. Release and roll back both immutable images together |
+| Browser authentication | Preserve Telegram confirmation and private access-token identities. Both browser sign-ins use opaque HttpOnly sessions. Never retain access tokens in browser storage. Hash session credentials in SQLite. Enforce seven-day absolute and twelve-hour idle expiry, logout revocation, configured token rotation, CSRF checks, and persistent login throttling. HTTPS sessions use `__Host-` cookies. Keep the frontend service credential server-only. Terminal clients retain bearer access to the private API |
 | Browser style | Retain the existing green palette and light/dark theme colors. Start the green background tint along the full bottom edge in both themes. Keep the top-corner tint minimal and reduce dark-mode tint strength. Avoid bright light pools. Keep panes transparent enough to show blurred content underneath. Use moving edge highlights, pointer light, and shadows on the sidebar, dialogs, and menus. Use cached SVG rim displacement in Chromium, with CSS blur and edge highlights as the fallback. Keep controls above a separate optical layer. Scroll dialog content inside the fixed pane. Use simple child-control fills instead of stacked glass. Keep the floating composer subtle and allow content to scroll behind it. Preserve solid fallbacks and reduced-motion and reduced-transparency preferences |
 | Browser usage and tools | Owner and conversation USD estimates. Administrator totals and cost breakdowns include all transports. Missing prices stay visible. Collapsed reasoning summaries and tool calls. Searchable conversation tool registry with approval labels |
 | Usage view access | Every browser user has personal Activity & usage through their token. Administrators have a separate Admin dashboard for all users and transports. Personal charts always use the authenticated owner, including administrator tokens. Administrator responses exclude conversation titles and message content |
@@ -693,3 +695,76 @@ When a ready private user sends `/start`, ask before restarting onboarding.
 The continue choice keeps the saved profile and conversation history available.
 The restart choice collects the name and timezone again without deleting saved records.
 Show `run_command` input as shell code, `browser` input as its `agent-browser` command, and `execute_code` input as Python code in Telegram progress events.
+
+## Next.js frontend and browser authentication, 2026-10-20
+
+The browser now runs in a separate Next.js App Router service under `web/`.
+FastAPI owns the API, runtime, SQLite, and scheduler. It serves no frontend page or assets.
+React defines the page structure. The mounted browser controller retains native behavior and cleans its listeners, timers, requests, observers, and audio.
+The original stylesheet and image and font assets retain their bytes.
+One hundred visual comparisons retained measured geometry at five widths in both themes.
+
+Browser sign-in preserves configured and Telegram-owned identities through revocable opaque sessions.
+Tokens no longer remain in browser storage. HTTPS cookies use Secure, HttpOnly, SameSite Strict, and host-only prefixes.
+The API enforces absolute and idle expiry, logout revocation, configured token rotation, CSRF checks, and persistent login throttling.
+The frontend service secret stays on the server. A configured trusted ingress can supply validated client addresses for separate login limits.
+The terminal retains direct bearer access to the private API.
+
+Compose retains host port 8080 for the frontend and uses private host port 8081 for the API.
+Pi releases publish and record both immutable image digests. Rollback restores the prior pair and data volume.
+The frontend source, dependencies, development steps, and migration configuration are documented in the browser, development, and deployment guides.
+Local acceptance passed 1,030 Python cases, four proxy checks, sixteen production browser scenarios, and a 10 MiB upload/download.
+Docker image builds remain CI checks because the local daemon was unavailable.
+Production deployment and branch promotions have not occurred.
+
+## Plain sidebar text, 2026-10-20
+
+The operator rejected the white halo around sidebar text and requested the existing interface without typography degradation.
+Remove the light and dark sidebar text shadows added by the 2026-10-19 navigation contrast change.
+Keep the font, text colors, geometry, glass material, blur, refraction, and responsive behavior.
+This decision supersedes the text-halo part of the earlier navigation contrast decision.
+
+## Mobile conversation heading, 2026-10-20
+
+The collapsed mobile topbar shows the active conversation title and conversation cost in both themes.
+Use the existing title and usage updates, including streamed title changes and completed-turn costs.
+Long titles truncate within the existing glass topbar. Desktop layout and glass settings stay unchanged.
+
+## React workspace state and rendering, 2026-10-20
+
+The operator requires a complete React migration, including messages, streaming, and interactions, with the exact existing interface in both themes and mobile.
+React now owns messages, streaming state, approvals, attachments, voice controls, composer menus, settings, navigation, sign-in, research, connections, and charts.
+Remove the mounted workspace controller and its DOM renderers.
+The conversation reducer handles saved history and streamed events. Frame batches retain event order, partial replies, tool identities, and replacement answers.
+Abort stale requests and release media resources when their owner leaves the page or account.
+Keep native browser APIs for dialogs, popovers, focus, measurement, audio, and the existing optical effects.
+React owns the optical layers and content wrappers. The effect helper creates only rendering resources.
+Keep the stylesheet and font, logo, and provider assets unchanged from the accepted mobile-heading revision.
+Bind activity results to their authenticated account and query before rendering.
+Personal and administrator views must not reuse each other's results during navigation.
+This supersedes the earlier decision to retain the mounted browser controller.
+
+## Compact mobile panel navigation, 2026-10-20
+
+The operator requests a round sidebar control wherever the mobile topbar would otherwise be empty.
+Activity, administrator activity, connections, and tools place their heading beside this control in both themes.
+Keep the control and heading fixed while the panel scrolls.
+React portals move the existing panel heading and back control into the mobile header, without duplicate headings or actions.
+Hide the pinned heading while the sidebar drawer is open.
+Chat retains its conversation title and cost. Desktop layout rules and the existing glass material stay unchanged.
+This requested layout change supersedes stylesheet preservation for these mobile headers.
+
+Keep the mobile panel scroll area behind the entire navigation row.
+Reserve its initial header space with padding inside the scroller, so content continues behind both frosted surfaces.
+The separate round control and title tab use the same optical material and navigation shadow on every panel in both themes.
+
+## Desktop tab header clarification, 2026-10-21
+
+The operator rejected the combined desktop navigation row and clarified that this change applies only to larger screens.
+Keep the original Theos topbar, its logo, and the original conversation title and cost toolbar.
+Desktop Tools, Connections, Activity, and Admin use that conversation toolbar format above their scrolling content.
+Place each tab title and muted subtext on the left, with Back to chat aligned on the right.
+Remove the Theos logo from tab headers. Keep it in the main topbar.
+Restore the accepted mobile conversation header, compact panel headers, and continuous frost from the preceding mobile revision.
+Desktop tab content panels use the chat window's 26-pixel curved border, edge color, and shadow beneath their toolbars.
+Daily chart hover selection requires pointer movement, so focus scrolling cannot overwrite keyboard selection under a stationary pointer.

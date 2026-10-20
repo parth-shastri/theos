@@ -220,3 +220,41 @@ def test_telegram_checks_use_candidate_environment_and_active_container(deployme
     active = (volume, "exec", "-T", *checker)
     assert calls.index(preflight) < calls.index(("previous-volume", "stop", "theos"))
     assert calls.index(("healthy", volume)) < calls.index(active)
+
+
+def test_frontend_release_pins_and_starts_both_services(deployment):
+    deployer, calls = deployment
+    web_image = "ghcr.io/parth-shastri/theos-web@sha256:" + "e" * 64
+    result = deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION, web_image)
+    current = result["current"]
+    assert current["web_image"] == web_image
+    assert ("docker", "pull", web_image) in calls
+    assert (current["volume"], "up", "--no-build", "--pull", "never", "-d", "theos", "web") in calls
+
+
+def test_failed_frontend_restores_both_previous_services(deployment):
+    deployer, calls = deployment
+    previous = previous_release(deployer)
+    previous["web_image"] = "ghcr.io/parth-shastri/theos-web@sha256:" + "f" * 64
+    write_json(deployer.current_path, previous)
+
+    def health(release):
+        if release["volume"] != previous["volume"]:
+            raise DeploymentError("frontend unhealthy")
+
+    deployer.healthy = health
+    with pytest.raises(DeploymentError, match="rolled_back"):
+        deployer.deploy(
+            IMAGE, "rpi-v0.1.0", REVISION, "ghcr.io/parth-shastri/theos-web@sha256:" + "e" * 64
+        )
+    result = json.loads(deployer.result_path.read_text())
+    assert result["current"] == previous
+    assert ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos", "web") in calls
+    assert any(call[1:] == ("stop", "theos", "web") for call in calls)
+
+
+def test_mutable_frontend_image_is_rejected_before_deployment(deployment):
+    deployer, calls = deployment
+    with pytest.raises(DeploymentError, match="frontend image digest"):
+        deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION, "ghcr.io/parth-shastri/theos-web:latest")
+    assert not calls
