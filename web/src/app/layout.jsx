@@ -12,7 +12,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>{agentName} / Personal assistant</title>
+        <title>{`${agentName} / Personal assistant`}</title>
         <link rel="icon" type="image/png" href="/static/brand-light.png" />
         <link rel="apple-touch-icon" href="/static/brand-light.png" />
       </head>

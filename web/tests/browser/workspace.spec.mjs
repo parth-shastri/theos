@@ -44,6 +44,9 @@ test("cookie sign-in, reload, CSRF rejection, streaming, and revocation", async 
     process.env.AGENT_NAME || "Theos",
   );
   await expect(page.locator("#agent-name > *")).toHaveCount(0);
+  await expect(page).toHaveTitle(
+    `${process.env.AGENT_NAME || "Theos"} / Personal assistant`,
+  );
   const firstPolicy = (await page.request.get("/")).headers()[
     "content-security-policy"
   ];
