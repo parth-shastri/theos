@@ -13,6 +13,10 @@ The 768-pixel desktop view retained its logo and labeled back action without hor
 The 431-pixel mobile panel retained its earlier compact header, and the 320-pixel chat retained its full title and cost bar.
 The browser reported no errors or warnings. The production ARM64 frontend image built successfully.
 
+Desktop tab content panels now match the chat window's 26-pixel curved border, edge color, and shadow.
+Native comparison confirmed exact border and shadow values for all four tabs in both themes at 1280 pixels.
+The 431-pixel mobile panel retained its existing border, radius, and compact header without horizontal overflow.
+
 ## Compact mobile panel navigation, 2026-10-20
 
 Empty mobile topbars now use a round 60-pixel sidebar control.

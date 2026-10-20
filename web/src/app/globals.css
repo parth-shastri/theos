@@ -1804,6 +1804,14 @@ button.speech-button.is-playing {
   overscroll-behavior: contain;
   scrollbar-width: thin;
 }
+@media (min-width: 701px) {
+  #dashboard,
+  .workspace-panel {
+    border: 1px solid var(--glass-edge);
+    border-radius: 26px;
+    box-shadow: var(--glass-shadow);
+  }
+}
 #dashboard {
   container-type: inline-size;
 }
