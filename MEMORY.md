@@ -757,3 +757,12 @@ This requested layout change supersedes stylesheet preservation for these mobile
 Keep the mobile panel scroll area behind the entire navigation row.
 Reserve its initial header space with padding inside the scroller, so content continues behind both frosted surfaces.
 The separate round control and title tab use the same optical material and navigation shadow on every panel in both themes.
+
+## Desktop tab header clarification, 2026-10-21
+
+The operator rejected the combined desktop navigation row and clarified that this change applies only to larger screens.
+Keep the original Theos topbar, its logo, and the original conversation title and cost toolbar.
+Desktop Tools, Connections, Activity, and Admin use that conversation toolbar format above their scrolling content.
+Place each tab title and muted subtext on the left, with Back to chat aligned on the right.
+Remove the Theos logo from tab headers. Keep it in the main topbar.
+Restore the accepted mobile conversation header, compact panel headers, and continuous frost from the preceding mobile revision.

@@ -1,5 +1,18 @@
 # Feature and acceptance checklist
 
+## Desktop tab header clarification, 2026-10-21
+
+The original Theos topbar and conversation title and cost toolbar are restored.
+Desktop Tools, Connections, Activity, and Admin place their tab title and subtext in a matching toolbar above the scrolling content.
+Back to chat appears on the right. Tab headers contain no Theos logo, while the main topbar retains its logo.
+
+Native comparison covered all four tabs in both themes at 1280 pixels.
+Each matched the original conversation toolbar's position, height, 17-pixel title, 650 font weight, line height, and letter spacing.
+Subtext retained the conversation cost's 11-pixel font and muted theme color. Back controls retained a 12-pixel right inset.
+The 768-pixel desktop view retained its logo and labeled back action without horizontal overflow.
+The 431-pixel mobile panel retained its earlier compact header, and the 320-pixel chat retained its full title and cost bar.
+The browser reported no errors or warnings. The production ARM64 frontend image built successfully.
+
 ## Compact mobile panel navigation, 2026-10-20
 
 Empty mobile topbars now use a round 60-pixel sidebar control.

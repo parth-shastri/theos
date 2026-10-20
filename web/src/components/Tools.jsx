@@ -3,7 +3,7 @@ import { useWorkspace } from "../state/WorkspaceContext";
 import { Icon } from "./Primitives";
 import PanelHeading from "./PanelHeading";
 export default function Tools() {
-  const { view, chat, navigate, json, showError } = useWorkspace();
+  const { view, chat, navigate, json, showError, mobile } = useWorkspace();
   const [catalog, setCatalog] = useState([]),
     [query, setQuery] = useState("");
   useEffect(() => {
@@ -30,15 +30,24 @@ export default function Tools() {
       aria-labelledby="tools-title"
     >
       <PanelHeading active={view === "tools-view"}>
-        <h1 id="tools-title">Conversation tools</h1>
+        <div>
+          <span className="eyebrow">Your workspace</span>
+          <h1 id="tools-title">{mobile ? "Conversation tools" : "Tools"}</h1>
+          <div className="panel-header-subtext">
+            <span className="cost-label">
+              Tools available in this conversation.
+            </span>
+          </div>
+        </div>
         <button
           id="back-tools"
+          className="panel-back"
           aria-label="Back to chat"
           title="Back to chat"
           onClick={() => navigate("chat-view")}
         >
-          <Icon name="back" className="compact-panel-back-icon" />
-          <span>← Back to chat</span>
+          <Icon name="back" />
+          <span>Back to chat</span>
         </button>
       </PanelHeading>
       <p>

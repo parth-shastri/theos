@@ -504,6 +504,39 @@ main {
 .workspace-toolbar .header-actions button {
   font-size: 12px;
 }
+.panel-toolbar-host {
+  flex-shrink: 0;
+  min-width: 0;
+}
+.panel-header-subtext {
+  display: none;
+}
+@media (min-width: 701px) {
+  .panel-tab-toolbar :is(h1, h2) {
+    margin: 4px 0 0;
+    font-size: 17px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .panel-tab-toolbar .panel-header-subtext {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #dashboard .panel-body-description {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .panel-toolbar-host {
+    display: none;
+  }
+}
 .conversation-actions {
   position: relative;
   z-index: 6;

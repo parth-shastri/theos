@@ -224,6 +224,11 @@ export default function Connections() {
         <div>
           <span className="eyebrow">Your workspace</span>
           <h1 id="connections-title">Connections</h1>
+          <div className="panel-header-subtext">
+            <span className="cost-label">
+              Connect your accounts and services.
+            </span>
+          </div>
         </div>
         <button
           id="back-connections"

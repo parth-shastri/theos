@@ -156,9 +156,7 @@ export default function Conversation() {
       <div
         className="workspace-toolbar"
         id="conversation-toolbar"
-        hidden={["dashboard", "dashboard-admin", "connections-view"].includes(
-          view,
-        )}
+        hidden={view !== "chat-view"}
       >
         <div>
           <span className="eyebrow">Conversation</span>

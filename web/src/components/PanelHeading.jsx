@@ -8,14 +8,14 @@ export default function PanelHeading({
   className = "",
   children,
 }) {
-  const { mobile, panelHeadingHost } = useWorkspace();
-  const pinned = mobile && panelHeadingHost;
-  const Surface = glass || pinned ? Glass : "div";
+  const { mobile, panelHeadingHost, desktopPanelHeadingHost } = useWorkspace();
+  const host = mobile ? panelHeadingHost : desktopPanelHeadingHost;
+  const Surface = mobile && (glass || host) ? Glass : "div";
   const heading = (
     <Surface
       className={
-        "panel-heading" +
-        (glass || pinned ? " liquid-panel" : "") +
+        (mobile ? "panel-heading" : "workspace-toolbar panel-tab-toolbar") +
+        (mobile && (glass || host) ? " liquid-panel" : "") +
         (className ? " " + className : "")
       }
       hidden={!active}
@@ -23,5 +23,5 @@ export default function PanelHeading({
       {children}
     </Surface>
   );
-  return pinned ? createPortal(heading, panelHeadingHost) : heading;
+  return host ? createPortal(heading, host) : heading;
 }

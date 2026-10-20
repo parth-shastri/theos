@@ -11,7 +11,8 @@ import Connections from "./Connections";
 import Tools from "./Tools";
 import Dialogs from "./Dialogs";
 function WorkspaceContents() {
-  const { me, mobile, sidebarOpen } = useWorkspace();
+  const { me, mobile, sidebarOpen, view, setDesktopPanelHeadingHost } =
+    useWorkspace();
   return (
     <GlassProvider>
       <VoiceAmbience />
@@ -24,6 +25,11 @@ function WorkspaceContents() {
         <WorkspaceHeader />
         <Sidebar />
         <main inert={mobile && sidebarOpen}>
+          <div
+            className="panel-toolbar-host"
+            ref={setDesktopPanelHeadingHost}
+            hidden={view === "chat-view"}
+          />
           <Conversation />
           <Activity />
           <Connections />

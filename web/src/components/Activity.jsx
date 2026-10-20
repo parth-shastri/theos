@@ -94,7 +94,7 @@ function DataTable({ title, rows, keys }) {
   );
 }
 export default function Activity() {
-  const { view, navigate, brand, json, me } = useWorkspace();
+  const { view, navigate, json, me } = useWorkspace();
   const active = ["dashboard", "dashboard-admin"].includes(view),
     admin = view === "dashboard-admin";
   const [range, setRange] = useState("30"),
@@ -140,18 +140,13 @@ export default function Activity() {
   }, [active, admin, endpoint, refresh, json, me]);
   const data =
     result?.endpoint === endpoint && result.account === me ? result.data : null;
+  const description = admin
+    ? "A clear view of usage across all users and transports."
+    : "Your conversations, model usage, and recorded costs in one place.";
   return (
     <section id="dashboard" aria-labelledby="dashboard-title" hidden={!active}>
       <PanelHeading active={active} glass className="dashboard-heading">
         <div className="panel-identity">
-          <img
-            src={brand}
-            data-brand=""
-            className="panel-brand"
-            width="40"
-            height="40"
-            alt=""
-          />
           <div>
             <span id="dashboard-eyebrow" className="eyebrow">
               {admin ? "Workspace insights" : "Personal insights"}
@@ -159,6 +154,9 @@ export default function Activity() {
             <h1 id="dashboard-title">
               {admin ? "Admin dashboard" : "Activity & usage"}
             </h1>
+            <div className="panel-header-subtext" title={description}>
+              <span className="cost-label">{description}</span>
+            </div>
           </div>
         </div>
         <button
@@ -172,10 +170,11 @@ export default function Activity() {
           <span>Back to chat</span>
         </button>
       </PanelHeading>
-      <p id="dashboard-description" className="panel-description">
-        {admin
-          ? "A clear view of usage across all users and transports."
-          : "Your conversations, model usage, and recorded costs in one place."}
+      <p
+        id="dashboard-description"
+        className="panel-description panel-body-description"
+      >
+        {description}
       </p>
       <Glass className="dashboard-controls liquid-panel">
         <div className="dashboard-range-field">

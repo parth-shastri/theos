@@ -33,6 +33,7 @@ export function WorkspaceProvider({ agentName, children }) {
   const [mobile, setMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [panelHeadingHost, setPanelHeadingHost] = useState(null);
+  const [desktopPanelHeadingHost, setDesktopPanelHeadingHost] = useState(null);
   const [draftRequest, setDraftRequest] = useState(null);
   const [autoPlay, setAutoPlay] = useState(null);
   const [loginError, setLoginError] = useState("");
@@ -533,6 +534,8 @@ export function WorkspaceProvider({ agentName, children }) {
         me,
         panelHeadingHost,
         setPanelHeadingHost,
+        desktopPanelHeadingHost,
+        setDesktopPanelHeadingHost,
         chat,
         sessions,
         usage,
