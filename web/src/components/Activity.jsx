@@ -3,6 +3,7 @@ import { useWorkspace } from "../state/WorkspaceContext";
 import { formatCost } from "../state/chat";
 import { Glass, Icon, SelectPicker } from "./Primitives";
 import ActivityCharts from "./ActivityCharts";
+import PanelHeading from "./PanelHeading";
 const labels = {
   owner: "User",
   id: "Conversation",
@@ -141,7 +142,7 @@ export default function Activity() {
     result?.endpoint === endpoint && result.account === me ? result.data : null;
   return (
     <section id="dashboard" aria-labelledby="dashboard-title" hidden={!active}>
-      <Glass className="panel-heading dashboard-heading liquid-panel">
+      <PanelHeading active={active} glass className="dashboard-heading">
         <div className="panel-identity">
           <img
             src={brand}
@@ -170,7 +171,7 @@ export default function Activity() {
           <Icon name="back" />
           <span>Back to chat</span>
         </button>
-      </Glass>
+      </PanelHeading>
       <p id="dashboard-description" className="panel-description">
         {admin
           ? "A clear view of usage across all users and transports."

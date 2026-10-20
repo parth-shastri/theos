@@ -333,6 +333,8 @@ h2 {
 }
 .mobile-only,
 .mobile-conversation-heading,
+.mobile-panel-header,
+.compact-panel-back-icon,
 .conversation-actions-label {
   display: none;
 }
@@ -3416,6 +3418,63 @@ tr:last-child td {
   .sidebar-collapsed .app-header.glass-surface::before,
   .sidebar-collapsed .app-header.glass-surface::after {
     display: block;
+  }
+  .sidebar-collapsed .app-header-compact {
+    right: auto;
+    width: 60px;
+    border-radius: 50%;
+  }
+  .mobile-panel-header {
+    display: block;
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    left: calc(max(8px, env(safe-area-inset-left, 0px)) + 68px);
+    z-index: 20;
+    min-width: 0;
+  }
+  .mobile-panel-header > .panel-heading {
+    position: relative;
+    top: auto;
+    height: 60px;
+    margin: 0;
+    padding: 8px 10px 8px 14px;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    border-radius: 18px;
+  }
+  .mobile-panel-header .panel-identity,
+  .mobile-panel-header .panel-heading > div {
+    min-width: 0;
+    flex: 1;
+  }
+  .mobile-panel-header :is(.panel-brand, .eyebrow) {
+    display: none;
+  }
+  .mobile-panel-header .panel-heading h1 {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-panel-header .panel-heading button {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 12px;
+  }
+  .mobile-panel-header .panel-heading button span {
+    display: none;
+  }
+  .mobile-panel-header .panel-heading button svg {
+    display: block;
+    width: 18px;
+    height: 18px;
   }
 }
 @media (max-width: 450px) {

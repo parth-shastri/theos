@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
 import { accountDescriptions } from "../state/config";
 import { ConnectionIcon, Glass, Icon } from "./Primitives";
+import PanelHeading from "./PanelHeading";
 function SignInLink({ url }) {
   try {
     const parsed = new URL(url);
@@ -219,7 +220,7 @@ export default function Connections() {
       hidden={view !== "connections-view"}
       aria-labelledby="connections-title"
     >
-      <div className="panel-heading">
+      <PanelHeading active={view === "connections-view"}>
         <div>
           <span className="eyebrow">Your workspace</span>
           <h1 id="connections-title">Connections</h1>
@@ -234,7 +235,7 @@ export default function Connections() {
           <Icon name="back" />
           <span>Back to chat</span>
         </button>
-      </div>
+      </PanelHeading>
       <p className="panel-description">
         Connect your own accounts. Connections and personal records are
         available across your private conversations.

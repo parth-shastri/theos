@@ -32,6 +32,7 @@ export function WorkspaceProvider({ agentName, children }) {
   const [theme, setTheme] = useState("light");
   const [mobile, setMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [panelHeadingHost, setPanelHeadingHost] = useState(null);
   const [draftRequest, setDraftRequest] = useState(null);
   const [autoPlay, setAutoPlay] = useState(null);
   const [loginError, setLoginError] = useState("");
@@ -530,6 +531,8 @@ export function WorkspaceProvider({ agentName, children }) {
       value={{
         agentName,
         me,
+        panelHeadingHost,
+        setPanelHeadingHost,
         chat,
         sessions,
         usage,

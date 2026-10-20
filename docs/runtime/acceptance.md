@@ -1,5 +1,18 @@
 # Feature and acceptance checklist
 
+## Compact mobile panel navigation, 2026-10-20
+
+Empty mobile topbars now use a round 60-pixel sidebar control.
+Activity, administrator activity, connections, and tools pin their existing heading and back control beside it.
+The drawer hides the pinned heading. Chat retains its conversation title and cost header.
+React moves each heading through a portal, so there is only one heading and back action per panel.
+
+Native inspection covered 320 and 431 pixels in light and dark themes without horizontal overflow.
+Activity retained its header at eight pixels from the top after scrolling 827 pixels.
+Connections, tools, and administrator navigation retained visible headings and back controls.
+The preview reported no browser errors or warnings. Production Next.js and ARM64 frontend image builds passed.
+Desktop layout rules, fonts, colors, and glass settings remain unchanged.
+
 ## React workspace ownership, 2026-10-20
 
 React state now owns chat messages, streaming, approvals, attachments, voice controls, composer menus, settings, navigation, sign-in, research, connections, and charts.

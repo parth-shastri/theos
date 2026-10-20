@@ -743,3 +743,13 @@ Keep the stylesheet and font, logo, and provider assets unchanged from the accep
 Bind activity results to their authenticated account and query before rendering.
 Personal and administrator views must not reuse each other's results during navigation.
 This supersedes the earlier decision to retain the mounted browser controller.
+
+## Compact mobile panel navigation, 2026-10-20
+
+The operator requests a round sidebar control wherever the mobile topbar would otherwise be empty.
+Activity, administrator activity, connections, and tools place their heading beside this control in both themes.
+Keep the control and heading fixed while the panel scrolls.
+React portals move the existing panel heading and back control into the mobile header, without duplicate headings or actions.
+Hide the pinned heading while the sidebar drawer is open.
+Chat retains its conversation title and cost. Desktop layout rules and the existing glass material stay unchanged.
+This requested layout change supersedes stylesheet preservation for these mobile headers.

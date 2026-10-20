@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
+import { Icon } from "./Primitives";
+import PanelHeading from "./PanelHeading";
 export default function Tools() {
   const { view, chat, navigate, json, showError } = useWorkspace();
   const [catalog, setCatalog] = useState([]),
@@ -27,12 +29,18 @@ export default function Tools() {
       hidden={view !== "tools-view"}
       aria-labelledby="tools-title"
     >
-      <div className="panel-heading">
+      <PanelHeading active={view === "tools-view"}>
         <h1 id="tools-title">Conversation tools</h1>
-        <button id="back-tools" onClick={() => navigate("chat-view")}>
-          ← Back to chat
+        <button
+          id="back-tools"
+          aria-label="Back to chat"
+          title="Back to chat"
+          onClick={() => navigate("chat-view")}
+        >
+          <Icon name="back" className="compact-panel-back-icon" />
+          <span>← Back to chat</span>
         </button>
-      </div>
+      </PanelHeading>
       <p>
         Tools available in this conversation. Expand a tool to inspect its
         inputs.
