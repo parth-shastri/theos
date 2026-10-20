@@ -139,6 +139,34 @@ jobs:
             sleep 1
           done
           npm --prefix web run test:browser
+      - name: Build and check the standalone frontend container
+        run: |
+          docker build --target web-runtime -t theos-web:test .
+          docker run -d --name theos-web-container --network host --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 512m --cpus 1 -e PORT=3002 -e AGENT_WEB_URL=http://127.0.0.1:3000 -e THEOS_API_URL=http://127.0.0.1:8080 -e THEOS_FRONTEND_SECRET=ci-private-service-secret-123456789 theos-web:test
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3002/ready; then break; fi
+            sleep 1
+          done
+          python3 - <<'PY_CHECK'
+          import re
+          import urllib.request
+          origin = 'http://127.0.0.1:3002'
+          with urllib.request.urlopen(origin + '/ready', timeout=5) as response:
+              assert response.status == 200
+          with urllib.request.urlopen(origin + '/', timeout=5) as response:
+              page = response.read().decode()
+              assert '/_next/static/' in page and 'id="composer"' in page
+          assets = re.findall(r'(?:src|href)="((?:/_next/static/|/static/)[^"]+)"', page)
+          assert assets
+          for asset in assets:
+              with urllib.request.urlopen(origin + asset, timeout=5) as response:
+                  assert response.status == 200
+          PY_CHECK
+          test "$(docker exec theos-web-container id -u)" = 10001
+          docker stop theos-web-container
+      - name: Frontend container failure output
+        if: failure()
+        run: docker logs theos-web-container || true
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
