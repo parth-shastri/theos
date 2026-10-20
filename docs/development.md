@@ -58,6 +58,16 @@ Use the private API origin. Do not add `NEXT_PUBLIC_` to service secrets or API 
 The browser sends requests to the Next.js origin, so no cross-origin cookie or CORS configuration is needed.
 Telegram pairing and account callbacks use the frontend's public HTTPS origin.
 
+React components own the workspace content and interactions.
+`web/src/state/WorkspaceContext.jsx` owns authenticated requests, navigation, and conversation actions.
+`web/src/state/chat.js` converts saved history and ordered stream events into immutable conversation state.
+`web/src/components/Messages.jsx` renders messages, statistics, tool disclosures, downloads, and approvals.
+`web/src/components/Composer.jsx` owns drafts, attachments, command suggestions, and message-mode menus.
+`web/src/components/Markdown.jsx` sanitizes Markdown and renders React elements, including code-copy controls and table regions.
+The voice hook owns recording resources. Message components own speech playback resources.
+Native browser effects retain focus, scrolling, dialogs, popovers, viewport measurement, and glass rendering.
+The stylesheet and visual assets remain independent of the state migration.
+
 For a production build:
 
 ```sh

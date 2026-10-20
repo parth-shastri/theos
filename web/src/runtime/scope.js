@@ -1,7 +1,7 @@
 // Every mounted workspace owns its listeners, observers, timers, and requests.
 export function createScope() {
   const controller = new AbortController();
-  const cleanups = [];
+  const cleanups = new Set();
   const timeouts = new Set();
   const intervals = new Set();
   const frames = new Set();
@@ -9,15 +9,20 @@ export function createScope() {
 
   return {
     onDispose(cleanup) {
-      cleanups.push(cleanup);
+      cleanups.add(cleanup);
     },
     listen(target, event, listener, options) {
       if (!target || disposed) return;
       target.addEventListener(event, listener, options);
-      cleanups.push(() => target.removeEventListener(event, listener, options));
+      const cleanup = () => {
+        target.removeEventListener(event, listener, options);
+        cleanups.delete(cleanup);
+      };
+      cleanups.add(cleanup);
+      return cleanup;
     },
     observe(observer) {
-      cleanups.push(() => observer.disconnect());
+      cleanups.add(() => observer.disconnect());
       return observer;
     },
     setTimeout(callback, delay, ...args) {
@@ -71,7 +76,8 @@ export function createScope() {
       for (const id of timeouts) window.clearTimeout(id);
       for (const id of intervals) window.clearInterval(id);
       for (const id of frames) window.cancelAnimationFrame(id);
-      for (const cleanup of cleanups.reverse()) cleanup();
+      for (const cleanup of [...cleanups].reverse()) cleanup();
+      cleanups.clear();
       timeouts.clear();
       intervals.clear();
       frames.clear();

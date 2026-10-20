@@ -132,6 +132,23 @@ test("composer, glass pickers, workspace panels, and mobile navigation", async (
     await navigate(page, button);
     await expect(page.locator(`#${panel}`)).toBeVisible();
     await noOverflow(page);
+    if (panel === "dashboard") {
+      const hits = page.locator(".chart-requests .chart-hit");
+      const count = await hits.count();
+      expect(count).toBeGreaterThan(1);
+      await hits.last().focus();
+      await page.keyboard.press("ArrowLeft");
+      await expect(hits.nth(count - 2)).toHaveAttribute("aria-pressed", "true");
+      expect(
+        await page
+          .locator(".chart-cost .cost-point, .chart-cost .cost-unknown")
+          .count(),
+      ).toBe(count);
+      const viewport = page.viewportSize();
+      await page.setViewportSize({ ...viewport, height: viewport.height + 24 });
+      await expect(hits.nth(count - 2)).toHaveAttribute("tabindex", "0");
+      await page.setViewportSize(viewport);
+    }
     await page.locator(`#${back}`).click();
   }
   await expect(page.locator("#message")).toHaveValue(draft);

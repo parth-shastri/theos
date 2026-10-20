@@ -1,7 +1,6 @@
 "use client";
-
-import { useEffect } from "react";
-import { mountWorkspace } from "../runtime/workspace";
+import { WorkspaceProvider, useWorkspace } from "../state/WorkspaceContext";
+import { GlassProvider } from "./Primitives";
 import VoiceAmbience from "./VoiceAmbience";
 import SignIn from "./SignIn";
 import WorkspaceHeader from "./WorkspaceHeader";
@@ -11,17 +10,20 @@ import Activity from "./Activity";
 import Connections from "./Connections";
 import Tools from "./Tools";
 import Dialogs from "./Dialogs";
-
-export default function Workspace({ agentName }) {
-  useEffect(() => mountWorkspace(), []);
+function WorkspaceContents() {
+  const { me, mobile, sidebarOpen } = useWorkspace();
   return (
-    <>
+    <GlassProvider>
       <VoiceAmbience />
-      <SignIn agentName={agentName} />
-      <div id="workspace" className="workspace" hidden>
-        <WorkspaceHeader agentName={agentName} />
-        <Sidebar agentName={agentName} />
-        <main>
+      <SignIn />
+      <div
+        id="workspace"
+        className={"workspace" + (sidebarOpen ? "" : " sidebar-collapsed")}
+        hidden={!me}
+      >
+        <WorkspaceHeader />
+        <Sidebar />
+        <main inert={mobile && sidebarOpen}>
           <Conversation />
           <Activity />
           <Connections />
@@ -29,6 +31,13 @@ export default function Workspace({ agentName }) {
         </main>
       </div>
       <Dialogs />
-    </>
+    </GlassProvider>
+  );
+}
+export default function Workspace({ agentName }) {
+  return (
+    <WorkspaceProvider agentName={agentName}>
+      <WorkspaceContents />
+    </WorkspaceProvider>
   );
 }

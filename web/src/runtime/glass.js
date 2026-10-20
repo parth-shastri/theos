@@ -6,6 +6,7 @@ export function createGlass(scope) {
   )
     return {
       enhance() {},
+      release() {},
     };
   const surfaceSelector =
     ".app-header, aside, dialog, #composer, .composer-options, .conversation-menu, .mode-menu, .settings-select-menu, .liquid-panel";
@@ -91,29 +92,38 @@ export function createGlass(scope) {
       }
     }),
   );
+  function release(surface) {
+    const state = optics.get(surface);
+    if (!state) return;
+    observer.unobserve(surface);
+    state.filter.remove();
+    for (const cleanup of state.cleanups) cleanup();
+    surface.classList.remove(
+      "glass-surface",
+      "has-refraction",
+      "glass-pressed",
+    );
+    surface.style.removeProperty("--glass-refraction");
+    optics.delete(surface);
+  }
   function enhance(root = document) {
     for (const [surface, state] of optics) {
       if (surface.isConnected) continue;
-      observer.unobserve(surface);
-      state.filter.remove();
-      optics.delete(surface);
+      release(surface);
     }
     const surfaces = [
       ...(root.matches?.(surfaceSelector) ? [root] : []),
       ...root.querySelectorAll(surfaceSelector),
     ];
     for (const surface of surfaces) {
-      if (optics.has(surface)) continue;
-      if (surface.matches("aside, dialog")) {
-        const content = document.createElement("div");
-        content.className = "glass-content";
-        content.append(...surface.childNodes);
-        surface.append(content);
+      if (optics.has(surface)) {
+        surface.classList.add("glass-surface");
+        if (optics.get(surface).signature)
+          surface.classList.add("has-refraction");
+        continue;
       }
-      const layer = document.createElement("span");
-      layer.className = "glass-optics";
-      layer.setAttribute("aria-hidden", "true");
-      surface.prepend(layer);
+      // React owns each surface, its content wrapper, and its optical layer.
+      if (!surface.querySelector(":scope > .glass-optics")) continue;
       surface.classList.add("glass-surface");
       const filter = document.createElementNS(svgNS, "filter");
       filter.id = `glass-lens-${lensId++}`;
@@ -139,11 +149,13 @@ export function createGlass(scope) {
         displacement.setAttribute(key, value);
       filter.append(map, displacement);
       defs.append(filter);
-      optics.set(surface, {
+      const state = {
         map,
         filter,
         signature: "",
-      });
+        cleanups: [],
+      };
+      optics.set(surface, state);
       surface.style.setProperty("--glass-refraction", `url("#${filter.id}")`);
       observer.observe(surface);
       let lightFrame = 0;
@@ -158,51 +170,46 @@ export function createGlass(scope) {
           lightFrame = 0;
         });
       }
-      scope.listen(surface, "pointermove", moveLight, {
-        passive: true,
-      });
-      scope.listen(
-        surface,
-        "pointerdown",
-        (event) => {
-          if (event.pointerType === "mouse") return;
-          moveLight(event);
-          surface.classList.add("glass-pressed");
-        },
-        {
+      state.cleanups.push(
+        scope.listen(surface, "pointermove", moveLight, {
           passive: true,
-        },
+        }),
       );
-      for (const event of ["pointerup", "pointercancel", "pointerleave"])
+      state.cleanups.push(
         scope.listen(
           surface,
-          event,
-          () => surface.classList.remove("glass-pressed"),
+          "pointerdown",
+          (event) => {
+            if (event.pointerType === "mouse") return;
+            moveLight(event);
+            surface.classList.add("glass-pressed");
+          },
           {
             passive: true,
           },
+        ),
+      );
+      for (const event of ["pointerup", "pointercancel", "pointerleave"])
+        state.cleanups.push(
+          scope.listen(
+            surface,
+            event,
+            () => surface.classList.remove("glass-pressed"),
+            {
+              passive: true,
+            },
+          ),
         );
+      state.cleanups.push(() => scope.cancelAnimationFrame(lightFrame));
     }
   }
   scope.onDispose(() => {
-    for (const [surface] of optics) {
-      surface.querySelector(":scope > .glass-optics")?.remove();
-      const content = surface.querySelector(":scope > .glass-content");
-      if (content) {
-        content.replaceWith(...content.childNodes);
-      }
-      surface.classList.remove(
-        "glass-surface",
-        "has-refraction",
-        "glass-pressed",
-      );
-      surface.style.removeProperty("--glass-refraction");
-    }
-    optics.clear();
+    for (const surface of optics.keys()) release(surface);
     svg.remove();
   });
   enhance();
   return {
     enhance,
+    release,
   };
 }

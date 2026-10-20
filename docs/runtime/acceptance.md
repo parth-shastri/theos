@@ -1,5 +1,23 @@
 # Feature and acceptance checklist
 
+## React workspace ownership, 2026-10-20
+
+React state now owns chat messages, streaming, approvals, attachments, voice controls, composer menus, settings, navigation, sign-in, research, connections, and charts.
+The old workspace controller and its Markdown, select, and chart DOM renderers are removed.
+The stylesheet and visual assets retain their bytes from the accepted mobile-heading revision.
+
+Native comparisons covered desktop messages at 1280 by 720 pixels and mobile views at 431 by 827 pixels.
+Compared message, Markdown, reasoning, tool, composer, settings, picker, connection, and chart geometry and styles matched the original frontend.
+Mobile message comparisons covered both themes. The title and cost retained the accepted header layout without horizontal overflow.
+Markdown retained code-copy controls, table regions, disabled task checkboxes, literal HTML, blocked unsafe links, and remote-image links.
+
+The disposable preview exercised streamed text and reasoning, tool updates, compaction, replacement answers, file controls, and approval decisions.
+An interrupted stream retained its partial reply, stopped thinking feedback, released controls, and displayed the existing recovery message.
+Settings save retained the draft. Sign-out cleared it, and cookie sign-in restored the workspace.
+Five existing frontend contract checks passed after migration to the React reducer, hooks, chart data, and optical effects.
+Prettier, Ruff for the changed checks, the production Next.js build, and the ARM64 frontend image build passed.
+Live microphone capture, speech synthesis, Telegram confirmation, and connector writes were not exercised in this preview.
+
 ## Mobile conversation heading, 2026-10-20
 
 The collapsed mobile topbar shows the active conversation title and conversation cost in light and dark themes.

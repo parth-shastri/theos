@@ -15,7 +15,7 @@ const assert = require('node:assert/strict');
 const scope = {
   observe: observer => observer,
   onDispose() {},
-  listen: (target, ...args) => target?.addEventListener?.(...args),
+  listen: (target, ...args) => { target.addEventListener(...args); return () => target.removeEventListener(...args); },
   setTimeout: (...args) => setTimeout(...args),
   clearTimeout: id => clearTimeout(id),
   setInterval: (...args) => setInterval(...args),
@@ -27,15 +27,18 @@ class Element {
   constructor(tag, kind = '') {
     this.tag = tag; this.kind = kind; this.children = []; this.isConnected = true;
     this.classes = new Set(); this.handlers = {}; this.properties = new Map();
-    this.style = {setProperty: (key, value) => this.properties.set(key, value)};
-    this.classList = {add: value => this.classes.add(value), remove: value => this.classes.delete(value)};
+    this.style = {setProperty: (key, value) => this.properties.set(key, value), removeProperty: key => this.properties.delete(key)};
+    this.classList = {add: (...values) => values.forEach(value => this.classes.add(value)), remove: (...values) => values.forEach(value => this.classes.delete(value))};
+    if (kind) { const layer = new Element('span'); layer.classes.add('glass-optics'); this.append(layer); }
   }
   matches(selector) { return !!this.kind && selector.includes(this.kind); }
   querySelectorAll() { return []; }
+  querySelector() { return this.children.find(child => child.classes.has('glass-optics')); }
   append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } }
   prepend(child) { child.parent = this; this.children.unshift(child); }
   setAttribute() {}
   addEventListener(type, callback) { this.handlers[type] = callback; }
+  removeEventListener(type, callback) { if (this.handlers[type] === callback) delete this.handlers[type]; }
   getBoundingClientRect() { return {left: 10, top: 20}; }
   remove() { this.parent.children = this.parent.children.filter(child => child !== this); }
 }
@@ -52,6 +55,7 @@ class ResizeObserver { observe(target) { observed.add(target); } unobserve(targe
 const frames = new Map();
 let frameId = 0;
 const requestAnimationFrame = callback => { frames.set(++frameId, callback); return frameId; };
+const cancelAnimationFrame = id => frames.delete(id);
 function frame() { for (const [id, callback] of frames) { frames.delete(id); callback(); } }
 function filters(root) { return root.children.reduce((sum, child) => sum + (child.tag === 'filter') + filters(child), 0); }
 """

@@ -35,7 +35,7 @@ All source paths below start at `src/theos`.
 | Storage | SQLite transactions, migrations, restart recovery, and application message display metadata | `storage/database.py`, `storage/messages.py`, `storage/migrations/` |
 | Telegram | Poll updates, authenticate senders, onboard users, handle commands and media | `transports/telegram/` |
 | Browser API | Authenticate owners and serve activity, administrator aggregates, uploads, and streamed replies | `transports/browser/app.py`, `transports/browser/activity.py` |
-| Next.js frontend | Render the browser workspace and forward private API requests | Repository root `web/src/app/`, `web/src/components/`, `web/src/runtime/`, `web/src/server/` |
+| Next.js frontend | Render React workspace components, reduce streamed events, and forward private API requests | Repository root `web/src/app/`, `web/src/components/`, `web/src/state/`, `web/src/hooks/`, `web/src/server/` |
 | Browser enrollment | Confirm Telegram-owned browser sign-in, issue hashed credentials, and revoke generated access | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py` |
 | Terminal | Run `theos` as a deployed workspace client or standalone runtime, with a generic renderer | `transports/terminal/cli.py`, `remote.py`, `routes.py`, `wire.py`, `session.py`, `app.py`, `screens.py` |
 | Operations | Redact logs, export OTel spans, and make consistent backups | `operations/logging.py`, `operations/tracing.py`, `backup.py` |

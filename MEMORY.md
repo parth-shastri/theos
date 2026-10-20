@@ -729,3 +729,15 @@ This decision supersedes the text-halo part of the earlier navigation contrast d
 The collapsed mobile topbar shows the active conversation title and conversation cost in both themes.
 Use the existing title and usage updates, including streamed title changes and completed-turn costs.
 Long titles truncate within the existing glass topbar. Desktop layout and glass settings stay unchanged.
+
+## React workspace state and rendering, 2026-10-20
+
+The operator requires a complete React migration, including messages, streaming, and interactions, with the exact existing interface in both themes and mobile.
+React now owns messages, streaming state, approvals, attachments, voice controls, composer menus, settings, navigation, sign-in, research, connections, and charts.
+Remove the mounted workspace controller and its DOM renderers.
+The conversation reducer handles saved history and streamed events. Frame batches retain event order, partial replies, tool identities, and replacement answers.
+Abort stale requests and release media resources when their owner leaves the page or account.
+Keep native browser APIs for dialogs, popovers, focus, measurement, audio, and the existing optical effects.
+React owns the optical layers and content wrappers. The effect helper creates only rendering resources.
+Keep the stylesheet and font, logo, and provider assets unchanged from the accepted mobile-heading revision.
+This supersedes the earlier decision to retain the mounted browser controller.

@@ -9,10 +9,9 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is unavailable")
 def test_voice_meter_drives_both_surfaces_and_releases_audio_resources():
-    source = Path("web/src/runtime/workspace.js").read_text()
-    meter = source[
-        source.index("function stopRecordingMeter()") : source.index("function releaseRecording()")
-    ]
+    source = Path("web/src/hooks/useRecorder.js").read_text()
+    meter = source[source.index("  const stopMeter =") : source.index("  const release =")]
+    meter += source[source.index("  const startMeter =") : source.index("  useEffect(")]
     script = r"""
 const assert = require('node:assert/strict');
 const scope = {
@@ -26,7 +25,8 @@ const scope = {
   requestAnimationFrame: callback => requestAnimationFrame(callback),
   cancelAnimationFrame: id => cancelAnimationFrame(id),
 };
-let recordingMeter = null, amplitude = 0.12, contexts = 0, closed = 0, disconnected = 0;
+const state = {current: {}};
+let amplitude = 0.12, contexts = 0, closed = 0, disconnected = 0;
 let nextFrame = 0;
 const frames = new Map(), cancelled = [];
 const styles = new Map(['composer', 'voice-ambience'].map(id => [id, new Map()]));
@@ -34,6 +34,7 @@ const $ = id => ({style: {
   setProperty(key, value) { styles.get(id).set(key, value); },
   removeProperty(key) { styles.get(id).delete(key); },
 }});
+const document = {getElementById: $};
 const motion = {matches: false, addEventListener() {}, removeEventListener() {}};
 const matchMedia = () => motion;
 const requestAnimationFrame = callback => { frames.set(++nextFrame, callback); return nextFrame; };
@@ -58,7 +59,7 @@ function frame() {
     script += meter
     script += r"""
 (async () => {
-  await startRecordingMeter({});
+  await startMeter({});
   const first = Number(styles.get('composer').get('--voice-level'));
   assert.ok(first > 0 && first < 1);
   assert.equal(styles.get('voice-ambience').get('--voice-level'), String(first));
@@ -69,21 +70,21 @@ function frame() {
   amplitude = 0;
   for (let i = 0; i < 12; i++) frame();
   assert.ok(Number(styles.get('voice-ambience').get('--voice-level')) < louder);
-  stopRecordingMeter();
-  assert.equal(recordingMeter, null);
+  stopMeter();
+  assert.equal(state.current.meter, null);
   assert.equal(frames.size, 0);
   assert.ok(cancelled.length);
   assert.equal(disconnected, 2);
   assert.equal(closed, 1);
   for (const style of styles.values()) assert.ok(!style.has('--voice-level'));
   motion.matches = true;
-  await startRecordingMeter({});
+  await startMeter({});
   assert.equal(contexts, 1, 'Reduced motion must retain static feedback');
   motion.matches = false;
-  await startRecordingMeter({});
+  await startMeter({});
   motion.matches = true;
-  recordingMeter.onMotionChange();
-  assert.equal(recordingMeter, null);
+  state.current.meter.changed();
+  assert.equal(state.current.meter, null);
   assert.equal(closed, 2);
   for (const style of styles.values()) assert.ok(!style.has('--voice-level'));
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -183,7 +183,7 @@ The probe uses existing OpenAI, HTTPX, and tracing dependencies. It writes no pr
 It enforces `provider.zdr=true` for every OpenRouter request, including delegated research, compaction, and titles.
 This uses the existing OpenAI SDK and adds no dependency or model tool.
 
-Source: [browser API](../src/theos/transports/browser/app.py) and [browser controls](../web/src/runtime/workspace.js).
+Source: [browser API](../src/theos/transports/browser/app.py), [React workspace state](../web/src/state/WorkspaceContext.jsx), and [message components](../web/src/components/Messages.jsx).
 
 ## Browser connections
 
@@ -197,7 +197,7 @@ Provider icons are local assets. The [provider manifest](browser-provider-proven
 These controls add no Python dependency or model tool.
 Configured sandbox tools work in browser conversations without execution approval prompts.
 
-Source: [connection routes](../src/theos/transports/browser/connections.py), [account access](../src/theos/storage/account_access.py), and [browser controls](../web/src/runtime/workspace.js).
+Source: [connection routes](../src/theos/transports/browser/connections.py), [account access](../src/theos/storage/account_access.py), and [React connection controls](../web/src/components/Connections.jsx).
 
 ## Preferences
 
