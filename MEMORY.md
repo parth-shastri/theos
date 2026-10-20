@@ -767,3 +767,4 @@ Place each tab title and muted subtext on the left, with Back to chat aligned on
 Remove the Theos logo from tab headers. Keep it in the main topbar.
 Restore the accepted mobile conversation header, compact panel headers, and continuous frost from the preceding mobile revision.
 Desktop tab content panels use the chat window's 26-pixel curved border, edge color, and shadow beneath their toolbars.
+Daily chart hover selection requires pointer movement, so focus scrolling cannot overwrite keyboard selection under a stationary pointer.

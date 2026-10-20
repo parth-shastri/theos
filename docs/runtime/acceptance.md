@@ -17,6 +17,9 @@ Desktop tab content panels now match the chat window's 26-pixel curved border, e
 Native comparison confirmed exact border and shadow values for all four tabs in both themes at 1280 pixels.
 The 431-pixel mobile panel retained its existing border, radius, and compact header without horizontal overflow.
 
+CI exposed a mobile chart hover update that replaced keyboard selection when focus scrolled the chart beneath a stationary pointer.
+Daily chart hover updates now require pointer movement. Arrow keys retain focus and selection during scrolling.
+
 ## Compact mobile panel navigation, 2026-10-20
 
 Empty mobile topbars now use a round 60-pixel sidebar control.

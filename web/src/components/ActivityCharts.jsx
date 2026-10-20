@@ -250,7 +250,7 @@ function DailyChart({ daily, cost, title }) {
                   ref={(element) => {
                     hits.current[index] = element;
                   }}
-                  onPointerEnter={() => setSelected(index)}
+                  onPointerMove={() => setSelected(index)}
                   onClick={() => setSelected(index)}
                   onFocus={() => setSelected(index)}
                   onKeyDown={(event) => {
