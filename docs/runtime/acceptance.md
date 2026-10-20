@@ -1,18 +1,5 @@
 # Feature and acceptance checklist
 
-## Shared conversation and panel headers, 2026-10-20
-
-Conversation, Activity, Admin, Connections, and Tools now share the same React heading component at every width.
-The title tab and separate round sidebar control retain matching frost, with content scrolling behind both.
-Desktop branding appears in the sidebar. Settings, theme controls, conversation actions, and conversation costs retain their behavior.
-
-Native desktop inspection covered all four panels in both themes at 1280 pixels.
-Each title matched the conversation header's 18-pixel font, 600 weight, 22-pixel line height, 60-pixel height, and navigation material.
-Each view retained one settings control, and the settings dialog opened and canceled successfully.
-Inspection at 768, 431, and 320 pixels retained visible conversation titles and costs without horizontal overflow.
-Mobile navigation retained the drawer, back actions, separate round control, and continuous frost.
-The preview reported no browser errors or warnings. The production ARM64 frontend image built successfully.
-
 ## Compact mobile panel navigation, 2026-10-20
 
 Empty mobile topbars now use a round 60-pixel sidebar control.

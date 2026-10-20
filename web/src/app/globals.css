@@ -333,7 +333,7 @@ h2 {
 }
 .mobile-only,
 .mobile-conversation-heading,
-.page-header,
+.mobile-panel-header,
 .compact-panel-back-icon,
 .conversation-actions-label {
   display: none;
@@ -3357,9 +3357,9 @@ tr:last-child td {
   }
 }
 @media (max-width: 700px) {
-  .workspace:not(.sidebar-collapsed) .app-header.glass-surface > .glass-optics,
-  .workspace:not(.sidebar-collapsed) .app-header.glass-surface::before,
-  .workspace:not(.sidebar-collapsed) .app-header.glass-surface::after {
+  .app-header.glass-surface > .glass-optics,
+  .app-header.glass-surface::before,
+  .app-header.glass-surface::after {
     display: none;
   }
   aside > .glass-content {
@@ -3382,186 +3382,102 @@ tr:last-child td {
 #mobile-conversation-controls summary {
   color: var(--text-soft);
 }
-/* Every view shares one navigation row above the scrolling content. */
-.app-header {
-  display: flex;
-  position: absolute;
-  top: max(12px, env(safe-area-inset-top, 0px));
-  left: max(16px, env(safe-area-inset-left, 0px));
-  width: 60px;
-  height: 60px;
-  margin: 0;
-  padding: 8px;
-  gap: 0;
-  border-radius: 50%;
-}
-#toggle-sidebar {
-  position: static;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-}
-.page-header {
-  display: block;
-  position: absolute;
-  top: max(12px, env(safe-area-inset-top, 0px));
-  right: max(16px, env(safe-area-inset-right, 0px));
-  left: calc(max(16px, env(safe-area-inset-left, 0px)) + 68px);
-  z-index: 20;
-  min-width: 0;
-}
-.page-header > .panel-heading {
-  position: relative;
-  top: auto;
-  height: 60px;
-  margin: 0;
-  padding: 8px 10px 8px 16px;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 12px;
-  border-radius: 18px;
-  box-shadow: var(--glass-shadow);
-}
-.page-header .panel-identity,
-.page-header .panel-heading > div:not(.header-actions) {
-  min-width: 0;
-  flex: 1;
-}
-.page-header .panel-brand {
-  display: none;
-}
-.page-header .eyebrow {
-  display: block;
-  font-size: 10px;
-  line-height: 10px;
-  letter-spacing: 0.06em;
-}
-.page-header :is(h1, h2) {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 22px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.page-header .conversation-title {
-  display: flex;
-  flex-direction: column;
-}
-.page-header .cost-label {
-  display: block;
-  line-height: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.page-header .panel-heading > button {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: 12px;
-}
-.page-header .panel-heading > button span {
-  display: none;
-}
-.page-header .panel-heading > button svg {
-  display: block;
-  width: 18px;
-  height: 18px;
-}
-.page-header .header-actions {
-  flex-shrink: 0;
-}
-.page-header .header-actions button {
-  min-height: 44px;
-}
-.page-header .header-actions .icon-button {
-  width: 44px;
-  height: 44px;
-}
-main {
-  grid-column: 2;
-  grid-row: 1 / -1;
-}
-aside {
-  grid-column: 1;
-  grid-row: 2;
-}
-#dashboard,
-.workspace-panel {
-  margin-top: 0;
-  padding-top: calc(80px + env(safe-area-inset-top, 0px));
-  scroll-padding-top: calc(80px + env(safe-area-inset-top, 0px));
-}
-#messages {
-  padding-top: calc(80px + env(safe-area-inset-top, 0px));
-  scroll-padding-top: calc(80px + env(safe-area-inset-top, 0px));
-}
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-  padding: 0 4px 16px;
-  font-size: 20px;
-  font-weight: 650;
-  letter-spacing: -0.03em;
-}
-.sidebar-brand > span {
-  flex: 1;
-  min-width: 0;
-}
-@media (min-width: 701px) {
-  #sidebar-theme-toggle {
-    display: none;
-  }
-}
 @media (max-width: 700px) {
-  .app-header {
+  /* A display:contents header has no backdrop to separate the fixed toggle from messages. */
+  .sidebar-collapsed .app-header {
+    display: flex;
+    position: fixed;
     top: max(8px, env(safe-area-inset-top, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
     left: max(8px, env(safe-area-inset-left, 0px));
+    height: 60px;
+    margin: 0;
+    padding: 8px;
+    border-radius: 18px;
   }
-  .page-header {
+  .sidebar-collapsed .mobile-conversation-heading {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    margin-inline-start: 56px;
+  }
+  #mobile-session-title {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #mobile-conversation-cost {
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .sidebar-collapsed .app-header.glass-surface > .glass-optics,
+  .sidebar-collapsed .app-header.glass-surface::before,
+  .sidebar-collapsed .app-header.glass-surface::after {
+    display: block;
+  }
+  .sidebar-collapsed .app-header-compact {
+    right: auto;
+    width: 60px;
+    border-radius: 50%;
+  }
+  .mobile-panel-header {
+    display: block;
+    position: fixed;
     top: max(8px, env(safe-area-inset-top, 0px));
     right: max(8px, env(safe-area-inset-right, 0px));
     left: calc(max(8px, env(safe-area-inset-left, 0px)) + 68px);
+    z-index: 20;
+    min-width: 0;
   }
-  .page-header > .panel-heading {
-    padding-inline-start: 14px;
+  .mobile-panel-header > .panel-heading {
+    position: relative;
+    top: auto;
+    height: 60px;
+    margin: 0;
+    padding: 8px 10px 8px 14px;
+    align-items: center;
+    flex-wrap: nowrap;
     gap: 8px;
+    border-radius: 18px;
+    box-shadow: var(--glass-shadow);
   }
-  .page-header .eyebrow,
-  .page-header .header-actions {
+  .mobile-panel-header .panel-identity,
+  .mobile-panel-header .panel-heading > div {
+    min-width: 0;
+    flex: 1;
+  }
+  .mobile-panel-header :is(.panel-brand, .eyebrow) {
     display: none;
   }
-  .page-header :is(h1, h2) {
+  .mobile-panel-header .panel-heading h1 {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
     font-size: 16px;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .page-header .conversation-heading h2 {
-    font-size: 14px;
-    line-height: 18px;
+  .mobile-panel-header .panel-heading button {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 12px;
   }
-  .page-header .cost-label {
-    line-height: 16px;
+  .mobile-panel-header .panel-heading button span {
+    display: none;
   }
-  .workspace:not(.sidebar-collapsed) .app-header {
-    display: contents;
-  }
-  .workspace:not(.sidebar-collapsed) #toggle-sidebar {
-    position: fixed;
-    top: calc(16px + env(safe-area-inset-top, 0px));
-    left: max(16px, env(safe-area-inset-left, 0px));
-  }
-  .sidebar-brand {
-    padding-left: 48px;
-  }
-  main {
-    grid-column: 1;
+  .mobile-panel-header .panel-heading button svg {
+    display: block;
+    width: 18px;
+    height: 18px;
   }
 }
 @media (max-width: 450px) {

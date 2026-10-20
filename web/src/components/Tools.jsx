@@ -30,10 +30,7 @@ export default function Tools() {
       aria-labelledby="tools-title"
     >
       <PanelHeading active={view === "tools-view"}>
-        <div>
-          <span className="eyebrow">Your workspace</span>
-          <h1 id="tools-title">Conversation tools</h1>
-        </div>
+        <h1 id="tools-title">Conversation tools</h1>
         <button
           id="back-tools"
           aria-label="Back to chat"
