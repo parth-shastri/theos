@@ -12,6 +12,7 @@ export const initialChat = {
   statusClass: "",
   busy: false,
   active: null,
+  output: null,
   lastAnswer: null,
   answers: [],
   sequence: 0,
@@ -35,6 +36,10 @@ function assistant(state, now) {
       streaming: true,
       started: now,
       display: { created_at: now / 1000 },
+      format: state.output?.format || "markdown",
+      libraryVersion: state.output?.library_version || null,
+      openuiMessageId: state.output?.openui_message_id || null,
+      openuiState: {},
     });
   const index = state.entries.findIndex((entry) => entry.id === state.active);
   const entry = { ...state.entries[index] };
@@ -70,6 +75,20 @@ function finishMessage(entry, event = {}, now) {
     duration_ms: now - entry.started,
     ...event.display,
   };
+  entry.format = entry.display.format || entry.format || "markdown";
+  entry.libraryVersion =
+    entry.display.library_version || entry.libraryVersion || null;
+  entry.openuiMessageId =
+    entry.display.openui_message_id || entry.openuiMessageId || null;
+  entry.openuiState = entry.display.openui_state || entry.openuiState || {};
+  entry.openuiSummary =
+    entry.display.openui_summary || entry.openuiSummary || "";
+  entry.presentationHidden = Boolean(entry.display.openui_hidden);
+  entry.requestedTools = event.requested_tools || [];
+  if (entry.requestedTools.length && entry.format === "openui-lang") {
+    entry.text = "";
+    entry.presentationHidden = true;
+  }
   entry.usage = event.usage || {};
 }
 function event(state, value, now) {
@@ -112,6 +131,15 @@ function event(state, value, now) {
     state.status = "Thinking…";
     state.statusClass = "thinking-status";
   }
+  if (value.type === "assistant_format") {
+    state.output = value;
+    if (state.active) {
+      const entry = assistant(state, now);
+      entry.format = value.format;
+      entry.libraryVersion = value.library_version;
+      entry.openuiMessageId = value.openui_message_id;
+    }
+  }
   if (value.type === "text") assistant(state, now).text += value.text;
   if (value.type === "reasoning") {
     const entry = assistant(state, now);
@@ -140,6 +168,7 @@ function event(state, value, now) {
       }
     }
     state.active = null;
+    state.output = null;
     state.statusClass = "";
   }
   if (value.type === "tool") {
@@ -170,12 +199,15 @@ export function historyEntries(session) {
       append(state, {
         kind: "message",
         role: "user",
-        text: message.content,
+        text: message.display?.user_text || message.content,
         images: message.images,
         display: message.display,
       });
     if (message.type === "assistant") {
-      if (message.text || message.reasoning)
+      if (
+        (message.text || message.reasoning) &&
+        !message.display?.openui_hidden
+      )
         append(state, {
           kind: "message",
           role: "assistant",
@@ -183,6 +215,11 @@ export function historyEntries(session) {
           reasoning: message.reasoning || "",
           display: message.display,
           usage: message.usage,
+          format: message.display?.format || "markdown",
+          libraryVersion: message.display?.library_version || null,
+          openuiMessageId: message.display?.openui_message_id || null,
+          openuiState: message.display?.openui_state || {},
+          openuiSummary: message.display?.openui_summary || "",
         });
       for (const call of message.tool_calls || []) calls.set(call.id, call);
     }
@@ -250,6 +287,7 @@ export function chatReducer(previous, action) {
     state.turn++;
     state.busy = true;
     state.active = null;
+    state.output = null;
     state.lastAnswer = null;
     state.answers = [];
     state.status = "Thinking…";
@@ -282,6 +320,7 @@ export function chatReducer(previous, action) {
     );
     state.busy = false;
     state.active = null;
+    state.output = null;
     if (state.statusClass !== "error") state.statusClass = "";
   }
   if (action.type === "SYNC") {

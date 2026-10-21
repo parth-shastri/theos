@@ -9,7 +9,7 @@ export function createGlass(scope) {
       release() {},
     };
   const surfaceSelector =
-    ".app-header, aside, dialog, #composer, .composer-options, .conversation-menu, .mode-menu, .settings-select-menu, .liquid-panel";
+    ".app-header, #sidebar, dialog, #composer, .composer-options, .conversation-menu, .mode-menu, .settings-select-menu, .liquid-panel";
   let lensId = 0;
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   const reducedTransparency = matchMedia(

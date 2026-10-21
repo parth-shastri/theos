@@ -160,6 +160,8 @@ export function SelectPicker({
   }, []);
   useLayoutEffect(() => {
     if (!open || disabled || !options.length) return;
+    // React can clear the forwarded ref before effect cleanup runs.
+    const menuElement = menu.current;
     const bounds = window.visualViewport,
       rect = trigger.current.getBoundingClientRect();
     const top = bounds?.offsetTop || 0,
@@ -184,7 +186,7 @@ export function SelectPicker({
       top: upward ? rect.top - menuHeight - 8 : rect.bottom + 8,
       upward,
     });
-    menu.current.showPopover();
+    menuElement.showPopover();
     const selected =
       menu.current.querySelector('[aria-selected="true"]:not(:disabled)') ||
       menu.current.querySelector("button:not(:disabled)");
@@ -206,7 +208,7 @@ export function SelectPicker({
     window.addEventListener("resize", resize);
     window.visualViewport?.addEventListener("resize", resize);
     return () => {
-      if (menu.current?.matches(":popover-open")) menu.current.hidePopover();
+      if (menuElement.matches(":popover-open")) menuElement.hidePopover();
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("scroll", scroll, true);
       window.removeEventListener("resize", resize);

@@ -1,0 +1,571 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "TheosAnswer": {
+      "$ref": "#/$defs/TheosAnswer"
+    },
+    "AnswerSummary": {
+      "$ref": "#/$defs/AnswerSummary"
+    },
+    "SummaryCard": {
+      "$ref": "#/$defs/SummaryCard"
+    },
+    "SummaryFact": {
+      "$ref": "#/$defs/SummaryFact"
+    },
+    "EvidenceList": {
+      "$ref": "#/$defs/EvidenceList"
+    },
+    "EvidenceItem": {
+      "$ref": "#/$defs/EvidenceItem"
+    },
+    "StatusNotice": {
+      "$ref": "#/$defs/StatusNotice"
+    },
+    "ScheduleReminderForm": {
+      "$ref": "#/$defs/ScheduleReminderForm"
+    },
+    "Metric": {
+      "$ref": "#/$defs/Metric"
+    },
+    "MetricGrid": {
+      "$ref": "#/$defs/MetricGrid"
+    },
+    "ChartSeries": {
+      "$ref": "#/$defs/ChartSeries"
+    },
+    "BarChart": {
+      "$ref": "#/$defs/BarChart"
+    },
+    "LineChart": {
+      "$ref": "#/$defs/LineChart"
+    },
+    "DonutChart": {
+      "$ref": "#/$defs/DonutChart"
+    },
+    "ProgressCard": {
+      "$ref": "#/$defs/ProgressCard"
+    },
+    "DataTable": {
+      "$ref": "#/$defs/DataTable"
+    }
+  },
+  "required": [
+    "TheosAnswer",
+    "AnswerSummary",
+    "SummaryCard",
+    "SummaryFact",
+    "EvidenceList",
+    "EvidenceItem",
+    "StatusNotice",
+    "ScheduleReminderForm",
+    "Metric",
+    "MetricGrid",
+    "ChartSeries",
+    "BarChart",
+    "LineChart",
+    "DonutChart",
+    "ProgressCard",
+    "DataTable"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "TheosAnswer": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/AnswerSummary"
+        },
+        "sections": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SummaryCard"
+              },
+              {
+                "$ref": "#/$defs/EvidenceList"
+              },
+              {
+                "$ref": "#/$defs/StatusNotice"
+              },
+              {
+                "$ref": "#/$defs/ScheduleReminderForm"
+              },
+              {
+                "$ref": "#/$defs/MetricGrid"
+              },
+              {
+                "$ref": "#/$defs/BarChart"
+              },
+              {
+                "$ref": "#/$defs/LineChart"
+              },
+              {
+                "$ref": "#/$defs/DonutChart"
+              },
+              {
+                "$ref": "#/$defs/ProgressCard"
+              },
+              {
+                "$ref": "#/$defs/DataTable"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "additionalProperties": false,
+      "description": "The root of each Theos answer, with a required visible summary."
+    },
+    "AnswerSummary": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "A short, readable answer with all important caveats."
+    },
+    "SummaryCard": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "facts": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SummaryFact"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "facts"
+      ],
+      "additionalProperties": false,
+      "description": "A compact card of a few comparable facts."
+    },
+    "SummaryFact": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "additionalProperties": false,
+      "description": "One grounded label and value inside a summary card."
+    },
+    "EvidenceList": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "items": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceItem"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "items"
+      ],
+      "additionalProperties": false,
+      "description": "A collection of rich source cards. Keep the exact tool query in query; the renderer displays readable search terms and source filters."
+    },
+    "EvidenceItem": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "snippet": {
+          "type": "string"
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "boolean"
+        },
+        "image_url": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "image_alt": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "logo_url": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "title",
+        "url",
+        "snippet"
+      ],
+      "additionalProperties": false,
+      "description": "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Copy image_url and logo_url from tool results. Never invent image URLs."
+    },
+    "StatusNotice": {
+      "type": "object",
+      "properties": {
+        "tone": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tone",
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "A factual note about a limitation, warning, or failed action."
+    },
+    "ScheduleReminderForm": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "time": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "recurrence": {
+          "type": "string",
+          "enum": [
+            "none",
+            "daily",
+            "weekly",
+            "weekdays",
+            "custom"
+          ]
+        },
+        "weekdays": {
+          "maxItems": 7,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "MO",
+              "TU",
+              "WE",
+              "TH",
+              "FR",
+              "SA",
+              "SU"
+            ]
+          }
+        }
+      },
+      "required": [
+        "text",
+        "date",
+        "time",
+        "recurrence",
+        "weekdays"
+      ],
+      "additionalProperties": false,
+      "description": "A draft reminder form. It does not save until the user selects its submit button."
+    },
+    "MetricGrid": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "items": {
+          "minItems": 1,
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Metric"
+          }
+        },
+        "subtitle": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "items"
+      ],
+      "additionalProperties": false,
+      "description": "A visual overview of health, activity, nutrition, or other key facts. Use metrics with different units here, not on one chart axis."
+    },
+    "Metric": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "trend": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "additionalProperties": false,
+      "description": "One prominent verified metric. Keep its original unit and any coverage caveat."
+    },
+    "BarChart": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "labels": {
+          "minItems": 1,
+          "maxItems": 31,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "series": {
+          "minItems": 1,
+          "maxItems": 4,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChartSeries"
+          }
+        },
+        "unit": {
+          "type": "string"
+        },
+        "caption": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "labels",
+        "series"
+      ],
+      "additionalProperties": false,
+      "description": "An interactive bar chart for comparable quantities with the same unit. Hover, tap, or use arrow keys to inspect exact values. Legends toggle series."
+    },
+    "ChartSeries": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "values": {
+          "minItems": 1,
+          "maxItems": 31,
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "values"
+      ],
+      "additionalProperties": false,
+      "description": "One named data series inside BarChart or LineChart. Every value must align with its label. Use null for a missing observation."
+    },
+    "LineChart": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "labels": {
+          "minItems": 1,
+          "maxItems": 31,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "series": {
+          "minItems": 1,
+          "maxItems": 4,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChartSeries"
+          }
+        },
+        "unit": {
+          "type": "string"
+        },
+        "caption": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "labels",
+        "series"
+      ],
+      "additionalProperties": false,
+      "description": "An interactive time-series chart. Use ordered dates or times, one shared unit, and null for gaps. Never invent history from one measurement."
+    },
+    "DonutChart": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "labels": {
+          "minItems": 1,
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "values": {
+          "minItems": 1,
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "unit": {
+          "type": "string"
+        },
+        "caption": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "labels",
+        "values"
+      ],
+      "additionalProperties": false,
+      "description": "An interactive part-to-whole chart for non-negative values with the same unit. Click a legend item to inspect its share. Never mix different currencies or metrics."
+    },
+    "ProgressCard": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "target": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "target"
+      ],
+      "additionalProperties": false,
+      "description": "A progress ring toward an explicitly known goal. Never invent a health target, recommendation, or baseline."
+    },
+    "DataTable": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "columns": {
+          "minItems": 1,
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rows": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "caption": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "columns",
+        "rows"
+      ],
+      "additionalProperties": false,
+      "description": "A readable comparison or exact values table with a title, column headings, and rows. Null cells display No data."
+    }
+  }
+}

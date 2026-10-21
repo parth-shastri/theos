@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
@@ -27,6 +27,7 @@ from theos.services.preferences.tools import preferences
 from theos.settings import Settings
 from theos.storage import browser_access
 from theos.storage.database import Database
+from theos.storage.messages import display_metadata, update_display_metadata
 from theos.transports.browser.activity import activity_summary
 from theos.transports.browser.auth import (
     SESSION_COOKIE,
@@ -34,6 +35,12 @@ from theos.transports.browser.auth import (
     frontend_access,
     register_auth,
     same_origin,
+)
+from theos.transports.browser.openui import (
+    OpenUIActionInput,
+    action_message,
+    clean_openui_state,
+    validate_source,
 )
 from theos.transports.telegram.polling import Telegram
 
@@ -65,6 +72,40 @@ class SessionSettings(BaseModel):
     model: str
     reasoning: Literal["default", "none", "low", "medium", "high", "xhigh", "max"] = "default"
     generation: GenerationConfig | None = None
+
+
+class OpenUIStateInput(BaseModel):
+    message_id: str = Field(min_length=32, max_length=32, pattern=r"^[0-9a-f]{32}$")
+    state: dict[str, Any] = Field(default_factory=dict)
+    summary: str | None = Field(default=None, max_length=4000)
+
+
+class OpenUIIssueInput(BaseModel):
+    library_version: str = Field(pattern=r"^[A-Za-z0-9._-]{1,64}$")
+    codes: list[
+        Literal[
+            "unknown-component",
+            "missing-required",
+            "null-required",
+            "type-mismatch",
+            "excess-args",
+            "inline-reserved",
+            "unknown-function",
+            "no-root",
+            "tool-not-found",
+            "tool-error",
+            "mcp-error",
+            "parse-failed",
+            "parse-exception",
+            "runtime-error",
+            "render-error",
+            "library-version-mismatch",
+            "other",
+        ]
+    ] = Field(default_factory=list, max_length=16)
+    component_count: int = Field(default=0, ge=0, le=100)
+    unresolved_count: int = Field(default=0, ge=0, le=100)
+    orphaned_count: int = Field(default=0, ge=0, le=100)
 
 
 class BodyLimit:
@@ -224,11 +265,11 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/api/me")
     async def me(request: Request, owner=Depends(identity)):
+        user_preferences = preferences(current(request).db, owner, settings.timezone)
         return {
             "id": owner,
-            "display_name": preferences(current(request).db, owner, settings.timezone).get(
-                "display_name", ""
-            ),
+            "display_name": user_preferences.get("display_name", ""),
+            "timezone": user_preferences.get("timezone", settings.timezone),
             "admin": owner in settings.admins,
             "models": model_choices(settings),
             "generation_capabilities": {
@@ -361,13 +402,77 @@ def create_app(settings=None, runtime=None):
         if not body.text.strip() and not body.files:
             raise ValueError("Enter a message or attach a file.")
         return stream(
-            current(request).start(owner, session_id, body.text, body.files, mode=body.mode)
+            current(request).start(
+                owner,
+                session_id,
+                body.text,
+                body.files,
+                mode=body.mode,
+                browser_ui=True,
+            )
         )
 
     @app.post("/api/sessions/{session_id}/resume")
     async def resume(session_id: str, request: Request, owner=Depends(identity)):
         browser_session(request, owner, session_id)
-        return stream(current(request).start(owner, session_id))
+        return stream(current(request).start(owner, session_id, browser_ui=True))
+
+    @app.post("/api/sessions/{session_id}/openui-actions")
+    async def openui_action(
+        session_id: str,
+        body: OpenUIActionInput,
+        request: Request,
+        owner=Depends(identity),
+    ):
+        browser_session(request, owner, session_id)
+        validate_source(current(request), owner, session_id, body.message_id)
+        text, browser_ui, text_recovery, display_text = action_message(
+            current(request), owner, body
+        )
+        turn = current(request).start(
+            owner,
+            session_id,
+            text,
+            browser_ui=browser_ui,
+            tools_disabled=text_recovery,
+            text_recovery=text_recovery,
+            display_text=display_text,
+        )
+        return stream(turn)
+
+    @app.put("/api/sessions/{session_id}/openui-state")
+    async def openui_state(
+        session_id: str,
+        body: OpenUIStateInput,
+        request: Request,
+        owner=Depends(identity),
+    ):
+        browser_session(request, owner, session_id)
+        runtime = current(request)
+        if session_id in runtime.active:
+            raise ValueError("Wait for the current turn before saving the interface draft.")
+        state = clean_openui_state(body.state)
+        history = runtime.db.load_history(owner, session_id)
+        message = validate_source(runtime, owner, session_id, body.message_id, history)
+        display = display_metadata(message)
+        display["openui_state"] = state
+        if body.summary is not None:
+            display["openui_summary"] = body.summary.strip()
+        update_display_metadata(message, display)
+        runtime.db.save_history(owner, session_id, history)
+        return {"saved": True}
+
+    @app.post("/api/openui/issues")
+    async def openui_issue(body: OpenUIIssueInput, owner=Depends(identity)):
+        logging.getLogger("theos").warning(
+            "openui_render_issue version=%s codes=%s components=%d unresolved=%d orphaned=%d",
+            body.library_version,
+            ",".join(body.codes) or "unknown",
+            body.component_count,
+            body.unresolved_count,
+            body.orphaned_count,
+        )
+        return {"recorded": True}
 
     @app.post("/api/sessions/{session_id}/approvals/{approval_id}")
     async def approve(
@@ -379,7 +484,12 @@ def create_app(settings=None, runtime=None):
     ):
         browser_session(request, owner, session_id)
         runtime = current(request)
-        turn = runtime.start(owner, session_id, approval=(approval_id, body.approved))
+        turn = runtime.start(
+            owner,
+            session_id,
+            approval=(approval_id, body.approved),
+            browser_ui=True,
+        )
         return stream(turn, approvals=runtime.pending(owner, session_id))
 
     @app.post("/api/files")

@@ -10,7 +10,7 @@ from harness import (
     message_to_dict,
 )
 from theos.runtime.models import session_options
-from theos.storage.messages import stamp_message
+from theos.storage.messages import stamp_message, update_display_metadata
 
 from .approvals import check_approval
 from .context import ResearchStopped, options
@@ -62,6 +62,7 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         return request
 
     async def after_model(message, ctx):
+        turn = runtime.active.get(session_id)
         # Clean generated punctuation and attach display-only timing metadata before saving.
         if message.text is not None:
             message.text = reply_text(message.text)
@@ -72,6 +73,20 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             created_at=created_at,
             duration_ms=(time.monotonic() - started) * 1000 if started is not None else None,
         )
+        if turn.browser_ui and message.text:
+            turn.prepare_output()
+            if message.tool_calls:
+                update_display_metadata(message, {"openui_hidden": True})
+            else:
+                update_display_metadata(
+                    message,
+                    {
+                        "format": "openui-lang",
+                        "library_version": turn.library_version,
+                        "openui_message_id": turn.output_message_id,
+                        "openui_state": {},
+                    },
+                )
         # Save the assistant message and usage together before the harness executes any
         # requested tool. A crash after this point can identify the action that was pending.
         with runtime.db.transaction():

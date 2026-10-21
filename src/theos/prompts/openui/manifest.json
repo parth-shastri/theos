@@ -1,0 +1,7 @@
+{
+  "library_version": "theos-openui-2",
+  "renderer_package": "@openuidev/react-lang",
+  "renderer_version": "1.0.1",
+  "schema_package": "zod",
+  "schema_version": "4.6.7"
+}

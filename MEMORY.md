@@ -768,3 +768,39 @@ Remove the Theos logo from tab headers. Keep it in the main topbar.
 Restore the accepted mobile conversation header, compact panel headers, and continuous frost from the preceding mobile revision.
 Desktop tab content panels use the chat window's 26-pixel curved border, edge color, and shadow beneath their toolbars.
 Daily chart hover selection requires pointer movement, so focus scrolling cannot overwrite keyboard selection under a stationary pointer.
+
+## Browser OpenUI answers, 2026-10-21
+
+Use OpenUI Lang for browser chat presentation only. Keep the OpenAI Responses runtime, tools, approvals, checkpoints, and SSE flow. Do not add the OpenUI Gateway or Query()/Mutation() in this release.
+Define one pinned Zod component library for both the React renderer and the generated Python model prompt. Version the display format and component library. Keep generated prompt, schema, and manifest artifacts in `src/theos/prompts/openui/`.
+Require `TheosAnswer` with a visible `AnswerSummary`. Preview streamed output, but enable actions only after a complete parse with the expected root and no parser errors, unresolved references, or orphaned statements. Hide invalid source and offer a user-triggered plain-text recovery turn with tools disabled.
+Keep form edits in application display metadata. Bind actions to an owned saved message and route writes through existing validated Theos tools and approvals. Rendering a component must not perform a write.
+Read aloud only the visible `AnswerSummary`. Terminal history uses a saved summary or a browser notice. A disconnected stream reloads saved history and never replays a turn automatically.
+
+Local Docker deployment must load application settings from `/Users/nightowl/my_projects/theos/.env`, including its configured browser token.
+Keep image references, the existing data volume, and the private frontend service secret in a separate deployment file.
+Normalize OpenUI field wrappers before saving drafts or submitting actions. Include untouched form defaults and preserve restored edits.
+Reset message display state before child effects publish the rendered summary and form defaults.
+
+Keep visual answers inside the OpenUI component library and renderer. Library version 2 adds metric grids, bar and line charts, donut charts, goal rings, and tables.
+Use the existing green palette, Space Grotesk, theme tokens, and glass controls. Keep version 1 answers renderable through the compatible additive schema.
+Chart series must share a unit. Preserve missing samples as gaps and require an explicit source for goals or trends.
+Scope drawer styles and optical effects to the navigation sidebar. OpenUI status notices must remain inline when the drawer opens or closes.
+OpenUI evidence cards show readable domains, titles, excerpts, and paths. Display search terms and source filters without raw operator syntax.
+Retain the exact query under collapsed Search details. Remove duplicate excerpt labels, and do not display a URL as a research source ID.
+
+OpenUI evidence cards accept search-provided thumbnails, image descriptions, and logos through optional trailing fields. Preserve version 1 and 2 answers.
+When search omits a logo, discover a raster icon from the source origin's HTML head before trying `/favicon.ico`. Keep the domain initial on failure.
+Serve media through the authenticated Next.js `/api/search-image` route. Validate public addresses at socket lookup and on every redirect.
+Bound image bytes, head reads, request time, concurrent downloads, and memory cache size. Never forward browser credentials to source sites.
+Keep the existing image CSP. Do not load remote image URLs directly in the browser or add a third-party favicon service.
+
+## OpenUI release preparation, 2026-10-21
+
+Prepare version 1.3.0 for OpenUI answers and the separate Next.js frontend. Promote the integrated code to both `main` and `rpi` through separate PRs.
+The Pi upgrade requires a private frontend service secret and the tested `v1.1.0-20261019-18e1cc81d4c3` sandbox image. Preserve all other Pi credentials.
+Use the tagged release workflow and retain the previous image pair, volume, and environment backup for rollback.
+
+Browser CI starts its long-lived API process with the synchronized virtual environment's Python executable.
+Do not keep `uv run` alive across the job. It holds the cache lock and prevents setup-uv from pruning a cold cache.
+Stop acceptance processes before post-job cache cleanup.
