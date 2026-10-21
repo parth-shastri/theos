@@ -800,3 +800,7 @@ Keep the existing image CSP. Do not load remote image URLs directly in the brows
 Prepare version 1.3.0 for OpenUI answers and the separate Next.js frontend. Promote the integrated code to both `main` and `rpi` through separate PRs.
 The Pi upgrade requires a private frontend service secret and the tested `v1.1.0-20261019-18e1cc81d4c3` sandbox image. Preserve all other Pi credentials.
 Use the tagged release workflow and retain the previous image pair, volume, and environment backup for rollback.
+
+Browser CI starts its long-lived API process with the synchronized virtual environment's Python executable.
+Do not keep `uv run` alive across the job. It holds the cache lock and prevents setup-uv from pruning a cold cache.
+Stop acceptance processes before post-job cache cleanup.
