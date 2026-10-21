@@ -1,5 +1,183 @@
 # Feature and acceptance checklist
 
+## Browser OpenUI answers, 2026-10-21
+
+Implementation is on `feature/openui-browser`. Local Docker results appear under [local replacement](#local-openui-docker-replacement-2026-10-21).
+
+Release checks remain open:
+
+- Confirm `npm run openui:check` passes and the generated prompt, schema, and manifest match `web/src/openui/library.js`.
+- Check a simple answer, evidence links, streamed rendering, and invalid output in both themes and on mobile. Confirm invalid output hides source and only exposes a user-triggered text recovery.
+- Save and reload reminder drafts. Check timezone and daylight-saving validation, recurrence, and the existing tool approval path.
+- Confirm read aloud uses only `AnswerSummary`, terminal history uses the saved summary or notice, and an interrupted browser stream does not replay the turn.
+- Run the project CI and browser acceptance before merge.
+
+## OpenUI visuals and drawer isolation, 2026-10-21
+
+OpenUI library version 2 adds metric grids, bar and line charts, donut charts, goal rings, and tables.
+Each component remains registered in the OpenUI library. Generated artifacts supply the matching schema and model instructions.
+The renderer still accepts version 1 answers. Existing fact cards now use metric tiles with the workspace palette and typography.
+
+The health conversation reproduced a mobile drawer collision. A status notice inherited global `aside` layout and covered navigation.
+Drawer styles now target the navigation sidebar. Status notices remain inline in the answer.
+Reminder controls share the glass picker, a matching calendar, and weekday buttons. Menu cleanup retains its element before React clears the ref.
+
+Eight Node checks passed, including schema registration, exact axis values, signed scales, and missing-data gaps.
+Forty browser scenarios passed at 320, 390, 768, and 1280 pixels in both themes against the built containers.
+They covered version 1 restoration, drawer isolation, calendar selection, popover dismissal, saved draft edits, chart inspection, and exact-value tables.
+The Python suite passed 1,025 tests, with five skipped and three live checks deselected.
+Generated-artifact validation, Prettier, Ruff, whitespace checks, and both native ARM64 image builds passed.
+
+The local API image is `theos:local-openui-visuals-final-20261021`.
+The frontend image is `theos-web:local-openui-visuals-complete-20261021`.
+The deployment retains the root `.env` and existing data volume. A verified SQLite backup preceded replacement.
+
+The same local work then improved OpenUI evidence cards using the saved search conversation.
+Cards show a readable domain, title, excerpt, path, and result count. The default query label excludes operator syntax.
+Source filters remain visible as chips. Collapsed Search details retains the exact provider query.
+URLs no longer appear as research IDs, and snippet prefixes no longer duplicate the Excerpt badge.
+Ten Node checks and all 48 browser scenarios passed, including unsafe-link rejection and version 1 search restoration.
+The final local API is `theos:local-openui-search-20261021`. The frontend is `theos-web:local-openui-search-ready-20261021`.
+Both retain the repository root `.env` and existing volume.
+
+## OpenUI search images and logos, 2026-10-21
+
+OpenUI evidence cards accept optional search thumbnails, image descriptions, and source logos. Saved version 1 and 2 answers remain compatible.
+Desktop cards place images beside excerpts. Mobile cards place images above excerpts. Failed thumbnails collapse and failed logos retain domain initials.
+When provider metadata omits a logo, the frontend server reads the source origin's declared raster icons before trying its conventional favicon.
+The authenticated same-origin endpoint retains the existing CSP and sends no browser credentials to source sites.
+Public address validation runs during socket lookup and after each redirect. Image bytes, HTML reads, time, concurrency, and cache size have explicit bounds.
+
+Fifteen frontend checks passed. They covered public DNS, alternate IP encodings, redirects, media bounds, icon discovery, and metadata fallback.
+Forty container browser scenarios passed at 320, 390, 768, and 1280 pixels in both themes.
+They covered loaded and failed media, image sizing, keyboard links, saved answers, query cleanup, charts, forms, and the navigation drawer.
+Focused Python checks passed 28 tests, with one skipped. Provider mappings retain the original Exa and Brave result fields.
+Formatting, lint, generated artifacts, whitespace checks, and native ARM64 builds passed.
+
+A live configured search returned three NASA thumbnails. The image endpoint served all three and discovered NASA's declared PNG icon.
+Native desktop and mobile checks found and fixed inherited chat image margins and width limits.
+The local API and frontend now use `theos:local-openui-media-20261021` and `theos-web:local-openui-media-20261021`.
+Both containers are healthy. All 42 root `.env` values match the application container, and the file remains byte-for-byte unchanged.
+Configured token sign-in passed. SQLite integrity passed and all 111 file records remain available.
+A verified consistent database backup preceded replacement. Acceptance evidence is in `.theos/local-deployment/acceptance-openui-media-20261021/`.
+A live model search created Official NASA James Webb Image Galleries with a rendered NASA preview and source logos.
+Native checks confirmed desktop and mobile layouts and restoration after reload. The old image pair and disposable test stack were removed.
+
+## Desktop tab header clarification, 2026-10-21
+
+The original Theos topbar and conversation title and cost toolbar are restored.
+Desktop Tools, Connections, Activity, and Admin place their tab title and subtext in a matching toolbar above the scrolling content.
+Back to chat appears on the right. Tab headers contain no Theos logo, while the main topbar retains its logo.
+
+Native comparison covered all four tabs in both themes at 1280 pixels.
+Each matched the original conversation toolbar's position, height, 17-pixel title, 650 font weight, line height, and letter spacing.
+Subtext retained the conversation cost's 11-pixel font and muted theme color. Back controls retained a 12-pixel right inset.
+The 768-pixel desktop view retained its logo and labeled back action without horizontal overflow.
+The 431-pixel mobile panel retained its earlier compact header, and the 320-pixel chat retained its full title and cost bar.
+The browser reported no errors or warnings. The production ARM64 frontend image built successfully.
+
+Desktop tab content panels now match the chat window's 26-pixel curved border, edge color, and shadow.
+Native comparison confirmed exact border and shadow values for all four tabs in both themes at 1280 pixels.
+The 431-pixel mobile panel retained its existing border, radius, and compact header without horizontal overflow.
+
+CI exposed a mobile chart hover update that replaced keyboard selection when focus scrolled the chart beneath a stationary pointer.
+Daily chart hover updates now require pointer movement. Arrow keys retain focus and selection during scrolling.
+
+## Compact mobile panel navigation, 2026-10-20
+
+Empty mobile topbars now use a round 60-pixel sidebar control.
+Activity, administrator activity, connections, and tools pin their existing heading and back control beside it.
+The drawer hides the pinned heading. Chat retains its conversation title and cost header.
+React moves each heading through a portal, so there is only one heading and back action per panel.
+
+Native inspection covered 320 and 431 pixels in light and dark themes without horizontal overflow.
+Activity retained its header at eight pixels from the top after scrolling 827 pixels.
+Connections, tools, and administrator navigation retained visible headings and back controls.
+The preview reported no browser errors or warnings. Production Next.js and ARM64 frontend image builds passed.
+Desktop layout rules, fonts, colors, and glass settings remain unchanged.
+
+The panel scroll area now extends behind both frosted header pieces.
+Internal padding preserves the initial content position without clipping scrolled material below the header.
+Native inspection covered Activity, Admin, Connections, and Tools in both themes at 431 pixels.
+All eight views retained matching optical tint, blur, saturation, and navigation shadows.
+The scroll area began at four pixels, while the separate header pieces remained fixed at eight pixels.
+The 320-pixel Tools view also retained this scroll area without horizontal overflow.
+The browser reported no errors or warnings. The production ARM64 frontend image built successfully.
+
+## React workspace ownership, 2026-10-20
+
+React state now owns chat messages, streaming, approvals, attachments, voice controls, composer menus, settings, navigation, sign-in, research, connections, and charts.
+The old workspace controller and its Markdown, select, and chart DOM renderers are removed.
+The stylesheet and visual assets retain their bytes from the accepted mobile-heading revision.
+
+Native comparisons covered desktop messages at 1280 by 720 pixels and mobile views at 431 by 827 pixels.
+Compared message, Markdown, reasoning, tool, composer, settings, picker, connection, and chart geometry and styles matched the original frontend.
+Mobile message comparisons covered both themes. The title and cost retained the accepted header layout without horizontal overflow.
+Markdown retained code-copy controls, table regions, disabled task checkboxes, literal HTML, blocked unsafe links, and remote-image links.
+
+The disposable preview exercised streamed text and reasoning, tool updates, compaction, replacement answers, file controls, and approval decisions.
+An interrupted stream retained its partial reply, stopped thinking feedback, released controls, and displayed the existing recovery message.
+Settings save retained the draft. Sign-out cleared it, and cookie sign-in restored the workspace.
+Five existing frontend contract checks passed after migration to the React reducer, hooks, chart data, and optical effects.
+Prettier, Ruff for the changed checks, the production Next.js build, and the ARM64 frontend image build passed.
+Live microphone capture, speech synthesis, Telegram confirmation, and connector writes were not exercised in this preview.
+
+The full local Python suite passed 1,030 tests, with three credential-dependent checks excluded, after the React migration.
+Four proxy checks, Ruff, Prettier, and a fresh production Next.js build also passed.
+CI exposed stale personal totals during navigation to the administrator dashboard.
+Activity results now retain their authenticated account and query, so each view renders only matching data.
+Browser acceptance waits for chart data and checks both dashboard scopes and uncaught page errors.
+
+## Mobile conversation heading, 2026-10-20
+
+The collapsed mobile topbar shows the active conversation title and conversation cost in light and dark themes.
+The title and cost share the desktop update paths. Long titles truncate within the existing 60-pixel glass header.
+Native inspection at 344 by 741 pixels confirmed both themes, visible costs, and no horizontal page overflow.
+Selecting another saved conversation updated both values. The drawer retained its existing layout and hid the heading while open.
+The production frontend image built successfully and replaced the local web container. Both local services report healthy.
+
+## Plain sidebar text, 2026-10-20
+
+The sidebar no longer applies white or dark text halos.
+The stylesheet differs from the pre-migration baseline only by removal of seven text-shadow lines.
+All seven font, logo, and provider icon assets match the baseline bytes.
+
+Native browser comparison covered light and dark themes at 519 by 741 pixels.
+Thirty sidebar elements retained their font settings, colors, backgrounds, and glass filter styles.
+Visible geometry matched after accounting for the drawer's open or closed position.
+The settled light view retained the original blurred green backdrop without the white glyph outline.
+The rebuilt local frontend is healthy. The backend and existing conversations remain available.
+
+## Separate Next.js frontend and browser sessions, 2026-10-20
+
+The Next.js frontend and FastAPI API run as separate processes and Compose services.
+FastAPI no longer serves the browser page or static assets.
+React components retain the original workspace structure. The stylesheet, font, logos, and provider icons retain their original bytes.
+
+The full Python suite passed 1,030 tests, with three credential-dependent checks excluded.
+Six session checks cover cookie attributes, CSRF, rotation, expiry, logout, role boundaries, and login throttling.
+The existing Telegram enrollment and connected-terminal checks retain their owner and approval rules.
+Four Node checks cover the proxy's credentials, origin checks, separate cookies, validated ingress addresses, and immediate SSE delivery.
+
+Sixteen production browser scenarios passed at 320, 390, 768, and 1280 pixels in both themes.
+They cover cookie sign-in, reload, logout revocation, CSRF rejection, streaming, settings, native glass pickers, workspace navigation, and draft preservation.
+Nonce values differ between requests. Production CSP permits no arbitrary inline scripts.
+A separate HTTP smoke check uploaded and downloaded a 10 MiB file byte-for-byte through Next.js.
+API routes bypass middleware body cloning. The upstream stream client retains disconnect cancellation without idle timeouts.
+
+The [visual comparison](nextjs-ui-comparison.json) records 100 pairs against commit `0fc71659b90a8d5253e95cf5bd9a1296f5ff4e5a`.
+Checks covered ten workspace states at 320, 390, 700, 768, and 1280 pixels in both themes.
+Measured geometry matched in every pair. Isolated glass pixels differed by at most one channel level out of 255.
+No captured state had horizontal overflow or an unexpected browser error.
+These checks used a fake provider, reduced motion, and disposable databases.
+
+Production Next.js and Python package builds, Ruff, Prettier, workflow validation, dependency-lock validation, and both Compose configurations passed.
+The Python wheel contains the API migrations. The source distribution contains frontend sources without Node modules or build caches.
+The npm production dependency audit reported no known vulnerabilities.
+Docker was unavailable locally, so image builds and live container replacement remain CI checks.
+The release workflow publishes separate immutable image digests. Deployment tests cover replacement and rollback of both services.
+No branch promotion or production deployment occurred.
+
 ## Direct motivation, 2026-10-18
 
 The shared persona now specifies firm, masculine encouragement for ordinary discouragement and procrastination.
@@ -1210,3 +1388,21 @@ The existing focused glass, composer, view, and replacement checks passed 12 tes
 
 The local container runs `theos:local-acceptance-navigation-20261019-74cc202` with the final sandbox image.
 PR #86 merged into `dev` on 2026-10-19. Promotions and Pi deployment remain pending.
+
+## Local OpenUI Docker replacement, 2026-10-21
+
+The `feature/openui-browser` worktree built both native ARM64 images.
+The local API runs `theos:local-openui-tested-20261021`. The frontend runs `theos-web:local-openui-final-20261021`.
+All 42 application settings match `/Users/nightowl/my_projects/theos/.env`. Browser sign-in passed with that file's configured owner token.
+The existing data volume retained 62 records and 111 files. SQLite integrity passed before and after replacement.
+A consistent database backup preceded replacement.
+
+The Python suite passed 1,025 tests, with five skipped and three live checks deselected.
+Generated OpenUI artifacts, formatting, Python lint, four frontend proxy tests, and sixteen container browser scenarios passed.
+Container smoke checks covered readiness, authentication, CSRF rejection, a 10 MiB file transfer, SSE chat, non-root execution, and history after restart.
+
+Additional image checks covered exact summary values, safe links, four viewport widths, reminder defaults, edited drafts after reload, and form submission.
+Owner isolation, invalid fields, malformed-source fallback, and user-triggered text recovery passed.
+These checks found and corrected wrapped field values, missing untouched defaults, and summary initialization that cleared saved display data.
+A live configured model returned a valid OpenUI answer without tools. The deployed browser rendered it and restored it after reload.
+These results cover the local deployment. They do not establish Pi deployment or live reminder delivery.

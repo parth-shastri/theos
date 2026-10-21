@@ -150,6 +150,7 @@ class Settings(ClientSettings):
     users: dict[str, SecretStr] = Field(default_factory=dict)
     admins: set[str] = Field(default_factory=set)
     web_url: str = ""
+    frontend_secret: SecretStr = SecretStr("")
     provider: Literal["gemini", "openrouter", "openai", "anthropic", "llama", "fake"] = (
         DEFAULT_PROVIDER
     )
@@ -214,6 +215,8 @@ class Settings(ClientSettings):
     def validate_configuration(self):
         ZoneInfo(self.timezone)
         self.web_url = self.web_url.strip().rstrip("/")
+        if self.frontend_secret and len(self.frontend_secret.get_secret_value()) < 32:
+            raise ValueError("AGENT_FRONTEND_SECRET must contain at least 32 characters.")
         if self.web_url:
             web = urlsplit(self.web_url)
             if (

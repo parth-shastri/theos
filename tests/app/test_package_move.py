@@ -21,8 +21,8 @@ def test_theos_defaults_and_environment_namespace(monkeypatch):
     assert configured.memory.enabled
 
 
-def test_theos_owns_static_files_and_migrations():
+def test_theos_owns_backend_migrations():
     package = files("theos")
-    page = (package / "transports/browser/static/index.html").read_text()
-    assert "<title>{{AGENT_NAME}} / Personal assistant</title>" in page
+    assert not (package / "transports/browser/static/index.html").is_file()
+    assert (package / "storage/migrations/014_browser_sessions.sql").is_file()
     assert (package / "storage/migrations/001_initial.sql").is_file()

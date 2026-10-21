@@ -28,7 +28,8 @@ def rehearse(image, compose_file):
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
         (directory / ".env").write_text(
-            f"AGENT_PROVIDER=fake\nAGENT_USERS={{}}\nHOST_PORT={port}\nHOST_BIND_IP=127.0.0.1\n"
+            f"AGENT_PROVIDER=fake\nAGENT_USERS={{}}\nAPI_PORT={port}\nAPI_BIND_IP=127.0.0.1\n"
+            f"AGENT_FRONTEND_SECRET=rehearsal-service-secret-{uuid.uuid4().hex}\n"
         )
         compose = directory / "compose.yaml"
         compose.write_text(

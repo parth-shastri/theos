@@ -17,5 +17,17 @@
       "archive_member": "package/dist/purify.min.js",
       "sha256": "2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2"
     }
-  ]
+  ],
+  "migrated_on": "2026-10-20",
+  "dependency_lock": "web/package-lock.json",
+  "delivery": "Next.js bundles npm dependencies into locally served chunks. The copied asset entries below are historical.",
+  "runtime_dependencies": {
+    "dompurify": "3.4.16",
+    "marked": "18.1.0",
+    "next": "16.4.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "server-only": "0.0.1",
+    "undici": "8.12.3"
+  }
 }

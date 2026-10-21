@@ -1,4 +1,28 @@
 # syntax=docker/dockerfile:1
+FROM node:24.18.0-bookworm-slim AS web-builder
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY web/package.json web/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+COPY web/next.config.mjs ./
+COPY web/src ./src
+COPY web/public ./public
+COPY web/scripts ./scripts
+RUN npm run build
+
+FROM node:24.18.0-bookworm-slim AS web-runtime
+RUN groupadd --gid 10001 theos && useradd --uid 10001 --gid theos --create-home theos
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+COPY --from=web-builder --chown=theos:theos /app/.next/standalone ./
+COPY --from=web-builder --chown=theos:theos /app/.next/static ./.next/static
+COPY --from=web-builder --chown=theos:theos /app/public ./public
+USER theos
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||'3000')+'/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+CMD ["node", "server.js"]
+
 FROM python:3.13-slim-trixie AS builder
 ARG TARGETARCH
 ARG TARGETVARIANT

@@ -12,8 +12,19 @@ def service_map():
         "Theos / code and service boundaries",
         "Current implementation | Read each service in its own directory",
     )
+    scene.node("web", "rectangle", 40, 145, 305, 110, "Next.js frontend\nweb/", BLUE, 27)
+    scene.edge("frontend-api", [(345, 200), (435, 200)])
+    scene.text("frontend-auth", 65, 268, "Private API + sessions", 20)
     scene.node(
-        "interfaces", "rectangle", 435, 145, 330, 110, "Telegram + browser\ntransports/", BLUE, 27
+        "interfaces",
+        "rectangle",
+        435,
+        145,
+        330,
+        110,
+        "FastAPI + transports\nsrc/theos/transports/",
+        BLUE,
+        24,
     )
     scene.edge("input", [(600, 255), (600, 325)])
     scene.node(
