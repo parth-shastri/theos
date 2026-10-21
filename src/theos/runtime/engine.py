@@ -25,7 +25,7 @@ from theos.runtime.models import model_client
 from theos.services.files.catalog import Files
 from theos.services.memory.client import MemoryClient
 from theos.services.preferences.tools import preferences
-from theos.storage.messages import stamp_message
+from theos.storage.messages import stamp_message, update_display_metadata
 
 from . import approvals, checkpoints, context, hooks, recovery, speech, titles, tools
 from .budgets import TurnBudget
@@ -191,6 +191,10 @@ class Runtime:
         scheduled=False,
         raw_events=False,
         mode="normal",
+        browser_ui=False,
+        tools_disabled=False,
+        text_recovery=False,
+        display_text=None,
     ):
         """Reserve one turn before a response stream starts."""
         # First establish that this conversation belongs to the caller. Do this before
@@ -207,6 +211,10 @@ class Runtime:
         message = (
             self.input_message(owner, text, file_ids) if text is not None or file_ids else None
         )
+        if display_text is not None:
+            if message is None or not isinstance(display_text, str) or len(display_text) > 500:
+                raise ValueError("The interface action display text is invalid.")
+            update_display_metadata(message, {"user_text": display_text})
         if approval:
             # The transport sends an approval ID and yes/no choice, not tool arguments.
             # Load the saved approval so a client cannot edit the action while approving it.
@@ -223,12 +231,21 @@ class Runtime:
         from .research_mode import explicit_request
 
         research_task = explicit_request(text, mode) if text is not None else None
+        openui_version = None
+        if browser_ui:
+            from .openui import library_version
+
+            openui_version = library_version()
         # Turn holds only live delivery state; SQLite remains the source of durable history.
         turn = Turn(
             owner,
             session_id,
             raw_events=raw_events,
             include_delegate_tool_progress=session["channel"].startswith("telegram"),
+            browser_ui=browser_ui,
+            tools_disabled=tools_disabled,
+            text_recovery=text_recovery,
+            library_version=openui_version,
             research_task=research_task,
         )
         # Reserve synchronously. Two incoming requests must not start the same conversation
@@ -419,7 +436,7 @@ class Runtime:
                     # The registry is owner- and channel-specific. It is what lets the same
                     # generic harness loop expose different services to different users.
                     with self.tracing.span("runtime tool registry"):
-                        tools = await self.tools(session)
+                        tools = [] if turn.tools_disabled else await self.tools(session)
                     user_preferences = preferences(self.db, turn.owner, self.settings.timezone)
                     query = (
                         message.content
@@ -463,6 +480,24 @@ class Runtime:
                         retrieved_memory=retrieved,
                         telegram=session["channel"].startswith("telegram"),
                     )
+                    if turn.browser_ui or turn.text_recovery:
+                        from theos.runtime.openui import system_prompt
+
+                        policy = render(
+                            "chat/openui-policy.md"
+                            if turn.browser_ui
+                            else "chat/openui-recovery.md",
+                            timezone=user_preferences.get("timezone", self.settings.timezone),
+                        )
+                        instructions = "\n\n".join(
+                            part.strip()
+                            for part in (
+                                instructions,
+                                policy,
+                                system_prompt() if turn.browser_ui else "",
+                            )
+                            if part.strip()
+                        )
                     # This is the boundary between Theos and the harness: application
                     # objects are passed in; the harness does not import Theos services.
                     agent = Agent(

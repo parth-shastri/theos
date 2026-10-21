@@ -230,11 +230,15 @@ export function WorkspaceProvider({ agentName, children }) {
         queue = [];
       };
       let synced = false;
+      let responseReceived = false;
+      let completed = false;
       try {
         const response = await api(path, { method: "POST", body: payload });
+        responseReceived = true;
         if (approval)
           dispatch({ type: "APPROVAL_ACCEPTED", sessionId, ...approval });
         await readEvents(response, (event) => {
+          if (event.type === "done") completed = true;
           queue.push(event);
           if (frame === null) frame = requestAnimationFrame(flush);
         });
@@ -257,6 +261,23 @@ export function WorkspaceProvider({ agentName, children }) {
             "true"
         )
           setAutoPlay({ sessionId, request: Date.now() });
+      } catch (error) {
+        if (responseReceived && !completed && !signal.aborted) {
+          flush();
+          try {
+            const session = await json("/api/sessions/" + sessionId);
+            dispatch({ type: "LOAD", session });
+            status(
+              "The connection ended. The saved conversation is loaded. Review it before trying again.",
+            );
+            synced = true;
+            await listSessions();
+          } catch (reloadError) {
+            if (reloadError.name !== "AbortError") showError(reloadError);
+          }
+          return;
+        }
+        throw error;
       } finally {
         flush();
         if (!synced && !signal.aborted) {
@@ -273,7 +294,39 @@ export function WorkspaceProvider({ agentName, children }) {
         streamLock.current = false;
       }
     },
-    [api, json, listSessions],
+    [api, json, listSessions, status, showError],
+  );
+  const openUIAction = useCallback(
+    async (sessionId, payload) => {
+      if (streamLock.current || sessionId !== current.current.chat.id) return;
+      const { visible_text, ...request } = payload;
+      dispatch({
+        type: "USER",
+        sessionId,
+        text: (
+          visible_text ||
+          request.label ||
+          "Continue this conversation"
+        ).slice(0, 500),
+      });
+      await stream("/api/sessions/" + sessionId + "/openui-actions", request);
+    },
+    [dispatch, stream],
+  );
+  const saveOpenUIState = useCallback(
+    async (sessionId, messageId, state, summary) => {
+      await json("/api/sessions/" + sessionId + "/openui-state", {
+        method: "PUT",
+        body: { message_id: messageId, state, summary },
+      });
+    },
+    [json],
+  );
+  const reportOpenUIIssue = useCallback(
+    async (issue) => {
+      await json("/api/openui/issues", { method: "POST", body: issue });
+    },
+    [json],
   );
   const send = async (text, files, mode) => {
     if (streamLock.current) return;
@@ -569,6 +622,9 @@ export function WorkspaceProvider({ agentName, children }) {
         openSession,
         newSession,
         send,
+        openUIAction,
+        saveOpenUIState,
+        reportOpenUIIssue,
         resume,
         reset,
         approve,

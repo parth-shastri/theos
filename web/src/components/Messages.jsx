@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
 import Markdown, { markdownText } from "./Markdown";
+import OpenUIAnswer from "./OpenUIAnswer";
 import { Icon } from "./Primitives";
 
 const SpeechContext = createContext(null);
@@ -309,7 +310,25 @@ const ChatMessage = memo(function ChatMessage({
         </details>
       )}
       {entry.role === "assistant" ? (
-        <Markdown className="body" source={entry.text} />
+        entry.format === "openui-lang" ? (
+          <OpenUIAnswer
+            entry={entry}
+            sessionId={sessionId}
+            renderSpeech={
+              speech
+                ? (summary) => (
+                    <SpeechButton
+                      source={summary}
+                      sessionId={sessionId}
+                      autoPlay={autoPlay}
+                    />
+                  )
+                : null
+            }
+          />
+        ) : (
+          <Markdown className="body" source={entry.text} />
+        )
       ) : (
         <div className="body">
           {entry.text}
@@ -327,6 +346,7 @@ const ChatMessage = memo(function ChatMessage({
       <div className="message-footer">
         {speech &&
           entry.role === "assistant" &&
+          entry.format !== "openui-lang" &&
           !entry.streaming &&
           !!markdownText(entry.text) && (
             <SpeechButton

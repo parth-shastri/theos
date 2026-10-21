@@ -203,6 +203,33 @@ Select **Copy** on a code block to copy its code.
 Raw HTML appears as text. Unsafe links cannot execute scripts, and remote images appear as links.
 Speech playback uses the rendered text without code toolbar labels.
 
+## Interactive answers
+
+Browser chat answers use OpenUI Lang with Theos components. Simple replies use a required visible summary.
+Other replies can include metric grids, charts, goal rings, tables, linked evidence, status notes, or a reminder draft.
+The OpenUI library defines each component and generates the matching model instructions and schema. The OpenUI renderer composes the answer.
+
+Bar charts compare quantities with the same unit. Line charts show recorded time series and preserve gaps for missing samples.
+Donut charts show parts of one total. Goal rings require a goal supplied by the user or a completed tool.
+Hover, tap, or use arrow keys to inspect chart values. Expand **View exact values** for the underlying table.
+Select chart legends to inspect a share or toggle a series. Different metrics, units, or currencies require separate charts.
+The component library preserves earlier saved answers and uses the existing workspace palette and typography.
+
+Search results use source cards with a domain, title, excerpt, and readable path.
+The query label shows readable search terms. Site and file filters appear separately.
+Expand **Search details** to inspect the original provider query, including operators such as `site:`.
+The renderer removes repeated excerpt prefixes and excludes URLs from reference-ID labels. It preserves the saved source content.
+
+The browser previews the interface while the model streams. It enables actions only when the answer finishes and the renderer confirms that the root, references, and components are valid. It does not show OpenUI source. If an answer cannot render, select **Explain in text** to request a plain-text explanation. That recovery turn uses the saved conversation and does not call tools.
+
+Reminder forms keep edits as a draft. Select **Schedule reminder** to send the reviewed fields through the existing `schedule_reminder` tool and its approval rules. The server validates the date, timezone, recurrence, and daylight-saving time before the assistant calls the tool. Rendering a form does not save a reminder.
+The repeat picker shares the settings menu's glass material and keyboard controls. The date field includes a matching calendar.
+Custom recurrence uses weekday selection buttons. Saved drafts retain these selections after a reload.
+
+The **Read aloud** control for an OpenUI answer reads only its visible summary. The browser saves the form draft and summary as display metadata. Terminal history shows the saved summary when available; otherwise it shows a notice to open that conversation in the browser.
+
+If the browser stream ends early, the application reloads saved history and does not replay the turn. Review the conversation before sending another request.
+
 The frosted composer starts with one line on mobile and desktop.
 The **+** button sits on the left. Microphone and send buttons sit on the right.
 Focus the input to expand it into a text row above the controls and message mode.
@@ -396,3 +423,16 @@ The collapsed mobile navigation now has a header box behind its sidebar trigger.
 This box lets the existing glass layer separate the trigger from messages during scrolling.
 Dark mode retains its previous styles and layout.
 The browser favicon and touch icon use the existing Theos Daylight image.
+
+### Search images and logos
+
+OpenUI source cards show search-provided thumbnails beside their excerpts. Mobile cards place the image above the excerpt.
+Each image opens its original source page. Logos use provider metadata or an icon declared by the source origin.
+Missing logos retain domain initials. Failed thumbnails collapse without hiding the title, excerpt, or link.
+Saved answers without image fields remain compatible. They can use discovered site icons.
+
+The authenticated `/api/search-image` route serves raster images from the same origin. It retains the existing content policy.
+The server validates DNS addresses at connection time and checks each redirect. It sends no browser cookies or tokens to source sites.
+Downloads allow three redirects, ten seconds, and two MiB per image. Logo discovery reads at most 256 KiB of HTML.
+The shared cache holds at most 128 entries and 24 MiB for one hour. At most eight downloads run at once.
+SVG and unsupported media use the fallback. Search tools preserve provider payloads and expose `image_url`, `image_alt`, and `logo_url` when supplied.

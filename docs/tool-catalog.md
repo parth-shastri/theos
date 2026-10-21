@@ -100,9 +100,12 @@ Source: [terminal adapter](../src/theos/transports/terminal/session.py), [remote
 ## Browser tools view
 
 The browser frontend uses Next.js 16.4.2, React 19.3.1, and React DOM 19.3.1 on Node.js 24.18.0.
+Its OpenUI renderer uses `@openuidev/react-lang` 1.0.1 and Zod 4.6.7. `web/src/openui/library.js` defines the component schema and React renderers. `npm run openui:generate` writes the matching system prompt, JSON schema, and version manifest to `src/theos/prompts/openui/`. CI checks that these files match the library.
 The `server-only` 0.0.1 marker prevents private proxy code from entering a client component.
 FastAPI runs as a separate API service. Native HTML details controls retain the existing tools view.
 React components define the page structure. Browser modules retain streaming, charts, menus, voice, and glass effects.
+Browser chat turns use the generated OpenUI prompt and library. `TheosAnswer` requires a visible `AnswerSummary`; optional components show summary facts, evidence, status notes, and a reminder draft. The renderer never displays raw OpenUI source. It enables actions only after a complete parse with no errors, unresolved references, or orphaned statements. Invalid output offers a user-triggered text explanation without replaying tools.
+The reminder form submits only after a user action. The server validates the fields and sends them to the existing `schedule_reminder` tool through the normal runtime and approval policy. OpenUI adds no model tool and performs no write during rendering.
 The mounted controller releases requests, event listeners, observers, timers, and audio resources on unmount.
 The Next.js server uses Undici 8.12.3 to forward authenticated API requests without buffering streamed replies.
 Its upstream client disables header and body idle timeouts for long model calls and retains disconnect cancellation.
@@ -125,6 +128,11 @@ Native browser timers and Intl formatters supply live updates and local timestam
 Next.js bundles [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16 into locally served chunks.
 The npm lockfile records package integrity. The [vendor manifest](browser-vendor-provenance.json) retains dependency sources and earlier asset hashes.
 Prettier 3.6.2 and Playwright 1.64.1 are development dependencies. They add no model tools.
+OpenUI visual components use React, native SVG, the existing theme tokens, and the shared glass picker. They add no chart dependency or service.
+OpenUI evidence cards use search-provided thumbnails and logos. The authenticated Next.js image route uses the existing Undici client and Node DNS.
+It discovers source icons, validates public socket addresses and redirects, and bounds downloads and its memory cache. No image service or dependency is added.
+The registered library includes metric grids, bar and line charts, donut charts, progress rings, tables, evidence, notices, and reminder forms.
+`web/src/openui/library.js` generates the model prompt and schema. `web/src/openui/visuals.js` supplies the registered visual components.
 The renderer treats raw HTML as text and removes unsafe links from generated markup.
 
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.

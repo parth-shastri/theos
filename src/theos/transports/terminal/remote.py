@@ -12,6 +12,7 @@ from renderer.events import RunFinished
 from renderer.interactive import RuntimeInfo, SessionInfo, normalize_prompt
 from theos.storage.messages import restore_message
 
+from .openui import terminal_history
 from .wire import PROTOCOL_VERSION, approval_events, decode_event
 
 
@@ -129,9 +130,13 @@ class RemoteSession:
 
     async def history(self, session_id):
         return tuple(
-            restore_message(value)
-            for value in (await self.snapshot(session_id))["history"]
-            if not value.get("display", {}).get("superseded")
+            terminal_history(
+                [
+                    restore_message(value)
+                    for value in (await self.snapshot(session_id))["history"]
+                    if not value.get("display", {}).get("superseded")
+                ]
+            )
         )
 
     async def history_timestamps(self, session_id):

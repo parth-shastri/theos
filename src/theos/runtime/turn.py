@@ -3,6 +3,7 @@
 import asyncio
 import time
 from dataclasses import dataclass, field
+from uuid import uuid4
 
 from harness import Inbox
 
@@ -22,6 +23,11 @@ class Turn:
     # Some clients need original typed harness events; most receive display-ready events.
     raw_events: bool = False
     include_delegate_tool_progress: bool = False
+    browser_ui: bool = False
+    tools_disabled: bool = False
+    text_recovery: bool = False
+    library_version: str | None = None
+    output_message_id: str | None = None
     # Explicit research and provider failures are kept here so application code can resume
     # or report the right status without encoding that state in the UI queue.
     research_task: str | None = None
@@ -32,6 +38,12 @@ class Turn:
     started_at: float = field(default_factory=time.monotonic)
     tool_activity: dict[tuple, dict] = field(default_factory=dict)
     loaded_skills: set[str] = field(default_factory=set)
+
+    def prepare_output(self, *, new=False):
+        """Assign an ID before a browser response streams or saves form state."""
+        if self.browser_ui and (new or not self.output_message_id):
+            self.output_message_id = uuid4().hex
+        return self.output_message_id
 
     def observe_tool(self, event):
         """Count parent and delegate calls before display queues can drop events."""

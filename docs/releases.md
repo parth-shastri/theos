@@ -15,6 +15,21 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.3.0
+
+Package version 1.3.0 uses tag `rpi-v1.3.0` from the promoted `rpi` tip.
+The browser runs as a separate Next.js frontend with protected cookie sessions and the existing assistant API.
+OpenUI renders browser answers, metric cards, charts, tables, source images, source logos, and reminder drafts.
+Reminder actions retain the existing tools, validation, and approval policy. Terminal and Telegram retain their transport boundaries.
+Search media uses an authenticated same-origin endpoint. Saved version 1 and 2 OpenUI answers remain compatible.
+The browser retains the existing green palette, glass effects, and responsive navigation.
+
+Before activation, configure `AGENT_FRONTEND_SECRET` in the private Pi environment and retain the public `AGENT_WEB_URL`.
+Use sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3`.
+The frontend keeps browser port 8080. Direct API and terminal access uses private port 8081.
+The release workflow publishes both ARM64 images, restores a candidate data volume, and checks both services before activation.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
 ## Release 1.2.1
 
 Package version 1.2.1 uses tag `rpi-v1.2.1` from the promoted `rpi` tip.

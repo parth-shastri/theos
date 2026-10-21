@@ -112,6 +112,7 @@ jobs:
           enable-cache: true
       - run: uv sync --locked --extra server
       - run: npm ci --prefix web --no-audit --no-fund
+      - run: npm --prefix web run openui:check
       - run: npm --prefix web run check
       - run: npm --prefix web test
       - run: npm --prefix web run build
