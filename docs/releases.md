@@ -15,6 +15,21 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.3.0
+
+Package version 1.3.0 uses tag `rpi-v1.3.0` from the promoted `rpi` tip.
+The browser runs as a separate Next.js frontend with protected cookie sessions and the existing assistant API.
+OpenUI renders browser answers, metric cards, charts, tables, source images, source logos, and reminder drafts.
+Reminder actions retain the existing tools, validation, and approval policy. Terminal and Telegram retain their transport boundaries.
+Search media uses an authenticated same-origin endpoint. Saved version 1 and 2 OpenUI answers remain compatible.
+The browser retains the existing green palette, glass effects, and responsive navigation.
+
+Before activation, configure `AGENT_FRONTEND_SECRET` in the private Pi environment and retain the public `AGENT_WEB_URL`.
+Use sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3`.
+The frontend keeps browser port 8080. Direct API and terminal access uses private port 8081.
+The release workflow publishes both ARM64 images, restores a candidate data volume, and checks both services before activation.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
 ## Release 1.2.1
 
 Package version 1.2.1 uses tag `rpi-v1.2.1` from the promoted `rpi` tip.
@@ -428,3 +443,17 @@ python3 scripts/rehearse_rpi.py --image theos:rehearsal
 
 The rehearsal installs a release, writes a SQLite record, replaces the release, then starts an intentionally unhealthy image.
 It verifies rollback and the records in both retained databases before removing its containers and volumes.
+
+## Separate frontend releases
+
+The Next.js frontend uses the Docker `web-runtime` target. The API uses `runtime`.
+Pi releases publish both images and retain both immutable digests in the release manifest.
+Deployment checks both services before committing the release. Rollback restores the previous image pair and data volume.
+The API retains its existing architecture coverage. The Next.js frontend release currently targets ARM64.
+Local frontend builds also run on the development host.
+
+Before the first separate-service release, set a random `AGENT_FRONTEND_SECRET` in the deployment environment.
+Keep `AGENT_WEB_URL` pointed at the public frontend origin.
+The frontend retains the host browser port, 8080. Direct API and terminal access moves to the private API port, 8081.
+Existing browser tokens remain valid for sign-in. Previously stored tab tokens are removed by the new client.
+Sessions from earlier versions can require sign-in when their last activity exceeds the new idle limit.

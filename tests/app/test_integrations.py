@@ -333,3 +333,56 @@ def test_backup_restore_and_log_redaction(settings, tmp_path):
     db.close()
     record = logging.LogRecord("theos", logging.ERROR, "", 1, "token=very-secret", (), None)
     assert "very-secret" not in SafeFormatter().format(record)
+
+
+async def test_search_media_retains_provider_data_and_exposes_images(settings):
+    from pydantic import SecretStr
+
+    from theos.services.search.tools import search_tools
+
+    settings.exa_key = SecretStr("exa-key")
+    settings.brave_key = SecretStr("brave-key")
+    exa = {
+        "title": "Source",
+        "url": "https://example.com",
+        "image": "https://cdn.example.com/photo.png",
+        "favicon": "https://example.com/icon.ico",
+        "text": "Source text",
+    }
+    brave = {
+        "title": "Source",
+        "thumbnail": {"src": "https://cdn.example.com/thumb.jpg", "alt": "A source photo"},
+        "profile": {"img": "https://example.com/logo.png"},
+    }
+    requests = []
+
+    def endpoint(request):
+        requests.append(request)
+        if request.url.host == "api.exa.ai":
+            if len(requests) == 1:
+                return httpx.Response(200, json={"results": [exa]})
+            return httpx.Response(503)
+        return httpx.Response(
+            200,
+            json={
+                "web": {
+                    "results": [
+                        brave,
+                        {"image": "javascript:bad", "favicon": "data:image/svg+xml,bad"},
+                    ]
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:
+        tools = search_tools(settings, http)
+        first = (await call_tool(tools, "web_search", query="test"))["results"][0]
+        assert first.items() >= exa.items()
+        assert first["image_url"] == exa["image"]
+        assert first["logo_url"] == exa["favicon"]
+        second = (await call_tool(tools, "web_search", query="test"))["web"]["results"]
+        assert second[0]["image_url"] == brave["thumbnail"]["src"]
+        assert second[0]["logo_url"] == brave["profile"]["img"]
+        assert second[0]["image_alt"] == "A source photo"
+        assert "image_url" not in second[1]
+        assert "logo_url" not in second[1]

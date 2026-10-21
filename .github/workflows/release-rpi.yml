@@ -53,9 +53,11 @@ jobs:
     outputs:
       image: ${{ steps.image.outputs.image }}
       revision: ${{ steps.revision.outputs.revision }}
+      web_image: ${{ steps.web_image.outputs.image }}
     env:
       RELEASE_TAG: ${{ github.ref_name }}
       IMAGE_TAG: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+      WEB_IMAGE_TAG: ghcr.io/${{ github.repository }}-web:${{ github.ref_name }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -71,6 +73,7 @@ jobs:
         with:
           context: .
           platforms: linux/arm64
+          target: runtime
           load: true
           tags: ${{ env.IMAGE_TAG }}
           labels: |
@@ -81,7 +84,8 @@ jobs:
       - name: Test the exact image that will be published
         run: |
           test "$(docker image inspect "$IMAGE_TAG" --format '{{.Architecture}}')" = arm64
-          docker run -d --name theos-smoke -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 "$IMAGE_TAG"
+          docker network create theos-release-check
+          docker run -d --network theos-release-check --name theos-smoke -e AGENT_WEB_URL=http://127.0.0.1:3000 -e AGENT_FRONTEND_SECRET=release-private-service-secret-123456789 -v /data --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 768m --cpus 1 -e AGENT_PROVIDER=fake -e 'AGENT_USERS={"ci":"container-acceptance-token-123456789"}' -p 127.0.0.1:8080:8080 "$IMAGE_TAG"
           for _ in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8080/ready; then break; fi
             sleep 2
@@ -97,6 +101,29 @@ jobs:
           done
           python3 scripts/theos_smoke.py --check-restart
           docker stop theos-smoke
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/arm64
+          target: web-runtime
+          load: true
+          tags: ${{ env.WEB_IMAGE_TAG }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.revision.outputs.revision }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          cache-from: type=gha,scope=web-arm64
+      - name: Test the exact frontend image with the API image
+        run: |
+          docker start theos-smoke
+          docker run -d --network theos-release-check --name theos-web-smoke -e AGENT_WEB_URL=http://127.0.0.1:3000 -e THEOS_API_URL=http://theos-smoke:8080 -e THEOS_FRONTEND_SECRET=release-private-service-secret-123456789 --read-only --tmpfs /tmp:rw,size=64m --cap-drop ALL --security-opt no-new-privileges --memory 512m --cpus 1 -p 127.0.0.1:3000:3000 "$WEB_IMAGE_TAG"
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ready; then break; fi
+            sleep 2
+          done
+          python3 scripts/theos_web_smoke.py
+          test "$(docker exec theos-web-smoke id -u)" = 10001
+          docker stop theos-web-smoke theos-smoke
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
@@ -107,6 +134,12 @@ jobs:
         run: |
           docker push "$IMAGE_TAG"
           image=$(docker image inspect "$IMAGE_TAG" --format '{{index .RepoDigests 0}}')
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      - name: Publish frontend and capture its immutable digest
+        id: web_image
+        run: |
+          docker push "$WEB_IMAGE_TAG"
+          image=$(docker image inspect "$WEB_IMAGE_TAG" --format '{{index .RepoDigests 0}}')
           echo "image=$image" >> "$GITHUB_OUTPUT"
   deploy:
     needs: publish
@@ -119,6 +152,7 @@ jobs:
       THEOS_DEPLOY_DIR: ${{ vars.THEOS_DEPLOY_DIR || '/home/neuron/theos-deploy' }}
       RELEASE_TAG: ${{ github.ref_name }}
       RELEASE_IMAGE: ${{ needs.publish.outputs.image }}
+      RELEASE_WEB_IMAGE: ${{ needs.publish.outputs.web_image }}
       RELEASE_REVISION: ${{ needs.publish.outputs.revision }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -136,7 +170,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Check Telegram and activate release with automatic rollback
         run: |
-          python3 scripts/deploy_rpi.py --image "$RELEASE_IMAGE" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --deploy-dir "$THEOS_DEPLOY_DIR"
+          python3 scripts/deploy_rpi.py --image "$RELEASE_IMAGE" --web-image "$RELEASE_WEB_IMAGE" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --deploy-dir "$THEOS_DEPLOY_DIR"
       - name: Report deployment or rollback
         if: always()
         run: |
@@ -171,8 +205,9 @@ jobs:
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ github.ref_name }}
       RELEASE_IMAGE: ${{ needs.publish.outputs.image }}
+      RELEASE_WEB_IMAGE: ${{ needs.publish.outputs.web_image }}
     steps:
       - name: Record the successful deployment as a GitHub release
         run: |
-          printf 'Deployed to neuralbox-pi.\n\nImage: %s\n' "$RELEASE_IMAGE" > "$RUNNER_TEMP/release-notes.md"
+          printf 'Deployed to neuralbox-pi.\n\nAPI image: %s\nFrontend image: %s\n' "$RELEASE_IMAGE" "$RELEASE_WEB_IMAGE" > "$RUNNER_TEMP/release-notes.md"
           gh release create "$RELEASE_TAG" --verify-tag --title "Theos $RELEASE_TAG" --generate-notes --notes-file "$RUNNER_TEMP/release-notes.md"

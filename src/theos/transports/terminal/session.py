@@ -78,11 +78,15 @@ class TerminalSession:
         self._session(session_id)
         from theos.storage.messages import display_metadata
 
-        return [
-            message
-            for message in self.db.load_history(self.owner, session_id)
-            if not display_metadata(message).get("superseded")
-        ]
+        from .openui import terminal_history
+
+        return terminal_history(
+            [
+                message
+                for message in self.db.load_history(self.owner, session_id)
+                if not display_metadata(message).get("superseded")
+            ]
+        )
 
     def sessions(self):
         return tuple(

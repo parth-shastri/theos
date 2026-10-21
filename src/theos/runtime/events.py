@@ -85,6 +85,16 @@ def publish_event(runtime, turn, event, status):
     runtime.tracing.turn_event(event)
     if isinstance(event, ModelCalled):
         if not turn.raw_events:
+            if turn.browser_ui:
+                turn.prepare_output(new=True)
+                turn.emit(
+                    {
+                        "type": "assistant_format",
+                        "format": "openui-lang",
+                        "library_version": turn.library_version,
+                        "openui_message_id": turn.output_message_id,
+                    }
+                )
             turn.emit({"type": "thinking", "display": {"created_at": time.time()}})
     elif isinstance(event, TextDelta):
         if not turn.raw_events:

@@ -22,17 +22,29 @@ Set `AGENT_NAME` in `.env` to name your assistant. The default name is `Theos`.
 
    ```sh
    uv sync --locked --extra server --extra terminal
+   npm ci --prefix web
    ```
 
-2. Copy `.env.minimal` to `.env`.
-3. Set the model key and a unique browser token of at least 32 characters.
-4. Start the application.
+2. Copy `.env.minimal` to `.env` and `web/.env.example` to `web/.env.local`.
+3. Set the model key and a unique browser token of at least 32 random characters.
+4. Set the same random service secret in `AGENT_FRONTEND_SECRET` and `THEOS_FRONTEND_SECRET`.
+5. Set `AGENT_WEB_URL=http://127.0.0.1:3000` and the same `AGENT_NAME` in both files.
+6. Start the API.
 
    ```sh
    uv run python -m theos.server
    ```
 
-5. Open `http://127.0.0.1:8080` and enter the browser token.
+7. Start the frontend in another terminal.
+
+   ```sh
+   npm --prefix web run dev
+   ```
+
+8. Open `http://127.0.0.1:3000` and enter the browser token.
+
+FastAPI serves the API on port 8080. Next.js serves the browser on port 3000.
+Read [frontend development](docs/development.md#nextjs-frontend) for production builds and authentication settings.
 
 For an offline smoke test, set `AGENT_PROVIDER=fake`.
 The fake provider returns a fixed answer and does not call tools.
