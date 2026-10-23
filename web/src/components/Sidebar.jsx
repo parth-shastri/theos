@@ -133,21 +133,21 @@ export default function Sidebar() {
             disabled={busy}
             onClick={() => navigate("connections-view")}
           >
-            Connections ↗
+            Connections <Icon name="arrowUpRight" className="link-arrow" />
           </button>
           <button
             id="tools-button"
             disabled={busy}
             onClick={() => navigate("tools-view")}
           >
-            Tools ↗
+            Tools <Icon name="arrowUpRight" className="link-arrow" />
           </button>
           <button
             id="activity-button"
             disabled={busy}
             onClick={() => navigate("dashboard")}
           >
-            Activity & usage ↗
+            Activity & usage <Icon name="arrowUpRight" className="link-arrow" />
           </button>
           <button
             id="dashboard-button"
@@ -155,7 +155,7 @@ export default function Sidebar() {
             disabled={busy}
             onClick={() => navigate("dashboard-admin")}
           >
-            Admin dashboard ↗
+            Admin dashboard <Icon name="arrowUpRight" className="link-arrow" />
           </button>
           <div className="account-row">
             <span id="identity" title={me?.id}>

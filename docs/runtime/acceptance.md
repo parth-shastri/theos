@@ -1,5 +1,24 @@
 # Feature and acceptance checklist
 
+## iPhone keyboard layout and navigation arrows, 2026-10-23
+
+The application frame follows visual viewport height and vertical offset, including scroll-only keyboard movement.
+Fixed navigation stays inside the frame. Native dialogs use the same visible bounds in the browser top layer.
+Keyboard dismissal clears stale offsets. Pinch zoom retains native browser control.
+Sidebar and sign-in actions use decorative SVG arrows, so iOS cannot replace them with emoji.
+
+The regression test reproduces a 116-pixel composer gap on unchanged `dev` during a simulated 96-pixel viewport shift.
+The fixed layout keeps the composer within 24 pixels of the keyboard boundary and preserves the draft.
+Checks cover long drafts, navigation, dialogs, token sign-in, dismissal, and zoom.
+
+The existing Chromium suite passed 56 cases across four widths and both themes.
+Eight keyboard cases passed in Chromium and WebKit at 320 and 390 pixels in both themes.
+Fifteen Node checks, eleven focused Python browser checks, formatting, generated OpenUI validation, and the production frontend build passed.
+The full WebKit run passed 60 cases and failed four mobile chart-selection cases during window resizing.
+The same chart failure reproduced on unchanged `dev` at `f09e307`. It is separate from the keyboard fix.
+
+Physical iPhone keyboard animation and Home Screen mode remain unverified. The Pi deployment is unchanged.
+
 ## Browser OpenUI answers, 2026-10-21
 
 Implementation is on `feature/openui-browser`. Local Docker results appear under [local replacement](#local-openui-docker-replacement-2026-10-21).

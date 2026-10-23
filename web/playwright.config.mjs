@@ -6,6 +6,7 @@ export default defineConfig({
   workers: 1,
   timeout: 30000,
   use: {
+    browserName: process.env.THEOS_E2E_BROWSER || "chromium",
     baseURL: process.env.THEOS_E2E_URL || "http://127.0.0.1:3000",
     reducedMotion: "reduce",
     launchOptions: process.env.THEOS_BROWSER_EXECUTABLE

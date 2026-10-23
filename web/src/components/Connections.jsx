@@ -24,7 +24,7 @@ function SignInLink({ url }) {
         target="_blank"
         rel="noopener noreferrer"
       >
-        Continue sign-in ↗
+        Continue sign-in <Icon name="arrowUpRight" className="link-arrow" />
       </a>
     );
   } catch (error) {

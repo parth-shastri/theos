@@ -10,7 +10,9 @@ import Activity from "./Activity";
 import Connections from "./Connections";
 import Tools from "./Tools";
 import Dialogs from "./Dialogs";
+import { useVisualViewport } from "../hooks/useVisualViewport";
 function WorkspaceContents() {
+  useVisualViewport();
   const { me, mobile, sidebarOpen, view, setDesktopPanelHeadingHost } =
     useWorkspace();
   return (
