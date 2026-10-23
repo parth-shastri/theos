@@ -806,3 +806,10 @@ Use the tagged release workflow and retain the previous image pair, volume, and 
 Browser CI starts its long-lived API process with the synchronized virtual environment's Python executable.
 Do not keep `uv run` alive across the job. It holds the cache lock and prevents setup-uv from pruning a cold cache.
 Stop acceptance processes before post-job cache cleanup.
+
+## Mobile keyboard release preparation, 2026-10-23
+
+The operator requested PR #100 on `dev`, `main`, and `rpi`, followed by a minor Pi release.
+Prepare package version 1.4.0 and immutable tag `rpi-v1.4.0` at the promoted `rpi` tip.
+Use separate promotion PRs and merge commits. Preserve the existing glass material and private deployment configuration.
+No database migration is required. Confirm the release workflow and active Pi manifest before claiming deployment.
