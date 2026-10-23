@@ -4,7 +4,9 @@
   try {
     preference = localStorage.getItem("theos-theme");
   } catch {}
-  document.documentElement.dataset.theme = ["light", "dark"].includes(preference)
+  document.documentElement.dataset.theme = ["light", "dark"].includes(
+    preference,
+  )
     ? preference
     : matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
