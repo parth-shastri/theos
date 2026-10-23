@@ -103,8 +103,16 @@
 html,
 body {
   min-width: 320px;
-  min-height: 100%;
   margin: 0;
+}
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  --bottom-safe-area: env(safe-area-inset-bottom, 0px);
+}
+html.keyboard-open {
+  --bottom-safe-area: 0px;
 }
 body {
   height: var(--viewport-height, 100dvh);
@@ -124,6 +132,15 @@ body {
     var(--canvas);
   font-size: 13px;
   line-height: 1.6;
+}
+.app-viewport {
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--viewport-height, 100dvh);
+  overflow: hidden;
+  background: inherit;
+  /* Keep fixed navigation inside the same visible area as the composer. */
+  transform: translateY(var(--viewport-top, 0px));
 }
 #voice-ambience {
   position: fixed;
@@ -2144,6 +2161,11 @@ button.composer-action:hover:not(:disabled) {
   width: 20px;
   height: 20px;
 }
+.link-arrow {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
 .sidebar-backdrop {
   position: fixed;
   inset: var(--header-height) 0 0;
@@ -2157,7 +2179,10 @@ button.composer-action:hover:not(:disabled) {
 }
 
 dialog {
-  position: relative;
+  /* Modal dialogs enter the top layer and do not inherit the frame transform. */
+  position: fixed;
+  inset-block: var(--viewport-top, 0px)
+    calc(100% - var(--viewport-top, 0px) - var(--viewport-height, 100dvh));
   width: min(560px, calc(100% - 24px));
   max-height: calc(var(--viewport-height, 100dvh) - 40px);
   overflow-y: auto;
@@ -3854,7 +3879,7 @@ tr:last-child td {
   .sidebar-collapsed aside:where(#sidebar) {
     position: fixed;
     top: max(8px, env(safe-area-inset-top, 0px));
-    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    bottom: max(12px, var(--bottom-safe-area));
     left: max(8px, env(safe-area-inset-left, 0px));
     width: min(304px, calc(100% - 32px));
     z-index: 15;
@@ -3968,8 +3993,7 @@ tr:last-child td {
   }
   main {
     padding: 4px max(8px, env(safe-area-inset-right, 0px))
-      max(8px, env(safe-area-inset-bottom, 0px))
-      max(8px, env(safe-area-inset-left, 0px));
+      max(8px, var(--bottom-safe-area)) max(8px, env(safe-area-inset-left, 0px));
     gap: 8px;
     grid-column: 1;
     grid-row: 1;

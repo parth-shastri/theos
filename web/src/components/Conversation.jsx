@@ -109,21 +109,6 @@ export default function Conversation() {
   }, [chat.busy]);
   useLayoutEffect(scroll, [chat.entries]);
   useEffect(() => {
-    const viewport = window.visualViewport;
-    const fit = () => {
-      if (!viewport || viewport.scale !== 1) return;
-      document.documentElement.style.setProperty(
-        "--viewport-height",
-        Math.round(viewport.height) + "px",
-      );
-      document.documentElement.classList.toggle(
-        "keyboard-open",
-        innerHeight - viewport.height > 120,
-      );
-      scroll();
-    };
-    viewport?.addEventListener("resize", fit);
-    fit();
     const observer = new ResizeObserver(() => {
       const height = wrap.current?.getBoundingClientRect().height;
       if (!height) return;
@@ -146,9 +131,6 @@ export default function Conversation() {
     observer.observe(chatView.current);
     return () => {
       observer.disconnect();
-      viewport?.removeEventListener("resize", fit);
-      document.documentElement.classList.remove("keyboard-open");
-      document.documentElement.style.removeProperty("--viewport-height");
     };
   }, []);
   return (

@@ -128,6 +128,11 @@ Native browser timers and Intl formatters supply live updates and local timestam
 Next.js bundles [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16 into locally served chunks.
 The npm lockfile records package integrity. The [vendor manifest](browser-vendor-provenance.json) retains dependency sources and earlier asset hashes.
 Prettier 3.6.2 and Playwright 1.64.1 are development dependencies. They add no model tools.
+
+The shared viewport hook uses native `VisualViewport` events and animation frames to fit the iPhone keyboard area.
+The application frame follows viewport height and vertical offset. Native dialogs use the same bounds in the browser top layer.
+Source: [viewport hook](../web/src/hooks/useVisualViewport.js) and [layout styles](../web/src/app/globals.css).
+
 OpenUI visual components use React, native SVG, the existing theme tokens, and the shared glass picker. They add no chart dependency or service.
 OpenUI evidence cards use search-provided thumbnails and logos. The authenticated Next.js image route uses the existing Undici client and Node DNS.
 It discovers source icons, validates public socket addresses and redirects, and bounds downloads and its memory cache. No image service or dependency is added.

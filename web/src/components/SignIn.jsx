@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
+import { Icon } from "./Primitives";
 export default function SignIn() {
   const {
     agentName,
@@ -46,7 +47,7 @@ export default function SignIn() {
           onChange={(event) => setToken(event.target.value)}
         />
         <button className="primary" type="submit" disabled={signingIn}>
-          Open workspace <span aria-hidden="true">↗</span>
+          Open workspace <Icon name="arrowUpRight" className="link-arrow" />
         </button>
         <p id="login-error" className="error" role="alert">
           {loginError}
@@ -123,7 +124,7 @@ export default function SignIn() {
             disabled={signingIn}
             onClick={finishSignin}
           >
-            Open workspace ↗
+            Open workspace <Icon name="arrowUpRight" className="link-arrow" />
           </button>
         </div>
         <button

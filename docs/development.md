@@ -122,6 +122,17 @@ Use the preview account from the CI workflow or set `THEOS_E2E_TOKEN` to a dispo
 The browser checks cover 320, 390, 768, and 1280 pixel widths in both themes.
 They exercise cookie login, reload, logout revocation, CSRF rejection, streamed chat, menus, and workspace navigation.
 
+For WebKit keyboard layout checks, install the browser and select it for the run:
+
+```sh
+cd web
+npx playwright install webkit
+THEOS_E2E_BROWSER=webkit npx playwright test tests/browser/viewport.spec.mjs --project=390-dark
+```
+
+These checks simulate keyboard viewport height and scroll offsets. They also cover dismissal, sign-in, dialogs, and pinch-zoom preservation.
+A physical iPhone check remains necessary for the native keyboard animation in Safari and Home Screen mode.
+
 The default pytest selection excludes tests marked `live`.
 The [acceptance guide](runtime/acceptance.md) lists live checks and recorded results.
 The [workflow](../.github/workflows/theos.yml) checks Python 3.12 and 3.13, all owned browser JavaScript, wheel imports, the lightweight client, Compose, and containers on five Linux architectures. An explicit extended run adds IBM Z and RISC-V.
