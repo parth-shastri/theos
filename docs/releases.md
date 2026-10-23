@@ -15,6 +15,19 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.4.0
+
+Package version 1.4.0 uses tag `rpi-v1.4.0` from the promoted `rpi` tip.
+The mobile application frame follows keyboard viewport height and vertical movement.
+Navigation, dialogs, and the composer stay within the visible area. Drafts survive keyboard dismissal, and pinch zoom retains native control.
+Sidebar and sign-in actions use SVG northeast arrows instead of Unicode arrows that iOS can display as emoji.
+The existing frost effect, green palette, and theme colors remain unchanged.
+
+No database migration or new private environment value is required.
+Publish and activate both ARM64 images through the tagged release workflow, with the previous image pair and data volume available for rollback.
+Automated keyboard checks passed in Chromium and WebKit. Physical iPhone keyboard animation and Home Screen mode remain unverified.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
 ## Release 1.3.0
 
 Package version 1.3.0 uses tag `rpi-v1.3.0` from the promoted `rpi` tip.
