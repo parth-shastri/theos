@@ -131,3 +131,34 @@ test("token sign-in remains reachable above the keyboard", async ({ page }) => {
   await signIn(page);
   await composerAboveKeyboard(page, 72, 360);
 });
+
+test("repeated keyboard toggles recover from incomplete measurements and page restoration", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await signIn(page);
+  const input = page.locator("#message");
+  await input.fill("Keep this draft through keyboard toggles");
+  for (const height of [420, 300, 420]) {
+    await viewport(page, { height, offsetTop: 80 });
+    await composerAboveKeyboard(page, 80, height);
+    const box = await page.locator(".app-viewport").boundingBox();
+    await viewport(page, { height: 0 });
+    await expect(page.locator("#composer")).toBeVisible();
+    await expect
+      .poll(
+        async () => (await page.locator(".app-viewport").boundingBox()).height,
+      )
+      .toBe(box.height);
+    // Returning from the page cache can restore dimensions without a resize event.
+    await page.evaluate(() => {
+      Object.assign(visualViewport, { height: innerHeight, offsetTop: 80 });
+      dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    });
+    await insideViewport(page, "#composer", 0, page.viewportSize().height);
+    await expect
+      .poll(async () => (await page.locator(".app-viewport").boundingBox()).y)
+      .toBe(0);
+    await expect(input).toHaveValue("Keep this draft through keyboard toggles");
+  }
+});

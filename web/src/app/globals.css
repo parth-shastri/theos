@@ -135,12 +135,12 @@ body {
 }
 .app-viewport {
   position: fixed;
-  inset: 0 0 auto;
+  inset: var(--viewport-top, 0px) 0 auto;
   height: var(--viewport-height, 100dvh);
   overflow: hidden;
   background: inherit;
-  /* Keep fixed navigation inside the same visible area as the composer. */
-  transform: translateY(var(--viewport-top, 0px));
+  /* Contain fixed navigation without transforming the full WebKit paint layer. */
+  contain: layout;
 }
 #voice-ambience {
   position: fixed;
@@ -2179,7 +2179,7 @@ button.composer-action:hover:not(:disabled) {
 }
 
 dialog {
-  /* Modal dialogs enter the top layer and do not inherit the frame transform. */
+  /* Modal dialogs enter the top layer outside the positioned application frame. */
   position: fixed;
   inset-block: var(--viewport-top, 0px)
     calc(100% - var(--viewport-top, 0px) - var(--viewport-height, 100dvh));
@@ -2618,6 +2618,21 @@ button.speech-button.is-playing {
     0 0 16px var(--glow-b),
     0 0 30px color-mix(in srgb, var(--glow-a) 55%, transparent);
   animation: orb-breathe 2.2s ease-in-out infinite;
+}
+.turn-activity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  color: var(--text-soft);
+}
+.turn-activity .thinking-label {
+  animation: thinking-pulse 1.6s ease-in-out infinite;
+}
+@keyframes thinking-pulse {
+  50% {
+    opacity: 0.45;
+  }
 }
 @keyframes orb-breathe {
   0%,

@@ -11,6 +11,8 @@ export const initialChat = {
   status: "",
   statusClass: "",
   busy: false,
+  responding: false,
+  notice: "",
   active: null,
   output: null,
   lastAnswer: null,
@@ -120,16 +122,12 @@ function event(state, value, now) {
       : value.status === "completed"
         ? "Context ready. Continuing."
         : "Context preparation stopped. Your conversation is saved.";
-    state.status = row.active ? "Organizing context…" : "Continuing…";
-    state.statusClass = "";
   }
   if (value.type === "thinking") {
     const entry = assistant(state, now);
     entry.started = now;
     entry.display = { ...entry.display, ...value.display };
     entry.thinking = true;
-    state.status = "Thinking…";
-    state.statusClass = "thinking-status";
   }
   if (value.type === "assistant_format") {
     state.output = value;
@@ -169,11 +167,8 @@ function event(state, value, now) {
     }
     state.active = null;
     state.output = null;
-    state.statusClass = "";
   }
   if (value.type === "tool") {
-    state.statusClass = "";
-    state.status = value.name + ": " + value.status;
     tool(
       state,
       value,
@@ -185,10 +180,11 @@ function event(state, value, now) {
   if (value.type === "file") append(state, { kind: "file", ...value });
   if (value.type === "approvals") state.approvals = value.items;
   if (value.type === "error") {
+    state.responding = false;
     state.status = value.message;
     state.statusClass = "error";
   }
-  if (value.type === "done") state.status = value.status.replaceAll("_", " ");
+  if (value.type === "done") state.responding = false;
 }
 export function historyEntries(session) {
   const state = { ...initialChat, entries: [], sequence: 0 };
@@ -265,7 +261,7 @@ export function chatReducer(previous, action) {
       generation: action.session.generation,
       usage: action.session.usage,
       approvals: action.session.approvals,
-      status:
+      notice:
         action.session.status === "running"
           ? "This turn is still running. Reopen the conversation to load its result."
           : "",
@@ -286,12 +282,14 @@ export function chatReducer(previous, action) {
   if (action.type === "START") {
     state.turn++;
     state.busy = true;
+    state.responding = true;
+    state.notice = "";
     state.active = null;
     state.output = null;
     state.lastAnswer = null;
     state.answers = [];
-    state.status = "Thinking…";
-    state.statusClass = "thinking-status";
+    state.status = "";
+    state.statusClass = "";
     assistant(state, now);
   }
   if (action.type === "EVENTS")
@@ -319,6 +317,7 @@ export function chatReducer(previous, action) {
         entry.reasoning,
     );
     state.busy = false;
+    state.responding = false;
     state.active = null;
     state.output = null;
     if (state.statusClass !== "error") state.statusClass = "";

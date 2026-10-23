@@ -1425,3 +1425,21 @@ Owner isolation, invalid fields, malformed-source fallback, and user-triggered t
 These checks found and corrected wrapped field values, missing untouched defaults, and summary initialization that cleared saved display data.
 A live configured model returned a valid OpenUI answer without tools. The deployed browser rendered it and restored it after reload.
 These results cover the local deployment. They do not establish Pi deployment or live reminder delivery.
+
+## Mobile keyboard and turn activity, 2026-10-23
+
+An injected zero-height keyboard measurement collapsed the previous application frame to zero pixels.
+The corrected hook retains the last valid height and refreshes after focus changes and page restoration.
+The application frame uses viewport positioning and layout containment instead of a full-frame transform.
+
+The production Chromium suite passed 76 cases. The focused WebKit suite passed 20 cases.
+Each suite skipped 12 mobile-only cases at desktop widths.
+Checks cover repeated keyboard toggles, viewport panning, restored pages, preserved drafts, dialogs, navigation, and native pinch zoom.
+A staged SSE fixture verifies continuous turn activity across model completions and tool events, with no run labels in the composer.
+The label pulses and the orb glows during the turn. Reduced motion disables both animations.
+Reducer checks cover completion, approval waits, failures, and disconnect cleanup. Errors remain visible.
+
+The 12 focused Python checks and 15 Node checks passed.
+Formatting, generated OpenUI validation, the production frontend build, and whitespace checks passed.
+Mobile WebKit screenshots retained the composer, navigation, tool state, and active turn indicator.
+Physical iPhone keyboard animation and Home Screen behavior still need confirmation. This change does not deploy a release.

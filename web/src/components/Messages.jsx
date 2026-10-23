@@ -292,15 +292,11 @@ const ChatMessage = memo(function ChatMessage({
             ? "Workspace"
             : "You"}
       </div>
-      {(entry.reasoning || entry.thinking) && (
-        <details
-          className={"thinking" + (entry.thinking ? " is-thinking" : "")}
-        >
+      {entry.reasoning && (
+        <details className="thinking">
           <summary>
             <span className="thinking-orb" aria-hidden="true" />
-            <span className="thinking-label">
-              {entry.thinking ? "Thinking…" : "Thinking"}
-            </span>
+            <span className="thinking-label">Thinking</span>
           </summary>
           <Markdown
             className="thinking-body"
@@ -492,6 +488,17 @@ export function MessageList({ scrollRef, onScroll }) {
               {entry.text}
             </div>
           ),
+        )}
+        {chat.responding && (
+          <div className="turn-activity is-thinking" role="status">
+            <span className="thinking-orb" aria-hidden="true" />
+            <span className="thinking-label">Thinking…</span>
+          </div>
+        )}
+        {chat.notice && (
+          <p className="context-activity" role="status">
+            {chat.notice}
+          </p>
         )}
       </div>
     </SpeechProvider>
