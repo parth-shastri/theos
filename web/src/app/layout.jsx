@@ -16,7 +16,9 @@ export default function RootLayout({ children }) {
         <link rel="icon" type="image/png" href="/static/brand-light.png" />
         <link rel="apple-touch-icon" href="/static/brand-light.png" />
       </head>
-      <body>{children}</body>
+      <body>
+        <div className="app-viewport">{children}</div>
+      </body>
     </html>
   );
 }

@@ -158,6 +158,7 @@ export const iconPaths = {
   attach: ["m20 11-8 8a5 5 0 0 1-7-7l9-9a3 3 0 0 1 4 4l-9 9a1 1 0 0 1-2-2l8-8"],
   command: ["m15 4-6 16"],
   send: ["M12 19V5m-6 6 6-6 6 6"],
+  arrowUpRight: ["M5 19 19 5M5 5h14v14"],
   plus: ["M12 5v14M5 12h14"],
   chat: ["M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 0 1 18 0Z", "M8 10h8M8 14h5"],
   chevron: ["m8 14 4-4 4 4"],
