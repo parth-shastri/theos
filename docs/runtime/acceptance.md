@@ -1443,3 +1443,23 @@ The 12 focused Python checks and 15 Node checks passed.
 Formatting, generated OpenUI validation, the production frontend build, and whitespace checks passed.
 Mobile WebKit screenshots retained the composer, navigation, tool state, and active turn indicator.
 Physical iPhone keyboard animation and Home Screen behavior still need confirmation. This change does not deploy a release.
+
+## Native iOS Simulator viewport correction, 2026-10-23
+
+The iPhone 14 Pro simulator on iOS 27.0 reproduced the reported blank keyboard view on the open installed site.
+The initial PR #104 build passed its first Safari keyboard opening but failed a second opening with a draft.
+Native measurements on iPhone 17 Pro Max identified the remaining offset cap.
+Safari reported an inner height of 560 pixels, visual height of 447 pixels, and offset and root scroll of 236 pixels.
+The cap used 113 pixels and placed the application frame at minus 123 pixels.
+The corrected hook uses the full nonnegative visual viewport offset until Safari clears it.
+
+On iPhone 17 Pro Max, the corrected frame stayed at zero pixels while Safari reported a 349-pixel offset.
+The composer stayed visible with the full software keyboard. The draft survived dismissal and a second opening.
+The iPhone 14 Pro was shut down before the iPhone 17 Pro Max checks, as requested.
+Native screenshots and numeric measurements were saved outside the repository in the user's Desktop verification folder.
+Temporary diagnostic requests were removed from the implementation after these measurements.
+The final native checks cover Safari on iPhone 17 Pro Max. Final Home Screen mode and physical-device checks remain pending.
+
+The final source passed 76 existing Chromium scenarios and four new Safari-offset regression cases in a targeted rerun.
+The focused WebKit suite passed all 24 applicable cases. Sixteen mobile-only cases were skipped at desktop widths in each full matrix.
+The 12 focused Python checks, 15 Node checks, formatting, generated OpenUI validation, and production frontend build passed.

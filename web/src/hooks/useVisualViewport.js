@@ -12,11 +12,9 @@ export function useVisualViewport() {
       const height = viewport?.height ?? window.innerHeight;
       // Ignore incomplete viewport measurements during keyboard transitions.
       if (!Number.isFinite(height) || height <= 0) return;
-      // Safari can retain its keyboard offset briefly after restoring the full height.
-      const top = Math.max(
-        0,
-        Math.min(viewport?.offsetTop ?? 0, window.innerHeight - height),
-      );
+      // Safari can shrink innerHeight while retaining a larger keyboard pan.
+      // Keep the reported offset until Safari clears it on keyboard dismissal.
+      const top = Math.max(0, viewport?.offsetTop ?? 0);
       root.style.setProperty("--viewport-height", `${height}px`);
       root.style.setProperty("--viewport-top", `${top}px`);
       root.classList.toggle("keyboard-open", window.innerHeight - height > 120);

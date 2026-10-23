@@ -825,3 +825,11 @@ Stop the indicator on completion, approval waits, errors, and disconnects. Reduc
 Keep tool states in tool events. Remove run state labels, including completed, from the composer.
 Keep composer errors and recording feedback. Show a reopened running-turn notice in the conversation.
 This supersedes earlier decisions to show run progress inside the composer.
+
+Native simulator checks reproduced the blank keyboard view on iPhone 14 Pro with iOS 27.0.
+A second keyboard cycle also exposed a remaining offset cap in the initial PR #104 build.
+Safari reported `innerHeight=560`, visual height `447`, offset `236`, and root scroll `236`.
+The cap reduced the offset to `113` and moved the application frame to `-123` pixels.
+Use the full nonnegative visual viewport offset, including during keyboard dismissal. Do not cap it with `innerHeight`.
+The corrected iPhone 17 Pro Max check retained the frame at zero with a `349`-pixel offset and preserved the draft across keyboard toggles.
+The iPhone 14 Pro simulator was shut down before testing iPhone 17 Pro Max, as requested.
