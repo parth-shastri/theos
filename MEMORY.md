@@ -833,3 +833,8 @@ The cap reduced the offset to `113` and moved the application frame to `-123` pi
 Use the full nonnegative visual viewport offset, including during keyboard dismissal. Do not cap it with `innerHeight`.
 The corrected iPhone 17 Pro Max check retained the frame at zero with a `349`-pixel offset and preserved the draft across keyboard toggles.
 The iPhone 14 Pro simulator was shut down before testing iPhone 17 Pro Max, as requested.
+
+Keep the document backdrop at the theme canvas color. Paint the ambient glow once inside the application frame.
+Fade the glow into the canvas at the bottom edge to avoid a hard boundary above the native keyboard accessory.
+Apply the saved theme through a nonce-authorized script before React loads, so Safari samples the correct initial backdrop.
+Do not reset that theme during hydration. Native Safari can retain its previous bar color after an in-page theme switch until reload.

@@ -1463,3 +1463,14 @@ The final native checks cover Safari on iPhone 17 Pro Max. Final Home Screen mod
 The final source passed 76 existing Chromium scenarios and four new Safari-offset regression cases in a targeted rerun.
 The focused WebKit suite passed all 24 applicable cases. Sixteen mobile-only cases were skipped at desktop widths in each full matrix.
 The 12 focused Python checks, 15 Node checks, formatting, generated OpenUI validation, and production frontend build passed.
+
+## Keyboard background boundary, 2026-10-23
+
+The ambient gradient ended at the application frame while the native keyboard gap used the plain document backdrop.
+The document now keeps the theme canvas color. The frame paints the glow once and fades into that canvas at its bottom edge.
+Native iPhone 17 Pro Max screenshots show the keyboard boundary in both themes without the previous hard green edge.
+The saved theme now applies before React loads through a script with the existing request nonce.
+Native Safari starts with the correct dark backdrop after reload. Its bar color can still remain stale during a live theme switch.
+The bootstrap check blocks React scripts and confirms the saved theme takes precedence over the system theme under the production CSP.
+The final source passed 48 focused Chromium cases, 24 focused WebKit cases, 12 Python checks, and 15 Node checks.
+Each browser matrix skipped 16 mobile-only cases at desktop widths. Formatting, generated OpenUI validation, and the production build passed.

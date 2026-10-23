@@ -117,10 +117,22 @@ html.keyboard-open {
 body {
   height: var(--viewport-height, 100dvh);
   overflow: hidden;
+  background: var(--canvas);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.app-viewport {
+  position: fixed;
+  inset: var(--viewport-top, 0px) 0 auto;
+  height: var(--viewport-height, 100dvh);
+  overflow: hidden;
+  /* Meet Safari's plain page backdrop without a hard edge above the keyboard. */
   background:
     linear-gradient(
       to top,
-      color-mix(in srgb, var(--accent) var(--ambient-bottom), transparent),
+      transparent,
+      color-mix(in srgb, var(--accent) var(--ambient-bottom), transparent)
+        min(64px, 18%),
       color-mix(in srgb, var(--accent) var(--ambient-mid), transparent) 26%,
       transparent 62%
     ),
@@ -130,15 +142,6 @@ body {
       transparent 46%
     ),
     var(--canvas);
-  font-size: 13px;
-  line-height: 1.6;
-}
-.app-viewport {
-  position: fixed;
-  inset: var(--viewport-top, 0px) 0 auto;
-  height: var(--viewport-height, 100dvh);
-  overflow: hidden;
-  background: inherit;
   /* Contain fixed navigation without transforming the full WebKit paint layer. */
   contain: layout;
 }
