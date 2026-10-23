@@ -73,6 +73,34 @@ assert.equal(reviewed.entries.filter(row => row.kind === 'tool').length, 1);
 assert.equal(reviewed.entries.find(row => row.kind === 'tool').status, 'completed');
 assert.strictEqual(reduce(reviewed, {type: 'EVENTS', sessionId: 'other', events: [{type: 'title', title: 'Stale'}]}), reviewed);
 
+// A turn continues across model completions, tools, and context preparation.
+let active = reduce({...initialChat, entries: [], answers: []}, {type: 'START'});
+for (const event of [
+  {type: 'thinking'},
+  {type: 'reasoning', text: 'Check the source'},
+  {type: 'assistant_complete', requested_tools: ['search']},
+  {type: 'tool', call_id: 'search', name: 'search', status: 'started'},
+  {type: 'tool', call_id: 'search', name: 'search', status: 'completed'},
+  {type: 'compaction', compaction_id: 'context', status: 'started'},
+  {type: 'compaction', compaction_id: 'context', status: 'completed'},
+  {type: 'thinking'}, {type: 'text', text: 'Answer'},
+  {type: 'assistant_complete', text: 'Answer'},
+]) {
+  active = reduce(active, {type: 'EVENTS', events: [event]});
+  assert.equal(active.responding, true, event.type + ' must not stop the turn indicator');
+  assert.equal(active.status, '', 'Run states must stay outside the composer');
+}
+for (const status of ['completed', 'waiting_for_approval', 'interrupted', 'failed']) {
+  const ended = reduce(active, {type: 'EVENTS', events: [{type: 'done', status}]});
+  assert.equal(ended.responding, false);
+  assert.equal(ended.status, '');
+}
+const failed = reduce(active, {type: 'EVENTS', events: [{type: 'error', message: 'Connection failed'}]});
+assert.equal(failed.responding, false);
+assert.equal(failed.status, 'Connection failed');
+assert.equal(reduce(failed, {type: 'FINISH'}).statusClass, 'error');
+assert.equal(reduce(active, {type: 'FINISH'}).responding, false);
+
 """
     result = subprocess.run(
         ["node", "--input-type=module"], input=script, text=True, capture_output=True, timeout=10

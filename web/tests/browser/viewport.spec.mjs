@@ -94,8 +94,12 @@ test("keyboard resize and pan keep the composer and navigation in view", async (
   await insideViewport(page, "#generation-dialog", 96, 420);
   await page.locator("#generation-cancel").click();
 
-  // Keyboard dismissal may restore height before Safari clears its old offset.
+  // Safari clears the pan separately from restoring the viewport height.
   await viewport(page, { height: page.viewportSize().height });
+  await expect
+    .poll(async () => (await page.locator(".app-viewport").boundingBox()).y)
+    .toBe(96);
+  await viewport(page, { offsetTop: 0 }, "scroll");
   await expect
     .poll(async () => (await page.locator(".app-viewport").boundingBox()).y)
     .toBe(0);
@@ -130,4 +134,71 @@ test("token sign-in remains reachable above the keyboard", async ({ page }) => {
   await insideViewport(page, "#login-form button[type=submit]", 72, 360);
   await signIn(page);
   await composerAboveKeyboard(page, 72, 360);
+});
+
+test("repeated keyboard toggles recover from incomplete measurements and page restoration", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await signIn(page);
+  const input = page.locator("#message");
+  await input.fill("Keep this draft through keyboard toggles");
+  for (const height of [420, 300, 420]) {
+    await viewport(page, { height, offsetTop: 80 });
+    await composerAboveKeyboard(page, 80, height);
+    const box = await page.locator(".app-viewport").boundingBox();
+    await viewport(page, { height: 0 });
+    await expect(page.locator("#composer")).toBeVisible();
+    await expect
+      .poll(
+        async () => (await page.locator(".app-viewport").boundingBox()).height,
+      )
+      .toBe(box.height);
+    // Returning from the page cache can restore dimensions without a resize event.
+    await page.evaluate(() => {
+      Object.assign(visualViewport, { height: innerHeight, offsetTop: 0 });
+      dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    });
+    await insideViewport(page, "#composer", 0, page.viewportSize().height);
+    await expect
+      .poll(async () => (await page.locator(".app-viewport").boundingBox()).y)
+      .toBe(0);
+    await expect(input).toHaveValue("Keep this draft through keyboard toggles");
+  }
+});
+
+test("Safari keyboard pan can exceed innerHeight minus the visible height", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page
+    .locator("#message")
+    .fill("Preserve this draft across native keyboard panning");
+  // Measured on iOS Simulator: innerHeight=560, height=447, offsetTop=236.
+  await page.evaluate(() => {
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 560,
+    });
+  });
+  await viewport(page, { height: 447, offsetTop: 236 });
+  await insideViewport(page, "#composer", 236, 447);
+  await insideViewport(page, "#toggle-sidebar", 236, 447);
+  await expect
+    .poll(async () => (await page.locator(".app-viewport").boundingBox()).y)
+    .toBe(236);
+  // The offset can outlast keyboard height changes and must still be respected.
+  await page.evaluate(() => {
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 696,
+    });
+  });
+  await viewport(page, { height: 696, offsetTop: 100 });
+  await insideViewport(page, "#composer", 100, 696);
+  await viewport(page, { offsetTop: 0 }, "scroll");
+  await insideViewport(page, "#composer", 0, 696);
+  await expect(page.locator("#message")).toHaveValue(
+    "Preserve this draft across native keyboard panning",
+  );
 });
