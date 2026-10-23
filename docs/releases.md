@@ -15,6 +15,21 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.4.1
+
+Package version 1.4.1 uses tag `rpi-v1.4.1` from the promoted `rpi` tip.
+The mobile application frame retains the full Safari viewport offset through repeated keyboard toggles.
+The ambient glow fades into the document backdrop above the native keyboard.
+The saved theme applies before React loads, so Safari starts with the correct backdrop.
+One pulsing Thinking label and glowing orb remain in the conversation throughout the streamed turn.
+Tool states stay in their collapsible events. The composer retains errors and voice feedback without run state labels.
+
+No database migration or new private environment value is required.
+Promote the release to both `main` and `rpi` through separate PRs and merge commits.
+Publish both ARM64 images through the tagged release workflow and confirm the active Pi manifest after activation.
+Native Safari checks cover iPhone 17 Pro Max. Final Home Screen mode and physical iPhone checks remain pending.
+Safari can retain its previous native bar color after a live theme switch until reload.
+
 ## Release 1.4.0
 
 Package version 1.4.0 uses tag `rpi-v1.4.0` from the promoted `rpi` tip.

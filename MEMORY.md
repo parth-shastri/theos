@@ -838,3 +838,10 @@ Keep the document backdrop at the theme canvas color. Paint the ambient glow onc
 Fade the glow into the canvas at the bottom edge to avoid a hard boundary above the native keyboard accessory.
 Apply the saved theme through a nonce-authorized script before React loads, so Safari samples the correct initial backdrop.
 Do not reset that theme during hydration. Native Safari can retain its previous bar color after an in-page theme switch until reload.
+
+## Mobile keyboard patch release, 2026-10-23
+
+The operator requested deployment of the mobile keyboard and conversation activity fixes as version 1.4.1, with promotion to `main`.
+Prepare package version 1.4.1 and immutable tag `rpi-v1.4.1` at the promoted `rpi` tip.
+Use separate promotion PRs and merge commits for `main` and `rpi`.
+No database migration or private environment change is required. Confirm the tagged workflow and active Pi manifest before claiming deployment.
