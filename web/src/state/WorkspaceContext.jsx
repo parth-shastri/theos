@@ -29,7 +29,7 @@ export function WorkspaceProvider({ agentName, children }) {
   const [dialog, setDialog] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [connections, setConnections] = useState(null);
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(null);
   const [mobile, setMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [panelHeadingHost, setPanelHeadingHost] = useState(null);
@@ -543,7 +543,7 @@ export function WorkspaceProvider({ agentName, children }) {
     };
   }, [json, login]);
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    if (theme) document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => {
     if (!me) return;
@@ -603,9 +603,9 @@ export function WorkspaceProvider({ agentName, children }) {
         mobile,
         sidebarOpen,
         setSidebarOpen,
-        theme,
+        theme: theme ?? "light",
         brand:
-          theme === "light" ? "/static/brand-light.png" : "/static/brand.png",
+          theme === "dark" ? "/static/brand.png" : "/static/brand-light.png",
         toggleTheme,
         draftRequest,
         editDraft,

@@ -1425,3 +1425,52 @@ Owner isolation, invalid fields, malformed-source fallback, and user-triggered t
 These checks found and corrected wrapped field values, missing untouched defaults, and summary initialization that cleared saved display data.
 A live configured model returned a valid OpenUI answer without tools. The deployed browser rendered it and restored it after reload.
 These results cover the local deployment. They do not establish Pi deployment or live reminder delivery.
+
+## Mobile keyboard and turn activity, 2026-10-23
+
+An injected zero-height keyboard measurement collapsed the previous application frame to zero pixels.
+The corrected hook retains the last valid height and refreshes after focus changes and page restoration.
+The application frame uses viewport positioning and layout containment instead of a full-frame transform.
+
+The production Chromium suite passed 76 cases. The focused WebKit suite passed 20 cases.
+Each suite skipped 12 mobile-only cases at desktop widths.
+Checks cover repeated keyboard toggles, viewport panning, restored pages, preserved drafts, dialogs, navigation, and native pinch zoom.
+A staged SSE fixture verifies continuous turn activity across model completions and tool events, with no run labels in the composer.
+The label pulses and the orb glows during the turn. Reduced motion disables both animations.
+Reducer checks cover completion, approval waits, failures, and disconnect cleanup. Errors remain visible.
+
+The 12 focused Python checks and 15 Node checks passed.
+Formatting, generated OpenUI validation, the production frontend build, and whitespace checks passed.
+Mobile WebKit screenshots retained the composer, navigation, tool state, and active turn indicator.
+Physical iPhone keyboard animation and Home Screen behavior still need confirmation. This change does not deploy a release.
+
+## Native iOS Simulator viewport correction, 2026-10-23
+
+The iPhone 14 Pro simulator on iOS 27.0 reproduced the reported blank keyboard view on the open installed site.
+The initial PR #104 build passed its first Safari keyboard opening but failed a second opening with a draft.
+Native measurements on iPhone 17 Pro Max identified the remaining offset cap.
+Safari reported an inner height of 560 pixels, visual height of 447 pixels, and offset and root scroll of 236 pixels.
+The cap used 113 pixels and placed the application frame at minus 123 pixels.
+The corrected hook uses the full nonnegative visual viewport offset until Safari clears it.
+
+On iPhone 17 Pro Max, the corrected frame stayed at zero pixels while Safari reported a 349-pixel offset.
+The composer stayed visible with the full software keyboard. The draft survived dismissal and a second opening.
+The iPhone 14 Pro was shut down before the iPhone 17 Pro Max checks, as requested.
+Native screenshots and numeric measurements were saved outside the repository in the user's Desktop verification folder.
+Temporary diagnostic requests were removed from the implementation after these measurements.
+The final native checks cover Safari on iPhone 17 Pro Max. Final Home Screen mode and physical-device checks remain pending.
+
+The final source passed 76 existing Chromium scenarios and four new Safari-offset regression cases in a targeted rerun.
+The focused WebKit suite passed all 24 applicable cases. Sixteen mobile-only cases were skipped at desktop widths in each full matrix.
+The 12 focused Python checks, 15 Node checks, formatting, generated OpenUI validation, and production frontend build passed.
+
+## Keyboard background boundary, 2026-10-23
+
+The ambient gradient ended at the application frame while the native keyboard gap used the plain document backdrop.
+The document now keeps the theme canvas color. The frame paints the glow once and fades into that canvas at its bottom edge.
+Native iPhone 17 Pro Max screenshots show the keyboard boundary in both themes without the previous hard green edge.
+The saved theme now applies before React loads through a script with the existing request nonce.
+Native Safari starts with the correct dark backdrop after reload. Its bar color can still remain stale during a live theme switch.
+The bootstrap check blocks React scripts and confirms the saved theme takes precedence over the system theme under the production CSP.
+The final source passed 48 focused Chromium cases, 24 focused WebKit cases, 12 Python checks, and 15 Node checks.
+Each browser matrix skipped 16 mobile-only cases at desktop widths. Formatting, generated OpenUI validation, and the production build passed.
