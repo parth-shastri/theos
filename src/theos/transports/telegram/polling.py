@@ -16,7 +16,16 @@ from theos.services.errors import ServiceError
 from theos.services.zepto.auth import prepare_telegram_update as prepare_zepto_update
 from theos.storage.telegram_access import prepare_update as prepare_access_update
 
-from . import approval_messages, client, commands, media, onboarding, rendering, web_access
+from . import (
+    approval_messages,
+    client,
+    commands,
+    connections,
+    media,
+    onboarding,
+    rendering,
+    web_access,
+)
 
 logger = logging.getLogger("theos")
 
@@ -156,6 +165,8 @@ class Telegram:
             if await onboarding.handle(self, message, owner, channel, chat, topic, callback):
                 return
             if await web_access.handle(self, message, owner, channel, chat, topic, callback):
+                return
+            if await connections.handle(self, message, owner, channel, chat, topic, callback):
                 return
             if sensitive_return:
                 # This handoff carries a short-lived encrypted URL from the account

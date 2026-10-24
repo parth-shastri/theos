@@ -77,16 +77,28 @@ test("cookie sign-in, reload, CSRF rejection, streaming, and revocation", async 
     "Conversation cost:",
   );
   await navigate(page, "new-session");
-  await expect(page.locator("#message")).toBeFocused();
-  await page
-    .locator("#message")
-    .fill("Hello from the Next.js acceptance check.");
-  await page.locator("#message").press("Enter");
+  const message = page.locator("#message");
+  const mobile = page.viewportSize().width <= 700;
+  const firstLine = "Hello from the Next.js acceptance check.";
+  const secondLine = "Keep this on a second line.";
+  await expect(message).toBeFocused();
+  await expect(message).toHaveAttribute(
+    "enterkeyhint",
+    mobile ? "enter" : "send",
+  );
+  await message.fill(firstLine);
+  await message.press(mobile ? "Enter" : "Shift+Enter");
+  await expect(message).toHaveValue(firstLine + "\n");
+  await message.pressSequentially(secondLine);
+  await expect(message).toHaveValue(firstLine + "\n" + secondLine);
+  await expect(page.locator("#messages .user")).toHaveCount(0);
+  if (mobile) await page.locator("#send").click();
+  else await message.press("Enter");
   await expect(page.locator("#messages .assistant")).toBeVisible();
   await expect(page.locator("#send")).toBeEnabled();
   await page.reload();
   await expect(page.locator("#messages")).toContainText(
-    "Hello from the Next.js acceptance check.",
+    firstLine + "\n" + secondLine,
   );
   await navigate(page, "sign-out");
   await expect(page.locator("#login-form")).toBeVisible();
@@ -160,6 +172,13 @@ test("composer, glass pickers, workspace panels, and mobile navigation", async (
     await page.locator(`#${back}`).click();
   }
   await expect(page.locator("#message")).toHaveValue(draft);
+  if (page.viewportSize().width <= 700) {
+    await page.locator("#message").fill("/us");
+    await expect(page.locator("#command-suggestions")).toBeVisible();
+    await page.locator("#message").press("Enter");
+    await expect(page.locator("#message")).toHaveValue("/us\n");
+    await expect(page.locator("#usage-dialog")).not.toBeVisible();
+  }
   await page.locator("#message").fill("/usage");
   await page.locator("#send").click();
   await expect(page.locator("#usage-dialog")).toBeVisible();

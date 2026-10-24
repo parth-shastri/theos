@@ -63,6 +63,7 @@ class HealthDay:
     heart_rate_zone_thresholds: tuple[dict[str, Any], ...] = ()
     workouts: tuple[HealthWorkout, ...] = ()
     sleep: tuple[HealthSleep, ...] = ()
+    vitals: dict[str, Any] = field(default_factory=dict)
     source: str = "google_health"
 
     def to_dict(self) -> dict[str, Any]:
@@ -89,4 +90,6 @@ class HealthDay:
             result["workouts"] = [workout.to_dict() for workout in self.workouts]
         if self.sleep:
             result["sleep"] = [sleep.to_dict() for sleep in self.sleep]
+        if self.vitals:
+            result["vitals"] = self.vitals
         return result

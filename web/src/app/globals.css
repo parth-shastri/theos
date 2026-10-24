@@ -3619,6 +3619,59 @@ summary:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 16px;
 }
+.connection-onboarding {
+  padding: 22px;
+  margin: 8px 0 22px;
+}
+.connection-onboarding h2 {
+  overflow-wrap: anywhere;
+  font-size: 22px;
+  margin: 8px 0 12px;
+  letter-spacing: -0.04em;
+}
+.connection-onboarding p,
+.connection-handoff p {
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.connection-profile-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+.connection-profile-fields label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+.connection-profile-fields input {
+  font-size: 16px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.connection-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+.connection-handoff {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.connection-handoff summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.connection-card .connection-next {
+  margin-top: 14px;
+  align-self: flex-start;
+}
 .connection-card {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,35 @@
 # Feature and acceptance checklist
 
+## Optional connection onboarding and account returns, 2026-10-24
+
+Telegram offers configured, unconnected accounts after the name and timezone questions.
+Browser setup reuses the saved profile and asks for a name only when missing.
+Both transports share the optional setup completion marker.
+
+Connect reserves a disowned browser tab before asynchronous discovery. A blocked popup retains an explicit sign-in link.
+Successful callbacks return to Connections. Callback tabs close themselves only after the selected account passes verification.
+Cancellation invalidates pending consent without deleting the previous account.
+Zepto stages new credentials until MCP initialization and tool discovery succeed. Failed or interrupted setup discards staged credentials.
+The existing localhost handoff remains available. A hosted HTTPS callback still requires provider allowlisting.
+
+The complete Chromium suite passed 120 cases, with 16 desktop-only skips for mobile viewport scenarios.
+Four focused WebKit connection cases passed at 320px. Screenshots passed review at 320px, 390px, and 1280px.
+The focused Python suite passed 78 cases. Eighteen Node checks, formatting, OpenUI validation, and the production frontend build passed.
+A local combination of PRs #108 and #109 merged cleanly and passed 1,053 Python tests, with three live checks deselected.
+These checks used disposable accounts, the fake model, and mocked provider responses. No production account was authorized or deployed.
+
+## Mobile Return key, 2026-10-24
+
+At widths up to 700px, Return inserts a new line in the composer, including while suggestions are visible.
+The keyboard hint and accessible instructions match this behavior. The send button submits the draft.
+Desktop Enter sends the draft. Shift + Enter inserts a new line.
+
+The existing workspace and activity checks passed 24 Chromium cases across four widths and both themes.
+Six workspace cases passed in WebKit at 320px, 390px, and 1280px.
+They checked multiline drafts, saved history, suggestion behavior, explicit sending, and desktop keyboard submission.
+Fifteen Node checks, three focused Python browser checks, formatting, OpenUI artifact validation, and the production frontend build passed.
+Browser checks used the fake provider and disposable local storage. This change has not been deployed to the Pi.
+
 ## iPhone keyboard layout and navigation arrows, 2026-10-23
 
 The application frame follows visual viewport height and vertical offset, including scroll-only keyboard movement.
@@ -945,6 +975,27 @@ These checks did not cover Telegram delivery or browser automation.
 
 The CI workflow also installs the wheel outside the source directory.
 It checks Compose, containers, restart recovery, and resource use.
+
+## Google Health vitals, 2026-10-24
+
+New Health consent verifies the linked profile before saving credentials.
+Four connection cases cover success, an empty identity, a missing profile, and a service outage.
+Failures retain the previous credentials. The check adds no scope or account identifier to model context.
+The expanded focused suite passed 82 Health, browser account, OAuth, staging, integration, and Telegram cases.
+A local combination with the shared connection flow in PR #108 passed 1,053 Python tests, with three live checks deselected.
+
+The importer now reads daily HRV, SpO2, respiratory rate, and sleep temperature.
+It also reads heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples.
+Daily provider values remain separate from sample statistics. RMSSD and SDNN retain separate fields and millisecond units.
+Default tool summaries include vitals and counts of days with readings. Selected metric reads retain only the requested categories.
+Cache version checks refresh older summaries on tool and Telegram reads. Telegram sends complete summaries through its existing splitter.
+
+The v4 field names and units were checked against Google's public discovery schema, revision `20261021`, and vitals reference.
+The focused suite passed 63 cases across Health contracts, integrations, result staging, OAuth, and Telegram onboarding.
+Checks covered pagination, duplicate readings, invalid values, local dates, cache upgrades, owner isolation, and failed-import preservation.
+Telegram checks reconstructed a complete response longer than 4,000 characters from its delivered parts.
+Configured lint, formatting, whitespace checks, and package builds passed. The wheel includes the new vitals normalizer.
+These checks used fixtures. They did not query a connected Health account or deploy a release.
 
 ## Live service checks
 
