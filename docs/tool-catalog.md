@@ -457,6 +457,14 @@ This uses the existing SDK and lets remote clients connect without access to con
 Binary file reads use bounded HTTP byte ranges for delivery, image inspection, and workspace checkpoints.
 The SDK's line-based limits must not handle binary files because they can alter line endings.
 
+## Account connection setup
+
+Shared account setup uses owner-scoped records through `services/account_setup.py`.
+`GET /api/connections` includes optional onboarding and per-account setup states.
+`POST /api/connections/onboarding` saves optional profile edits and completes setup.
+`POST /api/connections/{service}/cancel` cancels pending consent without disconnecting the previous account.
+The existing connect and disconnect routes retain owner checks. OAuth callbacks return only to the fixed Connections route.
+
 ## Gmail
 
 HTTPX, Google OAuth, and encrypted owner tokens. Tools require a browser or private Telegram conversation.

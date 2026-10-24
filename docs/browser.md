@@ -364,9 +364,15 @@ Users authorize their own Gmail, Google Health, and Zepto accounts.
 
 1. Select **Connections** or use `/connections`.
 2. Select **Connect** for an available account service.
-3. Select **Continue sign-in**.
-4. Authorize the account with its provider.
-5. Return to **Connections** to check the saved connection.
+3. Authorize the account in the opened sign-in tab.
+4. If a popup was blocked, select **Open sign-in** on the account card.
+5. Wait for the callback to return to **Connections** and confirm account access.
+
+Initial setup offers available accounts that are not connected. Every connection is optional.
+The browser asks what to call you when your profile has no saved name.
+Use **Continue to chat** to save the profile, or **Skip for now** to defer setup.
+This choice is saved for your account across browser and Telegram.
+An expired or unsuccessful connection shows a retry action. Cancelling setup preserves an account connected before the attempt.
 
 Google Health consent includes nutrition writes.
 Connection enables exports of existing unsynced meals and future meal changes.
@@ -379,6 +385,7 @@ Public HTTPS callbacks complete the handoff directly when the provider permits t
 Unfinished Zepto setup expires after ten minutes and does not survive a server restart.
 
 Use **Cancel setup** to invalidate a pending connection.
+The provider tab can remain open after cancellation. Its old return link can no longer complete setup.
 Use **Disconnect** to remove local credentials and cancel pending setup.
 Health disconnection also cancels incomplete imports and meal exports.
 Use the provider's account settings to remove remaining remote access when needed.

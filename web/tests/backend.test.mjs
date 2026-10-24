@@ -9,7 +9,14 @@ const upstream = createServer((request, response) => {
   request.on("data", (chunk) => (body += chunk));
   request.on("end", () => {
     received.push({ url: request.url, headers: request.headers, body });
-    if (request.url === "/api/stream") {
+    if (request.url.startsWith("/oauth/")) {
+      response.writeHead(303, {
+        Location: request.url.includes("unsafe")
+          ? "https://external.test/"
+          : "/?connections=1",
+      });
+      response.end();
+    } else if (request.url === "/api/stream") {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.write('data: {"type":"text","text":"first"}\n\n');
       setTimeout(() => response.end('data: {"type":"done"}\n\n'), 80);
@@ -119,4 +126,20 @@ test("client addresses are accepted only from the explicitly trusted ingress hea
   } finally {
     delete process.env.THEOS_CLIENT_IP_HEADER;
   }
+});
+
+test("OAuth callbacks preserve the fixed workspace return without forwarding external redirects", async () => {
+  const result = await forwardToBackend(
+    request("/oauth/gmail/callback"),
+    "/oauth/gmail/callback",
+  );
+  assert.equal(result.status, 303);
+  assert.equal(result.headers.get("location"), "/?connections=1");
+  await result.text();
+  const unsafe = await forwardToBackend(
+    request("/oauth/unsafe/callback"),
+    "/oauth/unsafe/callback",
+  );
+  assert.equal(unsafe.headers.get("location"), null);
+  await unsafe.text();
 });

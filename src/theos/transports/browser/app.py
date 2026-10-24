@@ -7,7 +7,13 @@ from contextlib import asynccontextmanager
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from pydantic import BaseModel, Field
 
 from theos.operations.logging import configure_logging
@@ -626,21 +632,40 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/oauth/{service}/callback")
     async def callback(service: str, state: str, request: Request, code: str = ""):
-        if service == "zepto":
-            try:
+        if service not in {"gmail", "health", "zepto"}:
+            raise HTTPException(404, "Unknown account service.")
+        active = current(request)
+        try:
+            if service == "zepto":
                 await current(request).zepto.finish_from_browser(
                     state, code, request.query_params.get("error", "")
                 )
-            except ValueError as error:
-                raise HTTPException(400, str(error)) from error
+            else:
+                owner = await active.oauth.callback(
+                    service, state, code, request.query_params.get("error", "")
+                )
+                if owner.startswith("telegram:") and settings.telegram_token.get_secret_value():
+                    try:
+                        label = "Gmail" if service == "gmail" else "Google Health"
+                        await Telegram(active).send(
+                            int(owner[9:]),
+                            f"{label} is connected. You can continue here or in the web workspace.",
+                        )
+                    except ServiceError:
+                        pass
+        except (ValueError, ServiceError, PermissionError) as error:
+            from html import escape
+
             return HTMLResponse(
-                "<!doctype html><title>Zepto connected</title>"
-                "<p>Authorization received. Return to the workspace or private chat that started setup.</p>"
+                '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1">'
+                "<title>Sign-in needs attention</title><h1>Sign-in needs attention</h1>"
+                f'<p>{escape(str(error))}</p><p><a href="/?connections=1">Return to Connections</a></p>'
+                "<p>You can also return to your private Telegram chat to try again.</p>",
+                status_code=403 if isinstance(error, PermissionError) else 400,
+                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
             )
-        await current(request).oauth.callback(service, state, code)
-        return HTMLResponse(
-            "<!doctype html><title>Account connected</title>"
-            "<p>Account connected. Return to the workspace or private chat that started setup.</p>"
+        return RedirectResponse(
+            "/?connections=1", status_code=303, headers={"Cache-Control": "no-store"}
         )
 
     return app

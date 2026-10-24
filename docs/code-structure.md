@@ -101,6 +101,8 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 
 `storage/account_access.py` permits configured browser identities and authorized private Telegram identities.
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
+`services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
+`transports/telegram/connections.py` handles setup buttons without model turns or conversation creation.
 It reports configuration status without exposing credentials.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser user's existing account access.

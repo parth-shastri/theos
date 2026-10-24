@@ -8,6 +8,7 @@ from theos.services.errors import ServiceError
 from theos.services.preferences.tools import preferences
 from theos.storage.telegram_access import code_fingerprint, has_access
 
+from .connections import offer
 from .web_access import send_link
 
 
@@ -278,6 +279,7 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             )
             if bot.settings.web_url:
                 await send_link(bot, owner, chat, topic)
+            await offer(bot, owner, chat, topic)
             return True
     await prompt(bot, owner, chat, topic)
     return True
