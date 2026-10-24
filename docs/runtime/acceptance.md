@@ -15,6 +15,7 @@ The existing localhost handoff remains available. A hosted HTTPS callback still 
 The complete Chromium suite passed 120 cases, with 16 desktop-only skips for mobile viewport scenarios.
 Four focused WebKit connection cases passed at 320px. Screenshots passed review at 320px, 390px, and 1280px.
 The focused Python suite passed 78 cases. Eighteen Node checks, formatting, OpenUI validation, and the production frontend build passed.
+A local combination of PRs #108 and #109 merged cleanly and passed 1,053 Python tests, with three live checks deselected.
 These checks used disposable accounts, the fake model, and mocked provider responses. No production account was authorized or deployed.
 
 ## Mobile Return key, 2026-10-24
