@@ -177,8 +177,37 @@ export function WorkspaceProvider({ agentName, children }) {
     const available = await listSessions();
     if (available.length) await openSession(available[0].id);
     else await newSession();
-    refreshConnections().catch(() => {});
-  }, [json, listSessions, newSession, openSession, refreshConnections]);
+    try {
+      const accounts = await refreshConnections();
+      const params = new URLSearchParams(location.search);
+      if (accounts.onboarding?.needed || params.get("connections") === "1")
+        navigate("connections-view");
+      if (params.has("connections")) {
+        params.delete("connections");
+        history.replaceState(
+          null,
+          "",
+          location.pathname + (params.size ? "?" + params : "") + location.hash,
+        );
+      }
+    } catch {}
+  }, [
+    json,
+    listSessions,
+    newSession,
+    openSession,
+    refreshConnections,
+    navigate,
+  ]);
+  const finishConnectionSetup = async (profile = {}) => {
+    const result = await json("/api/connections/onboarding", {
+      method: "POST",
+      body: profile,
+    });
+    setMe((value) => ({ ...value, ...result }));
+    await refreshConnections();
+    navigate("chat-view");
+  };
   const signIn = async (token) => {
     setSigningIn(true);
     setLoginError("");
@@ -546,6 +575,22 @@ export function WorkspaceProvider({ agentName, children }) {
     if (theme) document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => {
+    if (!me || !connections) return;
+    const service = sessionStorage.getItem("theos-connection-window");
+    const account = connections.accounts.find(
+      (account) => account.id === service,
+    );
+    if (
+      account?.connected &&
+      !["starting", "waiting", "failed", "expired"].includes(
+        account.setup.status,
+      )
+    ) {
+      sessionStorage.removeItem("theos-connection-window");
+      window.close();
+    }
+  }, [me, connections]);
+  useEffect(() => {
     if (!me) return;
     const timer = setInterval(
       () =>
@@ -618,6 +663,7 @@ export function WorkspaceProvider({ agentName, children }) {
         showError,
         connections,
         refreshConnections,
+        finishConnectionSetup,
         syncUsage,
         openSession,
         newSession,

@@ -2,6 +2,8 @@
 
 import json
 
+from theos.services.health.imports import SUMMARY_VERSION
+
 from .conftest import call_tool
 
 
@@ -47,6 +49,7 @@ async def test_large_gmail_thread_stages_filtered_tool_result(runtime):
 
 async def test_large_health_detail_stages_filtered_tool_result(runtime):
     snapshot = {
+        "schema_version": SUMMARY_VERSION,
         "from": "2026-10-01T00:00:00+00:00",
         "to": "2026-10-02T00:00:00+00:00",
         "days": [

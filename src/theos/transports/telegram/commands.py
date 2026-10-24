@@ -62,8 +62,8 @@ async def command(bot, session, command, argument, chat, topic):
         elif command == "/health_refresh":
             result = await bot.runtime.health.import_summary(owner)
         else:
-            result = bot.db.record(owner, "health", "summary")
-        await bot.send(chat, json.dumps(result, ensure_ascii=False)[:4000], topic)
+            result = await bot.runtime.health.read_summary(owner)
+        await bot.send(chat, json.dumps(result, ensure_ascii=False), topic)
         return
     # Conversation commands either reply directly or deliberately start a runtime turn.
     if command in {"/start", "/help"}:

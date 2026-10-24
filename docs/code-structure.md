@@ -101,6 +101,8 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 
 `storage/account_access.py` permits configured browser identities and authorized private Telegram identities.
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
+`services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
+`transports/telegram/connections.py` handles setup buttons without model turns or conversation creation.
 It reports configuration status without exposing credentials.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser user's existing account access.
@@ -123,6 +125,7 @@ For Google Health, read these files in order:
 
 1. Read `client.py` for account requests and service entry points.
 2. Read `imports.py` for pagination and complete summary storage.
+   `normalize.py` and `vitals.py` normalize daily records and sample statistics with explicit units.
 3. Read `queue.py` for export intent saved with a meal transaction.
 4. Read `nutrition.py` for the six numbered reconciliation steps.
 5. Read `jobs.py` for ordering, retry delay, and cancellation checks.
