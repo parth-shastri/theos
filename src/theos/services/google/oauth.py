@@ -158,6 +158,10 @@ class OAuth:
             raise ServiceError(
                 "Google did not return a refresh token. Revoke the previous grant and connect again."
             )
+        if service == "health":
+            from theos.services.health.connection import verify_profile
+
+            await verify_profile(self.http, payload["access_token"])
         if not account_access(self.settings, self.db, owner):
             raise PermissionError("This user no longer has account access.")
         self.save(owner, service, payload)

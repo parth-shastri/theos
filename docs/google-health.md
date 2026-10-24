@@ -53,11 +53,15 @@ Before consent, sign into the Google Health mobile app with the Google account y
 Complete its profile setup or Fitbit migration.
 Google authorization can succeed without a linked Health profile, but subsequent data requests can fail.
 See [Google's account linking procedure](https://developers.google.com/health/setup#link-google-health-before-oauth-consent).
-Theos does not currently check `users.getIdentity` during the callback.
+The callback verifies `users.getIdentity` before it saves new credentials.
+An inaccessible or missing Health profile leaves the previous connected account intact.
+Complete the profile setup in the Google Health app before trying again.
 
-Browser users select **Connections > Google Health > Connect**, then **Continue sign-in**.
-Return to the browser workspace after consent.
+Browser users select **Connections > Google Health > Connect**.
+Complete sign-in in the opened tab. If it does not open, use the sign-in link on the account card.
+The shared connection flow returns users to Connections after consent.
 Ask for a Health summary refresh to check access.
+Profile verification confirms account access. It does not guarantee that a device has synchronized readings.
 
 For Telegram, complete `/start` and timezone setup in the bot's private chat first.
 

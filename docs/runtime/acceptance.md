@@ -1,20 +1,5 @@
 # Feature and acceptance checklist
 
-## Google Health vitals, 2026-10-24
-
-The importer now reads daily HRV, SpO2, respiratory rate, and sleep temperature.
-It also reads heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples.
-Daily provider values remain separate from sample statistics. RMSSD and SDNN retain separate fields and millisecond units.
-Default tool summaries include vitals and counts of days with readings. Selected metric reads retain only the requested categories.
-Cache version checks refresh older summaries on tool and Telegram reads. Telegram sends complete summaries through its existing splitter.
-
-The v4 field names and units were checked against Google's public discovery schema, revision `20261021`, and vitals reference.
-The focused suite passed 63 cases across Health contracts, integrations, result staging, OAuth, and Telegram onboarding.
-Checks covered pagination, duplicate readings, invalid values, local dates, cache upgrades, owner isolation, and failed-import preservation.
-Telegram checks reconstructed a complete response longer than 4,000 characters from its delivered parts.
-Configured lint, formatting, whitespace checks, and package builds passed. The wheel includes the new vitals normalizer.
-These checks used fixtures. They did not query a connected Health account or deploy a release.
-
 ## iPhone keyboard layout and navigation arrows, 2026-10-23
 
 The application frame follows visual viewport height and vertical offset, including scroll-only keyboard movement.
@@ -960,6 +945,26 @@ These checks did not cover Telegram delivery or browser automation.
 
 The CI workflow also installs the wheel outside the source directory.
 It checks Compose, containers, restart recovery, and resource use.
+
+## Google Health vitals, 2026-10-24
+
+New Health consent verifies the linked profile before saving credentials.
+Four connection cases cover success, an empty identity, a missing profile, and a service outage.
+Failures retain the previous credentials. The check adds no scope or account identifier to model context.
+The expanded focused suite passed 82 Health, browser account, OAuth, staging, integration, and Telegram cases.
+
+The importer now reads daily HRV, SpO2, respiratory rate, and sleep temperature.
+It also reads heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples.
+Daily provider values remain separate from sample statistics. RMSSD and SDNN retain separate fields and millisecond units.
+Default tool summaries include vitals and counts of days with readings. Selected metric reads retain only the requested categories.
+Cache version checks refresh older summaries on tool and Telegram reads. Telegram sends complete summaries through its existing splitter.
+
+The v4 field names and units were checked against Google's public discovery schema, revision `20261021`, and vitals reference.
+The focused suite passed 63 cases across Health contracts, integrations, result staging, OAuth, and Telegram onboarding.
+Checks covered pagination, duplicate readings, invalid values, local dates, cache upgrades, owner isolation, and failed-import preservation.
+Telegram checks reconstructed a complete response longer than 4,000 characters from its delivered parts.
+Configured lint, formatting, whitespace checks, and package builds passed. The wheel includes the new vitals normalizer.
+These checks used fixtures. They did not query a connected Health account or deploy a release.
 
 ## Live service checks
 

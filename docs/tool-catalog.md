@@ -495,6 +495,7 @@ Source: [service tools](../src/theos/services/health/tools.py).
 | `backfill_nutrition` | Queue historical meals that have no backfill marker. |
 
 Default Health summaries include normalized vitals and category coverage counts.
+New Health consent checks `/v4/users/me/identity` before saving credentials, under the existing scopes.
 The connector reads ten additional stable v4 collections under the existing health metrics permission.
 Daily provider values remain separate from sample statistics. Missing readings remain absent.
 See [vitals and units](google-health.md#vitals-and-heart-rate-variability).

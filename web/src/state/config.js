@@ -136,7 +136,7 @@ export const accountDescriptions = {
   gmail:
     "Search messages, manage drafts and labels. Sending a draft requires approval.",
   health:
-    "Import activity, sleep and health summaries. Connecting also enables meal exports to Google Health.",
+    "Import activity, sleep, HRV and vitals from your linked Google Health profile. Connecting also enables meal exports.",
   zepto:
     "Connect your shopping account. Every Zepto tool call requires approval.",
 };

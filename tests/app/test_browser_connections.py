@@ -58,6 +58,9 @@ async def test_google_browser_consent_binds_owner_and_survives_restart(runtime, 
 
     def endpoint(request):
         seen.append(request)
+        if request.url.path == "/v4/users/me/identity":
+            assert request.headers["Authorization"] == "Bearer access-secret"
+            return httpx.Response(200, json={"healthUserId": "linked-health-profile"})
         if request.url.path.endswith("/revoke"):
             return httpx.Response(503)
         form = parse_qs(request.content.decode())
