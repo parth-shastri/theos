@@ -90,6 +90,8 @@ export async function forwardToBackend(request, path) {
   for (const name of ["content-type", "content-disposition", "retry-after"])
     if (upstream.headers.has(name))
       responseHeaders.set(name, upstream.headers.get(name));
+  if (upstream.headers.get("location") === "/?connections=1")
+    responseHeaders.set("location", "/?connections=1");
   for (const cookie of upstream.headers.getSetCookie())
     responseHeaders.append("set-cookie", cookie);
   if (upstream.headers.get("content-type")?.startsWith("text/event-stream"))

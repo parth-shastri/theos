@@ -138,7 +138,7 @@ export const accountDescriptions = {
   health:
     "Import activity, sleep and health summaries. Connecting also enables meal exports to Google Health.",
   zepto:
-    "Connect your shopping account. Every Zepto tool call requires approval.",
+    "Shop for groceries and essentials. Choose a delivery address after connecting. Checkout, orders and payments require approval.",
 };
 
 export const providerIcons = {

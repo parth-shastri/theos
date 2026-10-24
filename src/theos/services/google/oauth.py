@@ -73,6 +73,7 @@ class OAuth:
                 time.time() + 600,
             ),
         )
+        self._status(owner, service, "waiting", "Waiting for account sign-in.")
         return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(
             {
                 "client_id": config.client_id,
@@ -108,7 +109,40 @@ class OAuth:
         except (httpx.HTTPError, ValueError, TypeError) as error:
             raise ServiceError("Google authorization failed. Connect the account again.") from error
 
-    async def callback(self, service, state, code):
+    def _status(self, owner, service, status, message):
+        self.db.put_record(
+            owner, "account_connections", service, {"status": status, "message": message}
+        )
+
+    def connection_status(self, owner, service):
+        """Describe only this owner's pending or completed account setup."""
+        pending = self.db.one(
+            "SELECT expires FROM oauth_states WHERE owner=? AND service=?", (owner, service)
+        )
+        if pending:
+            if pending["expires"] <= time.time():
+                return {
+                    "status": "expired",
+                    "message": "Sign-in expired. Connect again to continue.",
+                }
+            return {"status": "waiting", "message": "Finish sign-in in the opened browser tab."}
+        try:
+            status = self.db.record(owner, "account_connections", service)
+        except LookupError:
+            return {"status": "idle"}
+        return {key: status[key] for key in ("status", "message")}
+
+    async def cancel(self, owner, service):
+        """Cancel pending consent without disconnecting an existing account."""
+        if service not in SCOPES or not account_access(self.settings, self.db, owner):
+            raise PermissionError("Private account access is required.")
+        async with self.locks.setdefault((owner, service), asyncio.Lock()):
+            self.db.execute(
+                "DELETE FROM oauth_states WHERE owner=? AND service=?", (owner, service)
+            )
+            self._status(owner, service, "cancelled", "Sign-in cancelled. You can connect later.")
+
+    async def callback(self, service, state, code, error=""):
         """Serialize account changes so disconnection cannot resurrect credentials."""
         self.config(service)
         digest = hashlib.sha256(state.encode()).hexdigest()
@@ -118,9 +152,24 @@ class OAuth:
         if not row:
             raise ValueError("The OAuth state is invalid or expired. Connect the account again.")
         async with self.locks.setdefault((row["owner"], service), asyncio.Lock()):
-            return await self.exchange_callback(service, state, code)
+            try:
+                owner = await self.exchange_callback(service, state, code, error=error)
+            except Exception as failure:
+                self._status(
+                    row["owner"],
+                    service,
+                    "cancelled" if error else "failed",
+                    "Sign-in was cancelled. Connect again when ready."
+                    if error
+                    else str(failure)
+                    if isinstance(failure, (ServiceError, ValueError))
+                    else "Sign-in could not finish. Connect again to retry.",
+                )
+                raise
+            self._status(owner, service, "connected", "Account connected.")
+            return owner
 
-    async def exchange_callback(self, service, state, code):
+    async def exchange_callback(self, service, state, code, *, error=""):
         """Consume state before the exchange, so concurrent callbacks cannot reuse it."""
         config = self.config(service)
         digest = hashlib.sha256(state.encode()).hexdigest()
@@ -138,6 +187,10 @@ class OAuth:
         owner = row["owner"]
         if not account_access(self.settings, self.db, owner):
             raise PermissionError("This user no longer has account access.")
+        if error:
+            raise ValueError("Sign-in was cancelled. Connect again when ready.")
+        if not code:
+            raise ValueError("The sign-in response was incomplete. Connect again.")
         # 2. Exchange the code with the verifier stored for this owner and service.
         verifier = self.cipher.decrypt(row["verifier"].encode()).decode()
         payload = await self.token_request(
@@ -212,6 +265,7 @@ class OAuth:
 
     async def disconnect_account(self, owner, service):
         """Stop local access even if Google's revocation endpoint is unavailable."""
+        self._status(owner, service, "idle", "Account disconnected.")
         # A user can cancel a pending connection before Google returns any tokens.
         try:
             payload = self.read(owner, service)

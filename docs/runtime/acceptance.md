@@ -1,5 +1,35 @@
 # Feature and acceptance checklist
 
+## Optional connection onboarding and account returns, 2026-10-24
+
+Telegram offers configured, unconnected accounts after the name and timezone questions.
+Browser setup reuses the saved profile and asks for a name only when missing.
+Both transports share the optional setup completion marker.
+
+Connect reserves a disowned browser tab before asynchronous discovery. A blocked popup retains an explicit sign-in link.
+Successful callbacks return to Connections. Callback tabs close themselves only after the selected account passes verification.
+Cancellation invalidates pending consent without deleting the previous account.
+Zepto stages new credentials until MCP initialization and tool discovery succeed. Failed or interrupted setup discards staged credentials.
+The existing localhost handoff remains available. A hosted HTTPS callback still requires provider allowlisting.
+
+The complete Chromium suite passed 120 cases, with 16 desktop-only skips for mobile viewport scenarios.
+Four focused WebKit connection cases passed at 320px. Screenshots passed review at 320px, 390px, and 1280px.
+The focused Python suite passed 78 cases. Eighteen Node checks, formatting, OpenUI validation, and the production frontend build passed.
+A local combination of PRs #108 and #109 merged cleanly and passed 1,053 Python tests, with three live checks deselected.
+These checks used disposable accounts, the fake model, and mocked provider responses. No production account was authorized or deployed.
+
+## Mobile Return key, 2026-10-24
+
+At widths up to 700px, Return inserts a new line in the composer, including while suggestions are visible.
+The keyboard hint and accessible instructions match this behavior. The send button submits the draft.
+Desktop Enter sends the draft. Shift + Enter inserts a new line.
+
+The existing workspace and activity checks passed 24 Chromium cases across four widths and both themes.
+Six workspace cases passed in WebKit at 320px, 390px, and 1280px.
+They checked multiline drafts, saved history, suggestion behavior, explicit sending, and desktop keyboard submission.
+Fifteen Node checks, three focused Python browser checks, formatting, OpenUI artifact validation, and the production frontend build passed.
+Browser checks used the fake provider and disposable local storage. This change has not been deployed to the Pi.
+
 ## iPhone keyboard layout and navigation arrows, 2026-10-23
 
 The application frame follows visual viewport height and vertical offset, including scroll-only keyboard movement.
