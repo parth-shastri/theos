@@ -11,6 +11,7 @@ import pytest
 from pydantic import SecretStr
 
 from harness import ContextMemory, RunContext, UserMessage, tool
+from theos.services.health.imports import SUMMARY_VERSION
 
 from .conftest import call_tool
 
@@ -164,6 +165,7 @@ async def test_gmail_search_returns_small_metadata_and_pagination(runtime):
 
 async def test_health_tool_returns_compact_summary_and_selected_detail(runtime):
     snapshot = {
+        "schema_version": SUMMARY_VERSION,
         "from": "2026-10-01T00:00:00+00:00",
         "to": "2026-10-04T00:00:00+00:00",
         "days": [

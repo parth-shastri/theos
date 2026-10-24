@@ -19,6 +19,7 @@ from theos.runtime.scheduler import Scheduler
 from theos.services.files.catalog import Files
 from theos.services.google.oauth import OAuth
 from theos.services.health.client import Health
+from theos.services.health.imports import DATA_TYPES
 from theos.services.information import information_tools
 from theos.services.sandbox.client import Sandboxes
 from theos.services.voice.tools import voice_tools
@@ -266,7 +267,7 @@ async def test_health_import_normalizes_and_paginates(runtime):
         result = await health.import_summary("telegram:123")
         assert result["days"][0]["steps"] == 200
         assert "data" not in result
-        assert len(calls) == 13
+        assert len(calls) == len(DATA_TYPES) + 1
 
 
 async def test_delegated_tasks_share_budget(runtime, scripted_models):

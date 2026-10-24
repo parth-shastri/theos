@@ -1,11 +1,12 @@
 # Theos project memory
 
-Updated: 2026-10-23.
+Updated: 2026-10-24.
 
 ## Confirmed decisions
 
 | Decision | Value |
 | --- | --- |
+| Google Health vitals | Import stable v4 daily HRV, SpO2, respiratory rate, and sleep skin temperature. Summarize available heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples. Keep RMSSD and SDNN separate. Preserve units, missing values, and provider confidence bounds. Default summaries include vitals and coverage counts. Version caches and refresh older summaries on tool or Telegram reads. Send complete Telegram summaries through the existing message splitter |
 | Assistant name | Configurable through `AGENT_NAME`, default `Theos` |
 | Repository | `/Users/nightowl/my_projects/theos` |
 | Harness ownership | Theos owns the copy under `src/harness` |

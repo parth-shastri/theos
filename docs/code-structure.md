@@ -123,6 +123,7 @@ For Google Health, read these files in order:
 
 1. Read `client.py` for account requests and service entry points.
 2. Read `imports.py` for pagination and complete summary storage.
+   `normalize.py` and `vitals.py` normalize daily records and sample statistics with explicit units.
 3. Read `queue.py` for export intent saved with a meal transaction.
 4. Read `nutrition.py` for the six numbered reconciliation steps.
 5. Read `jobs.py` for ordering, retry delay, and cancellation checks.
