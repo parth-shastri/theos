@@ -1,12 +1,13 @@
 """Private Google Health connection, summary, and export tools."""
 
 import time
-from datetime import date, datetime
+from datetime import date
 from typing import Annotated, Literal
 
 from pydantic import Field
 
 from harness import tool
+from theos.services.health.vitals import VITAL_METRICS
 from theos.services.result_files import for_model
 
 HealthMetric = Literal[
@@ -22,6 +23,14 @@ HealthMetric = Literal[
     "heart_rate_zone_thresholds",
     "workouts",
     "sleep",
+    "vitals",
+    "heart_rate_variability",
+    "oxygen_saturation",
+    "respiratory_rate",
+    "skin_temperature",
+    "heart_rate",
+    "core_body_temperature",
+    "blood_glucose",
 ]
 SUMMARY_METRICS = (
     "steps",
@@ -32,6 +41,7 @@ SUMMARY_METRICS = (
     "resting_heart_rate_bpm",
     "weight_kg",
     "body_fat_percent",
+    "vitals",
 )
 
 
@@ -51,18 +61,30 @@ def _health_view(snapshot, start_date=None, end_date=None, metrics=None):
                 row["workout_minutes"] = sum(item.get("minutes", 0) for item in day["workouts"])
         else:
             row.update({key: day[key] for key in metrics if key in day})
+            selected_vitals = {
+                key: day["vitals"][key]
+                for key in VITAL_METRICS
+                if key in metrics and key in day.get("vitals", {})
+            }
+            if selected_vitals and "vitals" not in row:
+                row["vitals"] = selected_vitals
         days.append(row)
-    return {
+    result = {
         "from": start_date.isoformat() if start_date else snapshot.get("from"),
         "to": end_date.isoformat() if end_date else snapshot.get("to"),
         "days": days,
     }
-
-
-def _covers(snapshot, start_date, end_date):
-    available_from = datetime.fromisoformat(snapshot["from"]).date()
-    available_to = datetime.fromisoformat(snapshot["to"]).date()
-    return available_from <= start_date and end_date <= available_to
+    requested_vitals = (
+        VITAL_METRICS
+        if metrics is None or "vitals" in metrics
+        else [key for key in VITAL_METRICS if key in metrics]
+    )
+    if requested_vitals:
+        result["vitals_coverage"] = {
+            key: {"days_with_readings": sum(key in day.get("vitals", {}) for day in days)}
+            for key in requested_vitals
+        }
+    return result
 
 
 def health_tools(client, owner, *, result_stager=None):
@@ -84,31 +106,16 @@ def health_tools(client, owner, *, result_stager=None):
     async def get_health_summary(
         start_date: date | None = None,
         end_date: date | None = None,
-        metrics: Annotated[list[HealthMetric] | None, Field(max_length=12)] = None,
+        metrics: Annotated[list[HealthMetric] | None, Field(max_length=20)] = None,
         refresh: bool = False,
     ):
-        """Read compact daily metrics or selected details; provide both dates or neither, for up to 31 days."""
-        if (start_date is None) != (end_date is None):
-            raise ValueError("Provide both start_date and end_date.")
-        if start_date and end_date:
-            if end_date < start_date:
-                raise ValueError("end_date must be on or after start_date.")
-            if (end_date - start_date).days > 30:
-                raise ValueError("Read no more than 31 days at a time.")
-            try:
-                cached = client.db.record(owner, "health", "summary")
-            except LookupError:
-                cached = None
-            if refresh or not cached or not _covers(cached, start_date, end_date):
-                snapshot = await client.import_summary(owner, start_date, end_date, save=False)
-            else:
-                snapshot = cached
-        else:
-            snapshot = (
-                await client.import_summary(owner)
-                if refresh
-                else client.db.record(owner, "health", "summary")
-            )
+        """Read daily activity, sleep, HRV, SpO2, breathing, temperature, heart rate, and glucose.
+
+        Use both dates or neither, up to 31 days. Select vitals or individual metrics for details.
+        Missing readings stay absent. Coverage counts days with readings, never assumes zero values.
+        Sample means describe returned source readings, which can overlap across devices.
+        """
+        snapshot = await client.read_summary(owner, start_date, end_date, refresh=refresh)
         view = _health_view(snapshot, start_date, end_date, metrics)
         return await for_model(
             view,

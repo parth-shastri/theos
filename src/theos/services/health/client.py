@@ -30,6 +30,12 @@ class Health:
 
         return await import_summary(self, owner, start_date, end_date, save=save)
 
+    async def read_summary(self, owner, start_date=None, end_date=None, *, refresh=False):
+        """Read the requested summary and refresh caches that predate vitals support."""
+        from .imports import read_summary
+
+        return await read_summary(self, owner, start_date, end_date, refresh=refresh)
+
     def backfill(self, owner):
         """Queue saved meals that have no export marker."""
         from .nutrition import backfill

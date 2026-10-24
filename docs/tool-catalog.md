@@ -497,10 +497,16 @@ Source: [service tools](../src/theos/services/health/tools.py).
 | --- | --- |
 | `health_connect` | Create an authorization link for Google Health. |
 | `health_disconnect` | Disconnect Google Health and stop pending imports and exports. |
-| `get_health_summary(start_date?, end_date?, metrics?, refresh=false)` | Read compact daily metrics or selected details for up to 31 days. Pass both dates or neither. `metrics` accepts `steps`, `distance_meters`, `active_calories_kcal`, `active_minutes`, `active_zone_minutes`, `resting_heart_rate_bpm`, `weight_kg`, `body_fat_percent`, `heart_rate_zones`, `heart_rate_zone_thresholds`, `workouts`, and `sleep`. |
+| `get_health_summary(start_date?, end_date?, metrics?, refresh=false)` | Read daily metrics and vitals for up to 31 days. Pass both dates or neither. Select `steps`, `distance_meters`, `active_calories_kcal`, `active_minutes`, `active_zone_minutes`, `resting_heart_rate_bpm`, `weight_kg`, `body_fat_percent`, `heart_rate_zones`, `heart_rate_zone_thresholds`, `workouts`, `sleep`, `vitals`, `heart_rate_variability`, `oxygen_saturation`, `respiratory_rate`, `skin_temperature`, `heart_rate`, `core_body_temperature`, or `blood_glucose`. |
 | `get_meal_sync_status` | List recent nutrition export states without meal contents. |
 | `retry_meal_sync` | Queue failed exports for reconciliation before any retry. |
 | `backfill_nutrition` | Queue historical meals that have no backfill marker. |
+
+Default Health summaries include normalized vitals and category coverage counts.
+New Health consent checks `/v4/users/me/identity` before saving credentials, under the existing scopes.
+The connector reads ten additional stable v4 collections under the existing health metrics permission.
+Daily provider values remain separate from sample statistics. Missing readings remain absent.
+See [vitals and units](google-health.md#vitals-and-heart-rate-variability).
 
 ## Zepto
 
