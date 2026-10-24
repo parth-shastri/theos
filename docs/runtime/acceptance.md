@@ -952,6 +952,7 @@ New Health consent verifies the linked profile before saving credentials.
 Four connection cases cover success, an empty identity, a missing profile, and a service outage.
 Failures retain the previous credentials. The check adds no scope or account identifier to model context.
 The expanded focused suite passed 82 Health, browser account, OAuth, staging, integration, and Telegram cases.
+A local combination with the shared connection flow in PR #108 passed 1,053 Python tests, with three live checks deselected.
 
 The importer now reads daily HRV, SpO2, respiratory rate, and sleep temperature.
 It also reads heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples.
