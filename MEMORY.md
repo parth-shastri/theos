@@ -1,11 +1,12 @@
 # Theos project memory
 
-Updated: 2026-10-23.
+Updated: 2026-10-24.
 
 ## Confirmed decisions
 
 | Decision | Value |
 | --- | --- |
+| Composer Return key | At mobile widths up to 700px, Return inserts a new line, including while command or connection suggestions are open. Use the send button to submit. Set the keyboard hint and accessible instructions to match. Desktop Enter still sends and Shift + Enter inserts a new line |
 | Assistant name | Configurable through `AGENT_NAME`, default `Theos` |
 | Repository | `/Users/nightowl/my_projects/theos` |
 | Harness ownership | Theos owns the copy under `src/harness` |

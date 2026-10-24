@@ -234,6 +234,8 @@ The frosted composer starts with one line on mobile and desktop.
 The **+** button sits on the left. Microphone and send buttons sit on the right.
 Focus the input to expand it into a text row above the controls and message mode.
 A draft keeps the composer expanded. Longer drafts grow up to 140px.
+At mobile widths up to 700px, **Return** inserts a new line. Select **Send message** to send the draft.
+On desktop, **Enter** sends the draft. **Shift + Enter** inserts a new line.
 Select the message mode to open its glass menu above the input.
 Normal has a conversation icon. Deep research has a search icon.
 Use the arrow keys, **Home**, or **End** to move between modes.
@@ -265,7 +267,8 @@ Dropdown arrows have a 14px right margin and reserved space for long values.
 
 Type `/` in the message field to see commands and descriptions.
 Use the arrow keys to select a suggestion.
-Use **Enter** or **Tab** to insert it, then **Enter** to run it.
+On desktop, use **Enter** or **Tab** to insert it, then **Enter** to run it.
+On mobile, select a suggestion, then select **Send message**. **Return** inserts a new line while suggestions are visible.
 Use **Escape** to close suggestions.
 `/help` and **+ → Commands & connections** show the command list and keyboard controls.
 Select a command in the help dialog to run it or see its options.
@@ -280,7 +283,8 @@ These controls do not send a prompt to the model.
 Type `@` at the start of a word to mention a connection.
 Suggestions include `@gmail`, `@health`, `@zepto`, and configured workspace services such as `@sandbox`.
 Each suggestion shows whether the account is connected, needs sign-in, or is not configured.
-Use the arrow keys to select a suggestion, then **Enter** or **Tab** to insert it.
+On desktop, use the arrow keys to select a suggestion, then **Enter** or **Tab** to insert it.
+On mobile, select a suggestion to insert it. **Return** inserts a new line.
 You can insert mentions anywhere in a draft, including multiple mentions in one request.
 For example: `@gmail find the latest receipt and @zepto search for milk`.
 Mentions enter the conversation as user text. They do not connect accounts or approve tools.

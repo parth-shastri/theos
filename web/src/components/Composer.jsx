@@ -281,6 +281,7 @@ export default function Composer() {
     }
   };
   const keydown = (event) => {
+    if (mobile && event.key === "Enter") return;
     if (matches.length && !event.nativeEvent.isComposing) {
       if (["ArrowDown", "ArrowUp"].includes(event.key)) {
         event.preventDefault();
@@ -576,6 +577,7 @@ export default function Composer() {
           aria-describedby="message-hint"
           aria-busy={voice.activity === "Transcribing..." ? true : undefined}
           placeholder={placeholder}
+          enterKeyHint={mobile ? "enter" : "send"}
           rows={1}
           maxLength={32000}
           required={!files.length}
@@ -648,7 +650,9 @@ export default function Composer() {
       </p>
       <div id="attachments">{files.map((file) => file.name).join(" · ")}</div>
       <span id="message-hint" className="sr-only">
-        Enter to send · Shift + Enter for a new line
+        {mobile
+          ? "Return for a new line · Use the send button to send"
+          : "Enter to send · Shift + Enter for a new line"}
       </span>
     </Glass>
   );

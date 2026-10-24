@@ -1,5 +1,17 @@
 # Feature and acceptance checklist
 
+## Mobile Return key, 2026-10-24
+
+At widths up to 700px, Return inserts a new line in the composer, including while suggestions are visible.
+The keyboard hint and accessible instructions match this behavior. The send button submits the draft.
+Desktop Enter sends the draft. Shift + Enter inserts a new line.
+
+The existing workspace and activity checks passed 24 Chromium cases across four widths and both themes.
+Six workspace cases passed in WebKit at 320px, 390px, and 1280px.
+They checked multiline drafts, saved history, suggestion behavior, explicit sending, and desktop keyboard submission.
+Fifteen Node checks, three focused Python browser checks, formatting, OpenUI artifact validation, and the production frontend build passed.
+Browser checks used the fake provider and disposable local storage. This change has not been deployed to the Pi.
+
 ## iPhone keyboard layout and navigation arrows, 2026-10-23
 
 The application frame follows visual viewport height and vertical offset, including scroll-only keyboard movement.

@@ -44,7 +44,7 @@ test("turn feedback stays in the conversation through tools and final text", asy
   const emit = (event) =>
     page.evaluate((value) => window.turnFixture.emit(value), event);
   await page.locator("#message").fill("Synthetic activity check");
-  await page.locator("#message").press("Enter");
+  await page.locator("#send").click();
   const indicator = page.locator("#messages .turn-activity");
   await expect(indicator).toHaveText("Thinking…");
   await expect(page.locator("#status")).toBeEmpty();
