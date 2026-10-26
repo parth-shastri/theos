@@ -1525,3 +1525,23 @@ Native Safari starts with the correct dark backdrop after reload. Its bar color 
 The bootstrap check blocks React scripts and confirms the saved theme takes precedence over the system theme under the production CSP.
 The final source passed 48 focused Chromium cases, 24 focused WebKit cases, 12 Python checks, and 15 Node checks.
 Each browser matrix skipped 16 mobile-only cases at desktop widths. Formatting, generated OpenUI validation, and the production build passed.
+
+## Telegram connector controls, 2026-10-26
+
+Telegram onboarding now opens native sign-in cards for Gmail, Google Health, and Zepto.
+Cards provide status, retry, cancel, and account navigation buttons.
+Google callback confirmations include a button to return to the account list.
+`/connections` and the existing account commands use these controls without creating conversations or model turns.
+
+Zepto's localhost flow uses a **Paste return link** button and a native reply prompt.
+Theos saves only recent prompt message IDs in owner-scoped records.
+Prompt replies, plain callback links, and callback captions are encrypted before inbox persistence.
+The handler consumes them outside model history and removes visible pasted messages when Telegram permits it.
+Verification status hides the paste action after the one-use callback is accepted.
+Setup cancellation preserves existing account credentials.
+
+The full local Python suite passed 1,068 tests, with three live checks deselected.
+The focused connector and transport checks passed 73 tests.
+Checks cover delayed Zepto links, reply prompts, Google callbacks, expiry, denial, retry, cancellation, owner isolation, and plaintext redaction.
+Configured lint, formatting, whitespace checks, and the Python package build passed.
+No live Telegram message or provider authorization was used. Native device checks and deployment remain pending.

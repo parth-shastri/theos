@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-24.
+Updated: 2026-10-26.
 
 ## Confirmed decisions
 
@@ -21,6 +21,7 @@ Updated: 2026-10-24.
 | Terminal storage | Default `~/.theos`. Resolve configured relative data paths from the configuration directory |
 | Telegram onboarding | Private `/start` asks what to call the user, then asks for a valid timezone. Save the chosen name in owner-scoped preferences and include it in model context. `/skip` accepts the saved name when available. Preserve existing completed profiles and pending timezone setup |
 | Telegram setup guidance | After name and timezone setup, offer buttons for configured, unconnected accounts and Skip for now. Keep Google Health optional. Share the owner-scoped completion marker with browser onboarding. Preserve saved names. Keep web access and /help available |
+| Telegram connector controls | Use native sign-in URL buttons, status checks, retry, cancel, and account navigation. Zepto uses a Paste return link button and an owner-scoped ForceReply prompt. Encrypt prompt replies before inbox storage and consume them outside model history. Preserve existing credentials on setup cancellation. Keep the manual localhost handoff and support /connections after onboarding |
 | Telegram temporary activity | Stream OpenAI Responses reasoning summaries as temporary messages. Never show raw provider reasoning. Show each tool name and its exact JSON arguments in temporary tool messages, then delete the message when that model phase or tool call ends. Clean active indicators when delivery ends. Send one final message with elapsed time, tool counts, failed or uncertain outcomes, and successfully loaded skills. Count parent and delegate events before display queues can discard them. Approval cards notify once and remain pending until a decision or expiry. Store review message references in SQLite migration 012, including multipart reviews, attached reviews, and waiting notices. Remove resolved cards immediately for Telegram decisions and through polling for other decisions or expiry. Failed deletion removes buttons when possible and retains references for another attempt. Preserve durable approval snapshots, tool results, transcripts, and recovery behavior |
 | Reply formatting | Render assistant Markdown as Telegram text and explicit UTF-16 entities. Split long messages without losing text or formatting. Keep command responses literal. Show approval reviews as labeled fields, formatted prose, and literal code. Preserve exact arguments for approval checks. Browser and terminal retain their own Markdown rendering |
 | Assistant punctuation | Never use em dashes in assistant replies, reasoning summaries, or generated titles. Add shared model instructions and replace any emitted em dash with an ASCII hyphen before display and persistence. Preserve user input, tool arguments, and opaque provider data |

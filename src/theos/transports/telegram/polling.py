@@ -10,7 +10,6 @@ import logging
 import time
 
 import httpx
-from cryptography.fernet import Fernet
 
 from theos.services.errors import ServiceError
 from theos.services.zepto.auth import prepare_telegram_update as prepare_zepto_update
@@ -30,11 +29,15 @@ from . import (
 logger = logging.getLogger("theos")
 
 
-def prepare_update(settings, update):
+def prepare_update(settings, update, db=None):
     """Redact one-time account credentials before the durable Telegram inbox."""
     # Telegram updates can contain one-time access or account-return secrets. Remove them
     # before the raw update is stored, so a restartable inbox is not also a secret store.
-    return prepare_zepto_update(settings, prepare_access_update(settings, update))
+    return prepare_zepto_update(
+        settings,
+        prepare_access_update(settings, update),
+        return_prompt=connections.is_return_reply(db, update),
+    )
 
 
 class Telegram:
@@ -132,7 +135,7 @@ class Telegram:
         """Route an authenticated update group to a command, approval, or turn."""
         # Redact again at the routing boundary too: callers may supply an update group
         # that did not come through this poller's normal save path.
-        updates = [prepare_update(self.settings, update) for update in updates]
+        updates = [prepare_update(self.settings, update, self.db) for update in updates]
         first = updates[0]
         # Telegram puts button presses in callback_query and chat messages in message.
         # Both need the associated chat message to find the owner and destination.
@@ -174,40 +177,7 @@ class Telegram:
                 if callback or channel != "telegram-private":
                     await self.send(chat, "Finish Zepto setup in a private Telegram chat.", topic)
                     return
-                if message.get("_theos_zepto_return_invalid"):
-                    await self.send(
-                        chat,
-                        "The Zepto return URL is too long or encryption is unavailable. Start again with /connect_zepto.",
-                        topic,
-                    )
-                    return
-                key = self.settings.token_encryption_key.get_secret_value()
-                try:
-                    return_url = (
-                        Fernet(key.encode())
-                        .decrypt(message["_theos_zepto_return"].encode())
-                        .decode()
-                    )
-                    await self.runtime.zepto.finish_from_telegram(owner, return_url)
-                except Exception as error:
-                    if isinstance(error, (ValueError, ServiceError, PermissionError)):
-                        await self.send(chat, str(error), topic)
-                    else:
-                        logger.warning(
-                            "zepto_return_failed",
-                            extra={"error_type": type(error).__name__},
-                        )
-                        await self.send(
-                            chat,
-                            "The Zepto return link could not be accepted. Start again with /connect_zepto.",
-                            topic,
-                        )
-                else:
-                    await self.send(
-                        chat,
-                        "The Zepto return was accepted. I will confirm the connection here.",
-                        topic,
-                    )
+                await connections.accept_return(self, message, owner, chat, topic)
                 return
             session = self.session(owner, channel, address)
             if callback:
@@ -329,7 +299,7 @@ class Telegram:
                     "INSERT OR IGNORE INTO telegram_updates(id,payload,received) VALUES (?,?,?)",
                     (
                         update["update_id"],
-                        json.dumps(prepare_update(self.settings, update)),
+                        json.dumps(prepare_update(self.settings, update, self.db)),
                         time.time(),
                     ),
                 )

@@ -201,13 +201,15 @@ class Zepto:
             raise PermissionError("Connect Zepto from an authorized private workspace.")
 
     def connection_status(self, owner):
-        """Return setup progress only to its authenticated browser owner."""
-        if not browser_account_access(self.settings, owner, self.db):
-            raise PermissionError("Browser account access is required.")
+        """Return setup progress only to its authorized private owner."""
+        if not account_access(self.settings, self.db, owner):
+            raise PermissionError("Private account access is required.")
         flow = self.pending.get(owner)
         if flow and not flow.verified and not flow.failed:
             if time.time() - flow.created > CALLBACK_TIMEOUT:
                 return {"status": "expired", "message": "Zepto sign-in expired. Connect again."}
+            if flow.callback.done():
+                return {"status": "starting", "message": "Verifying your Zepto connection."}
             if flow.authorization_url:
                 return {
                     "status": "waiting",
@@ -553,29 +555,36 @@ class Zepto:
         await asyncio.gather(*(session.close() for session in sessions))
 
 
-def prepare_telegram_update(settings, update):
+def prepare_telegram_update(settings, update, *, return_prompt=False):
     """Encrypt pasted authorization URLs before the Telegram inbox saves them."""
     result = deepcopy(update)
     message = result.get("message", {})
-    text = message.get("text", "")
+    text = message.get("text") or message.get("caption", "")
     command, separator, value = text.partition(" ")
     is_finish_command = command.split("@")[0] == "/zepto_finish"
-    if not (is_finish_command and separator):
+    if "_theos_zepto_return" in message or message.get("_theos_zepto_return_invalid"):
+        return result
+    if return_prompt and not is_finish_command:
+        value = text
+    elif not (is_finish_command and separator):
         try:
             parts = urlsplit(text.strip())
-            query = parse_qs(parts.query, max_num_fields=20)
         except ValueError:
             return result
         if not (
             parts.scheme == "http"
             and parts.hostname in {"localhost", "127.0.0.1"}
             and parts.path == "/callback"
-            and query.get("code")
-            and query.get("state")
+            # Even malformed or denied callbacks must stay outside model history.
         ):
             return result
         value = text
     message["text"] = "/zepto_finish"
+    message.pop("caption", None)
+    message.pop("caption_entities", None)
+    message.pop("entities", None)
+    message.pop("reply_to_message", None)
+    message.pop("quote", None)
     if len(value) > 4000:
         message["_theos_zepto_return_invalid"] = True
         return result
