@@ -20,7 +20,7 @@ A model still needs image capability to inspect an image.
 
 Telegram voice notes also remain in the file catalog after transcription.
 A conversation reset retains uploaded and generated files.
-There is no automatic file expiry policy.
+The uploaded-file catalog has no automatic expiry policy. Runtime checkpoint retention applies separately to workspace versions and recovery snapshots.
 
 ## R2 archives
 
@@ -47,7 +47,12 @@ The model has no catalog listing, archive, restore, or transfer tool.
 
 R2 is not required for ordinary uploads or image input. Without it, recovery uses the local application data directory.
 A full backup needs the local catalog, checkpoint directory, and separate retention for remote objects.
-Deleting a workspace file removes the current manifest entry. Saved response attachments and older checkpoints retain their recorded bytes.
+Deleting a workspace file removes the current manifest entry. Saved response attachments and retained checkpoints preserve their recorded bytes.
+The runtime retains three recent recovery checkpoints per session, plus current local and published remote pointers.
+An hourly collector removes unreferenced versions after a one-hour grace period. Storage settings can change these defaults.
+The collector records pending deletions before removing local or R2 objects. Failed remote deletions retry after restart.
+It protects active sessions and defers collection when retained checkpoint references cannot be verified.
+This policy belongs to Theos file services. It does not change the generic harness or its conversation compaction rules.
 
 ## Transcription
 

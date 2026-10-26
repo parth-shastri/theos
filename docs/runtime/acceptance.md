@@ -1548,3 +1548,21 @@ The frontend production build and all 18 frontend unit tests passed.
 The Browser sign-in scenario passed at 320, 390, 768, and 1280 pixels in both themes.
 The scenario verified private input, keyboard navigation, profile deletion, and the absence of chat turns.
 Mobile and desktop screenshots passed visual inspection. No horizontal overflow occurred.
+
+## Runtime checkpoint retention, 2026-10-26
+
+The Python suite passed 1,075 tests. Three credential-dependent live checks remained excluded.
+Eleven retention scenarios covered current workspace roots, response attachments, retained snapshots, and published recovery state.
+Checks also covered grace periods, active sessions, recovery review, corrupt snapshot isolation, and bounded deletion backlogs.
+R2 partial failures retained deletion jobs after restart. Recreated content survived an in-flight deletion without blocking local checkpoint writes.
+The worker resumed replacement uploads after deletion completed. Interrupted uploads retained remote deletion intent when storage was temporarily disabled.
+Uncertain pointer updates preserved every possibly published snapshot until a later update was confirmed.
+Remote restoration registered its fetched checkpoint as a recovery root.
+
+The Connections fixture now waits for sign-in completion before navigation.
+The previous CI trace showed startup navigation replacing the Connections view before the Zepto Connect click.
+All 40 Connections browser scenarios passed at four widths in both themes.
+Frontend formatting and all 18 frontend unit tests passed.
+Python lint, formatting, lock validation, package contents, and whitespace checks passed.
+The wheel contains the retention service and migration 015. No generic harness source changed.
+No deployed R2 objects were deleted during these checks.

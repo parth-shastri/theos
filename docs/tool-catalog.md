@@ -394,14 +394,21 @@ The runtime owns the private catalog, input transfers, workspace checkpoints, an
 The model uses ordinary paths under `/workspace`. Shell commands list, read, write, and delete task files.
 Selected uploads and Gmail attachments enter the conversation workspace automatically.
 Changed files receive immutable checkpoint versions. Replication runs in the background and retries without repeating commands.
-Deleting a workspace file removes it from the current manifest. Earlier checkpoints and response attachments retain their recorded versions.
+Deleting a workspace file removes it from the current manifest. Retained checkpoints and response attachments preserve their recorded versions.
+The runtime keeps three recent recovery checkpoints per session by default. It also protects the current workspace, both recovery pointers, and uncertain remote publications.
+A periodic collector retires unreferenced workspace versions, orphaned attachment snapshots, and superseded checkpoints after a one-hour grace period.
+New checkpoints list current file sources rather than every historical workspace version. Legacy checkpoints keep their original references until retention releases them.
+Deletion records survive restarts and partial R2 failures. A recreated blob waits for an old deletion before its replacement upload.
+Local-only deployments run the same retention policy. Active turns and sessions awaiting remote-recovery review defer collection.
+Research evidence, browser credentials, and uploaded-file catalog entries remain outside this collector.
+The [storage settings](base-infra/environment-variables.md) configure the checkpoint count, scan interval, and grace period.
 
 `attach_file(path)` captures a file version and emits a response attachment through the existing transport adapters.
 Its bytes and metadata enter the session checkpoint journal. Remote recovery restores the same attachment ID.
 Image inspection through `run_command.inspect_images` supplies model image inputs without sending an attachment to the user.
 The internal catalog retains owner checks. The model has no archive, restore, transfer, or catalog-management tools.
 
-Source: [workspace hooks](../src/theos/services/sandbox/workspace.py), [file catalog](../src/theos/services/files/catalog.py), and [checkpoints](../src/theos/services/files/checkpoints.py).
+Source: [workspace hooks](../src/theos/services/sandbox/workspace.py), [file catalog](../src/theos/services/files/catalog.py), [checkpoints](../src/theos/services/files/checkpoints.py), and [retention](../src/theos/services/files/retention.py).
 
 ## Voice
 

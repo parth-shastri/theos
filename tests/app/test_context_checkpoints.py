@@ -686,6 +686,11 @@ async def test_remote_restore_recovers_immutable_attachment_and_can_retry_transf
     storage.download_file = original
     await runtime.checkpoints.restore("alice", sid)
     recovered = runtime.files.get("alice", file["id"])
+    remote = runtime.db.record("alice", "context_checkpoint_remote", sid)
+    assert (
+        runtime.db.one("SELECT kind FROM context_objects WHERE id=?", (remote["id"],))["kind"]
+        == "checkpoint"
+    )
     assert Path(recovered["path"]).read_bytes() == b"%PDF-original\r\n\x00"
     with pytest.raises(LookupError):
         runtime.files.get("bob", file["id"])

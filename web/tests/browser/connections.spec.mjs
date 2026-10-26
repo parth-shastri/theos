@@ -46,6 +46,9 @@ async function fixture(page, { onboarding = false, name = "Ada" } = {}) {
   await page.locator("#token").fill(token);
   await page.locator("#login-form button[type=submit]").click();
   await expect(page.locator("#workspace")).toBeVisible();
+  // Startup loads the selected conversation before finishing sign-in. Wait for
+  // completion so its navigation cannot race this fixture's Connections click.
+  await expect(page.locator("#login-form button[type=submit]")).toBeEnabled();
   if (!onboarding) {
     if (page.viewportSize().width <= 700)
       await page.locator("#toggle-sidebar").click();
