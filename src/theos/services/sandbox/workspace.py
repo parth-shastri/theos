@@ -5,11 +5,12 @@ import base64
 import hashlib
 import shlex
 from dataclasses import replace
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from harness import OutcomeUnknown
 from theos.prompts import render
 from theos.services.errors import ServiceError
+from theos.storage.messages import display_metadata
 
 from .errors import WorkspaceUnavailable
 
@@ -96,6 +97,35 @@ class Workspaces:
             self.ready.add(key)
         return sandbox
 
+    @staticmethod
+    def input_path(row):
+        """Give each selected upload a stable path without filename collisions."""
+        return f"/workspace/uploads/{row['id']}/{PurePosixPath(row['name']).name}"
+
+    async def import_file(self, owner, session, row):
+        """Make a selected owned upload available without a model transfer call."""
+        row = self.runtime.files.get(owner, row["id"])
+        path = self.input_path(row)
+        await self.write(owner, session, path, Path(row["path"]).read_bytes())
+        return path
+
+    async def stage_inputs(self, owner, session, history):
+        """Stage new inputs once. Do not restore files the model later deletes."""
+        if not self.runtime.settings.sandbox.enabled:
+            return
+        try:
+            staged = self.runtime.db.record(owner, "workspace_inputs", session)
+        except LookupError:
+            staged = {"ids": []}
+        for message in history:
+            for file_id in display_metadata(message).get("workspace_files", []):
+                if file_id in staged["ids"]:
+                    continue
+                row = self.runtime.files.get(owner, file_id)
+                await self.import_file(owner, session, row)
+                staged["ids"].append(file_id)
+                self.runtime.db.put_record(owner, "workspace_inputs", session, staged)
+
     async def write(self, owner, session, path, content):
         try:
             sandbox = await self.prepare(owner, session)
@@ -160,27 +190,30 @@ class Workspaces:
             self.runtime.db.put_record(owner, "workspace", session, manifest)
             return manifest
 
+    async def save_attachment(self, owner, session, result):
+        """Keep the exact delivered bytes in the same durable session journal."""
+        row = self.runtime.files.get(owner, result["file_id"])
+        source = await self.runtime.checkpoints.put(
+            owner,
+            session,
+            "response_attachment",
+            {"data": base64.b64encode(Path(row["path"]).read_bytes()).decode()},
+        )
+        self.runtime.db.put_record(
+            owner,
+            "response_attachment",
+            session + ":" + row["id"],
+            {
+                "session": session,
+                "source_id": source,
+                "file": {key: row[key] for key in ("id", "name", "media_type", "size", "created")},
+            },
+        )
+
     def wrap(self, original, owner, session):
-        workspace_tools = {
-            "run_command",
-            "execute_code",
-            "write_file",
-            "upload_file",
-            "browser",
-            "send_file_to_user",
-            "read_file",
-            "list_files",
-            "view_image",
-        }
-        if original.name not in workspace_tools:
+        if original.name not in {"run_command", "attach_file"}:
             return original
-        saves_workspace = original.name in {
-            "run_command",
-            "execute_code",
-            "write_file",
-            "upload_file",
-            "browser",
-        }
+        saves_workspace = original.name == "run_command"
 
         async def execute(args, ctx):
             try:
@@ -210,8 +243,9 @@ class Workspaces:
                     ) from save_error
                 raise
 
-            # Reads and file delivery cannot change /workspace, so they need no R2 write.
+            # Attachments leave /workspace unchanged. Journal their exact bytes separately.
             if not saves_workspace:
+                await self.save_attachment(owner, session, result)
                 return result
             try:
                 await self.save(owner, session)

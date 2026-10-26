@@ -1,6 +1,7 @@
 """Durable source objects and model checkpoints with an R2 transfer journal."""
 
 import asyncio
+import base64
 import gzip
 import hashlib
 import json
@@ -258,6 +259,66 @@ class Checkpoints:
             raise ValueError("Checkpoint checksum mismatch.")
         return json.loads(data)
 
+    async def restore_attachments(self, owner, session, snapshot, client):
+        """Validate and stage response attachments before the recovery transaction."""
+        sources = {row["id"]: row for row in snapshot["objects"]}
+        ready = []
+        for attachment in snapshot.get("attachments", []):
+            if attachment["session"] != session:
+                raise PermissionError("Attachment session mismatch.")
+            row = attachment["file"]
+            file_id = row["id"]
+            if len(file_id) != 32 or any(char not in "0123456789abcdef" for char in file_id):
+                raise ValueError("Invalid attachment reference.")
+            existing = self.db.one("SELECT owner FROM files WHERE id=?", (file_id,))
+            if existing and existing["owner"] != owner:
+                raise PermissionError("Attachment owner mismatch.")
+            source = sources.get(attachment["source_id"])
+            if not source or source["owner"] != owner or source["session"] != session:
+                raise PermissionError("Attachment source mismatch.")
+            source_id = source["id"]
+            expected = hashlib.sha256(
+                f"{owner}/{session}/{source['kind']}/{source['digest']}".encode()
+            ).hexdigest()
+            if source_id != expected or source["object_key"] != self.key(
+                owner, session, source_id + ".json.gz"
+            ):
+                raise ValueError("Invalid attachment source.")
+            source_path = self.directory / source_id
+            temporary = source_path.with_suffix(".restore")
+            if not source_path.exists():
+                try:
+                    await asyncio.to_thread(
+                        client.download_file,
+                        self.settings.storage.bucket,
+                        source["object_key"],
+                        str(temporary),
+                    )
+                    data = gzip.decompress(temporary.read_bytes())
+                    if hashlib.sha256(data).hexdigest() != source["digest"]:
+                        raise ValueError("Attachment checksum mismatch.")
+                    temporary.chmod(0o600)
+                    temporary.replace(source_path)
+                finally:
+                    temporary.unlink(missing_ok=True)
+            else:
+                data = gzip.decompress(source_path.read_bytes())
+                if hashlib.sha256(data).hexdigest() != source["digest"]:
+                    raise ValueError("Attachment checksum mismatch.")
+            content = base64.b64decode(json.loads(data)["data"], validate=True)
+            if len(content) != row["size"] or len(content) > self.settings.max_upload_bytes:
+                raise ValueError("Invalid attachment size.")
+            path = self.files.directory / file_id
+            temporary = path.with_suffix(".restore")
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(path)
+            ready.append((attachment, path))
+        return ready
+
     async def save(self, owner, session, history, memory, stage):
         lock = self.locks.setdefault(session, asyncio.Lock())
         async with lock:
@@ -274,6 +335,18 @@ class Checkpoints:
                     ),
                     "objects": self.db.rows(
                         "SELECT * FROM context_objects WHERE owner=? AND session=? AND kind!='checkpoint'",
+                        (owner, session),
+                    ),
+                    "attachments": [
+                        json.loads(row["value"])
+                        for row in self.db.rows(
+                            "SELECT value FROM records WHERE owner=? AND kind='response_attachment' "
+                            "AND json_extract(value,'$.session')=?",
+                            (owner, session),
+                        )
+                    ],
+                    "workspace_inputs": self.db.one(
+                        "SELECT value FROM records WHERE owner=? AND kind='workspace_inputs' AND id=?",
                         (owner, session),
                     ),
                     "workspace": self.db.one(
@@ -326,6 +399,9 @@ class Checkpoints:
 
         restored = [message_from_dict(m) for m in snapshot["history"]]
         memory = snapshot["memory"]
+        # Fetch attachment bytes before committing any restored conversation state.
+        # A failed transfer leaves the empty session available for another restore.
+        attachments = await self.restore_attachments(owner, session, snapshot, client)
 
         with self.db.transaction():
             for row in snapshot["objects"]:
@@ -385,6 +461,31 @@ class Checkpoints:
             if snapshot.get("workspace"):
                 self.db.put_record(
                     owner, "workspace", session, json.loads(snapshot["workspace"]["value"])
+                )
+            for attachment, path in attachments:
+                row = attachment["file"]
+                self.db.execute(
+                    "INSERT OR IGNORE INTO files VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        row["id"],
+                        owner,
+                        row["name"],
+                        row["media_type"],
+                        row["size"],
+                        str(path),
+                        None,
+                        row["created"],
+                    ),
+                )
+                self.db.put_record(
+                    owner, "response_attachment", session + ":" + row["id"], attachment
+                )
+            if snapshot.get("workspace_inputs"):
+                self.db.put_record(
+                    owner,
+                    "workspace_inputs",
+                    session,
+                    json.loads(snapshot["workspace_inputs"]["value"]),
                 )
             self.db.save_history(
                 owner,

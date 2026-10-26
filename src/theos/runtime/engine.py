@@ -144,6 +144,10 @@ class Runtime:
         self.gmail = Gmail(self.oauth, self.http, self.files)
         self.health = Health(self.oauth, settings, db, self.http)
         self.sandboxes = Sandboxes(settings, db, self.files)
+        from theos.services.sandbox.browser import Browsers
+
+        self.browsers = Browsers(self)
+        self.sandboxes.browsers = self.browsers
         self.zepto = Zepto(settings, db, self.http)
 
     def lock(self, session_id):
@@ -263,17 +267,22 @@ class Runtime:
 
     def input_message(self, owner, text, file_ids=()):
         """Build a message after checking each attachment's owner."""
-        # The model receives image data only after owner checks. Non-image documents are
-        # represented by their catalog IDs so file tools can inspect them when needed.
+        # Check ownership before supplying image pixels or automatic workspace paths.
+        # Input metadata lets the pre-model hook stage each selected file once.
         images = []
         text = text or ""
         for file_id in file_ids:
             row = self.files.get(owner, file_id)
             if row["media_type"].startswith("image/"):
                 images.append(self.files.image(owner, file_id))
+            if self.settings.sandbox.enabled:
+                text += f"\nAttached file: {row['name']} at {self.workspaces.input_path(row)}"
             else:
                 text += f"\nAttached file: {row['name']} (file ID {file_id})"
-        return stamp_message(UserMessage(text, images))
+        message = stamp_message(UserMessage(text, images))
+        if file_ids and self.settings.sandbox.enabled:
+            update_display_metadata(message, {"workspace_files": list(file_ids)})
+        return message
 
     def steer(self, owner, session_id, text, file_ids=()):
         """Queue owned input for the active turn's next model boundary."""
@@ -655,6 +664,7 @@ class Runtime:
         await asyncio.gather(*tasks, return_exceptions=True)
         await self.checkpoints.close()
         await self.zepto.close()
+        await self.browsers.close()
         await self.sandboxes.close()
         await self.http.aclose()
         await self.tracing.close()

@@ -1525,3 +1525,26 @@ Native Safari starts with the correct dark backdrop after reload. Its bar color 
 The bootstrap check blocks React scripts and confirms the saved theme takes precedence over the system theme under the production CSP.
 The final source passed 48 focused Chromium cases, 24 focused WebKit cases, 12 Python checks, and 15 Node checks.
 Each browser matrix skipped 16 mobile-only cases at desktop widths. Formatting, generated OpenUI validation, and the production build passed.
+
+## Unified command tools and private browser, 2026-10-26
+
+New tool registries expose `run_command` and `attach_file` for workspace work.
+History read and search remain separate. The former catalog, transfer, Python-kernel, browser-wrapper, and image-view tools are absent.
+
+The Python suite passed 1,064 tests. Three credential-dependent live checks remained excluded.
+Checks covered automatic input staging, file deletion across replacement, image pixels in model requests, restart recovery, and immutable attachments.
+Remote attachment recovery retained the original bytes and file ID. A failed R2 download left the session empty for another restore attempt.
+Browser checks covered owner isolation, separate conversation tabs, encrypted profile storage, and private sign-in routes.
+A snapshot-process failure resumed the monitored browser process through the independent watchdog.
+Lint, formatting, lock validation, and whitespace checks passed.
+
+A local protocol check used `agent-browser` 0.38.1 with an isolated Chromium-compatible browser and a synthetic HTTP website.
+Navigation, element references, form input, and screenshot transfer passed.
+Cookies, local storage, and IndexedDB survived replacement through the profile capture and restore path.
+The browser used no personal profile or production account.
+These checks do not verify a deployed OpenSandbox transport, ARM64 resource limits, or Pi activation.
+
+The frontend production build and all 18 frontend unit tests passed.
+The Browser sign-in scenario passed at 320, 390, 768, and 1280 pixels in both themes.
+The scenario verified private input, keyboard navigation, profile deletion, and the absence of chat turns.
+Mobile and desktop screenshots passed visual inspection. No horizontal overflow occurred.

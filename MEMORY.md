@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-24.
+Updated: 2026-10-26.
 
 ## Confirmed decisions
 
@@ -70,7 +70,7 @@ Updated: 2026-10-24.
 | Tool execution batches | Replace the hard 16-call response rejection with `ExecutionLimits.tool_batch_size`, default 16. Process every valid call in ordered batches. Only tools declared safe may overlap. Keep each call ID and approval check. Append each batch's results before the next batch. Tell the model to request at most 16 calls per response and provide explicit feedback after larger groups. Reject invalid arguments per call as `not_started` before approval or execution, with correction instructions and a new call ID. Keep `failed`, `denied`, and `unknown` outcomes distinct. Duplicate IDs and malformed response identities remain fatal before execution. Retain transcript and checkpoint guarantees. Record exact generated call counts in trace metadata and only fixed harness error codes in logs |
 | Approval policy | Global approval prompts apply to Gmail draft sending and Zepto cart confirmation, checkout, order placement, and payment-related tools. Gmail approval binds the draft contents and checks them again immediately before sending. Search, read, draft creation, delivery-store setup, ordinary cart updates, all sandbox actions, deletion, and memory settings do not prompt. Keep owner isolation, validation, durable attempts, exact approval snapshots, and unknown-outcome recovery. Retire old pending cards for ungated tools without executing anything during cleanup |
 | Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. Lifecycle controls stay internal; the model does not need them for routine recovery. Destroying an absent sandbox does not create one |
-| Workspace tool names | Expose ordinary actions as `run_command`, `execute_code`, `read_file`, `write_file`, `list_files`, `upload_file`, `send_file_to_user`, `view_image`, and `browser`. Model-facing descriptions and workspace instructions describe task actions without naming the execution backend. Keep backend terminology in internal code and operator documentation |
+| Workspace tool names | Expose only `run_command(command?, timeout, inspect_images?)` and `attach_file(path)` for workspace work. Shell commands cover Python and file operations. Image-only calls can omit the command. Keep `history_read` and `history_search` separate. The runtime owns input staging, versioned session files, R2 replication, restoration, and immutable response attachments. Remove former catalog, transfer, Python-kernel, browser-wrapper, and image-view tools from new registries |
 | Skill selection | Include installed skill descriptions in model context. Match task intent to descriptions and load relevant instructions before work without requiring skill names from the user. Do not load every skill or treat names as the whole selection policy. Supply report-style and document-format instructions automatically for document requests. New reports default to styled PDF. Explicit formats and existing document styles retain precedence. Count automatically supplied skills in turn stats. The shared sandbox image contains report-style files and the declared runtime dependencies for all eight skills; load other skill scripts and text resources from the host as needed |
 | Model-call allowances | Theos disables call allocations and research deadlines by default through `Runtime(enforce_budgets=False)`. Preserve all budget fields and their validation for callers that explicitly enable bounded mode. Parent, delegate, summary, and recovery calls retain usage accounting without enforced call ceilings. Root traces mark enforcement false and limits as -1. Provider, context, output, tool, concurrency, approval, and cancellation limits remain active. See `docs/runtime/context-recovery.md` |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
@@ -848,3 +848,22 @@ The operator requested deployment of the mobile keyboard and conversation activi
 Prepare package version 1.4.1 and immutable tag `rpi-v1.4.1` at the promoted `rpi` tip.
 Use separate promotion PRs and merge commits for `main` and `rpi`.
 No database migration or private environment change is required. Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
+## Unified workspace commands and private browser, 2026-10-26
+
+The model uses `run_command` for execution and optional image inspection. It uses `attach_file` only for response attachments.
+Selected uploads and Gmail attachments enter the session workspace automatically. Changed files use the existing local journal and background R2 worker.
+Attachment snapshots retain exact bytes and metadata for remote session restoration. Deleted workspace files remain absent from the latest manifest.
+History read and search remain separate. Existing transcripts retain old tool names.
+
+Standalone browser CLI commands route to a dedicated browser sandbox per owner. Conversations use distinct tabs under an owner lock.
+Screenshots, PDFs, explicit downloads, and selected uploads cross into the task workspace through runtime code.
+Browser profiles stay outside task workspaces. Live authentication state and profile snapshots preserve login continuity across replacement.
+Profile capture pauses writers briefly and retains SQLite journals. A separate watchdog resumes browser processes after capture failure.
+The application encrypts snapshots in SQLite with a generated private `browser.key`. Stopped-application backups include this key.
+Connections supplies private browser controls for login and verification. These actions create no chat messages or tool records.
+Clearing browser login destroys that owner's browser and deletes saved credentials.
+
+Local acceptance used the pinned browser CLI with a synthetic website and isolated profile.
+Cookies, local storage, and IndexedDB survived replacement. DOM interaction and screenshot transfer passed.
+This verifies the command and profile protocol locally. It does not confirm a deployed OpenSandbox or Pi release.

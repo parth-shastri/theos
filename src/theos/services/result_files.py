@@ -31,8 +31,8 @@ async def for_model(value, *, tool_name, summary="", save_result=None):
                 "result_bytes": len(data),
                 "truncated": False,
                 "message": (
-                    "The full normalized result is temporarily staged. Use read_file for a "
-                    "small file or run_command with grep or sed to inspect selected sections. "
+                    "The full normalized result is temporarily staged. Use run_command to inspect a "
+                    "small file or selected sections with grep or sed. "
                     "If the file is missing, repeat the provider read with narrower arguments."
                 ),
             }

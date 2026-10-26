@@ -208,3 +208,68 @@ test("blocked popups retain an explicit sign-in link and callbacks return to Con
   await expect(page).not.toHaveURL(/connections=1/);
   expect(state.turns).toBe(0);
 });
+
+test("browser sign-in keeps private input outside chat and supports clearing the profile", async ({
+  page,
+}, info) => {
+  const state = await fixture(page);
+  state.data.services.push({
+    id: "sandbox",
+    name: "Sandbox",
+    configured: true,
+  });
+  await page.locator("#refresh-connections").click();
+  const actions = [];
+  const login = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"><rect width="1280" height="720" fill="#f5f6f4"/><rect x="400" y="130" width="480" height="400" rx="20" fill="white"/><text x="450" y="200" font-family="sans-serif" font-size="28" fill="#183b30">Sign in to your account</text><rect x="450" y="240" width="380" height="48" rx="8" fill="#edf0ed"/><rect x="450" y="310" width="380" height="48" rx="8" fill="#edf0ed"/><rect x="450" y="390" width="380" height="48" rx="8" fill="#27694f"/><text x="590" y="421" font-family="sans-serif" font-size="20" fill="white">Continue</text></svg>`;
+  await page.route("**/api/connections/browser/action", async (route) => {
+    actions.push(route.request().postDataJSON());
+    await route.fulfill({
+      json: {
+        success: true,
+        image: `data:image/svg+xml;base64,${Buffer.from(login).toString("base64")}`,
+        snapshot: {
+          snapshot: "- textbox Username\n- textbox Password\n- button Continue",
+        },
+      },
+    });
+  });
+  let cleared = false;
+  await page.route("**/api/connections/browser/disconnect", async (route) => {
+    cleared = true;
+    await route.fulfill({ json: { disconnected: true } });
+  });
+  const card = page.locator(".browser-sign-in");
+  await card.getByRole("button", { name: "Open browser", exact: true }).click();
+  await card.getByLabel("Website address").fill("https://login.example.test");
+  await card.getByRole("button", { name: "Go", exact: true }).click();
+  await expect(card.locator(".browser-screen")).toBeVisible();
+  await card.getByLabel("Private input").fill("test-password-never-in-chat");
+  await card
+    .getByRole("button", { name: "Type into page", exact: true })
+    .click();
+  await expect(card.getByLabel("Private input")).toHaveValue("");
+  await expect(
+    card.getByRole("button", { name: "Next field", exact: true }),
+  ).toBeEnabled();
+  await card.getByRole("button", { name: "Next field", exact: true }).click();
+  await expect
+    .poll(() => actions.at(-1))
+    .toEqual({ action: "press", key: "Tab" });
+  expect(actions[1]).toEqual({
+    action: "type",
+    text: "test-password-never-in-chat",
+  });
+  expect(state.turns).toBe(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await card.screenshot({ path: info.outputPath("browser-sign-in.png") });
+  await card
+    .getByRole("button", { name: "Clear saved browser login", exact: true })
+    .click();
+  await expect(card.getByText("Saved browser login cleared.")).toBeVisible();
+  await expect(card.locator(".browser-screen")).toHaveCount(0);
+  expect(cleared).toBe(true);
+});

@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import re
 from datetime import UTC, datetime, timedelta
+from pathlib import PurePosixPath
 
 from theos.services.errors import ServiceError
 
@@ -21,6 +22,24 @@ class Sandboxes:
         self.files = files
         self.clients = {}
         self.locks = {}
+        self.browsers = None
+
+    @staticmethod
+    def workspace_path(path):
+        parsed = PurePosixPath(path)
+        full = parsed if parsed.is_absolute() else PurePosixPath("/workspace") / parsed
+        if ".." in full.parts or not full.is_relative_to("/workspace"):
+            raise ValueError("Use a path inside /workspace.")
+        return str(full)
+
+    async def read_bytes(self, sandbox, path):
+        """Preserve binary bytes and reject oversize transfers before catalog writes."""
+        data = await sandbox.files.read_bytes(
+            path, range_header=f"bytes=0-{self.settings.max_upload_bytes}"
+        )
+        if len(data) > self.settings.max_upload_bytes:
+            raise ValueError("The file exceeds the upload limit.")
+        return data
 
     async def stage_result(self, owner, session_id, name, content):
         """Write one normalized provider result outside the durable task workspace."""

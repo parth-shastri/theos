@@ -217,7 +217,10 @@ def create_app(settings=None, runtime=None):
 
     register_auth(app, settings, current)
     from .connections import register_connections
+    from .managed_browser import register_managed_browser
 
+    # Specific browser paths precede the generic account-service paths.
+    register_managed_browser(app, current, identity)
     register_connections(app, settings, current, identity)
 
     def browser_session(request, owner, session_id):
