@@ -35,14 +35,14 @@ class Deployer:
         self.pending_path = self.directory / "pending.json"
         self.result_path = self.directory / "deployment-result.json"
 
-    def docker(self, *args):
+    def docker(self, *args, timeout=300):
         try:
             return subprocess.run(
                 ["docker", *args],
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=300,
+                timeout=timeout,
             ).stdout.strip()
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
             raise DeploymentError(f"Docker command failed: {' '.join(args[:3])}") from error
@@ -116,6 +116,8 @@ class Deployer:
 
     def restore_previous(self, candidate, previous):
         self.compose(candidate, "stop", *self.services(candidate))
+        for kind in ("backup", "restore"):
+            self.remove_helper(f"theos-{kind}-{candidate['revision'][:12]}")
         if previous:
             self.compose(
                 previous, "up", "--no-build", "--pull", "never", "-d", *self.services(previous)
@@ -134,11 +136,37 @@ class Deployer:
             return
         self.restore_previous(pending["candidate"], pending["previous"])
 
+    def remove_helper(self, name):
+        container = self.docker("ps", "-aq", "--filter", f"name=^/{name}$")
+        if container:
+            try:
+                self.docker("rm", "-f", container)
+            except DeploymentError:
+                # The --rm process can finish between the lookup and removal.
+                if self.docker("ps", "-aq", "--filter", f"id={container}"):
+                    raise
+
+    def run_helper(self, name, *args, timeout):
+        """Remove an interrupted helper before rollback reopens the data volume."""
+        try:
+            return self.docker(
+                "run",
+                "--rm",
+                "--name",
+                name,
+                "--no-healthcheck",
+                "--label",
+                "theos.deployment-helper=true",
+                *args,
+                timeout=timeout,
+            )
+        finally:
+            self.remove_helper(name)
+
     def snapshot(self, previous, candidate):
         archive = f"/data/backups/{candidate['tag']}-{candidate['revision'][:12]}.tar.gz"
-        self.docker(
-            "run",
-            "--rm",
+        self.run_helper(
+            f"theos-backup-{candidate['revision'][:12]}",
             "--network",
             "none",
             "--read-only",
@@ -153,6 +181,7 @@ class Deployer:
             "create",
             "/data",
             archive,
+            timeout=1800,
         )
         # Restore with the old code; only the candidate runs new migrations.
         restore_code = (
@@ -161,9 +190,8 @@ class Deployer:
             'os.chown("/restore",10001,10001); '
             '[os.chown(p,10001,10001) for p in Path("/restore").rglob("*")]'
         )
-        self.docker(
-            "run",
-            "--rm",
+        self.run_helper(
+            f"theos-restore-{candidate['revision'][:12]}",
             "--user",
             "0",
             "--network",
@@ -179,6 +207,7 @@ class Deployer:
             "python",
             "-c",
             restore_code,
+            timeout=900,
         )
         return f"{previous['volume']}:{archive}"
 

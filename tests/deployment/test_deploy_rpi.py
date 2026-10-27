@@ -47,7 +47,7 @@ def deployment(tmp_path):
     compose.write_text("services: {}\n")
     deployer = Deployer(directory, compose)
     calls = []
-    deployer.docker = lambda *args: calls.append(("docker", *args)) or ""
+    deployer.docker = lambda *args, **kwargs: calls.append(("docker", *args)) or ""
     deployer.compose = lambda release, *args: calls.append((release["volume"], *args)) or ""
     deployer.healthy = lambda release: calls.append(("healthy", release["volume"]))
     return deployer, calls
@@ -126,6 +126,112 @@ def test_failed_snapshot_restarts_previous_service(deployment):
     with pytest.raises(DeploymentError, match="status=rolled_back"):
         deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
     assert ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos") in calls
+
+
+def test_timed_out_helper_is_removed_before_rollback_opens_previous_volume(deployment):
+    deployer, calls = deployment
+    previous_release(deployer)
+    original = deployer.docker
+    running = False
+
+    def docker(*args, **kwargs):
+        nonlocal running
+        if args[0] == "run" and "--name" in args:
+            assert kwargs["timeout"] == 1800
+            running = True
+            raise DeploymentError("backup helper timed out")
+        if args[:2] == ("ps", "-aq") and "name=^/theos-backup-" in args[-1]:
+            return "helper-id" if running else ""
+        if args == ("rm", "-f", "helper-id"):
+            running = False
+        return original(*args, **kwargs)
+
+    deployer.docker = docker
+    with pytest.raises(DeploymentError, match="status=rolled_back"):
+        deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
+    removed = calls.index(("docker", "rm", "-f", "helper-id"))
+    reopened = calls.index(
+        ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos")
+    )
+    assert removed < reopened
+    assert not running
+    assert not deployer.pending_path.exists()
+
+
+def test_interrupted_helper_is_removed_before_the_interrupt_propagates(deployment):
+    deployer, _ = deployment
+    removed = []
+
+    def docker(*args, **kwargs):
+        if args[0] == "run":
+            raise KeyboardInterrupt()
+        if args[0] == "ps":
+            return "interrupted-helper"
+        removed.append(args)
+        return ""
+
+    deployer.docker = docker
+    with pytest.raises(KeyboardInterrupt):
+        deployer.run_helper("theos-backup-test", "image", timeout=1800)
+    assert removed == [("rm", "-f", "interrupted-helper")]
+
+
+def test_snapshot_has_separate_bounded_backup_and_restore_deadlines(deployment):
+    deployer, _ = deployment
+    previous = previous_release(deployer)
+    calls = []
+
+    def docker(*args, **kwargs):
+        if args[0] == "run":
+            calls.append((args, kwargs))
+        return ""
+
+    deployer.docker = docker
+    deployer.snapshot(previous, dict(revision=REVISION, tag="rpi-v0.1.0", volume="candidate"))
+    assert [kwargs["timeout"] for _, kwargs in calls] == [1800, 900]
+    assert all("--no-healthcheck" in args and "--name" in args for args, _ in calls)
+
+
+def test_helper_completion_during_cleanup_does_not_prevent_rollback(deployment):
+    deployer, _ = deployment
+
+    def docker(*args, **kwargs):
+        if args[0] == "run":
+            raise DeploymentError("timed out")
+        if args[0] == "ps":
+            return "exiting-helper" if args[-1].startswith("name=") else ""
+        raise DeploymentError("container already removed")
+
+    deployer.docker = docker
+    with pytest.raises(DeploymentError, match="timed out"):
+        deployer.run_helper("theos-backup-test", "image", timeout=1800)
+
+
+def test_restart_recovers_orphan_helper_before_reopening_previous_database(deployment):
+    deployer, calls = deployment
+    previous = previous_release(deployer)
+    candidate = dict(previous, volume="interrupted-volume", revision=REVISION)
+    write_json(deployer.pending_path, dict(candidate=candidate, previous=previous))
+    original = deployer.docker
+    running = True
+
+    def docker(*args, **kwargs):
+        nonlocal running
+        if args[0] == "ps" and "name=^/theos-backup-" in args[-1]:
+            return "orphan-helper" if running else ""
+        if args == ("rm", "-f", "orphan-helper"):
+            running = False
+        return original(*args, **kwargs)
+
+    deployer.docker = docker
+    deployer.recover_interrupted()
+    removed = calls.index(("docker", "rm", "-f", "orphan-helper"))
+    reopened = calls.index(
+        ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos")
+    )
+    assert removed < reopened
+    assert not running
+    assert not deployer.pending_path.exists()
 
 
 def test_failed_rollback_keeps_journal_for_recovery(deployment):
