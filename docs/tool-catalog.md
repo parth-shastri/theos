@@ -489,6 +489,14 @@ Shared account setup uses owner-scoped records through `services/account_setup.p
 `POST /api/connections/{service}/cancel` cancels pending consent without disconnecting the previous account.
 The existing connect and disconnect routes retain owner checks. OAuth callbacks return only to the fixed Connections route.
 
+Telegram account setup uses native Bot API URL buttons and callback controls through `transports/telegram/connections.py`.
+`/connections` reopens the account list after onboarding.
+Zepto's **Paste return link** button uses `ForceReply` with an input placeholder.
+Owner-scoped `telegram_connections` records retain only recent prompt message IDs.
+Prompt replies are encrypted before inbox storage and never reach the model.
+The existing services still own OAuth state validation, token storage, cancellation, and verification.
+No new package or proxy service is required.
+
 ## Gmail
 
 HTTPX, Google OAuth, and encrypted owner tokens. Tools require a browser or private Telegram conversation.
