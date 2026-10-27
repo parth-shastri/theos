@@ -116,6 +116,8 @@ class Deployer:
 
     def restore_previous(self, candidate, previous):
         self.compose(candidate, "stop", *self.services(candidate))
+        for kind in ("backup", "restore"):
+            self.remove_helper(f"theos-{kind}-{candidate['revision'][:12]}")
         if previous:
             self.compose(
                 previous, "up", "--no-build", "--pull", "never", "-d", *self.services(previous)
@@ -134,6 +136,16 @@ class Deployer:
             return
         self.restore_previous(pending["candidate"], pending["previous"])
 
+    def remove_helper(self, name):
+        container = self.docker("ps", "-aq", "--filter", f"name=^/{name}$")
+        if container:
+            try:
+                self.docker("rm", "-f", container)
+            except DeploymentError:
+                # The --rm process can finish between the lookup and removal.
+                if self.docker("ps", "-aq", "--filter", f"id={container}"):
+                    raise
+
     def run_helper(self, name, *args, timeout):
         """Remove an interrupted helper before rollback reopens the data volume."""
         try:
@@ -149,14 +161,7 @@ class Deployer:
                 timeout=timeout,
             )
         finally:
-            container = self.docker("ps", "-aq", "--filter", f"name=^/{name}$")
-            if container:
-                try:
-                    self.docker("rm", "-f", container)
-                except DeploymentError:
-                    # The --rm process can finish between the lookup and removal.
-                    if self.docker("ps", "-aq", "--filter", f"id={container}"):
-                        raise
+            self.remove_helper(name)
 
     def snapshot(self, previous, candidate):
         archive = f"/data/backups/{candidate['tag']}-{candidate['revision'][:12]}.tar.gz"

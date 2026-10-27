@@ -207,6 +207,33 @@ def test_helper_completion_during_cleanup_does_not_prevent_rollback(deployment):
         deployer.run_helper("theos-backup-test", "image", timeout=1800)
 
 
+def test_restart_recovers_orphan_helper_before_reopening_previous_database(deployment):
+    deployer, calls = deployment
+    previous = previous_release(deployer)
+    candidate = dict(previous, volume="interrupted-volume", revision=REVISION)
+    write_json(deployer.pending_path, dict(candidate=candidate, previous=previous))
+    original = deployer.docker
+    running = True
+
+    def docker(*args, **kwargs):
+        nonlocal running
+        if args[0] == "ps" and "name=^/theos-backup-" in args[-1]:
+            return "orphan-helper" if running else ""
+        if args == ("rm", "-f", "orphan-helper"):
+            running = False
+        return original(*args, **kwargs)
+
+    deployer.docker = docker
+    deployer.recover_interrupted()
+    removed = calls.index(("docker", "rm", "-f", "orphan-helper"))
+    reopened = calls.index(
+        ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos")
+    )
+    assert removed < reopened
+    assert not running
+    assert not deployer.pending_path.exists()
+
+
 def test_failed_rollback_keeps_journal_for_recovery(deployment):
     deployer, _ = deployment
     previous_release(deployer)
