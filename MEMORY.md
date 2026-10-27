@@ -10,6 +10,16 @@ Use topic PRs into `dev`, followed by separate promotion PRs with merge commits.
 Publish immutable tag `rpi-v1.4.2` at the current promoted `rpi` tip.
 Confirm the tagged workflow and active Pi manifest before reporting deployment.
 
+## Mac mini power recovery, 2026-10-27
+
+The operator requested automatic recovery after power loss and authorized Docker Desktop restarts.
+The Mac mini already enables power restoration and automatic login. FileVault is off. Do not change these security settings.
+Install the native host guard at login. Wait for the external SSD before starting Docker Desktop.
+Check engine writes with a disposable stopped container. Repeated failures permit bounded Docker Desktop restarts.
+Restore stopped memory and voice containers without replacing their images or volumes. Existing native services retain launchd keepalive.
+Do not prune Docker data or recreate missing service containers automatically.
+Docker Desktop still requires a macOS login. A future login or disk-encryption change can require an operator after reboot.
+
 ## Confirmed decisions
 
 | Decision | Value |
