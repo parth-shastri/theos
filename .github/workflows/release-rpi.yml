@@ -144,7 +144,7 @@ jobs:
   deploy:
     needs: publish
     runs-on: [self-hosted, linux, ARM64, theos-rpi]
-    timeout-minutes: 20
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: read
