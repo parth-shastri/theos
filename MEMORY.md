@@ -18,6 +18,7 @@ Stopping that helper allowed both 1.4.1 services to recover. API and frontend re
 The failed tag remains unchanged. Prepare urgent fix 1.4.3 from `rpi`, then copy it through a topic PR from `dev`.
 Give backup and restore helpers separate bounded deadlines. Always remove their named containers before rollback.
 Journal recovery removes helpers that survived an abrupt runner crash before reopening the previous database.
+The native Mac mini guard resets unreadable recovery state and flushes each new journal before replacement.
 Retain both data volumes and backup files. Extend the deployment job deadline to include backup, restore, and rollback.
 
 ## Mac mini power recovery, 2026-10-27
