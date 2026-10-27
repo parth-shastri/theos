@@ -15,7 +15,23 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.4.3
+
+Package version 1.4.3 uses tag `rpi-v1.4.3` from the current `rpi` tip.
+It contains the workspace tools, browser recovery, checkpoint retention, and Telegram connector controls prepared for 1.4.2.
+It also includes the native Mac mini startup guard.
+Backup helpers now have a 30-minute deadline. Restore helpers have a 15-minute deadline, within a 60-minute deployment job.
+Named helper containers are removed after failure or interruption before rollback reopens the previous database.
+Their removal retains the original volume, candidate volume, and backup files.
+
+Prepare this urgent deployment fix from `rpi`, then copy it to a separate topic branch from `dev` through a PR.
+Keep the failed `rpi-v1.4.2` tag unchanged. Confirm both service health and the active manifest after activation.
+
 ## Release 1.4.2
+
+The deployment exceeded its five-minute backup limit and initially failed rollback because the helper retained the database lock.
+The operator's deployment request permitted recovery. The helper was stopped, and both 1.4.1 services passed readiness after restoration.
+Release 1.4.3 supersedes this failed activation. The 1.4.2 tag remains immutable.
 
 Package version 1.4.2 uses tag `rpi-v1.4.2` from the promoted `rpi` tip.
 Workspace execution uses `run_command`, with optional image inspection. Responses deliver files through `attach_file`.
