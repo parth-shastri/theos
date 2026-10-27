@@ -221,6 +221,7 @@ ssh parths-mac-mini 'python3 /tmp/theos-mac-mini-guard.py --install'
 
 The agent runs at login and checks recovery each minute. Engine startup has a two-minute grace period.
 It saves bounded logs and recovery state under `~/.local/share/theos-host-guard`.
+An unreadable recovery journal starts a fresh host check instead of disabling the guard.
 The installer retains the previous script and agent configuration. It changes no credentials, login setting, or encryption setting.
 
 Inspect the installed agent:

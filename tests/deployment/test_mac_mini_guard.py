@@ -23,6 +23,15 @@ def test_missing_ssd_never_starts_docker(guard, monkeypatch):
     guard.reconcile({}, 10000)
 
 
+@pytest.mark.parametrize(
+    "content", ["{partial", "[]", '{"failures":"invalid"}', '{"restarts":[null]}']
+)
+def test_damaged_state_after_power_loss_does_not_disable_recovery(guard, tmp_path, content):
+    path = tmp_path / "state.json"
+    path.write_text(content)
+    assert guard.load_state(path) == {}
+
+
 def test_engine_start_waits_before_retry_then_restarts(guard, monkeypatch):
     calls = []
 
