@@ -127,7 +127,6 @@ async def test_voice_contracts_and_generated_file(runtime):
 
 @pytest.mark.parametrize("use_server_proxy", [False, True])
 async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_server_proxy):
-    from code_interpreter import CodeInterpreter
     from opensandbox import Sandbox
 
     runtime.settings.sandbox.use_server_proxy = use_server_proxy
@@ -137,7 +136,7 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
 
     output = BytesIO()
     Image.new("RGB", (2, 2)).save(output, format="PNG")
-    remote_files = {"/tmp/image.png": output.getvalue()}
+    remote_files = {"/workspace/image.png": output.getvalue()}
     commands, created, connected = [], [], []
 
     class RemoteFiles:
@@ -187,34 +186,32 @@ async def test_sandbox_contracts_and_isolated_state(runtime, monkeypatch, use_se
     monkeypatch.setattr(Sandbox, "create", create)
     monkeypatch.setattr(Sandbox, "connect", connect)
 
-    async def interpreter(**kwargs):
-        return SimpleNamespace(codes=SimpleNamespace(run=run))
-
-    monkeypatch.setattr(CodeInterpreter, "create", interpreter)
     tools = runtime.sandboxes.tools("alice", "session1")
-    assert "manage_workspace" not in {item.name for item in tools}
-    await call_tool(tools, "write_file", path="/tmp/note", content="hello")
-    assert (await call_tool(tools, "read_file", path="/tmp/note"))["content"] == "hello"
-    assert await call_tool(tools, "list_files", path="/tmp")
+    assert {item.name for item in tools} == {"run_command", "attach_file"}
     await call_tool(tools, "run_command", command="pwd")
-    await call_tool(tools, "execute_code", code="print(1)")
-    await call_tool(tools, "browser", arguments=["open", "https://example.org/a;echo bad"])
-    assert commands[-1] == "agent-browser open 'https://example.org/a;echo bad'"
-    result = await call_tool(tools, "view_image", path="/tmp/image.png")
-    assert runtime.files.image("alice", result["file_id"])
-    assert (
-        Path(runtime.files.get("alice", result["file_id"])["path"]).read_bytes()
-        == output.getvalue()
+    from harness import RunContext
+
+    context = RunContext(None)
+    command = tools[0]
+    result = await command.execute(
+        command.input_model(inspect_images=["/workspace/image.png"]), context
     )
+    assert result["inspected_images"] == ["/workspace/image.png"]
+    assert "file_id" not in result
+    inspected = runtime.files.get("alice", context.state["view_images"][0])
+    assert Path(inspected["path"]).read_bytes() == output.getvalue()
     payload = b"binary\r\n\x00\xff\r\n"
-    upload = runtime.files.save("alice", "input.txt", "application/octet-stream", payload)
-    await call_tool(tools, "upload_file", file_id=upload["id"], path="/tmp/input.txt")
-    delivered = await call_tool(tools, "send_file_to_user", path="/tmp/input.txt")
+    remote_files["/workspace/input.txt"] = payload
+    delivered = await call_tool(tools, "attach_file", path="/workspace/input.txt")
+    assert Path(runtime.files.get("alice", delivered["file_id"])["path"]).read_bytes() == payload
+    remote_files["/workspace/input.txt"] = b"changed"
     assert Path(runtime.files.get("alice", delivered["file_id"])["path"]).read_bytes() == payload
     runtime.settings.max_upload_bytes = 1024
-    remote_files["/tmp/oversized.bin"] = b"x" * 1025
+    remote_files["/workspace/oversized.bin"] = b"x" * 1025
     with pytest.raises(ValueError, match="upload limit"):
-        await call_tool(tools, "send_file_to_user", path="/tmp/oversized.bin")
+        await call_tool(tools, "attach_file", path="/workspace/oversized.bin")
+    with pytest.raises(ValueError, match="/workspace"):
+        await call_tool(tools, "attach_file", path="/tmp/outside.txt")
     staged = await runtime.sandboxes.stage_result(
         "alice", "session1", "gmail_get_message", '{"body": "selected text"}'
     )

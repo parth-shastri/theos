@@ -203,3 +203,26 @@ After checking external effects, operator recovery code calls `checkpoints.confi
 This method cannot run as an agent tool and rejects confirmation during a running turn.
 Uncertain call records remain intact after review.
 The runtime never executes them automatically.
+
+## Runtime checkpoint retention
+
+Theos owns checkpoint retention in `services/files/retention.py`. The generic harness has no storage or garbage-collection policy.
+The default policy keeps three recent recovery checkpoints per session, the current workspace, response attachments, and local and published remote pointers.
+Every retained checkpoint protects its declared file sources. New snapshots declare current workspace and attachment versions without accumulating older workspace objects.
+Older snapshot formats remain readable and keep their original source references while retained.
+
+The existing background checkpoint worker runs collection, including when R2 is disabled.
+An hourly scan retires eligible objects after one hour since their last storage or reuse.
+Each pass marks at most 20 objects. Backlogs continue through further bounded passes.
+Active sessions and sessions awaiting remote-recovery review defer collection. Missing or corrupt retained snapshots also defer collection for their session.
+The collector preserves research evidence, browser profiles, uploaded-file catalog entries, and conversation history.
+
+SQLite migration 015 records pending object deletions before removal.
+The worker handles R2 partial failures and retries with backoff. Retirement does not repeat assistant commands.
+A recreated content-addressed object stays local while its earlier remote deletion finishes. Its replacement upload follows that deletion.
+Recovery pointers advance only after their declared dependencies exist remotely.
+The collector protects the older published snapshot while newer local state awaits replication.
+Pointer publication records its intent before the remote write. Lost responses retain every possibly published snapshot until a later publication is confirmed.
+Remote restoration registers the fetched snapshot as a recovery root, including on a fresh database.
+
+Configure `AGENT_STORAGE__CHECKPOINT_KEEP`, `AGENT_STORAGE__GC_INTERVAL_SECONDS`, and `AGENT_STORAGE__GC_GRACE_SECONDS` in the deployment environment.

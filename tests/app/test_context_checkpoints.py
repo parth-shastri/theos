@@ -398,17 +398,22 @@ async def test_read_only_workspace_tools_do_not_require_a_checkpoint(runtime, mo
     row = runtime.db.create_session("alice", "gpt-6-luna", "none")
 
     @tool
-    async def read_file(path: str):
-        """Read a staged file."""
+    async def attach_file(path: str):
+        """Attach a file without changing workspace content."""
         return {"content": f"read {path}"}
 
-    wrapped = runtime.workspaces.wrap(read_file, "alice", row["id"])
+    wrapped = runtime.workspaces.wrap(attach_file, "alice", row["id"])
 
     async def prepare(*args):
         pass
 
     async def save(*args):
-        pytest.fail("a read-only operation must not checkpoint /workspace")
+        pytest.fail("an attachment must not checkpoint /workspace")
+
+    async def save_attachment(*args):
+        pass
+
+    monkeypatch.setattr(runtime.workspaces, "save_attachment", save_attachment)
 
     monkeypatch.setattr(runtime.workspaces, "prepare", prepare)
     monkeypatch.setattr(runtime.workspaces, "save", save)
@@ -652,3 +657,40 @@ async def test_remote_snapshot_without_call_intents_requires_explicit_reconcilia
         runtime.start("alice", row["id"], "I reconciled the external service. Make a new entry.")
     )
     assert effects == [42]
+
+
+async def test_remote_restore_recovers_immutable_attachment_and_can_retry_transfer(
+    runtime, storage
+):
+    row = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    sid = row["id"]
+    file = runtime.files.save("alice", "report.pdf", "application/pdf", b"%PDF-original\r\n\x00")
+    await runtime.workspaces.save_attachment("alice", sid, {"file_id": file["id"]})
+    await runtime.checkpoints.save("alice", sid, [UserMessage("Report")], ContextMemory(), "test")
+    assert await runtime.checkpoints.drain()
+    Path(file["path"]).unlink()
+    runtime.db.execute("DELETE FROM files WHERE id=?", (file["id"],))
+    for source in runtime.db.rows("SELECT path FROM context_objects WHERE session=?", (sid,)):
+        Path(source["path"]).unlink(missing_ok=True)
+    runtime.db.execute("DELETE FROM context_objects WHERE session=?", (sid,))
+    runtime.db.execute("DELETE FROM records WHERE kind='response_attachment' AND owner='alice'")
+    original = storage.download_file
+
+    def unavailable(*args):
+        raise OSError("R2 unavailable")
+
+    storage.download_file = unavailable
+    with pytest.raises(OSError, match="R2 unavailable"):
+        await runtime.checkpoints.restore("alice", sid)
+    assert json.loads(runtime.db.session("alice", sid)["history"]) == []
+    storage.download_file = original
+    await runtime.checkpoints.restore("alice", sid)
+    recovered = runtime.files.get("alice", file["id"])
+    remote = runtime.db.record("alice", "context_checkpoint_remote", sid)
+    assert (
+        runtime.db.one("SELECT kind FROM context_objects WHERE id=?", (remote["id"],))["kind"]
+        == "checkpoint"
+    )
+    assert Path(recovered["path"]).read_bytes() == b"%PDF-original\r\n\x00"
+    with pytest.raises(LookupError):
+        runtime.files.get("bob", file["id"])

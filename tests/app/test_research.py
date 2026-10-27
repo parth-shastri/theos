@@ -91,8 +91,7 @@ async def test_explicit_mode_is_one_turn_and_persists_full_report(runtime):
         "read_source",
         "save_research_note",
         "run_command",
-        "send_file_to_user",
-        "view_image",
+        "attach_file",
     } <= {t.name for t in deep.requests[0].tools}
     assert "gmail_send_draft" not in {t.name for t in deep.requests[0].tools}
     assert not {"deep_research", "read_source", "save_research_note"} & {

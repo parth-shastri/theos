@@ -15,6 +15,7 @@ def tool_label(name):
         "gmail_send_draft": "Send Gmail draft",
         "execute_code": "Run Python code",
         "run_command": "Run command",
+        "attach_file": "Attach file to response",
         "web_search": "Search the web",
         "history_read": "Read saved evidence",
         "history_search": "Find saved evidence",

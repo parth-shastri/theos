@@ -27,6 +27,8 @@ All source paths below start at `src/theos`.
 | Context and output | Read provider capacity metadata, apply conservative OpenAI caps, and share compaction rules | `runtime/context.py` |
 | Call budgets | Count calls without enforcement by default. Retain optional bounded allocations | `runtime/budgets.py` |
 | Provider result shaping | Return concise Gmail and Health summaries, fetch selected details, and stage oversized reads | `services/gmail/tools.py`, `services/health/tools.py`, `services/result_files.py` |
+| Managed browser | Route browser CLI calls, isolate owner profiles, capture encrypted recovery state, and provide private sign-in controls | `services/sandbox/browser.py`, `services/sandbox/profile.py`, `transports/browser/managed_browser.py` |
+| File retention | Retain recovery roots and retry deletion of unreferenced local and R2 objects | `services/files/retention.py`, migration 015 |
 | History retrieval | Read exact saved messages after compaction | `../harness/tools.py` |
 | Deep research | Gate explicit mode and persist reports and a separate evidence scratchpad | `runtime/research_mode.py`, `services/research/`, migrations 010 and 013 |
 | Delivery events | Turn harness events into transport events | `runtime/events.py`, `runtime/turn.py` |
@@ -91,9 +93,9 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `custom_tables/` | Private SQLite tables and bounded query templates |
 | `memory/` | Mem0 HTTP client, ownership checks, bounded retrieval, consented consolidation, and explicit tools |
 | `search/`, `weather/`, `skills/` | Search fallback, forecasts, and bounded skill resources |
-| `files/` | Private catalog, image validation, R2 transfers, workspace files, model checkpoints, and file tools |
+| `files/` | Private catalog, image validation, automatic R2 replication, model checkpoints, and response attachments |
 | `voice/` | Transcription and Kokoro clients with audio tools |
-| `sandbox/` | Remote lifecycle client, execution tools, temporary result files, and versioned task workspaces |
+| `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `gmail/` | Gmail requests, draft previews, and account tools |
 | `health/` | Imports, normalization, records, nutrition exports, job retries, and tools |

@@ -1526,6 +1526,47 @@ The bootstrap check blocks React scripts and confirms the saved theme takes prec
 The final source passed 48 focused Chromium cases, 24 focused WebKit cases, 12 Python checks, and 15 Node checks.
 Each browser matrix skipped 16 mobile-only cases at desktop widths. Formatting, generated OpenUI validation, and the production build passed.
 
+## Unified command tools and private browser, 2026-10-26
+
+New tool registries expose `run_command` and `attach_file` for workspace work.
+History read and search remain separate. The former catalog, transfer, Python-kernel, browser-wrapper, and image-view tools are absent.
+
+The Python suite passed 1,064 tests. Three credential-dependent live checks remained excluded.
+Checks covered automatic input staging, file deletion across replacement, image pixels in model requests, restart recovery, and immutable attachments.
+Remote attachment recovery retained the original bytes and file ID. A failed R2 download left the session empty for another restore attempt.
+Browser checks covered owner isolation, separate conversation tabs, encrypted profile storage, and private sign-in routes.
+A snapshot-process failure resumed the monitored browser process through the independent watchdog.
+Lint, formatting, lock validation, and whitespace checks passed.
+
+A local protocol check used `agent-browser` 0.38.1 with an isolated Chromium-compatible browser and a synthetic HTTP website.
+Navigation, element references, form input, and screenshot transfer passed.
+Cookies, local storage, and IndexedDB survived replacement through the profile capture and restore path.
+The browser used no personal profile or production account.
+These checks do not verify a deployed OpenSandbox transport, ARM64 resource limits, or Pi activation.
+
+The frontend production build and all 18 frontend unit tests passed.
+The Browser sign-in scenario passed at 320, 390, 768, and 1280 pixels in both themes.
+The scenario verified private input, keyboard navigation, profile deletion, and the absence of chat turns.
+Mobile and desktop screenshots passed visual inspection. No horizontal overflow occurred.
+
+## Runtime checkpoint retention, 2026-10-26
+
+The Python suite passed 1,075 tests. Three credential-dependent live checks remained excluded.
+Eleven retention scenarios covered current workspace roots, response attachments, retained snapshots, and published recovery state.
+Checks also covered grace periods, active sessions, recovery review, corrupt snapshot isolation, and bounded deletion backlogs.
+R2 partial failures retained deletion jobs after restart. Recreated content survived an in-flight deletion without blocking local checkpoint writes.
+The worker resumed replacement uploads after deletion completed. Interrupted uploads retained remote deletion intent when storage was temporarily disabled.
+Uncertain pointer updates preserved every possibly published snapshot until a later update was confirmed.
+Remote restoration registered its fetched checkpoint as a recovery root.
+
+The Connections fixture now waits for sign-in completion before navigation.
+The previous CI trace showed startup navigation replacing the Connections view before the Zepto Connect click.
+All 40 Connections browser scenarios passed at four widths in both themes.
+Frontend formatting and all 18 frontend unit tests passed.
+Python lint, formatting, lock validation, package contents, and whitespace checks passed.
+The wheel contains the retention service and migration 015. No generic harness source changed.
+No deployed R2 objects were deleted during these checks.
+
 ## Telegram connector controls, 2026-10-26
 
 Telegram onboarding now opens native sign-in cards for Gmail, Google Health, and Zepto.

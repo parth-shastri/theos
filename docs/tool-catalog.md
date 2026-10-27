@@ -34,7 +34,7 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
-Gmail search, message, thread, and draft reads, plus Health summary and export-status reads, keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `read_file` for small staged files or `run_command` with `grep` or `sed` to inspect selected sections.
+Gmail search, message, thread, and draft reads, plus Health summary and export-status reads, keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
 
 ## CI coverage selection
 
@@ -390,16 +390,25 @@ Those samples do not verify remote document execution or transport delivery.
 
 ## Files
 
-Private SQLite catalog and local files. R2 operations also use boto3 and configured bucket credentials.
+The runtime owns the private catalog, input transfers, workspace checkpoints, and R2 replication.
+The model uses ordinary paths under `/workspace`. Shell commands list, read, write, and delete task files.
+Selected uploads and Gmail attachments enter the conversation workspace automatically.
+Changed files receive immutable checkpoint versions. Replication runs in the background and retries without repeating commands.
+Deleting a workspace file removes it from the current manifest. Retained checkpoints and response attachments preserve their recorded versions.
+The runtime keeps three recent recovery checkpoints per session by default. It also protects the current workspace, both recovery pointers, and uncertain remote publications.
+A periodic collector retires unreferenced workspace versions, orphaned attachment snapshots, and superseded checkpoints after a one-hour grace period.
+New checkpoints list current file sources rather than every historical workspace version. Legacy checkpoints keep their original references until retention releases them.
+Deletion records survive restarts and partial R2 failures. A recreated blob waits for an old deletion before its replacement upload.
+Local-only deployments run the same retention policy. Active turns and sessions awaiting remote-recovery review defer collection.
+Research evidence, browser credentials, and uploaded-file catalog entries remain outside this collector.
+The [storage settings](base-infra/environment-variables.md) configure the checkpoint count, scan interval, and grace period.
 
-Source: [service tools](../src/theos/services/files/tools.py).
+`attach_file(path)` captures a file version and emits a response attachment through the existing transport adapters.
+Its bytes and metadata enter the session checkpoint journal. Remote recovery restores the same attachment ID.
+Image inspection through `run_command.inspect_images` supplies model image inputs without sending an attachment to the user.
+The internal catalog retains owner checks. The model has no archive, restore, transfer, or catalog-management tools.
 
-| Callable | Action |
-| --- | --- |
-| `list_user_files` | List your uploaded and generated files. |
-| `archive_user_file` | Archive a file in the configured R2 bucket. |
-| `restore_user_file` | Restore one of your archived files. |
-| `delete_user_file` | Delete your file from local storage and R2. |
+Source: [workspace hooks](../src/theos/services/sandbox/workspace.py), [file catalog](../src/theos/services/files/catalog.py), [checkpoints](../src/theos/services/files/checkpoints.py), and [retention](../src/theos/services/files/retention.py).
 
 ## Voice
 
@@ -430,7 +439,7 @@ Source: [service tools](../src/theos/services/voice/tools.py).
 
 ## Sandbox
 
-OpenSandbox and its code interpreter SDK. Browser commands require agent-browser inside the remote image.
+The OpenSandbox Python SDK executes commands. Browser commands require `agent-browser` and Chromium inside the remote image.
 
 The Mac mini uses OpenSandbox server `1.1.1` with configuration and state on the external SSD.
 It uses the `code-interpreter:v1.1.0` and `execd:v1.1.0` images from the `opensandbox` registry namespace.
@@ -444,15 +453,30 @@ This uses the existing SDK and lets remote clients connect without access to con
 
 | Callable | Action |
 | --- | --- |
-| `run_command` | Run a shell command in your task workspace. |
-| `execute_code` | Run Python in your persistent workspace. Imports and variables persist between calls. |
-| `write_file` | Write a text file in your task workspace. |
-| `read_file` | Read up to 64,000 characters from your task workspace or a staged result file. |
-| `list_files` | List files in a workspace directory. |
-| `send_file_to_user` | Share a generated file with the user. |
-| `view_image` | Load an image from your workspace for visual inspection. |
-| `upload_file(file_id, path)` | Copy a selected uploaded file or Gmail attachment into your workspace for analysis. |
-| `browser` | Open pages and interact with them. Use open, snapshot, click, fill, or screenshot commands. |
+| `run_command(command?, timeout=60, inspect_images?)` | Execute shell or Python commands, inspect files, or run standalone browser commands. Image paths supply pixels to the next model request. |
+| `attach_file(path)` | Attach the current file version to the response. |
+
+An image-only command call can omit `command`. Inspection errors remain separate from a completed command result.
+`history_read` and `history_search` retain their existing behavior.
+The runtime does not register the previous file, Python-kernel, image-view, or browser-wrapper tools.
+
+Standalone `agent-browser` commands route to a separate sandbox for the authenticated owner.
+Conversations use distinct tabs. An owner lock serializes browser commands and manual sign-in actions.
+Screenshots, PDFs, and explicit downloads copy to the requested task workspace path.
+Browser uploads read a selected workspace file. Profile and connection flags remain runtime-owned.
+Shell pipes and compound browser commands require separate calls.
+
+Connections includes Browser sign-in controls for navigation, pointer actions, private input, keyboard actions, and screenshots.
+The route uses the authenticated owner and existing browser-session protections. Input values do not enter conversation or tool history.
+The browser profile remains outside task workspaces. It includes cookies, local storage, IndexedDB, and other profile files.
+The runtime captures live authentication state and briefly pauses browser writers to snapshot profile files with their SQLite journals.
+A separate watchdog resumes the browser if capture fails or its process exits.
+The application encrypts snapshots with Fernet before SQLite storage. The generated `browser.key` stays in the private application data directory.
+Stopped-application backups include that key. Browser sign-in provides a control to delete the owner's saved profile and active browser.
+The existing fixed sandbox lifetime still applies. Expired browser sandboxes restore their last saved profile before new work.
+This uses the existing cryptography dependency and Python standard library. It adds no package dependency.
+
+Source: [managed browser](../src/theos/services/sandbox/browser.py), [profile capture](../src/theos/services/sandbox/profile.py), and [private sign-in routes](../src/theos/transports/browser/managed_browser.py).
 
 Binary file reads use bounded HTTP byte ranges for delivery, image inspection, and workspace checkpoints.
 The SDK's line-based limits must not handle binary files because they can alter line endings.
@@ -486,7 +510,7 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | `gmail_search_messages(query, page_token?, max_results=10)` | Return up to 25 message headers and short snippets outside Spam and Trash. Pass `next_page_token` to continue. |
 | `gmail_get_message(message_id, body_offset=0, body_limit=4000, include_body=true, include_quoted=false)` | Read one bounded body range and attachment metadata; use `next_body_offset` to continue or `include_quoted=true` to include quoted replies. Attachment contents stay out of the result. |
 | `gmail_get_thread(thread_id, message_limit=10)` | Return recent thread headers; fetch a selected message by ID for its body. |
-| `gmail_download_attachment(message_id, attachment_id)` | Download one selected attachment after reviewing its metadata; use its returned `file_id` with `upload_file(file_id, path)` for workspace analysis. |
+| `gmail_download_attachment(message_id, attachment_id)` | Download one selected attachment after reviewing its metadata; use its returned workspace path for analysis when sandbox execution is configured. |
 | `gmail_list_drafts(page_token?, max_results=10)` | List draft and message IDs without loading draft bodies. |
 | `gmail_get_draft(draft_id, body_offset=0, body_limit=4000)` | Read a bounded draft body range and its review metadata. |
 | `gmail_create_draft` | Create a draft in your connected account. |

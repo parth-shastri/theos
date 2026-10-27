@@ -60,6 +60,9 @@ class SandboxSettings(BaseModel):
 
 
 class StorageSettings(BaseModel):
+    checkpoint_keep: int = Field(default=3, ge=1, le=100)
+    gc_interval_seconds: int = Field(default=3600, ge=60, le=86400)
+    gc_grace_seconds: int = Field(default=3600, ge=60, le=604800)
     endpoint: str = ""
     bucket: str = ""
     access_key: SecretStr = SecretStr("")

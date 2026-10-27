@@ -275,6 +275,9 @@ See [sandbox](../sandbox.md) for browser dependencies and lifecycle operations.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
+| `AGENT_STORAGE__CHECKPOINT_KEEP` | `3` | Recent recovery checkpoints per session. Current local and published remote pointers remain protected |
+| `AGENT_STORAGE__GC_INTERVAL_SECONDS` | `3600` | Interval between runtime retention scans. Bounded backlog passes continue sooner |
+| `AGENT_STORAGE__GC_GRACE_SECONDS` | `3600` | Minimum age since an object was stored or reused before retirement |
 | `AGENT_STORAGE__ENDPOINT` | Empty | R2 S3-compatible endpoint |
 | `AGENT_STORAGE__BUCKET` | Empty | Private bucket |
 | `AGENT_STORAGE__ACCESS_KEY` | Empty | Bucket access key |
