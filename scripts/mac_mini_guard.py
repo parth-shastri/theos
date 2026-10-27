@@ -76,6 +76,27 @@ def command(*args, timeout=25):
     return result.stdout.strip()
 
 
+def load_state(path):
+    """A damaged recovery journal must not prevent the guard from starting."""
+    try:
+        state = json.loads(path.read_text())
+        if not isinstance(state, dict):
+            raise ValueError("Expected recovery state")
+        for key in ("failures", "warmup_until", "last_probe", "last_healthy"):
+            if key in state and not isinstance(state[key], (int, float)):
+                raise ValueError("Invalid recovery counter")
+        if not isinstance(state.get("restarts", []), list) or any(
+            not isinstance(stamp, (int, float)) for stamp in state.get("restarts", [])
+        ):
+            raise ValueError("Invalid restart history")
+        return state
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        LOGGER.warning("Recovery state is unreadable; checking the host with fresh state")
+        return {}
+
+
 def restart(state, now):
     """Bound recovery attempts. Never erase Docker storage or prune volumes."""
     attempts = [stamp for stamp in state.get("restarts", []) if now - stamp < 3600]
@@ -166,14 +187,17 @@ def main():
         except BlockingIOError:
             return
         path = STATE / "state.json"
-        state = json.loads(path.read_text()) if path.exists() else {}
+        state = load_state(path)
         try:
             reconcile(state, time.time())
         except Exception:
             LOGGER.exception("Host recovery failed")
         finally:
             temporary = STATE / "state.tmp"
-            temporary.write_text(json.dumps(state))
+            with temporary.open("w") as stream:
+                json.dump(state, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
             temporary.chmod(0o600)
             os.replace(temporary, path)
 
