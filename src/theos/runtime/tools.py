@@ -28,7 +28,6 @@ from harness import (
 from theos.prompts import render
 from theos.services.custom_tables.tools import custom_tools
 from theos.services.errors import ServiceError
-from theos.services.files.tools import file_tools
 from theos.services.information import information_tools
 from theos.services.memory.tools import memory_tools
 from theos.services.personal import personal_tools
@@ -84,7 +83,7 @@ async def build_tools(runtime, session):
     # Tool type, even though the implementations use local records or external services.
     tools = personal_tools(runtime.db, owner, session_id, runtime.settings.timezone)
     tools += custom_tools(runtime.db, owner, runtime.settings.data_dir / "tables")
-    tools += information_tools(runtime.settings, runtime.http) + file_tools(runtime.files, owner)
+    tools += information_tools(runtime.settings, runtime.http)
     tools += voice_tools(runtime.files.voice, owner, session_id)
     tools += task_tools(runtime.db, owner, session_id, runtime.settings)
     if runtime.settings.memory.enabled:
@@ -111,7 +110,13 @@ async def build_tools(runtime, session):
         # Account tools need both a personal channel and an explicit account-access grant.
         # A Telegram group can use general tools but cannot reach a person's accounts.
         if runtime.settings.gmail.enabled:
-            tools += runtime.gmail.tools(owner, result_stager=result_stager)
+            tools += runtime.gmail.tools(
+                owner,
+                result_stager=result_stager,
+                file_importer=(lambda row: runtime.workspaces.import_file(owner, session_id, row))
+                if runtime.settings.sandbox.enabled
+                else None,
+            )
         if runtime.settings.health.enabled:
             tools += runtime.health.tools(owner, result_stager=result_stager)
         if runtime.settings.zepto_url and runtime.zepto.connected(owner):

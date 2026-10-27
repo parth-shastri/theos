@@ -16,7 +16,7 @@ from .client import decode_raw, resource_id
 from .content import message_detail, message_summary
 
 
-def gmail_tools(client, owner, *, result_stager=None):
+def gmail_tools(client, owner, *, result_stager=None, file_importer=None):
     """Build account tools bound to one authenticated private owner."""
 
     # Only filtered, normalized dictionaries below reach the shared staging helper.
@@ -138,7 +138,7 @@ def gmail_tools(client, owner, *, result_stager=None):
 
     @tool
     async def gmail_download_attachment(message_id: str, attachment_id: str):
-        """Download one selected attachment by ID; pass its file_id to upload_file for workspace analysis."""
+        """Download one selected attachment by ID. Its returned workspace path is ready for analysis."""
         message = await get_message(message_id)
 
         def find_part(part):
@@ -164,6 +164,14 @@ def gmail_tools(client, owner, *, result_stager=None):
             part.get("mimeType", "application/octet-stream"),
             decode_raw(payload["data"]),
         )
+        if file_importer:
+            path = await file_importer(row)
+            return {
+                "path": path,
+                "name": row["name"],
+                "media_type": row["media_type"],
+                "size": row["size"],
+            }
         return {
             "file_id": row["id"],
             "name": row["name"],

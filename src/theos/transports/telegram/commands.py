@@ -3,8 +3,9 @@
 import json
 
 from theos.runtime.model_catalog import model_choices, reasoning_choices
-from theos.services.errors import ServiceError
 from theos.storage.telegram_access import account_access
+
+from . import connections
 
 
 async def command(bot, session, command, argument, chat, topic):
@@ -30,6 +31,7 @@ async def command(bot, session, command, argument, chat, topic):
         "/connect_zepto",
         "/disconnect_zepto",
         "/zepto_finish",
+        "/connections",
     } and (
         session["channel"] != "telegram-private" or not account_access(bot.settings, bot.db, owner)
     ):
@@ -70,7 +72,7 @@ async def command(bot, session, command, argument, chat, topic):
         await bot.send(
             chat,
             f"I am {bot.settings.name}, your personal assistant.\n\n"
-            "Send a message, photo, document, or voice note. Commands: /web, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_zepto.",
+            "Send a message, photo, document, or voice note. Commands: /connections, /web, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_zepto.",
             topic,
         )
     elif command in {"/new", "/reset"}:
@@ -101,45 +103,14 @@ async def command(bot, session, command, argument, chat, topic):
             raise ValueError("Use one of: " + ", ".join(choices))
         bot.db.execute("UPDATE sessions SET reasoning=? WHERE id=?", (argument, session["id"]))
         await bot.send(chat, "Reasoning setting saved.", topic)
-    elif command in {"/gmail", "/health"}:
-        if session["channel"] != "telegram-private":
-            raise PermissionError("Connect accounts in a private Telegram chat.")
-        await bot.send(chat, bot.runtime.oauth.start(owner, command[1:]), topic)
-    elif command == "/connect_zepto":
-        if session["channel"] != "telegram-private":
-            raise PermissionError("Connect Zepto in a private Telegram chat.")
-
-        async def send_link(url):
-            local_callback = bot.settings.zepto_redirect_uri.startswith("http://localhost/") or (
-                bot.settings.zepto_redirect_uri.startswith("http://127.0.0.1/")
-            )
-            instructions = (
-                "Open the Zepto sign-in link and approve access. When your browser returns to localhost, "
-                "copy the full address-bar URL and send `/zepto_finish <url>` here."
-                if local_callback
-                else "Open the Zepto sign-in link and approve access. Return to this chat after sign-in."
-            )
-            await bot.send(
-                chat,
-                instructions,
-                topic,
-                {"inline_keyboard": [[{"text": "Sign in to Zepto", "url": url}]]},
-            )
-
-        async def send_status(text):
-            await bot.send(chat, text, topic)
-
-        await bot.send(chat, "I am preparing a private Zepto sign-in link.", topic)
-        try:
-            await bot.runtime.zepto.connect(owner, send_link, send_status)
-        except ServiceError as error:
-            await bot.send(chat, str(error), topic)
-    elif command == "/zepto_finish":
-        await bot.send(
-            chat,
-            "Send the full localhost return URL as `/zepto_finish <url>` in this private chat.",
-            topic,
+    elif command in {"/gmail", "/health", "/connect_zepto"}:
+        await connections.start(
+            bot, owner, command.removeprefix("/connect_").lstrip("/"), chat, topic
         )
+    elif command == "/connections":
+        await connections.menu(bot, owner, chat, topic)
+    elif command == "/zepto_finish":
+        await connections.prompt_return(bot, owner, chat, topic)
     elif command == "/settings":
         await bot.send(
             chat,

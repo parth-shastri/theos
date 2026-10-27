@@ -191,7 +191,7 @@ def test_database_reopen_migrations_backup_and_single_worker(settings, tmp_path)
     db.close()
     db = Database(settings.data_dir)
     assert db.load_history("alice", session["id"])[0].content == "durable"
-    assert db.one("PRAGMA user_version")["user_version"] == 14
+    assert db.one("PRAGMA user_version")["user_version"] == 15
     tables = {row["name"] for row in db.rows("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "research_scratchpad" in tables and "research_items" not in tables
     db.close()

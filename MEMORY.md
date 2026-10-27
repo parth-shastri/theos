@@ -1,6 +1,24 @@
 # Theos project memory
 
-Updated: 2026-10-24.
+Updated: 2026-10-27.
+
+## Release 1.4.2 preparation, 2026-10-27
+
+The operator requested both workspace tools and Telegram connector controls from PR #112 on `main` and `rpi`.
+Increment the last version component from 1.4.1 to 1.4.2. Keep the other account connector PRs outside this release.
+Use topic PRs into `dev`, followed by separate promotion PRs with merge commits.
+Publish immutable tag `rpi-v1.4.2` at the current promoted `rpi` tip.
+Confirm the tagged workflow and active Pi manifest before reporting deployment.
+
+## Mac mini power recovery, 2026-10-27
+
+The operator requested automatic recovery after power loss and authorized Docker Desktop restarts.
+The Mac mini already enables power restoration and automatic login. FileVault is off. Do not change these security settings.
+Install the native host guard at login. Wait for the external SSD before starting Docker Desktop.
+Check engine writes with a disposable stopped container. Repeated failures permit bounded Docker Desktop restarts.
+Restore stopped memory and voice containers without replacing their images or volumes. Existing native services retain launchd keepalive.
+Do not prune Docker data or recreate missing service containers automatically.
+Docker Desktop still requires a macOS login. A future login or disk-encryption change can require an operator after reboot.
 
 ## Confirmed decisions
 
@@ -21,6 +39,7 @@ Updated: 2026-10-24.
 | Terminal storage | Default `~/.theos`. Resolve configured relative data paths from the configuration directory |
 | Telegram onboarding | Private `/start` asks what to call the user, then asks for a valid timezone. Save the chosen name in owner-scoped preferences and include it in model context. `/skip` accepts the saved name when available. Preserve existing completed profiles and pending timezone setup |
 | Telegram setup guidance | After name and timezone setup, offer buttons for configured, unconnected accounts and Skip for now. Keep Google Health optional. Share the owner-scoped completion marker with browser onboarding. Preserve saved names. Keep web access and /help available |
+| Telegram connector controls | Use native sign-in URL buttons, status checks, retry, cancel, and account navigation. Zepto uses a Paste return link button and an owner-scoped ForceReply prompt. Encrypt prompt replies before inbox storage and consume them outside model history. Preserve existing credentials on setup cancellation. Keep the manual localhost handoff and support /connections after onboarding |
 | Telegram temporary activity | Stream OpenAI Responses reasoning summaries as temporary messages. Never show raw provider reasoning. Show each tool name and its exact JSON arguments in temporary tool messages, then delete the message when that model phase or tool call ends. Clean active indicators when delivery ends. Send one final message with elapsed time, tool counts, failed or uncertain outcomes, and successfully loaded skills. Count parent and delegate events before display queues can discard them. Approval cards notify once and remain pending until a decision or expiry. Store review message references in SQLite migration 012, including multipart reviews, attached reviews, and waiting notices. Remove resolved cards immediately for Telegram decisions and through polling for other decisions or expiry. Failed deletion removes buttons when possible and retains references for another attempt. Preserve durable approval snapshots, tool results, transcripts, and recovery behavior |
 | Reply formatting | Render assistant Markdown as Telegram text and explicit UTF-16 entities. Split long messages without losing text or formatting. Keep command responses literal. Show approval reviews as labeled fields, formatted prose, and literal code. Preserve exact arguments for approval checks. Browser and terminal retain their own Markdown rendering |
 | Assistant punctuation | Never use em dashes in assistant replies, reasoning summaries, or generated titles. Add shared model instructions and replace any emitted em dash with an ASCII hyphen before display and persistence. Preserve user input, tool arguments, and opaque provider data |
@@ -70,7 +89,8 @@ Updated: 2026-10-24.
 | Tool execution batches | Replace the hard 16-call response rejection with `ExecutionLimits.tool_batch_size`, default 16. Process every valid call in ordered batches. Only tools declared safe may overlap. Keep each call ID and approval check. Append each batch's results before the next batch. Tell the model to request at most 16 calls per response and provide explicit feedback after larger groups. Reject invalid arguments per call as `not_started` before approval or execution, with correction instructions and a new call ID. Keep `failed`, `denied`, and `unknown` outcomes distinct. Duplicate IDs and malformed response identities remain fatal before execution. Retain transcript and checkpoint guarantees. Record exact generated call counts in trace metadata and only fixed harness error codes in logs |
 | Approval policy | Global approval prompts apply to Gmail draft sending and Zepto cart confirmation, checkout, order placement, and payment-related tools. Gmail approval binds the draft contents and checks them again immediately before sending. Search, read, draft creation, delivery-store setup, ordinary cart updates, all sandbox actions, deletion, and memory settings do not prompt. Keep owner isolation, validation, durable attempts, exact approval snapshots, and unknown-outcome recovery. Retire old pending cards for ungated tools without executing anything during cleanup |
 | Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. Lifecycle controls stay internal; the model does not need them for routine recovery. Destroying an absent sandbox does not create one |
-| Workspace tool names | Expose ordinary actions as `run_command`, `execute_code`, `read_file`, `write_file`, `list_files`, `upload_file`, `send_file_to_user`, `view_image`, and `browser`. Model-facing descriptions and workspace instructions describe task actions without naming the execution backend. Keep backend terminology in internal code and operator documentation |
+| Workspace retention | Theos file services own retention. Keep three recent checkpoints per session, current workspace and attachment sources, and current local and published remote pointers. Scan hourly with a one-hour grace period, bounded batches, and a durable deletion journal. Protect active sessions and pending recovery review. Retained snapshots pin their sources. Preserve research, uploaded-file catalog entries, browser state, transcripts, and generic harness behavior |
+| Workspace tool names | Expose only `run_command(command?, timeout, inspect_images?)` and `attach_file(path)` for workspace work. Shell commands cover Python and file operations. Image-only calls can omit the command. Keep `history_read` and `history_search` separate. The runtime owns input staging, versioned session files, R2 replication, restoration, and immutable response attachments. Remove former catalog, transfer, Python-kernel, browser-wrapper, and image-view tools from new registries |
 | Skill selection | Include installed skill descriptions in model context. Match task intent to descriptions and load relevant instructions before work without requiring skill names from the user. Do not load every skill or treat names as the whole selection policy. Supply report-style and document-format instructions automatically for document requests. New reports default to styled PDF. Explicit formats and existing document styles retain precedence. Count automatically supplied skills in turn stats. The shared sandbox image contains report-style files and the declared runtime dependencies for all eight skills; load other skill scripts and text resources from the host as needed |
 | Model-call allowances | Theos disables call allocations and research deadlines by default through `Runtime(enforce_budgets=False)`. Preserve all budget fields and their validation for callers that explicitly enable bounded mode. Parent, delegate, summary, and recovery calls retain usage accounting without enforced call ceilings. Root traces mark enforcement false and limits as -1. Provider, context, output, tool, concurrency, approval, and cancellation limits remain active. See `docs/runtime/context-recovery.md` |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
@@ -848,3 +868,38 @@ The operator requested deployment of the mobile keyboard and conversation activi
 Prepare package version 1.4.1 and immutable tag `rpi-v1.4.1` at the promoted `rpi` tip.
 Use separate promotion PRs and merge commits for `main` and `rpi`.
 No database migration or private environment change is required. Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
+## Unified workspace commands and private browser, 2026-10-26
+
+The model uses `run_command` for execution and optional image inspection. It uses `attach_file` only for response attachments.
+Selected uploads and Gmail attachments enter the session workspace automatically. Changed files use the existing local journal and background R2 worker.
+Attachment snapshots retain exact bytes and metadata for remote session restoration. Deleted workspace files remain absent from the latest manifest.
+History read and search remain separate. Existing transcripts retain old tool names.
+
+Standalone browser CLI commands route to a dedicated browser sandbox per owner. Conversations use distinct tabs under an owner lock.
+Screenshots, PDFs, explicit downloads, and selected uploads cross into the task workspace through runtime code.
+Browser profiles stay outside task workspaces. Live authentication state and profile snapshots preserve login continuity across replacement.
+Profile capture pauses writers briefly and retains SQLite journals. A separate watchdog resumes browser processes after capture failure.
+The application encrypts snapshots in SQLite with a generated private `browser.key`. Stopped-application backups include this key.
+Connections supplies private browser controls for login and verification. These actions create no chat messages or tool records.
+Clearing browser login destroys that owner's browser and deletes saved credentials.
+
+Local acceptance used the pinned browser CLI with a synthetic website and isolated profile.
+Cookies, local storage, and IndexedDB survived replacement. DOM interaction and screenshot transfer passed.
+This verifies the command and profile protocol locally. It does not confirm a deployed OpenSandbox or Pi release.
+
+## Runtime checkpoint retention, 2026-10-26
+
+The user requested collection of unreferenced immutable workspace versions. This is application storage policy, separate from the generic harness.
+New checkpoint snapshots include current workspace and response-attachment sources. Historical workspace objects no longer accumulate in every new snapshot.
+The collector preserves three recent snapshots by default, both recovery pointers, direct workspace and attachment roots, and all retained-snapshot references.
+Legacy snapshots keep their original references while retained.
+
+The background checkpoint worker also runs for local-only storage. Retention uses hourly scans, a one-hour grace period, and bounded continuation batches.
+Reusing an existing content-addressed object refreshes its grace period. Active sessions and pending remote-recovery reviews defer collection.
+SQLite migration 015 journals deletion before local or remote removal. R2 partial failures retry with backoff after restart.
+A recreated blob remains pending until its older deletion finishes. Local checkpoint writes do not wait for R2 deletion.
+The collector preserves unrelated research objects, uploaded-file catalog entries, browser profiles, and transcripts.
+Upload intent records preserve uncertain remote writes across restart or configuration changes.
+Uncertain pointer publications remain roots until a later publication is confirmed. Remote restore registers the fetched checkpoint as a recovery root.
+No `src/harness` file changes are required.

@@ -4824,3 +4824,37 @@ tr:last-child td {
 #research-dialog {
   width: min(760px, calc(100vw - 2rem));
 }
+
+.browser-sign-in .browser-controls {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.browser-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.browser-control-row input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.browser-screen {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: crosshair;
+}
+.browser-screen:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.browser-controls pre {
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

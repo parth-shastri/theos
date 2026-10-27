@@ -1,132 +1,82 @@
-"""Sandbox execution, file, browser, and lifecycle tools."""
+"""Commands, image inspection, and response attachments in an owned workspace."""
 
-import asyncio
 import mimetypes
+import re
 import shlex
 from datetime import timedelta
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
+from typing import Annotated
 
-from harness import tool
+from pydantic import Field
 
-from .workspace import ROOT
+from harness import RunContext, tool
 
 
 def sandbox_tools(client, owner, session_id):
-    """Build execution and file tools for one conversation sandbox."""
-
-    def workspace_path(path):
-        parsed = PurePosixPath(path)
-        return str(parsed if parsed.is_absolute() else PurePosixPath(ROOT) / parsed)
+    """Expose execution and delivery. The runtime owns all file transfers."""
 
     @tool
-    async def run_command(command: str, timeout: int = 60):
-        """Run a shell command in your task workspace, starting from /workspace."""
-        from opensandbox.models.execd import RunCommandOpts
-
+    async def run_command(
+        ctx: RunContext,
+        command: Annotated[str | None, Field(min_length=1)] = None,
+        timeout: Annotated[int, Field(ge=1, le=60)] = 60,
+        inspect_images: Annotated[list[str], Field(max_length=8)] | None = None,
+    ):
+        """Run a shell command from /workspace, or a standalone agent-browser command in your persistent browser. List image paths in inspect_images to see their pixels after execution. Omit command for image inspection only. Use shell commands for Python and all file operations."""
+        if not command and not inspect_images:
+            raise ValueError("Supply a command or image paths to inspect.")
         sandbox = await client.get(owner, session_id)
-        result = await sandbox.commands.run(
-            command,
-            opts=RunCommandOpts(
-                working_directory="/workspace", timeout=timedelta(seconds=min(120, max(1, timeout)))
-            ),
+        result = {}
+        if command:
+            from opensandbox.models.execd import RunCommandOpts
+
+            # Only standalone browser commands enter the managed browser. The runtime
+            # chooses the owner and tab, rather than accepting identity from CLI flags.
+            args = shlex.split(command) if re.match(r"^\s*agent-browser(?:\s|$)", command) else []
+            if args and args[0] == "agent-browser":
+                if any(value in {"&&", "||", "|", ";", "&", ">", ">>", "<"} for value in args):
+                    raise ValueError("Use one standalone agent-browser command per call.")
+                if client.browsers is None:
+                    raise ValueError("The persistent browser is unavailable.")
+                result = await client.browsers.execute(owner, session_id, args[1:], sandbox)
+            else:
+                executed = await sandbox.commands.run(
+                    command,
+                    opts=RunCommandOpts(
+                        working_directory="/workspace", timeout=timedelta(seconds=timeout)
+                    ),
+                )
+                result = executed.model_dump(mode="json")
+        # A failed image read must not disguise a command that already ran as safe to retry.
+        inspected, errors = [], []
+        for requested in inspect_images or []:
+            try:
+                path = client.workspace_path(requested)
+                data = await client.read_bytes(sandbox, path)
+                media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+                if not media_type.startswith("image/"):
+                    raise ValueError("Select an image file.")
+                row = client.files.save(owner, PurePosixPath(path).name, media_type, data)
+                ctx.state.setdefault("view_images", []).append(row["id"])
+                inspected.append(path)
+            except Exception as error:
+                errors.append({"path": requested, "error": type(error).__name__})
+        if inspect_images:
+            result.update(inspected_images=inspected, image_errors=errors)
+        return result
+
+    @tool
+    async def attach_file(path: str):
+        """Attach a file from /workspace to your response. The attachment retains this exact file version."""
+        path = client.workspace_path(path)
+        sandbox = await client.get(owner, session_id)
+        data = await client.read_bytes(sandbox, path)
+        row = client.files.save(
+            owner,
+            PurePosixPath(path).name,
+            mimetypes.guess_type(path)[0] or "application/octet-stream",
+            data,
         )
-        return result.model_dump(mode="json")
-
-    @tool
-    async def execute_code(code: str):
-        """Run Python in your persistent task workspace.
-
-        Variables and imports persist between calls.
-        """
-        from code_interpreter import CodeInterpreter, SupportedLanguage
-
-        interpreter = await CodeInterpreter.create(sandbox=await client.get(owner, session_id))
-        result = await asyncio.wait_for(
-            interpreter.codes.run(
-                "import os; os.chdir('/workspace')\n" + code, language=SupportedLanguage.PYTHON
-            ),
-            timeout=60,
-        )
-        return result.model_dump(mode="json")
-
-    @tool
-    async def write_file(path: str, content: str):
-        """Write a text file in your task workspace."""
-        sandbox = await client.get(owner, session_id)
-        await sandbox.files.write_file(workspace_path(path), content)
-        return {"path": path}
-
-    @tool
-    async def read_file(path: str):
-        """Read up to 64,000 characters from the task workspace or a staged result file."""
-        sandbox = await client.get(owner, session_id)
-        return {"content": await sandbox.files.read_file(workspace_path(path), limit=64000)}
-
-    @tool
-    async def list_files(path: str = "/workspace"):
-        """List files in a task workspace directory."""
-        sandbox = await client.get(owner, session_id)
-        from opensandbox.models.filesystem import DirectoryListEntry
-
-        result = await sandbox.files.list_directory(DirectoryListEntry(path=workspace_path(path)))
-        return (
-            result.model_dump(mode="json")
-            if hasattr(result, "model_dump")
-            else [r.model_dump(mode="json") for r in result]
-        )
-
-    @tool
-    async def send_file_to_user(path: str):
-        """Share a file from your task workspace with the user."""
-        sandbox = await client.get(owner, session_id)
-        # SDK offset/limit arguments select text lines and normalize CRLF bytes.
-        # An inclusive byte range preserves binary files and reads one overflow byte.
-        data = await sandbox.files.read_bytes(
-            workspace_path(path), range_header=f"bytes=0-{client.settings.max_upload_bytes}"
-        )
-        media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
-        row = client.files.save(owner, PurePosixPath(path).name, media_type, data)
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
-    @tool
-    async def view_image(path: str):
-        """Load an image from your task workspace for visual inspection."""
-        sandbox = await client.get(owner, session_id)
-        data = await sandbox.files.read_bytes(
-            workspace_path(path), range_header=f"bytes=0-{client.settings.max_upload_bytes}"
-        )
-        media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
-        if not media_type.startswith("image/"):
-            raise ValueError("Select an image file.")
-        row = client.files.save(owner, PurePosixPath(path).name, media_type, data)
-        return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
-
-    @tool
-    async def upload_file(file_id: str, path: str):
-        """Copy a selected uploaded file or Gmail attachment into your task workspace."""
-        row = client.files.get(owner, file_id)
-        sandbox = await client.get(owner, session_id)
-        await sandbox.files.write_file(workspace_path(path), Path(row["path"]).read_bytes())
-        return {"path": path}
-
-    @tool
-    async def browser(arguments: list[str]):
-        """Open pages and interact with them.
-
-        Use open, snapshot, click, fill, or screenshot commands.
-        """
-        sandbox = await client.get(owner, session_id)
-        result = await sandbox.commands.run(shlex.join(["agent-browser", *arguments]))
-        return result.model_dump(mode="json")
-
-    return [
-        run_command,
-        execute_code,
-        write_file,
-        read_file,
-        list_files,
-        send_file_to_user,
-        upload_file,
-        view_image,
-        browser,
-    ]
+    return [run_command, attach_file]
