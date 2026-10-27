@@ -9,6 +9,7 @@ import {
 } from "../state/authorization";
 import { ConnectionIcon, Glass, Icon } from "./Primitives";
 import PanelHeading from "./PanelHeading";
+import BrowserSignIn from "./BrowserSignIn";
 
 function SignInLink({ url }) {
   try {
@@ -474,6 +475,12 @@ export default function Connections() {
           </button>
         </div>
       )}
+      <BrowserSignIn
+        key={me?.id}
+        configured={connections?.services.some(
+          (service) => service.id === "sandbox" && service.configured,
+        )}
+      />
       <h2 className="connection-heading">Workspace services</h2>
       <p>
         Configured by the operator. These labels show availability, not a live

@@ -10,7 +10,7 @@ from harness import (
     message_to_dict,
 )
 from theos.runtime.models import session_options
-from theos.storage.messages import stamp_message, update_display_metadata
+from theos.storage.messages import display_metadata, stamp_message, update_display_metadata
 
 from .approvals import check_approval
 from .context import ResearchStopped, options
@@ -32,11 +32,21 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         turn = runtime.active.get(session_id)
         if turn and turn.provider_failure:
             raise turn.provider_failure
-        # Add sandbox images once, after the file catalog checks their owner. The view_image
-        # tool records IDs in run state; this hook turns those IDs into model image inputs.
-        for file_id in ctx.state.pop("view_images", []):
+        await runtime.workspaces.stage_inputs(owner, session_id, ctx.history)
+        # Command inspection queues owned image versions. Delivery remains a separate action.
+        # The hook adds pixels without exposing storage operations to the model.
+        queued = ctx.state.pop("view_images", [])
+        try:
+            queued += runtime.db.record(owner, "workspace_inspections", session_id)["files"]
+        except LookupError:
+            pass
+        seen = {display_metadata(message).get("workspace_inspection") for message in ctx.history}
+        for file_id in dict.fromkeys(queued):
+            if file_id in seen:
+                continue
             image = UserMessage("Image from your workspace:", [runtime.files.image(owner, file_id)])
             stamp_message(image)
+            update_display_metadata(image, {"workspace_inspection": file_id})
             ctx.history.append(image)
             request.messages.append(image)
         if deadline is not None and monotonic() >= deadline:
@@ -97,6 +107,12 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         await runtime.checkpoints.save(
             owner, session_id, [*ctx.history, message], ctx.memory, "after_model"
         )
+        # The saved history now contains the image inputs. A restart no longer needs
+        # the pending inspection queue, which existed before the model request.
+        runtime.db.execute(
+            "DELETE FROM records WHERE owner=? AND kind='workspace_inspections' AND id=?",
+            (owner, session_id),
+        )
         return message
 
     async def before_tool(tool, args, ctx):
@@ -131,6 +147,13 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         if result.name == "view_image" and result.status == "completed":
             value = json.loads(result.content)
             ctx.state.setdefault("view_images", []).append(value["file_id"])
+        if ctx.state.get("view_images"):
+            runtime.db.put_record(
+                owner,
+                "workspace_inspections",
+                session_id,
+                {"files": list(dict.fromkeys(ctx.state["view_images"]))},
+            )
         # Save the exact result before the harness asks the model what to do next. After a
         # restart, recovery can pair this result with its call instead of running it again.
         runtime.db.execute(
