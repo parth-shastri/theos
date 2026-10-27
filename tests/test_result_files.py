@@ -30,7 +30,7 @@ async def test_large_result_returns_a_temporary_file_pointer():
     assert result["result_bytes"] == len(saved["content"].encode("utf-8"))
     assert result["truncated"] is False
     assert saved["name"] == "gmail_get_message"
-    assert "read_file" in result["message"]
+    assert "run_command" in result["message"]
 
 
 async def test_failed_staging_returns_a_bounded_preview():

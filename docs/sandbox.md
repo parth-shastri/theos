@@ -1,7 +1,7 @@
 # Remote sandbox
 
 The sandbox service runs code, commands, and browser actions outside the assistant container.
-Theos uses the [OpenSandbox Python SDK](https://open-sandbox.ai/sdks/) and code interpreter client.
+Theos uses the [OpenSandbox Python SDK](https://open-sandbox.ai/sdks/) for command execution.
 The operator deploys the sandbox server separately.
 
 ## Configure
@@ -144,22 +144,46 @@ The container kept running, but OpenSandbox status requests returned HTTP 500 wh
 
 ## Browser dependencies
 
-`browser` invokes `agent-browser` inside the remote sandbox. The shared skill runtime image installs the CLI and Chromium. Installing browser software in the assistant container does not install it in the remote sandbox.
+The shared runtime image installs `agent-browser` 0.38.1 and Chromium.
+The model calls standalone browser commands through `run_command`. The runtime routes these commands to an owner-scoped browser sandbox.
+Each conversation uses its own tab. The runtime serializes browser actions for the same owner.
+Task sandbox replacement does not replace the browser sandbox.
+Browser sandbox replacement restores the encrypted profile, including saved authentication state.
+
+Use Browser sign-in in Connections to open a website and complete login or verification.
+Select a field in the screenshot, then use Private input to enter text.
+Use Next field and Press Enter for keyboard navigation. Refresh updates the screenshot.
+Clear saved browser login destroys the owner's browser and deletes its saved profile.
+These controls do not send conversation messages or model tool calls.
+
+Profile capture briefly pauses browser writers. A watchdog resumes them if capture exits or exceeds its deadline.
+Snapshots include SQLite recovery journals and exclude cache directories and process locks.
+The application stores encrypted snapshots in SQLite. Keep `browser.key` with stopped-application backups.
+The profile and encryption key never enter task workspaces or response attachments.
+A site can still expire a login or require verification.
 
 ## Tools and approval
 
-| Area | Tools |
+| Area | Interface |
 | --- | --- |
-| Execution | `run_command`, `execute_code` |
-| Text files | `write_file`, `read_file`, `list_files` |
-| File transfer | `upload_file`, `send_file_to_user` |
-| Images | `view_image` |
-| Browser | `browser` |
+| Shell, Python, and filesystem work | `run_command(command)` |
+| Model image inspection | `run_command(inspect_images=["/workspace/chart.png"])` |
+| Browser | `run_command(command="agent-browser snapshot -i")` |
+| Browser screenshot inspection | `run_command(command="agent-browser screenshot /workspace/page.png", inspect_images=["/workspace/page.png"])` |
+| Response attachment | `attach_file(path="/workspace/report.pdf")` |
 
 Sandbox execution does not require approval.
-Uploaded files remain bound to the authenticated owner.
-Generated files enter the local private catalog before delivery.
-The model can receive a checked workspace image through `view_image`.
+The runtime stages selected uploads and downloaded Gmail attachments automatically.
+The model uses the returned workspace paths without transfer calls.
+`attach_file` keeps an immutable file version for transport delivery and checkpoint recovery.
+Inspection supplies pixels to the model. It does not send an attachment to the user.
+The former file-management and execution tools are absent from new tool registries.
+History read and search tools remain separate.
+
+Browser commands must be standalone calls. Use separate calls instead of shell pipes or compound browser commands.
+Use `agent-browser download SELECTOR /workspace/file` for downloads.
+Use `agent-browser upload SELECTOR /workspace/file` for uploads.
+Profile, session, connection, and provider options belong to the runtime.
 
 ## Lifetime and recovery
 

@@ -953,19 +953,6 @@ wheels = [
 ]
 
 [[package]]
-name = "opensandbox-code-interpreter"
-version = "1.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "opensandbox" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/6b/edcfd0323ff98714e11f38c71c60fc6b363100f6498dab674cda7164da63/opensandbox_code_interpreter-1.1.0.tar.gz", hash = "sha256:b1d39b572ad9fc625c501d713e5925260d716cc9054fe3830a9cd32d1016f5f2", size = 27943, upload-time = "2026-09-21T06:36:57.439Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1e/93/09b8e05b958ce3f6f4ee48eeb8d28a9706adfaec21200b4685e012f0b294/opensandbox_code_interpreter-1.1.0-py3-none-any.whl", hash = "sha256:2154fb9eb0b7caf8961a12f6e18c9a3e48d87e25e9b0ee4824358b70da0adf10", size = 43578, upload-time = "2026-09-21T06:36:56.286Z" },
-]
-
-[[package]]
 name = "opentelemetry-api"
 version = "1.45.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1672,7 +1659,7 @@ wheels = [
 
 [[package]]
 name = "theos"
-version = "1.4.1"
+version = "1.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
@@ -1709,7 +1696,6 @@ server = [
     { name = "mcp" },
     { name = "openai" },
     { name = "opensandbox" },
-    { name = "opensandbox-code-interpreter" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
     { name = "pillow" },
@@ -1730,7 +1716,6 @@ terminal = [
     { name = "mcp" },
     { name = "openai" },
     { name = "opensandbox" },
-    { name = "opensandbox-code-interpreter" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
     { name = "pillow" },
@@ -1771,7 +1756,6 @@ requires-dist = [
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.93.0" },
     { name = "openai", marker = "extra == 'server'", specifier = ">=1.93.0" },
     { name = "opensandbox", marker = "extra == 'server'", specifier = ">=0.1.7" },
-    { name = "opensandbox-code-interpreter", marker = "extra == 'server'", specifier = ">=0.1.2" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'server'", specifier = ">=1.45,<2" },
     { name = "opentelemetry-sdk", marker = "extra == 'server'", specifier = ">=1.45,<2" },
     { name = "pillow", marker = "extra == 'server'", specifier = ">=11,<13" },

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "theos"
-version = "1.4.1"
+version = "1.4.2"
 description = "Theos personal assistant with an owned Python agent harness"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -27,7 +27,6 @@ server = [
     "pillow>=11,<13",
     "boto3>=1.40,<2",
     "opensandbox>=0.1.7",
-    "opensandbox-code-interpreter>=0.1.2",
     "mcp>=1.20,<2",
     "anthropic>=1.7.0",
     "httpx>=0.28.1",

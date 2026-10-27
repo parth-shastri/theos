@@ -82,8 +82,8 @@ class Gmail:
             "attachments": [p.get_filename() for p in parsed.iter_attachments()],
         }
 
-    def tools(self, owner, *, result_stager=None):
+    def tools(self, owner, *, result_stager=None, file_importer=None):
         """Build the service tools for the authenticated owner."""
         from .tools import gmail_tools
 
-        return gmail_tools(self, owner, result_stager=result_stager)
+        return gmail_tools(self, owner, result_stager=result_stager, file_importer=file_importer)

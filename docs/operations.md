@@ -202,6 +202,37 @@ Health export jobs inspect remote records before another write.
 Failed Health jobs can block later jobs of the same kind for that owner.
 See [Google Health](google-health.md#export-status-and-retries) for recovery.
 
+## Mac mini startup and Docker recovery
+
+The Mac mini runs Docker Desktop, the sandbox server, memory, and voice services.
+The host already restarts after power loss and signs in automatically. The native sandbox and speech agents use launchd keepalive.
+Docker Desktop previously had automatic startup disabled. The host guard now starts it after the external SSD mounts.
+It checks engine writes with a disposable stopped container every five minutes.
+Two failures permit a Docker restart, with a 15-minute cooldown and at most three restarts per hour.
+Each restart briefly interrupts Docker-based memory, voice, and sandbox services.
+The guard starts stopped service containers without replacing images or volumes. Missing containers require operator review.
+
+Install or update the guard on the Mac mini:
+
+```sh
+scp scripts/mac_mini_guard.py parths-mac-mini:/tmp/theos-mac-mini-guard.py
+ssh parths-mac-mini 'python3 /tmp/theos-mac-mini-guard.py --install'
+```
+
+The agent runs at login and checks recovery each minute. Engine startup has a two-minute grace period.
+It saves bounded logs and recovery state under `~/.local/share/theos-host-guard`.
+The installer retains the previous script and agent configuration. It changes no credentials, login setting, or encryption setting.
+
+Inspect the installed agent:
+
+```sh
+ssh parths-mac-mini 'launchctl print gui/$(id -u)/com.parthshastri.theos-host-guard'
+ssh parths-mac-mini 'tail -20 ~/.local/share/theos-host-guard/guard.log'
+```
+
+Docker Desktop requires a macOS login. If automatic login changes or FileVault becomes enabled, an operator can need to unlock the host.
+The guard cannot repair a damaged filesystem. It never prunes images, erases Docker storage, or deletes application volumes.
+
 ## Remove containers
 
 ```sh

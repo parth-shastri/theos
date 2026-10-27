@@ -48,6 +48,7 @@ from theos.transports.browser.openui import (
     clean_openui_state,
     validate_source,
 )
+from theos.transports.telegram.connections import controls as connection_controls
 from theos.transports.telegram.polling import Telegram
 
 
@@ -217,7 +218,10 @@ def create_app(settings=None, runtime=None):
 
     register_auth(app, settings, current)
     from .connections import register_connections
+    from .managed_browser import register_managed_browser
 
+    # Specific browser paths precede the generic account-service paths.
+    register_managed_browser(app, current, identity)
     register_connections(app, settings, current, identity)
 
     def browser_session(request, owner, session_id):
@@ -650,6 +654,7 @@ def create_app(settings=None, runtime=None):
                         await Telegram(active).send(
                             int(owner[9:]),
                             f"{label} is connected. You can continue here or in the web workspace.",
+                            markup=connection_controls(service, pending=False),
                         )
                     except ServiceError:
                         pass
