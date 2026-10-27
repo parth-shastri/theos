@@ -100,9 +100,10 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `zepto/` | OAuth, encrypted owner tokens, MCP discovery, and account-scoped sessions that serialize tool calls |
 
 `storage/account_access.py` permits configured browser identities and authorized private Telegram identities.
+`transports/telegram/connections.py` owns native account cards, sign-in buttons, status actions, and Zepto reply prompts.
+`polling.py` identifies prompt replies before inbox persistence and routes encrypted return links outside model history.
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
 `services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
-`transports/telegram/connections.py` handles setup buttons without model turns or conversation creation.
 It reports configuration status without exposing credentials.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser user's existing account access.

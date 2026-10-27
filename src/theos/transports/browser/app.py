@@ -48,6 +48,7 @@ from theos.transports.browser.openui import (
     clean_openui_state,
     validate_source,
 )
+from theos.transports.telegram.connections import controls as connection_controls
 from theos.transports.telegram.polling import Telegram
 
 
@@ -650,6 +651,7 @@ def create_app(settings=None, runtime=None):
                         await Telegram(active).send(
                             int(owner[9:]),
                             f"{label} is connected. You can continue here or in the web workspace.",
+                            markup=connection_controls(service, pending=False),
                         )
                     except ServiceError:
                         pass
