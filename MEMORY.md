@@ -1,6 +1,14 @@
 # Theos project memory
 
-Updated: 2026-10-26.
+Updated: 2026-10-27.
+
+## Release 1.4.2 preparation, 2026-10-27
+
+The operator requested both workspace tools and Telegram connector controls from PR #112 on `main` and `rpi`.
+Increment the last version component from 1.4.1 to 1.4.2. Keep the other account connector PRs outside this release.
+Use topic PRs into `dev`, followed by separate promotion PRs with merge commits.
+Publish immutable tag `rpi-v1.4.2` at the current promoted `rpi` tip.
+Confirm the tagged workflow and active Pi manifest before reporting deployment.
 
 ## Confirmed decisions
 

@@ -15,6 +15,20 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.4.2
+
+Package version 1.4.2 uses tag `rpi-v1.4.2` from the promoted `rpi` tip.
+Workspace execution uses `run_command`, with optional image inspection. Responses deliver files through `attach_file`.
+The runtime stages inputs, saves workspace versions, and collects unreferenced checkpoint objects after a grace period.
+History read and search remain separate tools.
+Each owner has a dedicated browser with encrypted login recovery and private sign-in controls under Connections.
+Telegram account setup uses native sign-in buttons, return-link prompts, and connection checks without model turns.
+
+Migration 015 adds the durable checkpoint deletion journal. Backups include the generated private browser encryption key.
+No new private environment value is required. Default retention preserves three recent checkpoints and all recovery roots.
+Promote both feature PRs to `main` and `rpi` through separate PRs and merge commits.
+Publish both ARM64 images through the tagged workflow. Confirm the active Pi manifest after activation.
+
 ## Release 1.4.1
 
 Package version 1.4.1 uses tag `rpi-v1.4.1` from the promoted `rpi` tip.
