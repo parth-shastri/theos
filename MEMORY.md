@@ -10,6 +10,15 @@ Use topic PRs into `dev`, followed by separate promotion PRs with merge commits.
 Publish immutable tag `rpi-v1.4.2` at the current promoted `rpi` tip.
 Confirm the tagged workflow and active Pi manifest before reporting deployment.
 
+## Pi deployment helper recovery, 2026-10-27
+
+The 1.4.2 backup exceeded the deployment script's five-minute command timeout after writing more than 2 GiB.
+Docker left the helper running with the old volume's process lock, so automatic rollback failed.
+Stopping that helper allowed both 1.4.1 services to recover. API and frontend readiness returned HTTP 200.
+The failed tag remains unchanged. Prepare urgent fix 1.4.3 from `rpi`, then copy it through a topic PR from `dev`.
+Give backup and restore helpers separate bounded deadlines. Always remove their named containers before rollback.
+Retain both data volumes and backup files. Extend the deployment job deadline to include backup, restore, and rollback.
+
 ## Mac mini power recovery, 2026-10-27
 
 The operator requested automatic recovery after power loss and authorized Docker Desktop restarts.
