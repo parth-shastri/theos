@@ -22,6 +22,7 @@ It contains the workspace tools, browser recovery, checkpoint retention, and Tel
 It also includes the native Mac mini startup guard.
 Backup helpers now have a 30-minute deadline. Restore helpers have a 15-minute deadline, within a 60-minute deployment job.
 Named helper containers are removed after failure or interruption before rollback reopens the previous database.
+Journal recovery also removes helpers left by an abrupt runner crash.
 Their removal retains the original volume, candidate volume, and backup files.
 
 Prepare this urgent deployment fix from `rpi`, then copy it to a separate topic branch from `dev` through a PR.

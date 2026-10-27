@@ -17,6 +17,7 @@ Docker left the helper running with the old volume's process lock, so automatic 
 Stopping that helper allowed both 1.4.1 services to recover. API and frontend readiness returned HTTP 200.
 The failed tag remains unchanged. Prepare urgent fix 1.4.3 from `rpi`, then copy it through a topic PR from `dev`.
 Give backup and restore helpers separate bounded deadlines. Always remove their named containers before rollback.
+Journal recovery removes helpers that survived an abrupt runner crash before reopening the previous database.
 Retain both data volumes and backup files. Extend the deployment job deadline to include backup, restore, and rollback.
 
 ## Mac mini power recovery, 2026-10-27
