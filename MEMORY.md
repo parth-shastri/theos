@@ -2,6 +2,19 @@
 
 Updated: 2026-10-28.
 
+## OpenUI summaries and completed thinking, 2026-10-28
+
+Show text-only OpenUI summary facts as label/value rows with light separators. Keep numeric metric tiles and charts in their existing components.
+Keep each thinking disclosure in place when generation completes. Change its label to `Thought for x s` using the saved generation duration.
+Show `Thought` when older messages have no duration. Hide the separate role and metadata footer on reasoning-only messages.
+Preserve reasoning from hidden OpenUI tool phases after reload. Keep the hidden presentation source out of the visible answer.
+Show one active thinking indicator when a streamed reasoning disclosure is present.
+The operator identified the local Slack highlights conversation as the visual example.
+Approval reviews use a neutral rounded panel with an action heading, readable fields, collapsed exact details, and fixed decision controls.
+Scroll long reviews inside the panel. Keep both decisions visible and disable them during submission. Preserve the pending review after a rejected request.
+The local frontend now uses `theos-web:chat-ui-continuity-20261028` on port 8080. Its API container and account data remain unchanged.
+The 64 OpenUI browser scenarios, 22 frontend unit tests, and 27 focused Python checks passed. Production deployment remains pending.
+
 ## Release 1.4.2 preparation, 2026-10-27
 
 The operator requested both workspace tools and Telegram connector controls from PR #112 on `main` and `rpi`.

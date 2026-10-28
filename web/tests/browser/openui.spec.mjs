@@ -1,7 +1,13 @@
 import { test, expect } from "@playwright/test";
 const token =
   process.env.THEOS_E2E_TOKEN || "nextjs-browser-preview-token-123456789";
-async function fixture(page, source, version = "theos-openui-2") {
+async function fixture(
+  page,
+  source,
+  version = "theos-openui-2",
+  history = [],
+  approvals = [],
+) {
   await page.goto("/");
   await page.locator("#token").fill(token);
   await page.locator("#login-form button[type=submit]").click();
@@ -19,8 +25,10 @@ async function fixture(page, source, version = "theos-openui-2") {
   await page.route(`**/api/sessions/${session.id}`, async (route) => {
     const upstream = await route.fetch();
     const data = await upstream.json();
+    data.approvals = approvals;
     data.history = [
       { type: "user", content: "Synthetic visual component acceptance" },
+      ...history,
       {
         type: "assistant",
         text: source,
@@ -49,6 +57,229 @@ async function fixture(page, source, version = "theos-openui-2") {
   await expect(page.locator(".theos-openui-answer")).toBeVisible();
   return { state: () => state, summary: () => summary, saves: () => saves };
 }
+
+test("approval reviews keep decisions visible and recover from a rejected submission", async ({
+  page,
+}, testInfo) => {
+  const pending = [
+    {
+      id: "synthetic-approval",
+      call_id: "synthetic-call",
+      tool: "gmail_send_draft",
+      label: "Send the reviewed draft",
+      arguments: JSON.stringify({ draft_id: "synthetic-draft" }),
+      review: [
+        {
+          label: "To",
+          text: "review@example.com",
+          kind: "text",
+          group: "Email",
+        },
+        {
+          label: "Subject",
+          text: "Tomorrow's project review",
+          kind: "text",
+          group: "Email",
+        },
+        {
+          label: "Message",
+          text: Array(10)
+            .fill(
+              "Please review the attached project notes before tomorrow's meeting. The final section lists the decisions that still need your input.",
+            )
+            .join("\n\n"),
+          kind: "markdown",
+          group: "Email",
+        },
+        {
+          label: "Draft ID",
+          text: "synthetic-draft",
+          kind: "code",
+          technical: true,
+          group: "Identifiers",
+        },
+      ],
+    },
+  ];
+  await fixture(
+    page,
+    'root = TheosAnswer(AnswerSummary("The draft is ready for review."))',
+    "theos-openui-2",
+    [],
+    pending,
+  );
+  const card = page.getByRole("article", {
+    name: "Send the reviewed draft",
+    exact: true,
+  });
+  const approve = card.getByRole("button", { name: "Approve", exact: true });
+  const deny = card.getByRole("button", { name: "Deny", exact: true });
+  await expect(approve).toBeInViewport();
+  await expect(deny).toBeInViewport();
+  await expect(card.getByText("synthetic-draft", { exact: true })).toBeHidden();
+  await page.screenshot({ path: testInfo.outputPath("approval-review.png") });
+  await card.getByText("Exact tool arguments", { exact: true }).click();
+  await expect(card.locator("pre").last()).toHaveText(
+    '{\n  "draft_id": "synthetic-draft"\n}',
+  );
+  await expect(approve).toBeInViewport();
+  await expect(deny).toBeInViewport();
+  const decisions = [];
+  let release;
+  await page.route("**/approvals/synthetic-approval", async (route) => {
+    decisions.push(route.request().postDataJSON().approved);
+    await new Promise((resolve) => {
+      release = resolve;
+    });
+    if (decisions.length === 1)
+      await route.fulfill({
+        status: 409,
+        json: { detail: "The draft changed. Review again." },
+      });
+    else {
+      pending.splice(0);
+      await route.fulfill({
+        contentType: "text/event-stream",
+        body: 'data: {"type":"done"}\n\n',
+      });
+    }
+  });
+  await approve.click();
+  await expect(approve).toBeDisabled();
+  await expect(deny).toBeDisabled();
+  await expect.poll(() => decisions.length).toBe(1);
+  release();
+  await expect(approve).toBeEnabled();
+  await expect(card).toBeVisible();
+  await deny.click();
+  await expect(approve).toBeDisabled();
+  await expect.poll(() => decisions.length).toBe(2);
+  release();
+  await expect(card).toHaveCount(0);
+  expect(decisions).toEqual([true, false]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("text summaries use readable rows and completed thinking has no separate timestamp", async ({
+  page,
+}, testInfo) => {
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [plan])",
+      'summary = AnswerSummary("A short plan for tomorrow.")',
+      'plan = SummaryCard("Tomorrow", [first, second])',
+      'first = SummaryFact("Morning", "Review the notes and prepare the draft before the meeting.")',
+      'second = SummaryFact("Afternoon", "Share the draft and collect feedback from the team.")',
+    ].join("\n"),
+    "theos-openui-1",
+    [
+      {
+        type: "assistant",
+        text: "Hidden tool-phase presentation",
+        reasoning: "I checked the saved context before preparing the plan.",
+        display: {
+          format: "openui-lang",
+          openui_hidden: true,
+          duration_ms: 2400,
+          created_at: 1793188800,
+        },
+      },
+      { type: "assistant", reasoning: "A legacy summary without timing." },
+    ],
+  );
+  const thought = page.locator(".message.assistant").filter({
+    has: page.getByText("Thought for 2.4 s", { exact: true }),
+  });
+  await expect(thought.locator(".message-footer")).toBeHidden();
+  await expect(thought.locator(".role")).toBeHidden();
+  await expect(thought.locator(".thinking-body")).toBeHidden();
+  await thought.locator("summary").click();
+  await expect(thought.locator(".thinking-body")).toContainText(
+    "I checked the saved context",
+  );
+  await expect(page.locator(".thinking-label").last()).toHaveText("Thought");
+  await expect(page.getByText("Hidden tool-phase presentation")).toHaveCount(0);
+  const rows = page.locator(".openui-summary-fact");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText(
+    "Review the notes and prepare the draft before the meeting.",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("summary-and-thinking.png"),
+  });
+  await page.reload();
+  await expect(page.locator(".thinking-label").first()).toHaveText(
+    "Thought for 2.4 s",
+  );
+  await expect(page.locator(".thinking-body").first()).toBeHidden();
+});
+
+test("streamed thinking becomes a completed thought in the same disclosure", async ({
+  page,
+}) => {
+  await fixture(page, 'root = TheosAnswer(AnswerSummary("Earlier answer."))');
+  await page.evaluate(() => {
+    const fetch = window.fetch.bind(window);
+    window.fetch = (url, options) => {
+      if (!String(url).endsWith("/turn")) return fetch(url, options);
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              const send = (event) =>
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `data: ${JSON.stringify(event)}\n\n`,
+                  ),
+                );
+              send({ type: "thinking" });
+              send({ type: "reasoning", text: "Check the context first." });
+              window.finishThinking = () => {
+                send({
+                  type: "assistant_complete",
+                  reasoning: "Check the context first.",
+                  requested_tools: ["read_notes"],
+                  display: { duration_ms: 2400, created_at: 1793188800 },
+                });
+                send({ type: "done" });
+                controller.close();
+              };
+            },
+          }),
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+      );
+    };
+  });
+  await page.locator("#message").fill("Check the context.");
+  await page.locator("#send").click();
+  const thought = page.locator(".thinking");
+  await expect(thought.locator("summary")).toHaveText("Thinking…");
+  await expect(page.locator(".turn-activity")).toHaveCount(0);
+  await thought.locator("summary").click();
+  const disclosure = await thought.elementHandle();
+  await page.evaluate(() => window.finishThinking());
+  await expect(thought.locator("summary")).toHaveText("Thought for 2.4 s");
+  expect(await disclosure.evaluate((element) => element.isConnected)).toBe(
+    true,
+  );
+  await expect(thought).toHaveAttribute("open", "");
+  await expect(thought.locator(".thinking-body")).toHaveText(
+    "Check the context first.",
+  );
+  await expect(thought.locator("..").locator(".message-footer")).toBeHidden();
+  await expect(page.locator("#send")).toBeEnabled();
+});
 
 test("health status notices remain in the chat when the conversation drawer toggles", async ({
   page,

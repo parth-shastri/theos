@@ -1,5 +1,22 @@
 # Feature and acceptance checklist
 
+## OpenUI summaries and completed thinking, 2026-10-28
+
+Text-only summary facts now use label/value rows. Completed thinking retains its disclosure and shows `Thought for x s` from the saved generation duration.
+Reasoning-only messages hide their separate role and metadata footer. Hidden OpenUI tool phases retain their reasoning after reload.
+Older summaries without timing show `Thought`. Active reasoning uses one thinking indicator.
+
+Approval reviews now use a neutral panel with a fixed heading and decision controls. Long review contents scroll inside the panel.
+
+All 22 frontend unit tests, 27 focused Python checks, and 64 OpenUI browser scenarios passed.
+Browser checks covered four widths in both themes, streamed completion, disclosure identity, and reload restoration.
+Approval checks covered exact arguments, disabled controls, rejected submissions, and accepted denial. These checks used synthetic data and an isolated local API.
+Formatting, OpenUI artifact validation, and the production frontend build passed. Mobile light and desktop dark screenshots passed visual review.
+
+The native ARM64 frontend image built and replaced only the local frontend container on port 8080.
+The existing API container stayed running. Both readiness endpoints passed. The saved Slack summary displayed the updated rows and completed thought labels.
+Production deployment remains pending.
+
 ## Optional connection onboarding and account returns, 2026-10-24
 
 Telegram offers configured, unconnected accounts after the name and timezone questions.

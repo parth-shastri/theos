@@ -787,18 +787,38 @@ main {
   color: var(--text-muted);
   font-size: 10px;
 }
-.openui-metrics,
-.openui-summary-card dl {
+.openui-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
   gap: 12px;
   margin: 0;
 }
 .openui-summary-card h3 {
-  margin-bottom: 18px;
+  margin-bottom: 4px;
 }
-.openui-metric,
+.openui-summary-card {
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.openui-summary-card dl {
+  display: grid;
+  margin: 0;
+}
 .openui-summary-fact {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr);
+  align-items: baseline;
+  gap: 12px 24px;
+  min-width: 0;
+  padding: 12px 0;
+}
+.openui-summary-fact + .openui-summary-fact {
+  border-top: 1px solid var(--border);
+}
+.openui-metric {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -835,10 +855,9 @@ main {
 .openui-summary-fact dd {
   margin: 0;
   color: var(--text);
-  font-size: 20px;
-  line-height: 1.4;
-  font-weight: 500;
-  letter-spacing: -0.04em;
+  font-size: 14px;
+  line-height: 1.65;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
@@ -1625,23 +1644,21 @@ main {
 }
 @media (max-width: 500px) {
   .openui-visual,
-  .openui-summary-card,
   .openui-evidence-list,
   .openui-reminder-form {
     padding: 16px;
     border-radius: 18px;
   }
-  .openui-metrics,
-  .openui-summary-card dl {
+  .openui-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  .openui-metric,
-  .openui-summary-fact {
+  .openui-metric {
     padding: 12px;
   }
-  .openui-summary-fact dd {
-    font-size: 18px;
+  .openui-summary-fact {
+    grid-template-columns: minmax(75px, 1fr) minmax(0, 2fr);
+    gap: 12px;
   }
   .openui-progress {
     gap: 14px;
@@ -1674,7 +1691,6 @@ main {
 }
 @media (prefers-reduced-transparency: reduce) {
   .openui-visual,
-  .openui-summary-card,
   .openui-evidence-list,
   .openui-reminder-form {
     background: var(--surface);
@@ -2683,18 +2699,77 @@ button.speech-button.is-playing {
 }
 #approvals {
   overflow: auto;
-  max-height: 35vh;
+  max-height: 48vh;
   padding: 0;
 }
 #approvals:empty {
   display: none;
 }
 #approvals article {
-  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
-  background: var(--warning-soft);
-  padding: 16px;
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: min(46vh, 440px);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 20px;
   margin: 8px 0;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 6%);
+  white-space: normal;
+}
+.approval-heading {
+  flex-shrink: 0;
+  padding: 16px 20px 12px;
+}
+.approval-status {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.approval-status::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  vertical-align: 1px;
+}
+.approval-content {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 20px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.approval-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-shrink: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+.approval-controls > span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.approval-buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.approval-buttons button {
+  min-height: 40px;
+  padding: 8px 18px;
+  border-radius: 12px;
 }
 #approvals pre {
   white-space: pre-wrap;
@@ -2704,21 +2779,25 @@ button.speech-button.is-playing {
   font: 11px/1.6 monospace;
   color: var(--text-soft);
 }
-#approvals button {
-  margin-right: 8px;
-}
 .approval-action {
-  color: var(--text-soft);
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .approval-fields {
-  margin: 16px 0;
+  margin: 4px 0 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px 16px;
+  grid-template-columns: minmax(80px, 1fr) minmax(0, 3fr);
+  gap: 6px 16px;
 }
 .approval-group {
-  font-size: 14px;
-  margin: 20px 0 4px;
+  font-size: 12px;
+  margin: 16px 0 8px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 .approval-technical dl {
   font-size: 12px;
@@ -2756,7 +2835,8 @@ button.speech-button.is-playing {
 }
 .approval-fields dt {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--text-muted);
   margin-top: 0;
 }
 .approval-fields dd {
@@ -2778,11 +2858,14 @@ button.speech-button.is-playing {
   margin-top: 4px;
 }
 #approvals details {
-  margin: 12px 0;
+  margin: 0;
   color: var(--text-soft);
+  border-top: 1px solid var(--border);
 }
 #approvals summary {
   cursor: pointer;
+  padding: 10px 0;
+  font-size: 12px;
 }
 #attachments {
   font-size: 11px;
@@ -3527,6 +3610,13 @@ summary:focus-visible {
   white-space: normal;
   border: 0;
   background: transparent;
+}
+.message.reasoning-only {
+  padding: 0;
+  margin: 0;
+}
+.reasoning-only .thinking {
+  margin: 4px 0;
 }
 .thinking > summary {
   display: flex;
