@@ -3,6 +3,14 @@
   "notice": "Provider marks remain the property of their respective owners. These files identify existing integrations. This manifest does not grant a trademark license.",
   "assets": [
     {
+      "provider": "Google Calendar",
+      "path": "web/public/static/providers/calendar.svg",
+      "retrieved": "2026-10-28",
+      "source_page": "https://workspace.google.com/products/calendar/",
+      "source_asset": "https://www.gstatic.com/images/branding/productlogos/calendar_2026/v2/web/192px.svg",
+      "sha256": "7f55cd877b2261948168db3d2e9468c0cf3f07766789489e853a0f9931dff8ea"
+    },
+    {
       "provider": "Gmail",
       "path": "web/public/static/providers/gmail.svg",
       "source_page": "https://workspace.google.com/products/gmail/",
