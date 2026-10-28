@@ -20,30 +20,42 @@ All source paths below start at `src/theos`.
 | Server | Start one HTTP worker and scheduler | `server.py` |
 | Configuration | Validate environment settings | `settings.py` |
 | Runtime | Reserve turns and run the harness | `runtime/engine.py` |
+| Prompt templates | Render packaged Markdown Jinja templates and optional compaction overrides | `prompts/`, `../harness/prompts/`, `../harness/prompting.py` |
 | Approvals | Match decisions to unchanged actions | `runtime/approvals.py` |
 | Checkpoints | Save tool attempts and recover results | `runtime/checkpoints.py`, `runtime/hooks.py` |
 | Final answers and failures | Reserve a final model call after runtime limits. Explain failures without exposing raw findings | `runtime/recovery.py`, `runtime/errors.py` |
-| Context and output | Resolve provider capacities and share compaction rules across agents | `runtime/context.py` |
+| Context and output | Read provider capacity metadata, apply conservative OpenAI caps, and share compaction rules | `runtime/context.py` |
 | Call budgets | Count calls without enforcement by default. Retain optional bounded allocations | `runtime/budgets.py` |
-| Connector wrappers | Page verbose account results and retain complete sources | `runtime/connector_wrappers.py` |
-| History retrieval | Read bounded pages of original evidence after compaction | `runtime/history_tools.py`, `runtime/history_content.py` |
-| Deep research | Gate explicit mode and persist research evidence, notes, reports, and checkpoints | `runtime/research_mode.py`, `services/research/`, migration 010 |
+| Provider result shaping | Return concise account results and stage oversized reads | `services/gmail/tools.py`, `services/health/tools.py`, `services/mcp_accounts/tools.py`, `services/result_files.py` |
+| Managed browser | Route browser CLI calls, isolate owner profiles, capture encrypted recovery state, and provide private sign-in controls | `services/sandbox/browser.py`, `services/sandbox/profile.py`, `transports/browser/managed_browser.py` |
+| File retention | Retain recovery roots and retry deletion of unreferenced local and R2 objects | `services/files/retention.py`, migration 015 |
+| History retrieval | Read exact saved messages after compaction | `../harness/tools.py` |
+| Deep research | Gate explicit mode and persist reports and a separate evidence scratchpad | `runtime/research_mode.py`, `services/research/`, migrations 010 and 013 |
 | Delivery events | Turn harness events into transport events | `runtime/events.py`, `runtime/turn.py` |
 | Providers and usage | Build model clients, retain OpenRouter reasoning and costs, and record usage | `runtime/models.py`, `runtime/model_catalog.py`, `runtime/openrouter.py`, `runtime/usage.py` |
 | Scheduler | Deliver reminders and run agent tasks, memory consolidation, and Health work | `runtime/scheduler.py`, `runtime/scheduled.py` |
 | Storage | SQLite transactions, migrations, restart recovery, and application message display metadata | `storage/database.py`, `storage/messages.py`, `storage/migrations/` |
 | Telegram | Poll updates, authenticate senders, onboard users, handle commands and media | `transports/telegram/` |
-| Browser | Serve chat, owner-scoped activity, administrator usage aggregates, uploads, and streamed replies | `transports/browser/app.py`, `transports/browser/activity.py`, `transports/browser/static/` |
+| Browser API | Authenticate owners and serve activity, administrator aggregates, uploads, streamed replies, OpenUI actions, and saved interface state | `transports/browser/app.py`, `transports/browser/openui.py`, `transports/browser/activity.py` |
+| Next.js frontend | Render React workspace components and validated OpenUI answers, reduce streamed events, and forward private API requests | Repository root `web/src/app/`, `web/src/components/`, `web/src/openui/`, `web/src/state/`, `web/src/hooks/`, `web/src/server/` |
 | Browser enrollment | Confirm Telegram-owned browser sign-in, issue hashed credentials, and revoke generated access | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py` |
 | Terminal | Run `theos` as a deployed workspace client or standalone runtime, with a generic renderer | `transports/terminal/cli.py`, `remote.py`, `routes.py`, `wire.py`, `session.py`, `app.py`, `screens.py` |
 | Operations | Redact logs, export OTel spans, and make consistent backups | `operations/logging.py`, `operations/tracing.py`, `backup.py` |
 
 ## Follow one turn
 
-The owned harness keeps the pinned summary template in `src/harness/compression_policy.py`.
-`src/harness/summary_references.py` extracts exact identifiers independently of model prose.
-`src/harness/lean_context.py` bounds their request index and commits working memory through the runtime callback.
-Application research ownership remains in `services/research/`.
+The harness keeps one rolling summary in `src/harness/compaction.py`.
+It owns shared summary rules and initial, update, split-turn, and shortening prompts.
+Production prompt text lives in `src/harness/prompts/`. Theos templates live in `src/theos/prompts/`.
+The runtime passes optional Theos prompt overrides through `CompactionConfig`.
+Read [prompt templates](runtime/prompts.md) for filenames, rendering, and override fields.
+Split turns use separate history and turn-prefix summaries, combined into one checkpoint before the retained messages.
+It builds a smaller model view and leaves the saved transcript unchanged.
+The runtime supplies model settings and persistence and usage callbacks in `runtime/context.py`.
+Research records stay in the separate `services/research/` scratchpad.
+Inline ASCII diagrams in `src/harness/compaction.py` show coverage, split-turn summaries, and model context order.
+The comments number the fit workflow and explain tool-batch retention and checkpoint rollback.
+The loop and runtime context modules show request flow and callback ownership.
 
 1. Read `Telegram.handle()` or the browser chat route to see how the transport identifies the owner.
 2. Read `Runtime.start()` to see the ownership checks and conversation reservation.
@@ -67,6 +79,7 @@ Connected terminal mode uses `remote.py` to call authenticated HTTP endpoints on
 The client never opens SQLite or starts another scheduler. Disconnects leave server work running.
 `ClientSettings` reads only the server URL and token before the command loads standalone service settings.
 `screens.py` owns terminal settings and usage dialogs. The application adds commands through generic renderer extension points.
+`runtime/openui.py` loads generated prompt artifacts from `prompts/openui/`. The browser renderer saves interface state and summaries as display metadata. `transports/terminal/openui.py` replaces browser source with the saved summary or a browser notice.
 
 ## Work within a service
 
@@ -80,18 +93,22 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `custom_tables/` | Private SQLite tables and bounded query templates |
 | `memory/` | Mem0 HTTP client, ownership checks, bounded retrieval, consented consolidation, and explicit tools |
 | `search/`, `weather/`, `skills/` | Search fallback, forecasts, and bounded skill resources |
-| `files/` | Private catalog, image validation, R2 transfers, source objects, model checkpoints, and file tools |
+| `files/` | Private catalog, image validation, automatic R2 replication, model checkpoints, and response attachments |
 | `voice/` | Transcription and Kokoro clients with audio tools |
-| `sandbox/` | Remote lifecycle client, execution tools, and versioned task workspaces |
+| `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
-| github/ | Official GitHub MCP endpoint, OAuth configuration, and reviewed read-tool allowlist |
-| mcp_accounts/ | Shared encrypted account grants, PKCE state, remote sessions, and schema validation |
+| `github/` | Official GitHub MCP endpoint, OAuth configuration, and reviewed read-tool allowlist |
+| `slack/` | Official Slack MCP endpoint, OAuth configuration, and reviewed read-tool allowlist |
+| `mcp_accounts/` | Shared encrypted account grants, PKCE state, remote sessions, and schema validation |
 | `gmail/` | Gmail requests, draft previews, and account tools |
 | `health/` | Imports, normalization, records, nutrition exports, job retries, and tools |
 | `zepto/` | OAuth, encrypted owner tokens, MCP discovery, and account-scoped sessions that serialize tool calls |
 
 `storage/account_access.py` permits configured browser identities and authorized private Telegram identities.
+`transports/telegram/connections.py` owns native account cards, sign-in buttons, status actions, and Zepto reply prompts.
+`polling.py` identifies prompt replies before inbox persistence and routes encrypted return links outside model history.
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
+`services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
 It reports configuration status without exposing credentials.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser user's existing account access.
@@ -101,6 +118,10 @@ Telegram and browser conversation threads remain separate.
 
 `services/personal.py` and `services/information.py` only collect related tools.
 They contain no database rules or external requests.
+
+`runtime/speech.py` writes expressive spoken renditions through the configured model and records their usage.
+The voice service calls this step before browser or tool synthesis. Display text and history remain unchanged.
+The separate `speech/` project owns the optional Kokoro gateway and its audio effects on the speech host.
 The runtime creates clients explicitly and closes them during shutdown.
 `runtime/scheduled.py` claims durable scheduled occurrences and delivers ordinary runtime turns.
 `services/memory/automation.py` owns retrieval, consent policy, and consolidation batches.
@@ -110,6 +131,7 @@ For Google Health, read these files in order:
 
 1. Read `client.py` for account requests and service entry points.
 2. Read `imports.py` for pagination and complete summary storage.
+   `normalize.py` and `vitals.py` normalize daily records and sample statistics with explicit units.
 3. Read `queue.py` for export intent saved with a meal transaction.
 4. Read `nutrition.py` for the six numbered reconciliation steps.
 5. Read `jobs.py` for ordering, retry delay, and cancellation checks.
@@ -155,9 +177,13 @@ Use a small class when it owns clients, locks, or other lifecycle state.
 Keep existing entry points working when moving internal files.
 Run the [acceptance checks](runtime/acceptance.md) after changing a service boundary.
 
-The generic compression policy lives in `src/harness/compression_policy.py`.
-`src/harness/lean_context.py` connects it to model calls and durable working context.
-`src/harness/context_fit.py` reduces full working requests without changing the transcript or tool validation contracts.
+The rolling summary uses a 50% context trigger and keeps a 2.5% recent tail.
+Covered user requests enter the checkpoint. They are not repeated after it.
+New unanswered requests and unfinished tool batches remain verbatim.
+On provider overflow, the harness asks for shorter summary tiers and retries without repeating tools.
+`history_read` and `history_search` live with the other generic tools in `src/harness/tools.py`.
+Gmail body decoding lives in `services/gmail/content.py`.
+Research evidence lives in `research_scratchpad` and remains separate from compaction.
 Runtime events expose scoped compaction activity. Transport renderers own its display and readable approval reviews.
 Assistant storage and sandbox dependencies stay under `src/theos/services`.
 

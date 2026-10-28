@@ -102,12 +102,16 @@ async def test_compaction_provider_failure_still_allows_main_answer(runtime):
     row = session(runtime)
     original = long_history()
     runtime.db.save_history("alice", row["id"], original)
-    main = FakeModel([AssistantMessage("The saved source remains available for the report.")])
-    auxiliary = FakeModel([RuntimeError("private compaction error")])
-    use_models(runtime, main, auxiliary)
+    main = FakeModel(
+        [
+            RuntimeError("private compaction error"),
+            AssistantMessage("The saved source remains available for the report."),
+        ]
+    )
+    use_models(runtime, main)
     events = await collect(runtime.start("alice", row["id"], "Continue."))
     assert events[-1]["status"] == "completed"
-    assert len(main.requests) == len(auxiliary.requests) == 1
+    assert len(main.requests) == 2
     history = runtime.db.load_history("alice", row["id"])
     assert history[: len(original)] == original and "saved source" in history[-1].text
     assert "private compaction error" not in json.dumps(events)

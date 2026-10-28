@@ -1,11 +1,11 @@
 """Owner-bound browser connections and optional service availability."""
 
-import time
 from typing import Annotated
 
 from fastapi import Depends, Request
 from pydantic import BaseModel, Field
 
+from theos.services.account_setup import ACCOUNT_LABELS, complete_setup, setup_status
 from theos.storage.account_access import browser_account_access
 
 
@@ -15,18 +15,18 @@ class ReturnURL(BaseModel):
     url: str = Field(min_length=1, max_length=4000)
 
 
+class CompleteSetup(BaseModel):
+    display_name: str | None = Field(default=None, max_length=200)
+    timezone: str | None = Field(default=None, max_length=100)
+
+
 def connection_status(runtime, owner):
     """Expose availability and owner connection state without credentials."""
     settings = runtime.settings
     accounts = []
-    for service, label in (
-        ("gmail", "Gmail"),
-        ("health", "Google Health"),
-        ("zepto", "Zepto"),
-        ("github", "GitHub"),
-    ):
-        if service == "github":
-            accounts.append(runtime.github.status(owner))
+    for service, label in ACCOUNT_LABELS:
+        if service in {"github", "slack"}:
+            accounts.append(getattr(runtime, service).status(owner))
             continue
         connected = (
             runtime.zepto.connected(owner)
@@ -40,14 +40,7 @@ def connection_status(runtime, owner):
         setup = (
             runtime.zepto.connection_status(owner)
             if service == "zepto"
-            else {
-                "status": "waiting"
-                if runtime.db.one(
-                    "SELECT 1 FROM oauth_states WHERE owner=? AND service=? AND expires>?",
-                    (owner, service, time.time()),
-                )
-                else "idle"
-            }
+            else runtime.oauth.connection_status(owner, service)
         )
         accounts.append(
             {
@@ -72,6 +65,7 @@ def connection_status(runtime, owner):
     ]
     return {
         "accounts": [account for account in accounts if account["configured"]],
+        "onboarding": setup_status(settings, runtime.db, owner, runtime.zepto),
         "services": [
             {"id": service, "name": name, "configured": bool(enabled)}
             for service, name, enabled in services
@@ -85,7 +79,7 @@ def register_connections(app, settings, current, identity):
     def authorize(request, owner, service):
         if not browser_account_access(settings, owner, current(request).db):
             raise PermissionError("Browser account access is required.")
-        if service not in {"gmail", "health", "zepto", "github"}:
+        if service not in {"gmail", "health", "zepto", "slack", "github"}:
             raise ValueError("Unknown account service.")
 
     @app.get("/api/connections")
@@ -98,18 +92,40 @@ def register_connections(app, settings, current, identity):
     async def connect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
         authorize(request, owner, service)
         runtime = current(request)
-        if service == "github":
-            return await runtime.github.start(owner)
+        if service in {"github", "slack"}:
+            return await getattr(runtime, service).start(owner)
         if service == "zepto":
             return await runtime.zepto.connect_from_browser(owner)
         return {"status": "waiting", "url": runtime.oauth.start(owner, service)}
+
+    @app.post("/api/connections/onboarding")
+    async def finish_setup(
+        body: CompleteSetup, request: Request, owner: Annotated[str, Depends(identity)]
+    ):
+        if not browser_account_access(settings, owner, current(request).db):
+            raise PermissionError("Browser account access is required.")
+        return complete_setup(
+            settings, current(request).db, owner, body.display_name, body.timezone
+        )
+
+    @app.post("/api/connections/{service}/cancel")
+    async def cancel(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
+        authorize(request, owner, service)
+        runtime = current(request)
+        if service in {"github", "slack"}:
+            await getattr(runtime, service).cancel(owner)
+        elif service == "zepto":
+            await runtime.zepto.cancel(owner)
+        else:
+            await runtime.oauth.cancel(owner, service)
+        return {"cancelled": True}
 
     @app.post("/api/connections/{service}/disconnect")
     async def disconnect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
         authorize(request, owner, service)
         runtime = current(request)
-        if service == "github":
-            return await runtime.github.disconnect(owner)
+        if service in {"github", "slack"}:
+            return await getattr(runtime, service).disconnect(owner)
         if service == "zepto":
             await runtime.zepto.disconnect(owner)
             return {"disconnected": True}

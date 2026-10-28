@@ -1,25 +1,29 @@
-"""Bound model input without changing the complete, saved transcript."""
+"""Small, conservative request-size estimates for compaction preflight."""
 
 from __future__ import annotations
 
 import json
 
-from harness.compression_support import estimate_tokens_rough as text_tokens
-from harness.types import (
-    AssistantMessage,
-    UserMessage,
-)
+from harness.types import AssistantMessage, ModelRequest, UserMessage
 
 
 class ContextOverflowError(ValueError):
     """The provider rejected the input because its context window is full."""
 
 
-def request_size(request):
-    """Count text, tool schemas, provider state, framing, and estimated image space.
+def _text_tokens(text):
+    """Estimate four bytes per token; count dense CJK characters as one each."""
+    if not text:
+        return 0
+    text = str(text)
+    if text.isascii():
+        return (len(text) + 3) // 4
+    dense = sum("\u1100" <= char <= "\uffef" for char in text)
+    return dense + (len(text.encode("utf-8", "replace")) + 3) // 4
 
-    Provider usage anchors take precedence. This is the pinned UTF-8-aware rough estimate.
-    """
+
+def request_size(request: ModelRequest) -> int:
+    """Count visible messages, tool schemas, framing, and a safe image allowance."""
     total = 128
     for message in request.messages:
         if isinstance(message, AssistantMessage):
@@ -27,20 +31,19 @@ def request_size(request):
                 [
                     message.text,
                     message.reasoning,
-                    {},  # Opaque provider state is priced only by provider usage.
                     [(c.id, c.name, c.arguments) for c in message.tool_calls],
                 ],
                 ensure_ascii=False,
             )
         else:
             text = message.content
-        total += text_tokens(text) + 16
+        total += _text_tokens(text) + 16
         if isinstance(message, UserMessage):
             total += 4096 * len(message.images)
-    for spec in request.tools:
+    for tool in request.tools:
         total += (
-            text_tokens(
-                json.dumps([spec.name, spec.description, spec.parameters], ensure_ascii=False)
+            _text_tokens(
+                json.dumps([tool.name, tool.description, tool.parameters], ensure_ascii=False)
             )
             + 16
         )

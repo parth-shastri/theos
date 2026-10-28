@@ -68,6 +68,9 @@ async def test_google_browser_consent_binds_owner_and_survives_restart(runtime, 
 
     def endpoint(request):
         seen.append(request)
+        if request.url.path == "/v4/users/me/identity":
+            assert request.headers["Authorization"] == "Bearer access-secret"
+            return httpx.Response(200, json={"healthUserId": "linked-health-profile"})
         if request.url.path.endswith("/revoke"):
             return httpx.Response(503)
         form = parse_qs(request.content.decode())
@@ -95,7 +98,8 @@ async def test_google_browser_consent_binds_owner_and_survives_restart(runtime, 
             callback = await bob.get(
                 f"/oauth/{service}/callback", params={"state": state, "code": "one-time-code"}
             )
-            assert callback.status_code == 200 and "Return to the workspace" in callback.text
+            assert callback.status_code == 303
+            assert callback.headers["location"] == "/?connections=1"
             assert (
                 await alice.get(
                     f"/oauth/{service}/callback", params={"state": state, "code": "code"}
@@ -157,9 +161,9 @@ async def test_browser_tools_include_configured_accounts_and_sandbox(runtime):
         session = (await client.post("/api/sessions", json={})).json()
         tools = (await client.get(f"/api/sessions/{session['id']}/tools")).json()
         by_name = {tool["name"]: tool for tool in tools}
-        assert {"gmail_connect", "get_health_summary", "sandbox_run_command"} <= by_name.keys()
+        assert {"gmail_connect", "get_health_summary", "run_command"} <= by_name.keys()
         assert by_name["gmail_send_draft"]["requires_approval"]
-        assert not by_name["sandbox_run_command"]["requires_approval"]
+        assert not by_name["run_command"]["requires_approval"]
         assert not by_name["get_health_summary"]["requires_approval"]
         for tool in tools:
             assert "owner" not in tool["parameters"].get("properties", {})
@@ -193,9 +197,7 @@ async def test_browser_sandbox_runs_without_approval_and_keeps_owner_scope(
     monkeypatch.setattr(runtime.workspaces, "save", workspace_noop)
     scripted_models.responses.append(
         [
-            AssistantMessage(
-                tool_calls=[ToolCall("code", "sandbox_run_command", {"command": "echo 4"})]
-            ),
+            AssistantMessage(tool_calls=[ToolCall("code", "run_command", {"command": "echo 4"})]),
             AssistantMessage("Done."),
         ]
     )
@@ -279,7 +281,7 @@ async def test_zepto_browser_handoff_status_and_tools_are_owner_bound(runtime, m
         assert runtime.zepto.connected("alice")
         await alice.post("/api/connections/zepto/disconnect")
         assert not runtime.zepto.connected("alice")
-        assert runtime.zepto.connection_status("alice") == {"status": "idle"}
+        assert runtime.zepto.connection_status("alice")["status"] == "idle"
 
 
 async def test_zepto_pending_browser_setup_can_be_cancelled(runtime, monkeypatch):
@@ -305,7 +307,7 @@ async def test_zepto_pending_browser_setup_can_be_cancelled(runtime, monkeypatch
         await client.post("/api/connections/zepto/disconnect")
         assert cancelled == ["alice"]
         assert not runtime.zepto.pending and not runtime.zepto.pending_by_state
-        assert runtime.zepto.connection_status("alice") == {"status": "idle"}
+        assert runtime.zepto.connection_status("alice")["status"] == "idle"
         assert not runtime.db.rows("SELECT * FROM credentials")
 
 
@@ -335,7 +337,8 @@ async def test_zepto_https_callback_rechecks_access_expiry_and_replay(runtime):
         flow.created -= 601
         assert (await client.get("/oauth/zepto/callback", params=params)).status_code == 400
         flow.created += 601
-        assert (await client.get("/oauth/zepto/callback", params=params)).status_code == 200
+        result = await client.get("/oauth/zepto/callback", params=params)
+        assert result.status_code == 303 and result.headers["location"] == "/?connections=1"
         assert await flow.callback == ("code", "direct-state")
         assert (await client.get("/oauth/zepto/callback", params=params)).status_code == 400
 

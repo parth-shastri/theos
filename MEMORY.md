@@ -1,11 +1,41 @@
 # Theos project memory
 
-Updated: 2026-10-15.
+Updated: 2026-10-28.
+
+## Release 1.4.2 preparation, 2026-10-27
+
+The operator requested both workspace tools and Telegram connector controls from PR #112 on `main` and `rpi`.
+Increment the last version component from 1.4.1 to 1.4.2. Keep the other account connector PRs outside this release.
+Use topic PRs into `dev`, followed by separate promotion PRs with merge commits.
+Publish immutable tag `rpi-v1.4.2` at the current promoted `rpi` tip.
+Confirm the tagged workflow and active Pi manifest before reporting deployment.
+
+## Pi deployment helper recovery, 2026-10-27
+
+The 1.4.2 backup exceeded the deployment script's five-minute command timeout after writing more than 2 GiB.
+Docker left the helper running with the old volume's process lock, so automatic rollback failed.
+Stopping that helper allowed both 1.4.1 services to recover. API and frontend readiness returned HTTP 200.
+The failed tag remains unchanged. Prepare urgent fix 1.4.3 from `rpi`, then copy it through a topic PR from `dev`.
+Give backup and restore helpers separate bounded deadlines. Always remove their named containers before rollback.
+Journal recovery removes helpers that survived an abrupt runner crash before reopening the previous database.
+The native Mac mini guard resets unreadable recovery state and flushes each new journal before replacement.
+Retain both data volumes and backup files. Extend the deployment job deadline to include backup, restore, and rollback.
+
+## Mac mini power recovery, 2026-10-27
+
+The operator requested automatic recovery after power loss and authorized Docker Desktop restarts.
+The Mac mini already enables power restoration and automatic login. FileVault is off. Do not change these security settings.
+Install the native host guard at login. Wait for the external SSD before starting Docker Desktop.
+Check engine writes with a disposable stopped container. Repeated failures permit bounded Docker Desktop restarts.
+Restore stopped memory and voice containers without replacing their images or volumes. Existing native services retain launchd keepalive.
+Do not prune Docker data or recreate missing service containers automatically.
+Docker Desktop still requires a macOS login. A future login or disk-encryption change can require an operator after reboot.
 
 ## Confirmed decisions
 
 | Decision | Value |
 | --- | --- |
+| Composer Return key | At mobile widths up to 700px, Return inserts a new line, including while command or connection suggestions are open. Use the send button to submit. Set the keyboard hint and accessible instructions to match. Desktop Enter still sends and Shift + Enter inserts a new line |
 | Assistant name | Configurable through `AGENT_NAME`, default `Theos` |
 | Repository | `/Users/nightowl/my_projects/theos` |
 | Harness ownership | Theos owns the copy under `src/harness` |
@@ -19,13 +49,18 @@ Updated: 2026-10-15.
 | Terminal configuration | Current `.env`, editable codebase `.env`, then `~/.config/theos/.env`. Explicit `--config` takes precedence |
 | Terminal storage | Default `~/.theos`. Resolve configured relative data paths from the configuration directory |
 | Telegram onboarding | Private `/start` asks what to call the user, then asks for a valid timezone. Save the chosen name in owner-scoped preferences and include it in model context. `/skip` accepts the saved name when available. Preserve existing completed profiles and pending timezone setup |
-| Telegram setup guidance | After setup, point users to Connections in the web UI to add connectors and to the existing `/help` command. Show web guidance when `AGENT_WEB_URL` is configured. Otherwise, show help for capabilities and account connections |
-| Telegram temporary activity | Remove finished tool and compaction messages. Clean active indicators when delivery ends. Send one final message with elapsed time, tool counts, failed or uncertain outcomes, and successfully loaded skills. Count parent and delegate events before display queues can discard them. Approval cards notify once and remain pending until a decision or expiry. Store review message references in SQLite migration 012, including multipart reviews, attached reviews, and waiting notices. Remove resolved cards immediately for Telegram decisions and through polling for other decisions or expiry. Failed deletion removes buttons when possible and retains references for another attempt. Preserve durable approval snapshots, tool results, transcripts, and recovery behavior |
+| Telegram setup guidance | After name and timezone setup, offer buttons for configured, unconnected accounts and Skip for now. Keep Google Health optional. Share the owner-scoped completion marker with browser onboarding. Preserve saved names. Keep web access and /help available |
+| Telegram connector controls | Use native sign-in URL buttons, status checks, retry, cancel, and account navigation. Zepto uses a Paste return link button and an owner-scoped ForceReply prompt. Encrypt prompt replies before inbox storage and consume them outside model history. Preserve existing credentials on setup cancellation. Keep the manual localhost handoff and support /connections after onboarding |
+| Telegram temporary activity | Stream OpenAI Responses reasoning summaries as temporary messages. Never show raw provider reasoning. Show each tool name and its exact JSON arguments in temporary tool messages, then delete the message when that model phase or tool call ends. Clean active indicators when delivery ends. Send one final message with elapsed time, tool counts, failed or uncertain outcomes, and successfully loaded skills. Count parent and delegate events before display queues can discard them. Approval cards notify once and remain pending until a decision or expiry. Store review message references in SQLite migration 012, including multipart reviews, attached reviews, and waiting notices. Remove resolved cards immediately for Telegram decisions and through polling for other decisions or expiry. Failed deletion removes buttons when possible and retains references for another attempt. Preserve durable approval snapshots, tool results, transcripts, and recovery behavior |
 | Reply formatting | Render assistant Markdown as Telegram text and explicit UTF-16 entities. Split long messages without losing text or formatting. Keep command responses literal. Show approval reviews as labeled fields, formatted prose, and literal code. Preserve exact arguments for approval checks. Browser and terminal retain their own Markdown rendering |
 | Assistant punctuation | Never use em dashes in assistant replies, reasoning summaries, or generated titles. Add shared model instructions and replace any emitted em dash with an ASCII hyphen before display and persistence. Preserve user input, tool arguments, and opaque provider data |
 | Telegram access code | Optional `AGENT_TELEGRAM_ACCESS_CODE` in private `.env`; SQL authorization replaces manual sender enrollment |
 | Telegram enrollment limit | 50 unique senders per database, including incomplete setup. Operators can lower the limit |
-| Browser style | Controls and visual style from ocr-checker |
+| Browser framework and deployment | Next.js App Router and React components under `web/`. Preserve existing CSS, assets, glass effects, native interactions, and responsive layouts. Run Next.js separately from FastAPI. The `web` Compose service owns the public origin and forwards requests to the private `theos` API service. Release and roll back both immutable images together |
+| Browser authentication | Preserve Telegram confirmation and private access-token identities. Both browser sign-ins use opaque HttpOnly sessions. Never retain access tokens in browser storage. Hash session credentials in SQLite. Enforce seven-day absolute and twelve-hour idle expiry, logout revocation, configured token rotation, CSRF checks, and persistent login throttling. HTTPS sessions use `__Host-` cookies. Keep the frontend service credential server-only. Terminal clients retain bearer access to the private API |
+| Browser style | Retain the existing green palette and light/dark theme colors. Start the green background tint along the full bottom edge in both themes. Keep the top-corner tint minimal and reduce dark-mode tint strength. Avoid bright light pools. Keep panes transparent enough to show blurred content underneath. Use moving edge highlights, pointer light, and shadows on the sidebar, dialogs, and menus. Use cached SVG rim displacement in Chromium, with CSS blur and edge highlights as the fallback. Keep controls above a separate optical layer. Scroll dialog content inside the fixed pane. Use simple child-control fills instead of stacked glass. Keep the floating composer subtle and allow content to scroll behind it. Preserve solid fallbacks and reduced-motion and reduced-transparency preferences |
+| Mobile keyboard layout | The shared application frame follows visual viewport height and vertical offset on resize and scroll. Keep navigation and the composer inside that frame. Bound top-layer dialogs separately. Remove keyboard-time bottom safe-area padding, clamp stale offsets on dismissal, and preserve native pinch zoom. Keep viewport ownership outside conversation state |
+| Browser navigation arrows | Use the shared SVG northeast arrow for sidebar navigation and sign-in actions. Inherit the text color and keep icons decorative. Avoid Unicode arrows that iOS renders as emoji |
 | Browser usage and tools | Owner and conversation USD estimates. Administrator totals and cost breakdowns include all transports. Missing prices stay visible. Collapsed reasoning summaries and tool calls. Searchable conversation tool registry with approval labels |
 | Usage view access | Every browser user has personal Activity & usage through their token. Administrators have a separate Admin dashboard for all users and transports. Personal charts always use the authenticated owner, including administrator tokens. Administrator responses exclude conversation titles and message content |
 | Enrollment roles | The deployment operator uses an explicitly configured administrator account in `AGENT_USERS` and `AGENT_ADMINS`. First registration never grants administrator access. New Telegram enrollments receive ordinary access. With `AGENT_WEB_URL` configured, completed users receive a browser link and confirm a matching code in Telegram. Generated browser credentials reuse their stable Telegram owner and never grant administrator access |
@@ -33,17 +68,22 @@ Updated: 2026-10-15.
 | User-owned encryption requirement | Deferred: the user requested completion of onboarding without choosing an encryption mechanism. Private content storage, password wrapping, and automatic key access remain proposals. Current personal content is not encrypted. Keep the existing encrypted service credentials and content-free usage views. Hosted processing can expose plaintext to the running server |
 | Encrypted history continuity | Restore saved history automatically while a decryption grant is active. The user requested transparent access across turns. Password-based key wrapping and automatic key-service access remain proposals. Losing a runtime grant must not erase encrypted history. See `docs/architecture/theos-encryption-proposal.excalidraw` for the proposed boundary |
 | Browser model controls | Keep the current model selector. OpenRouter exposes the six requested aliases plus the existing default. Preserve explicit operator allowlists. Save supported generation parameters in SQLite migration 006. Model-specific cost rates can override shared rates |
-| Browser settings and command panels | Move model and reasoning into the header Settings dialog with generation and voice controls. Save changes together and discard canceled drafts. Use a sidebar icon beside the logo to toggle conversations. Show interactive help and usage dialogs. Keep usage access through `/usage`, without a sidebar Usage button. Keep generation controls in Settings, without `/generation`. Offer supported options for argument commands. List only `/reasoning`, with `/thinking` retained as a compatibility alias |
+| Browser settings and command panels | Move model and reasoning into Settings, opened from the desktop header or mobile sidebar with generation and voice controls. Save changes together and discard canceled drafts. Use a sidebar icon beside the logo to toggle conversations. Show interactive help and usage dialogs. Keep usage access through `/usage`, without a sidebar Usage button. Keep generation controls in Settings, without `/generation`. Offer supported options for argument commands. List only `/reasoning`, with `/thinking` retained as a compatibility alias |
 | Browser commands and voice | Slash command help and keyboard suggestions. Record microphone audio for editable transcription. Optional TTS reply playback through the existing configured voice services |
 | Browser identity and thinking | Copy the mini-theos logo into owned browser assets. Animate active thinking and respect reduced motion |
-| Browser voice controls | Use accessible microphone, recording stop, and speaker icons. Keep TTS playback in one play/stop button, cache audio for replay, and stop it on conversation changes. Use the mini-theos glow during thinking and the theme accent during recording. Smooth microphone RMS volume into the composer glow with a quiet baseline. Close the analyzer on stop, cancellation, errors, or page exit. Reduced motion keeps a static recording glow |
+| Browser voice controls | Use accessible microphone, recording stop, and speaker icons. Keep TTS playback in one play/stop button, cache audio for replay, and stop it on conversation changes. Use the mini-theos glow during thinking and the theme accent during recording. Smooth microphone RMS volume into the composer glow and three animated waves along the bottom edge. Modulate wave height and opacity with speech volume. Stop the waves and clear both meters on stop, cancellation, errors, or page exit. Reduced motion keeps static recording feedback |
+| Browser glass edges and modes | Keep moving edge highlights fine and localized. Use a 0.75px highlight mask with soft permanent borders, without stacked bright rims. Keep 4px between dropdown option rows and draw keyboard focus inside each row to separate it from the current selection. Model and reasoning use bounded glass popovers with native values and a native-menu fallback. Open the message-mode listbox upward with a short spring animation. Show conversation and search icons beside Normal and Deep research. Preserve keyboard navigation and one-message mode scope |
 | Browser Markdown and composer | Render streamed and saved thinking and replies with pinned, locally served Marked 18.1.0 and DOMPurify 3.4.16. Show raw HTML as text, block unsafe links, and show remote images as links. Preserve raw Markdown for token estimates. Copy code without toolbar labels and send rendered plain text to TTS. Start the composer at one line and grow it to 140px. Inset native dropdown chevrons by 14px |
+| Browser composer feedback | Remove the private-workspace badge and dot. Keep errors and voice feedback inside the composer. Show run activity in the conversation and tool states in their tool events. Show Listening... and Transcribing... in the empty input; keep voice feedback inside the composer when a draft exists. Add no transcription-ready or cancellation note. Rotate playful idle prompts every eight seconds while the empty input is unfocused and visible. At widths up to 700px, use exaggerated philosophical prompts in three short words, and update them when the viewport changes. Focus shows Start Typing... and never changes the draft. Light-theme user bubbles use the send-button green with white text; preserve dark-theme bubbles |
 | Dashboard charts | Use native SVG and HTML charts for daily model requests, recorded USD cost, input/output tokens by model, and main-agent tool starts. Offer 7, 30, and 90 day UTC ranges. Aggregate complete records across transports behind administrator access. Preserve missing prices, zero-fill inactive dates, and provide hover/tap details and chart data tables |
-| Browser UX and appearance | Align chat messages and the composer at a shared left gutter. Keep attachment, command, input, microphone, and send controls in one row. Hide attachment and command buttons during mobile recording to retain input space. Grow multiline drafts, preserve reading position during streams, and dismiss the mobile drawer after navigation. Use the mini-theos Daylight logo in light mode |
-| Browser message statistics | Show estimated output tokens and elapsed time during each model generation. Use final provider usage when available. Save UTC message timestamps and generation duration in application history metadata. Show local dates as `6 Oct 14:32`. Preserve unknown dates for older messages. Keep display metadata out of provider and generic harness serialization |
+| Browser workspace panels | Use the shared glass material for the top navigation, usage cards, account cards, and workspace services. Keep lifetime totals distinct from period charts. Use the glass range picker, exact data disclosures, direct ranking values, and keyboard-selectable days. Preserve price gaps and owner boundaries. Keep the themed logo and a sticky return-to-chat action in both usage views. Desktop panes tint on hover only. Preserve mobile touch feedback. Release optical filters when refreshed panes leave the page |
+| Browser interface case | Use sentence case for interface headings, labels, role names, badges, and command argument hints. Do not apply uppercase text transforms. Preserve user and model text, model identifiers, and standard technical abbreviations |
+| Browser UX and appearance | Align messages and the composer at a shared gutter. On mobile and desktop, start with one frosted input row, a plus button on the left, and microphone and send buttons on the right. Focus or a draft expands the composer into a text row above controls and message mode. The plus menu offers attachments, commands, and conversation settings. Remove the idle readiness note and its space. Show run progress in the conversation. Keep recording feedback and errors in the composer. Grow drafts to 140px, preserve reading position during streams, and fit the visual viewport without changing pinch zoom. Use a sliding mobile drawer with keyboard focus handling, safe-area spacing, and dismissal after navigation. Keep the existing theme-specific logos. Hide the mobile conversation toolbar. In light mode, place the sidebar trigger on a glass navigation strip. Dark mode keeps the standalone trigger. Put the Theos name, theme switch, Settings, and conversation actions in the mobile sidebar. Preserve the desktop header and toolbar. Use fixed 44px composer controls with an 8px gap between microphone and send |
+| Browser message statistics | Show estimated output tokens and elapsed time during each model generation. Use final provider usage when available. Save UTC message timestamps and generation duration in application history metadata. Show local dates with the year, as `6 Oct 2026 14:32`. Preserve unknown dates for older messages. Keep display metadata out of provider and generic harness serialization |
 | OpenRouter accounting | Keep its adapter in the application runtime. Retain readable reasoning, replay signed blocks only for the same model, and prefer reported request costs over token-rate estimates |
 | OpenRouter retention | Enforce `provider.zdr=true` in the application adapter for every OpenRouter request, including chat, delegates, compaction, and titles. Preserve other provider preferences. No request can disable ZDR. External Mem0 and voice services keep separate policies |
 | OpenRouter reasoning routing | For OpenAI models, replay encrypted reasoning from only the latest known provider format in each wire request. Omit incompatible sequences without changing saved messages or signed blocks. Recover a mixed-provider HTTP 400 once before generation, with the same restrictions as the ZDR routing retry. If OpenRouter rejects encrypted OpenAI reasoning with a ZDR routing 404 before generation, retry once without those reasoning sequences. Preserve messages, tool exchanges, model options, saved history, and ZDR. Do not retry unrelated errors, Claude signatures, or streams that emitted events. A retry is a transport attempt within the same harness model call |
+| Query latency traces | When enabled, turn spans record total duration and first/last response text chunk times. They also record first model-call and reasoning times. Model spans record per-call first/last text chunk and response-complete times |
 | Browser conversation titles | Generate from the first completed exchange with the selected model and refine once after three user messages. Bound title calls, include their usage in costs, preserve custom titles, and retain a fallback on failure. Migration 007 tracks automatic titles |
 | Configuration | Pydantic settings with the `AGENT_` prefix |
 | Deployment | One application worker and scheduler per SQLite database |
@@ -59,28 +99,39 @@ Updated: 2026-10-15.
 | Pi Connect memory | Upgrade the host package to 2.13.0. Set its Go memory target to 192 MiB and check resident memory each minute. Restart only `rpi-connect.service` above 512 MiB. This is a service guard, not a hard kernel limit. Preserve SSH, Tailscale, Theos, and account isolation. Browser Connect access currently requires operator sign-in |
 | Tool execution batches | Replace the hard 16-call response rejection with `ExecutionLimits.tool_batch_size`, default 16. Process every valid call in ordered batches. Only tools declared safe may overlap. Keep each call ID and approval check. Append each batch's results before the next batch. Tell the model to request at most 16 calls per response and provide explicit feedback after larger groups. Reject invalid arguments per call as `not_started` before approval or execution, with correction instructions and a new call ID. Keep `failed`, `denied`, and `unknown` outcomes distinct. Duplicate IDs and malformed response identities remain fatal before execution. Retain transcript and checkpoint guarantees. Record exact generated call counts in trace metadata and only fixed harness error codes in logs |
 | Approval policy | Global approval prompts apply to Gmail draft sending and Zepto cart confirmation, checkout, order placement, and payment-related tools. Gmail approval binds the draft contents and checks them again immediately before sending. Search, read, draft creation, delivery-store setup, ordinary cart updates, all sandbox actions, deletion, and memory settings do not prompt. Keep owner isolation, validation, durable attempts, exact approval snapshots, and unknown-outcome recovery. Retire old pending cards for ungated tools without executing anything during cleanup |
-| Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity and the legacy renew action cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. Status and explicit restart remain available. Destroying an absent sandbox does not create one |
-| Skill selection | Include installed skill descriptions in model context. Match task intent to descriptions and load relevant instructions before work without requiring skill names from the user. Do not load every skill or treat names as the whole selection policy. Supply report-style and document-format instructions automatically for document requests. New reports default to styled PDF. Explicit formats and existing document styles retain precedence. Count automatically supplied skills in turn stats. Shared scripts and assets still need transfer into the sandbox |
+| Sandbox creation lifetime | Default and Pi configuration are 3,600 seconds from creation. Cached and saved references retain their original deadlines. Activity cannot extend expiry. Check cached instances before use. Recreate only confirmed missing or expired instances. Preserve references on transient failures and never replay an operation automatically. Restore workspace checkpoints before saving a replacement instance. If lifecycle acquisition fails before an action starts, tell the model it may retry the same normal tool once; uncertain actions must not be repeated. Lifecycle controls stay internal; the model does not need them for routine recovery. Destroying an absent sandbox does not create one |
+| Workspace retention | Theos file services own retention. Keep three recent checkpoints per session, current workspace and attachment sources, and current local and published remote pointers. Scan hourly with a one-hour grace period, bounded batches, and a durable deletion journal. Protect active sessions and pending recovery review. Retained snapshots pin their sources. Preserve research, uploaded-file catalog entries, browser state, transcripts, and generic harness behavior |
+| Workspace tool names | Expose only `run_command(command?, timeout, inspect_images?)` and `attach_file(path)` for workspace work. Shell commands cover Python and file operations. Image-only calls can omit the command. Keep `history_read` and `history_search` separate. The runtime owns input staging, versioned session files, R2 replication, restoration, and immutable response attachments. Remove former catalog, transfer, Python-kernel, browser-wrapper, and image-view tools from new registries |
+| Skill selection | Include installed skill descriptions in model context. Match task intent to descriptions and load relevant instructions before work without requiring skill names from the user. Do not load every skill or treat names as the whole selection policy. Supply report-style and document-format instructions automatically for document requests. New reports default to styled PDF. Explicit formats and existing document styles retain precedence. Count automatically supplied skills in turn stats. The shared sandbox image contains report-style files and the declared runtime dependencies for all eight skills; load other skill scripts and text resources from the host as needed |
 | Model-call allowances | Theos disables call allocations and research deadlines by default through `Runtime(enforce_budgets=False)`. Preserve all budget fields and their validation for callers that explicitly enable bounded mode. Parent, delegate, summary, and recovery calls retain usage accounting without enforced call ceilings. Root traces mark enforcement false and limits as -1. Provider, context, output, tool, concurrency, approval, and cancellation limits remain active. See `docs/runtime/context-recovery.md` |
 | Distribution | Self-hosted installations and an operator-hosted Telegram service |
+| Health connection readiness | Verify the selected account through the stable v4 identity endpoint before saving new OAuth credentials. Use the existing Health scopes. Missing profiles need app setup or Fitbit migration. Preserve the previous account when verification fails. A linked profile does not guarantee synchronized readings |
+| Google Health vitals | Import stable v4 daily HRV, SpO2, respiratory rate, and sleep skin temperature. Summarize available heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples. Keep RMSSD and SDNN separate. Preserve units, missing values, and provider confidence bounds. Default summaries include vitals and coverage counts. Version caches and refresh older summaries on tool or Telegram reads. Send complete Telegram summaries through the existing message splitter |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
-| Browser account connections | Owner-bound Gmail, Google Health, and Zepto consent, status, cancellation, and disconnection. Keep existing configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials use the enrolled Telegram owner's private account access. No automatic merging of existing browser and Telegram accounts |
-| Connector visibility | List account connectors in Connections and `@` suggestions only when deployment credentials are configured. A configured account remains visible before owner authorization. Missing credentials hide the connector |
+| Browser account connections | Offer optional unconnected accounts at first setup. Ask for a preferred name only when missing. Reserve a disowned sign-in tab during Connect, then navigate it after discovery. Keep an explicit link for blocked popups. Successful callbacks return to Connections. Verify setup before closing callback tabs. Show cancellation, expiry, and retry states. Cancel setup preserves the prior account. Keep owner-bound consent and configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials reuse the enrolled Telegram owner. Do not merge separate browser and Telegram accounts |
+| Connector visibility | List configured account connectors in Connections and mentions before owner authorization. Hide connectors without deployment credentials |
 | Browser connection mentions | Show local provider logos for accounts and use-case SVG icons for all workspace services in Connections and `@` suggestions. Complete mentions at the composer caret with current account status and configured workspace services. Preserve draft text. Send mentions as ordinary user text without changing access or approval policy |
 | Zepto account linking | Browser and private Telegram users authorize their own accounts through MCP OAuth. Theos encrypts credentials in SQLite. Use the localhost return handoff by default, with an optional public HTTPS callback |
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
 | Memory automation | Bounded private-chat retrieval when memory is enabled. Per-user explicit opt-in for future user-message consolidation through Mem0 inference |
 | Scheduled agent tasks | Durable one-time and cron schedules run through the normal conversation runtime and approval policy. Interrupted or uncertain runs pause the schedule |
 | Remote sandbox | Keep the Mac mini configuration, database, and server logs under `/Volumes/extssd/opensandbox`. Pin the native server to `1.1.1`. Use server proxy mode with `resolve_internal=false`. Keep launchd console logs under the user's Library because macOS blocks its removable-volume access. Docker storage remains on the SSD |
-| Model context | Use the pinned middle-turn compression policy in `src/harness/compression_policy.py`: tool-output pruning first, protected head, token-budget tail, iterative auxiliary summaries, distributed samples, and scaled budgets. One async adapter in `lean_context.py` serves all agents. Default fraction 0.5 with the upstream small-window floor. Pi 100,000 context and 8,192 output imply a 68,856-token trigger. Keep raw sources outside model context and checkpoint working state in R2 |
-| Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. The auxiliary summary uses a scaled prompt target without a hard output cap. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
+| Model context | Keep one rolling checkpoint in `src/harness/compaction.py`. Default to a 50% trigger and a 2.5% recent tail, both configurable. Use the conversation model for summaries unless `AGENT_COMPACTION_MODEL` selects another provider model. Summarize earlier history and a split turn separately. Include the covered original request in the checkpoint, then append only retained messages. Keep new unanswered user messages and unfinished tool batches verbatim. Preserve the full transcript. On provider overflow, retry with shorter summary tiers without replaying tools. `history_read` and `history_search` recover exact saved messages |
+| Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. Summary calls use no tools and cap output at the configured tail ratio of the summary model's context. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
+| Final voice | Kokoro `am_michael(0.7)+bm_george(0.3)`, speed `0.9`, with the approved subtle robotic treatment in the separate `speech` gateway. Keep DSP dependencies out of the Pi application image. Authenticate gateway requests with `AGENT_KOKORO_KEY`. Existing environment overrides require an explicit rollout update. The louder audition is not the selected profile |
+| Personality | Straightforward, commanding, self-assured, philosophical, and darkly witty, with deliberate cadence and restrained theatrical weight. Ordinary discouragement and procrastination receive firm, masculine encouragement and one achievable action. Challenge avoidance without insulting the user. Honor requested gentleness and treat serious distress with care. Describe these traits directly without naming a fictional character. Chat and speech preparation share one persona. Facts, source fidelity, requested tone, and urgency take precedence over style. Use original observations and verify attributed quotations. Keep research delegates and harness summaries factual. See `docs/personality.md` |
+| Expressive TTS text | Every browser or tool synthesis request first uses one bounded, tool-free model call to write an expressive spoken rendition. Preserve facts, numbers, quotations, uncertainty, and action outcomes. Use words and punctuation rather than unsupported emotion tags. Retain display text and history. Record model usage under the owner and conversation. Fail preparation rather than silently reading plain source text |
 | Code organization | Separate service directories with plain functions and small lifecycle classes |
 | Shared Pi skills | Store operator-installed skills in `/home/neuron/.agents/skills`. Use skills.sh with a temporary Node 22 runtime. Theos mounts that same host directory read-only at `/skills` through `compose.skills.yaml`, `THEOS_SHARED_SKILLS_DIR`, and `AGENT_SKILLS_DIR`. Retain source licenses, installation metadata, file hashes, and local adaptations. Reapply report overrides after upstream updates |
-| Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. Keep host CLI installation separate from remote sandbox execution |
-| Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Inter typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
-| Comments | Explain constraints and number the major workflow steps |
+| Shared sandbox runtime | Build the ARM64 image from `skills/sandbox-runtime/Dockerfile` on the Mac mini. Keep report scripts and style assets at `/opt/theos/report-style`. Install the locked PDF, DOCX, XLSX, OCR, browser, arXiv, and pinned Papers with Code dependencies in the image. Representative PDF, DOCX, XLSX, OCR, and browser checks passed under the existing one-CPU, 512 MiB sandbox limit |
+| Paper research | Prefer the official `pwc-cli` skill from `huggingface/pwc-cli`. Use arXiv and Hugging Face skills as supplemental sources. Public catalog research needs no credentials. The shared sandbox image installs the CLI at the recorded source revision |
+| Report appearance | New PDF and DOCX reports use the operator-supplied neutral `report-style`: Space Grotesk typography, green numbered headings, beige tables, dashed rules, yellow status badges, and consistent diagram colors. Bundle fonts in PDF and DOCX output and install them in the sandbox for chart labels and conversion. Code retains its monospace style. Explicit user styles take precedence. Preserve existing document styles during edits. Render and inspect every output page |
+| Prompt organization | Store Theos prompts in Markdown Jinja templates under `src/theos/prompts`. Store harness production prompts under `src/harness/prompts`. Use plain `.md` filenames for normal Markdown previews. The shared package-aware renderer uses StrictUndefined and caches compiled templates without request data. Python resolves capabilities and external data. Templates compose text with conditionals and includes. Version templates with code and deploy them through normal releases |
+| Compaction prompt ownership | The harness owns the exact production compaction prompts, including shared, initial, update, split-turn, and shortening instructions. Start the shared system prompt with an explicit context summarization assistant role, then state its task and constraints. Theos uses those defaults and can override individual prompts through `CompactionConfig`. Optional Theos override files live under `src/theos/prompts/compaction`. Omitted overrides use the corresponding harness production prompt. Theos currently ships no overrides. The harness owns prompt selection and the compaction algorithm. See `docs/runtime/prompts.md` for filenames and fields |
+| Comments | Explain constraints and number the major workflow steps. Use nearby ASCII diagrams for message order and complex flows |
+| Tests | Keep cases for distinct observable behavior, meaningful input boundaries, and important regressions. Consolidate related request and response assertions into contract tests. Remove constructor-only checks, framework introspection, and repeated examples of the same branch. Expand parameter matrices only when their interactions matter. Retain approvals, owner isolation, uncertain-action recovery, persistence, compaction, and supported provider contracts. See `docs/runtime/testing.md` |
 | Documentation | Task-based Markdown guides, Simplified Technical English, and existing Excalidraw PNG diagrams |
 
 Application and deployment environment variables use the `AGENT_` prefix.
@@ -89,7 +140,7 @@ The package name, storage paths, and existing deployment resource names remain s
 
 The user requested removal of unrelated starter examples and historical planning documents.
 The required mock API fixture now lives under `tests/fixtures`.
-Keep harness tests, source notices, provenance manifests, and editable architecture sources.
+Keep harness tests, provenance manifests, and editable architecture sources.
 Keep only reusable building blocks in the separate `agents-intro` repository.
 
 ## Implemented application
@@ -222,6 +273,16 @@ Preserve historical paths in provenance manifests.
 - [Application provenance](docs/application-migration.json)
 
 ## Git and Raspberry Pi releases
+
+On 2026-10-17, the operator authorized merging PR #82, updating local `.env` and `.env.pi`, and publishing version `1.2.0`.
+Prepare the version on a topic branch from `dev`, merge through a PR, and promote `dev` to `rpi` through a merge-commit PR.
+Use the immutable tag `rpi-v1.2.0`. The `main` promotion is independent and was not requested.
+Both local environment files and the Pi deployment environment now select the Michael/George blend, speed `0.9`, and the authenticated Mac mini gateway on port `8881`.
+Preserve their unrelated settings and mode `0600`. Private `.before-1.2.0` backups retain prior values.
+The native gateway source lives at `/Volumes/extssd/voice/theos-speech`, with launch agent `com.parthshastri.theos-speech`.
+macOS blocked launchd from opening its Python entry script on the external SSD. Install its runtime and private environment under `~/.local/share/theos-speech`. Keep Kokoro and model storage on the SSD.
+Keep its console logs under the user's `Library/Logs/Theos` directory.
+Deployment remains unconfirmed until the release workflow and Pi manifest confirm activation.
 
 The public GitHub repository is `parth-shastri/theos`.
 On 2026-10-10, the operator made the repository public to avoid the private-repository Actions minutes quota.
@@ -537,6 +598,16 @@ Prepare release 0.1.15 through the normal topic PR, Pi promotion, and immutable 
 The active Pi configuration is now a regular `.env` file, not the earlier documented symlink.
 Back it up before editing. Change only its four OpenRouter routing fields and retain all other settings.
 
+## Release 0.1.18 preparation, 2026-10-15
+
+The operator requested development checks, promotion PRs to `main` and `rpi`, and a new Pi release.
+Prepare version 0.1.18 through a topic PR from `dev`.
+This release includes shared sandbox dependencies, ordinary workspace tools, safe workspace recovery, and Telegram progress tracing.
+Keep the open account connector PRs outside this release.
+Use merge commits for both promotions after their destination checks pass.
+Create immutable tag `rpi-v0.1.18` at the promoted `rpi` tip.
+Deployment remains unconfirmed until the tagged workflow and active Pi manifest agree.
+
 ## Automatic routing for every OpenRouter model, 2026-10-14
 
 The operator requested removal of endpoint orders for all OpenRouter models.
@@ -546,6 +617,352 @@ Retain generic latency and throughput preferences. OpenRouter selects compatible
 Reasoning, context and output limits, retries, signed state, approvals, and safe recovery retain their existing behavior.
 Prepare release 0.1.16 through a topic PR, Pi promotion, and immutable release tag.
 
+## Rolling summary and research scratchpad, 2026-10-18
+
+The harness uses one rolling summary, with configurable 50% context trigger and 2.5% recent-tail defaults.
+The harness owns shared summary rules and separate initial, update, split-turn, and shortening prompts.
+Runtime supplies model settings, persistence, and usage callbacks.
+Update prompts retain relevant prior information and apply user corrections, confirmed progress, and resolved blockers.
+When compaction splits a turn, a separate call summarizes its original request and earlier progress.
+Combine that result with the history summary before the retained messages.
+Do not repeat a covered original request after the checkpoint.
+Reuse previous history when no new history summary is needed. Update an existing checkpoint when its request is already covered.
+Both summary parts must succeed before the checkpoint replaces the previous view.
+Optional `CompactionConfig.additional_instructions` supplies summary focus.
+Shortening tiers omit structured headings to avoid conflicting output requirements.
+The summary model is configurable and defaults to the conversation model.
+New unanswered user requests and unfinished tool batches stay verbatim. The saved transcript remains unchanged.
+New checkpoints use memory schema version 5.
+Recover the omitted request inside version 4 checkpoints from saved history until a successful compaction replaces them.
+The active model writes summaries without tools. Large messages stay in history and receive an index marker in summary input.
+History tools return exact saved text. Provider overflow retries use shorter summary tiers and never rerun completed tools.
+
+Deep Research evidence stays in the separate `research_scratchpad` table.
+Migration 013 renames the earlier evidence table and preserves its rows.
+Compaction does not summarize or alter scratchpad records.
+Gmail and Health service tools return compact summaries and fetch selected details by provider IDs or date/metric filters. Do not archive full provider responses or register generic provider-source readers.
+
+## Runtime provider context limits, 2026-10-18
+
+Read context and output limits from OpenRouter, Gemini, and Anthropic model metadata, then cache them for one hour. OpenAI's model endpoint does not publish context limits, so direct OpenAI uses a 272,000-token conservative cap for GPT-6 Luna and GPT-5.6 Luna. Other hosts may support more; use that host's metadata when available. Unknown models or providers use a 24,000-token fallback unless an operator sets `AGENT_CONTEXT_TOKENS`. An operator cap can lower, but never raise, a known provider limit.
+
+## Temporary provider result files, 2026-10-18
+
+Provider services decide when a normalized read result needs staging. Results under 8 KiB stay inline; larger results up to 1 MiB can be written under `/tmp/theos-results` through the sandbox peripheral.
+The helper returns a path and bounded instructions rather than copying full results into model context. If staging fails or exceeds the file limit, it returns a bounded preview and asks for a narrower provider read.
+Temporary result files are outside `/workspace` and are not checkpointed to R2. The runtime owns sandbox lifecycle; do not expose a model-facing `manage_workspace` tool.
+Keep `upload_file` for selected owner files and Gmail attachments that need workspace analysis.
+
+## Structured prompts and shared persona, 2026-10-18
+
+Main prompts separate role, instructions, output rules, examples, and runtime context with Markdown headings.
+Reusable fragments use only the sections they need. Templates remain ordinary `.md` files.
+Place the persona near the main identity and keep dynamic preferences and retrieved memory in labeled context blocks.
+The same persona guides chat and speech preparation. Speech source preservation takes precedence over style.
+Keep factual research handoffs, titles, and generic harness compaction separate from user-facing personality.
+The selected voice branch already supplies the Michael/George blend, speed 0.9, and `theos-subtle-v1` processing.
+The operator requested removal of standalone upstream license files and attribution notices. Do not restore those copies.
+Keep the project's root license and provenance manifests.
+Exception: the operator explicitly removed `src/harness/compression_provenance.json`. Do not restore that file.
+
+## Light navigation readability and favicon, 2026-10-18
+
+Keep the existing frost, opacity, blur, saturation, and refraction settings.
+Use darker text for light-mode sidebar labels, costs, account identity, and conversation actions.
+The collapsed mobile sidebar trigger needs a header box so the existing optical layer can blur messages beneath it.
+Apply this navigation change only in light mode. Preserve dark-mode colors and layout.
+Use the existing Theos Daylight image as the browser favicon and touch icon.
+
+## Binary workspace transfers and research reports, 2026-10-18
+
+Use an inclusive HTTP byte range to read sandbox files, with one extra byte to detect the transfer limit.
+The sandbox SDK's `offset` and `limit` arguments select text lines and can normalize binary CRLF bytes.
+Preserve original bytes for image inspection, file delivery, workspace hashes, and restored files.
+The lead researcher needs configured workspace tools to generate and deliver requested report files in the same turn.
+Research delegates keep their existing read-only tools. Personal account tools remain excluded from explicit research.
+
+## Reports serve the user, 2026-10-18
+
+Reports must answer the user's question and support their understanding or decisions.
+Lead with findings and implications. Use charts and diagrams where they make patterns, comparisons, or relationships easier to understand.
+Select those visuals automatically. Users do not need to request charts or diagrams explicitly.
+Verify plotted values, bar heights, and axis ticks against the data. Preserve Space Grotesk in standalone SVG charts through embedded fonts or text paths.
+
+Use distinct revision tags for sandbox runtime builds. Retain image records referenced by running sandboxes.
+Rebuilding a reused local tag removed image metadata during acceptance testing and broke OpenSandbox status requests for the old instance.
+Keep agent activity, read counts, generation details, and provenance out of the main report unless explicitly requested.
+Retain citations and concise material limitations without making them the report's purpose.
+Do not impose arbitrary total Gmail message, page, or body limits. Read the evidence needed for the requested period and task.
+Per-response pagination and body ranges remain bounded for transfer and context management. Continue them as needed.
+Earlier 100-header and 30-body limits were acceptance-prompt sampling choices, not production limits.
+
+## Production sandbox candidate, 2026-10-19
+
+Use `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` for new local sandboxes.
+The image adds locked Matplotlib with headless Agg and Space Grotesk defaults.
+Export SVG text as paths and embed TrueType fonts in chart PDFs.
+Keep the existing OpenSandbox interpreter entrypoint and one-CPU, 512 MiB resource request.
+Exclude caches and environment files from the Docker build context.
+
+The Mac mini retains this image, its runtime dependencies, and the older image required by the Pi.
+Retire acceptance sandboxes before removing their images. Remove unused build cache without pruning service volumes.
+The Pi environment and application stay unchanged until the separate release step.
+
+## Navigation contrast in both themes, 2026-10-19
+
+Apply the existing collapsed mobile topbar layout in both light and dark modes.
+Use brighter dark sidebar text and text halos to preserve readability over reflected content.
+Keep the existing frost, opacity, blur, saturation, and refraction settings.
+This extends the earlier light-only navigation decision.
+
+## Pi release 1.2.1 preparation, 2026-10-19
+
+The operator requested the changes in PR #86 on `dev`, `main`, and `rpi`, followed by a Pi release.
+Merge the topic PR into `dev`, then promote `dev` through separate merge-commit PRs to `main` and `rpi`.
+Package version 1.2.1 uses the immutable tag `rpi-v1.2.1` from the current `rpi` tip.
+The Mac mini already has sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3`.
+The Pi still uses the 2026-10-15 image. Set the new tag in local `.env.pi` and the Pi deployment environment.
+Preserve other private settings and file mode 0600. Prepare report skills and run the live sandbox probe before tagging.
+Confirm the release workflow and active Pi manifest before claiming deployment.
+The live sandbox preflight executes the copied sandbox client with its package identity so relative imports resolve.
+
+## Telegram onboarding and sandbox progress, 2026-10-19
+
+When a ready private user sends `/start`, ask before restarting onboarding.
+The continue choice keeps the saved profile and conversation history available.
+The restart choice collects the name and timezone again without deleting saved records.
+Show `run_command` input as shell code, `browser` input as its `agent-browser` command, and `execute_code` input as Python code in Telegram progress events.
+
+## Next.js frontend and browser authentication, 2026-10-20
+
+The browser now runs in a separate Next.js App Router service under `web/`.
+FastAPI owns the API, runtime, SQLite, and scheduler. It serves no frontend page or assets.
+React defines the page structure. The mounted browser controller retains native behavior and cleans its listeners, timers, requests, observers, and audio.
+The original stylesheet and image and font assets retain their bytes.
+One hundred visual comparisons retained measured geometry at five widths in both themes.
+
+Browser sign-in preserves configured and Telegram-owned identities through revocable opaque sessions.
+Tokens no longer remain in browser storage. HTTPS cookies use Secure, HttpOnly, SameSite Strict, and host-only prefixes.
+The API enforces absolute and idle expiry, logout revocation, configured token rotation, CSRF checks, and persistent login throttling.
+The frontend service secret stays on the server. A configured trusted ingress can supply validated client addresses for separate login limits.
+The terminal retains direct bearer access to the private API.
+
+Compose retains host port 8080 for the frontend and uses private host port 8081 for the API.
+Pi releases publish and record both immutable image digests. Rollback restores the prior pair and data volume.
+The frontend source, dependencies, development steps, and migration configuration are documented in the browser, development, and deployment guides.
+Local acceptance passed 1,030 Python cases, four proxy checks, sixteen production browser scenarios, and a 10 MiB upload/download.
+Docker image builds remain CI checks because the local daemon was unavailable.
+Production deployment and branch promotions have not occurred.
+
+## Plain sidebar text, 2026-10-20
+
+The operator rejected the white halo around sidebar text and requested the existing interface without typography degradation.
+Remove the light and dark sidebar text shadows added by the 2026-10-19 navigation contrast change.
+Keep the font, text colors, geometry, glass material, blur, refraction, and responsive behavior.
+This decision supersedes the text-halo part of the earlier navigation contrast decision.
+
+## Mobile conversation heading, 2026-10-20
+
+The collapsed mobile topbar shows the active conversation title and conversation cost in both themes.
+Use the existing title and usage updates, including streamed title changes and completed-turn costs.
+Long titles truncate within the existing glass topbar. Desktop layout and glass settings stay unchanged.
+
+## React workspace state and rendering, 2026-10-20
+
+The operator requires a complete React migration, including messages, streaming, and interactions, with the exact existing interface in both themes and mobile.
+React now owns messages, streaming state, approvals, attachments, voice controls, composer menus, settings, navigation, sign-in, research, connections, and charts.
+Remove the mounted workspace controller and its DOM renderers.
+The conversation reducer handles saved history and streamed events. Frame batches retain event order, partial replies, tool identities, and replacement answers.
+Abort stale requests and release media resources when their owner leaves the page or account.
+Keep native browser APIs for dialogs, popovers, focus, measurement, audio, and the existing optical effects.
+React owns the optical layers and content wrappers. The effect helper creates only rendering resources.
+Keep the stylesheet and font, logo, and provider assets unchanged from the accepted mobile-heading revision.
+Bind activity results to their authenticated account and query before rendering.
+Personal and administrator views must not reuse each other's results during navigation.
+This supersedes the earlier decision to retain the mounted browser controller.
+
+## Compact mobile panel navigation, 2026-10-20
+
+The operator requests a round sidebar control wherever the mobile topbar would otherwise be empty.
+Activity, administrator activity, connections, and tools place their heading beside this control in both themes.
+Keep the control and heading fixed while the panel scrolls.
+React portals move the existing panel heading and back control into the mobile header, without duplicate headings or actions.
+Hide the pinned heading while the sidebar drawer is open.
+Chat retains its conversation title and cost. Desktop layout rules and the existing glass material stay unchanged.
+This requested layout change supersedes stylesheet preservation for these mobile headers.
+
+Keep the mobile panel scroll area behind the entire navigation row.
+Reserve its initial header space with padding inside the scroller, so content continues behind both frosted surfaces.
+The separate round control and title tab use the same optical material and navigation shadow on every panel in both themes.
+
+## Desktop tab header clarification, 2026-10-21
+
+The operator rejected the combined desktop navigation row and clarified that this change applies only to larger screens.
+Keep the original Theos topbar, its logo, and the original conversation title and cost toolbar.
+Desktop Tools, Connections, Activity, and Admin use that conversation toolbar format above their scrolling content.
+Place each tab title and muted subtext on the left, with Back to chat aligned on the right.
+Remove the Theos logo from tab headers. Keep it in the main topbar.
+Restore the accepted mobile conversation header, compact panel headers, and continuous frost from the preceding mobile revision.
+Desktop tab content panels use the chat window's 26-pixel curved border, edge color, and shadow beneath their toolbars.
+Daily chart hover selection requires pointer movement, so focus scrolling cannot overwrite keyboard selection under a stationary pointer.
+
+## Browser OpenUI answers, 2026-10-21
+
+Use OpenUI Lang for browser chat presentation only. Keep the OpenAI Responses runtime, tools, approvals, checkpoints, and SSE flow. Do not add the OpenUI Gateway or Query()/Mutation() in this release.
+Define one pinned Zod component library for both the React renderer and the generated Python model prompt. Version the display format and component library. Keep generated prompt, schema, and manifest artifacts in `src/theos/prompts/openui/`.
+Require `TheosAnswer` with a visible `AnswerSummary`. Preview streamed output, but enable actions only after a complete parse with the expected root and no parser errors, unresolved references, or orphaned statements. Hide invalid source and offer a user-triggered plain-text recovery turn with tools disabled.
+Keep form edits in application display metadata. Bind actions to an owned saved message and route writes through existing validated Theos tools and approvals. Rendering a component must not perform a write.
+Read aloud only the visible `AnswerSummary`. Terminal history uses a saved summary or a browser notice. A disconnected stream reloads saved history and never replays a turn automatically.
+
+Local Docker deployment must load application settings from `/Users/nightowl/my_projects/theos/.env`, including its configured browser token.
+Keep image references, the existing data volume, and the private frontend service secret in a separate deployment file.
+Normalize OpenUI field wrappers before saving drafts or submitting actions. Include untouched form defaults and preserve restored edits.
+Reset message display state before child effects publish the rendered summary and form defaults.
+
+Keep visual answers inside the OpenUI component library and renderer. Library version 2 adds metric grids, bar and line charts, donut charts, goal rings, and tables.
+Use the existing green palette, Space Grotesk, theme tokens, and glass controls. Keep version 1 answers renderable through the compatible additive schema.
+Chart series must share a unit. Preserve missing samples as gaps and require an explicit source for goals or trends.
+Scope drawer styles and optical effects to the navigation sidebar. OpenUI status notices must remain inline when the drawer opens or closes.
+OpenUI evidence cards show readable domains, titles, excerpts, and paths. Display search terms and source filters without raw operator syntax.
+Retain the exact query under collapsed Search details. Remove duplicate excerpt labels, and do not display a URL as a research source ID.
+
+OpenUI evidence cards accept search-provided thumbnails, image descriptions, and logos through optional trailing fields. Preserve version 1 and 2 answers.
+When search omits a logo, discover a raster icon from the source origin's HTML head before trying `/favicon.ico`. Keep the domain initial on failure.
+Serve media through the authenticated Next.js `/api/search-image` route. Validate public addresses at socket lookup and on every redirect.
+Bound image bytes, head reads, request time, concurrent downloads, and memory cache size. Never forward browser credentials to source sites.
+Keep the existing image CSP. Do not load remote image URLs directly in the browser or add a third-party favicon service.
+
+## OpenUI release preparation, 2026-10-21
+
+Prepare version 1.3.0 for OpenUI answers and the separate Next.js frontend. Promote the integrated code to both `main` and `rpi` through separate PRs.
+The Pi upgrade requires a private frontend service secret and the tested `v1.1.0-20261019-18e1cc81d4c3` sandbox image. Preserve all other Pi credentials.
+Use the tagged release workflow and retain the previous image pair, volume, and environment backup for rollback.
+
+Browser CI starts its long-lived API process with the synchronized virtual environment's Python executable.
+Do not keep `uv run` alive across the job. It holds the cache lock and prevents setup-uv from pruning a cold cache.
+Stop acceptance processes before post-job cache cleanup.
+
+## Mobile keyboard release preparation, 2026-10-23
+
+The operator requested PR #100 on `dev`, `main`, and `rpi`, followed by a minor Pi release.
+Prepare package version 1.4.0 and immutable tag `rpi-v1.4.0` at the promoted `rpi` tip.
+Use separate promotion PRs and merge commits. Preserve the existing glass material and private deployment configuration.
+No database migration is required. Confirm the release workflow and active Pi manifest before claiming deployment.
+
+## Mobile keyboard and conversation activity, 2026-10-23
+
+Position the application frame with the visual viewport offset and layout containment, without a transform on the full frame.
+Ignore invalid viewport heights. Refresh measurements after focus changes and page restoration, as well as viewport resize and scroll.
+Keep native pinch zoom and preserve drafts through keyboard toggles.
+
+Show one pulsing Thinking label and glowing orb in the conversation throughout the streamed turn, including tools and context preparation.
+Stop the indicator on completion, approval waits, errors, and disconnects. Reduced motion keeps the label and orb static.
+Keep tool states in tool events. Remove run state labels, including completed, from the composer.
+Keep composer errors and recording feedback. Show a reopened running-turn notice in the conversation.
+This supersedes earlier decisions to show run progress inside the composer.
+
+Native simulator checks reproduced the blank keyboard view on iPhone 14 Pro with iOS 27.0.
+A second keyboard cycle also exposed a remaining offset cap in the initial PR #104 build.
+Safari reported `innerHeight=560`, visual height `447`, offset `236`, and root scroll `236`.
+The cap reduced the offset to `113` and moved the application frame to `-123` pixels.
+Use the full nonnegative visual viewport offset, including during keyboard dismissal. Do not cap it with `innerHeight`.
+The corrected iPhone 17 Pro Max check retained the frame at zero with a `349`-pixel offset and preserved the draft across keyboard toggles.
+The iPhone 14 Pro simulator was shut down before testing iPhone 17 Pro Max, as requested.
+
+Keep the document backdrop at the theme canvas color. Paint the ambient glow once inside the application frame.
+Fade the glow into the canvas at the bottom edge to avoid a hard boundary above the native keyboard accessory.
+Apply the saved theme through a nonce-authorized script before React loads, so Safari samples the correct initial backdrop.
+Do not reset that theme during hydration. Native Safari can retain its previous bar color after an in-page theme switch until reload.
+
+## Mobile keyboard patch release, 2026-10-23
+
+The operator requested deployment of the mobile keyboard and conversation activity fixes as version 1.4.1, with promotion to `main`.
+Prepare package version 1.4.1 and immutable tag `rpi-v1.4.1` at the promoted `rpi` tip.
+Use separate promotion PRs and merge commits for `main` and `rpi`.
+No database migration or private environment change is required. Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
+## Unified workspace commands and private browser, 2026-10-26
+
+The model uses `run_command` for execution and optional image inspection. It uses `attach_file` only for response attachments.
+Selected uploads and Gmail attachments enter the session workspace automatically. Changed files use the existing local journal and background R2 worker.
+Attachment snapshots retain exact bytes and metadata for remote session restoration. Deleted workspace files remain absent from the latest manifest.
+History read and search remain separate. Existing transcripts retain old tool names.
+
+Standalone browser CLI commands route to a dedicated browser sandbox per owner. Conversations use distinct tabs under an owner lock.
+Screenshots, PDFs, explicit downloads, and selected uploads cross into the task workspace through runtime code.
+Browser profiles stay outside task workspaces. Live authentication state and profile snapshots preserve login continuity across replacement.
+Profile capture pauses writers briefly and retains SQLite journals. A separate watchdog resumes browser processes after capture failure.
+The application encrypts snapshots in SQLite with a generated private `browser.key`. Stopped-application backups include this key.
+Connections supplies private browser controls for login and verification. These actions create no chat messages or tool records.
+Clearing browser login destroys that owner's browser and deletes saved credentials.
+
+Local acceptance used the pinned browser CLI with a synthetic website and isolated profile.
+Cookies, local storage, and IndexedDB survived replacement. DOM interaction and screenshot transfer passed.
+This verifies the command and profile protocol locally. It does not confirm a deployed OpenSandbox or Pi release.
+
+## Runtime checkpoint retention, 2026-10-26
+
+The user requested collection of unreferenced immutable workspace versions. This is application storage policy, separate from the generic harness.
+New checkpoint snapshots include current workspace and response-attachment sources. Historical workspace objects no longer accumulate in every new snapshot.
+The collector preserves three recent snapshots by default, both recovery pointers, direct workspace and attachment roots, and all retained-snapshot references.
+Legacy snapshots keep their original references while retained.
+
+The background checkpoint worker also runs for local-only storage. Retention uses hourly scans, a one-hour grace period, and bounded continuation batches.
+Reusing an existing content-addressed object refreshes its grace period. Active sessions and pending remote-recovery reviews defer collection.
+SQLite migration 015 journals deletion before local or remote removal. R2 partial failures retry with backoff after restart.
+A recreated blob remains pending until its older deletion finishes. Local checkpoint writes do not wait for R2 deletion.
+The collector preserves unrelated research objects, uploaded-file catalog entries, browser profiles, and transcripts.
+Upload intent records preserve uncertain remote writes across restart or configuration changes.
+Uncertain pointer publications remain roots until a later publication is confirmed. Remote restore registers the fetched checkpoint as a recovery root.
+No `src/harness` file changes are required.
+
+## Slack connector planning, 2026-10-15
+
+The operator requested a separate topic branch and a tool-coverage and complexity review.
+Branch: `feature/slack-connector`, from remote `dev` at `8a4360f`.
+Check internal or Marketplace app eligibility before the MCP connection. Review granular search scopes and workspace consent.
+The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
+See [the plan](docs/connectors/slack-plan.md) and its tool inventory.
+
+## Slack official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote Slack MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+Confidential OAuth uses a client secret and durable single-use state.
+Slack public-client PKCE mode is not enabled. Other providers retain the shared adapter default of PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 18 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/slack-mcp.md).
+
+
+## Slack branch synchronization, 2026-10-28
+
+The operator requested a merge of current main into feature/slack-connector before live testing.
+Preserve both branch histories with a merge commit. Keep the current Next.js frontend and native Telegram connection controls.
+Register Slack in the shared account setup, callback proxy, connection cards, and composer mentions.
+Cancel setup invalidates pending consent without deleting the previous Slack grant.
+Use the current provider result staging service for large reads. Do not restore the retired source wrapper or static browser app.
+The local Docker test uses a separate data volume and disables Telegram polling.
+Live Slack authorization and read acceptance remain pending.
+
+The saved local Slack OAuth grant survived the updated Docker deployment.
+Live MCP initialization reports that the app is not enabled for Slack MCP server access.
+The operator must enable MCP access in the Slack app settings before live tool discovery can pass.
+
+
+## Slack live acceptance, 2026-10-28
+
+The operator enabled the app's MCP access. The saved grant passed discovery without reconnecting.
+Five reviewed read tools are available under the current scopes.
+A normal browser turn completed one public channel search through the model, adapter, journal, and SSE delivery.
+The search returned one channel in 8.84 seconds. No Slack write ran.
+Private access, permission removal, and live disconnection still need separate acceptance checks.
 
 ## GitHub connector planning, 2026-10-15
 
@@ -569,3 +986,17 @@ Remote read results use the existing source and journal services.
 The initial allowlist contains 23 tool identifiers, subject to discovery and provider permissions.
 Tests use mock services. Live account consent and discovery remain pending.
 See [setup](docs/github-mcp.md).
+
+
+## GitHub connector synchronization, 2026-10-28
+
+The operator requested merging the tested Slack PR into dev, then preparing GitHub in the same way.
+Slack PR 75 merged with successful CI at f0e523a. Merge that dev history into feature/github-connector with a merge commit.
+Keep the current shared MCP account adapter, bounded result staging, Next.js frontend, and native Telegram controls.
+Register GitHub in optional onboarding, connection cards, composer mentions, cancellation, and the callback proxy.
+The local callback is http://localhost:8080/oauth/github/callback. The operator is creating the GitHub App and its OAuth credentials.
+Live GitHub authorization and repository reads remain pending.
+
+The synchronized GitHub branch passed 1,148 Python tests, 18 frontend tests, and 56 browser connection scenarios.
+The rebuilt local API and frontend are healthy. Slack retains its grant and five read tools.
+GitHub live acceptance awaits the operator-provided OAuth client credentials in the private environment.

@@ -4,11 +4,11 @@
 <text x="55" y="69.2" fill="#263447" font-size="38">Theos / planned assistant tools</text>
 <text x="55" y="111.8" fill="#53657b" font-size="22">Exact callable names · Optional connectors activate after configuration · GPT-6-Luna</text>
 <ellipse cx="385.0" cy="217.5" rx="245.0" ry="62.5" fill="#ffe6e6" stroke="#53657b" stroke-width="2"/>
-<text x="223.0" y="208.05" fill="#263447" font-size="27">Theos model + tool loop</text>
-<text x="216.0" y="241.8" fill="#263447" font-size="27">GPT-6-Luna / Responses</text>
+<text x="223.9375" y="208.05" fill="#263447" font-size="27">Theos model + tool loop</text>
+<text x="217.1796875" y="241.8" fill="#263447" font-size="27">GPT-6-Luna / Responses</text>
 <rect x="900" y="155" width="710" height="125" rx="8" fill="#f1eaff" stroke="#53657b" stroke-width="2"/>
-<text x="1051.5" y="208.05" fill="#263447" font-size="27">Tool registry + owner context</text>
-<text x="1021.0" y="241.8" fill="#263447" font-size="27">Typed services / execution policies</text>
+<text x="1054.2578125" y="208.05" fill="#263447" font-size="27">Tool registry + owner context</text>
+<text x="1024.109375" y="241.8" fill="#263447" font-size="27">Typed services / execution policies</text>
 <polyline points="630,218 900,218" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <polyline points="889.4690092573155,223.75310646325045 900,218 889.4690092573155,212.24689353674955" fill="none" stroke="#53657b" stroke-width="2"/>
 <text x="680" y="194.8" fill="#263447" font-size="22">tool calls</text>
@@ -60,56 +60,59 @@
 <polyline points="35,1413.5 60,1413.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <polyline points="49.46900925731553,1419.2531064632503 60,1413.5 49.46900925731553,1407.7468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
 <polyline points="35,335 35,1413.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
-<rect x="850" y="390" width="730" height="289" rx="8" fill="#f1eaff" stroke="#53657b" stroke-width="2"/>
-<text x="872" y="429.3" fill="#263447" font-size="27">Sandbox code + files</text>
-<text x="872" y="468.9" fill="#263447" font-size="21">sandbox_run_command</text>
-<text x="872" y="495.15" fill="#263447" font-size="21">sandbox_execute_code</text>
-<text x="872" y="521.4" fill="#263447" font-size="21">sandbox_write_file</text>
-<text x="872" y="547.65" fill="#263447" font-size="21">sandbox_read_file</text>
-<text x="872" y="573.9" fill="#263447" font-size="21">sandbox_list_files</text>
-<text x="872" y="600.15" fill="#263447" font-size="21">sandbox_view_image</text>
-<text x="872" y="626.4" fill="#263447" font-size="21">sandbox_send_file_to_user</text>
-<text x="872" y="666.0" fill="#53657b" font-size="20">Isolated shell + persistent Python / images / send files</text>
-<polyline points="825,534.5 850,534.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
-<polyline points="839.4690092573155,540.2531064632504 850,534.5 839.4690092573155,528.7468935367496" fill="none" stroke="#53657b" stroke-width="2"/>
-<rect x="850" y="711" width="730" height="181" rx="8" fill="#e3f3f1" stroke="#53657b" stroke-width="2"/>
-<text x="872" y="750.3" fill="#263447" font-size="27">Durable Telegram files</text>
-<text x="872" y="789.9" fill="#263447" font-size="21">list_user_files</text>
-<text x="872" y="816.15" fill="#263447" font-size="21">restore_user_file</text>
-<text x="872" y="842.4" fill="#263447" font-size="21">delete_user_file</text>
-<text x="872" y="879.0" fill="#53657b" font-size="20">R2 objects / sender ownership / restore to sandbox</text>
-<polyline points="825,801.5 850,801.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
-<polyline points="839.4690092573155,807.2531064632504 850,801.5 839.4690092573155,795.7468935367496" fill="none" stroke="#53657b" stroke-width="2"/>
-<rect x="850" y="924" width="730" height="154" rx="8" fill="#f1eaff" stroke="#53657b" stroke-width="2"/>
-<text x="872" y="963.3" fill="#263447" font-size="27">Skills + browser</text>
-<text x="872" y="1002.9" fill="#263447" font-size="21">load_skill</text>
-<text x="872" y="1029.15" fill="#263447" font-size="21">load_skill_resource</text>
-<text x="872" y="1065.0" fill="#53657b" font-size="20">SKILL.md / repo exploration / agent-browser in sandbox</text>
-<polyline points="825,1001.0 850,1001.0" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
-<polyline points="839.4690092573155,1006.7531064632504 850,1001.0 839.4690092573155,995.2468935367496" fill="none" stroke="#53657b" stroke-width="2"/>
-<rect x="850" y="1110" width="730" height="127" rx="8" fill="#e5f5e8" stroke="#53657b" stroke-width="2"/>
-<text x="872" y="1149.3" fill="#263447" font-size="27">Speech delivery</text>
-<text x="872" y="1188.9" fill="#263447" font-size="21">send_text_to_speech</text>
-<text x="872" y="1224.0" fill="#53657b" font-size="20">Kokoro text -&gt; MP3 -&gt; current Telegram chat</text>
-<polyline points="825,1173.5 850,1173.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
-<polyline points="839.4690092573155,1179.2531064632503 850,1173.5 839.4690092573155,1167.7468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
-<rect x="850" y="1269" width="730" height="127" rx="8" fill="#e3f3f1" stroke="#53657b" stroke-width="2"/>
-<text x="872" y="1308.3" fill="#263447" font-size="27">Google Health</text>
-<text x="872" y="1347.9" fill="#263447" font-size="21">get_health_summary</text>
-<text x="872" y="1383.0" fill="#53657b" font-size="20">Read stored summaries / separate OAuth refresh job</text>
-<polyline points="825,1332.5 850,1332.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
-<polyline points="839.4690092573155,1338.2531064632503 850,1332.5 839.4690092573155,1326.7468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
-<rect x="850" y="1428" width="730" height="235" rx="8" fill="#e5f5e8" stroke="#53657b" stroke-width="2"/>
-<text x="872" y="1467.3" fill="#263447" font-size="27">Zepto shopping / MCP</text>
-<text x="872" y="1506.9" fill="#263447" font-size="21">zepto_*  (discovered manifest)</text>
-<text x="872" y="1533.15" fill="#263447" font-size="21">zepto_create_order</text>
-<text x="872" y="1559.4" fill="#263447" font-size="21">zepto_create_online_payment_order</text>
-<text x="872" y="1585.65" fill="#263447" font-size="21">zepto_create_upi_reserve_pay_order</text>
-<text x="872" y="1611.9" fill="#263447" font-size="21">zepto_create_wallet_order</text>
-<text x="872" y="1650.0" fill="#53657b" font-size="20">Search / cart / address / history / confirm final order</text>
-<polyline points="825,1545.5 850,1545.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
-<polyline points="839.4690092573155,1551.2531064632503 850,1545.5 839.4690092573155,1539.7468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
-<polyline points="825,335 825,1545.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
+<rect x="850" y="390" width="730" height="370" rx="8" fill="#f1eaff" stroke="#53657b" stroke-width="2"/>
+<text x="872" y="429.3" fill="#263447" font-size="27">Task workspace</text>
+<text x="872" y="468.9" fill="#263447" font-size="21">run_command</text>
+<text x="872" y="495.15" fill="#263447" font-size="21">execute_code</text>
+<text x="872" y="521.4" fill="#263447" font-size="21">write_file</text>
+<text x="872" y="547.65" fill="#263447" font-size="21">read_file</text>
+<text x="872" y="573.9" fill="#263447" font-size="21">list_files</text>
+<text x="872" y="600.15" fill="#263447" font-size="21">upload_file</text>
+<text x="872" y="626.4" fill="#263447" font-size="21">send_file_to_user</text>
+<text x="872" y="652.65" fill="#263447" font-size="21">view_image</text>
+<text x="872" y="678.9" fill="#263447" font-size="21">browser</text>
+<text x="872" y="705.15" fill="#263447" font-size="21">manage_workspace</text>
+<text x="872" y="747.0" fill="#53657b" font-size="20">Shell + Python / files / browser / images</text>
+<polyline points="825,575.0 850,575.0" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="839.4690092573155,580.7531064632504 850,575.0 839.4690092573155,569.2468935367496" fill="none" stroke="#53657b" stroke-width="2"/>
+<rect x="850" y="792" width="730" height="181" rx="8" fill="#e3f3f1" stroke="#53657b" stroke-width="2"/>
+<text x="872" y="831.3" fill="#263447" font-size="27">Durable Telegram files</text>
+<text x="872" y="870.9" fill="#263447" font-size="21">list_user_files</text>
+<text x="872" y="897.15" fill="#263447" font-size="21">restore_user_file</text>
+<text x="872" y="923.4" fill="#263447" font-size="21">delete_user_file</text>
+<text x="872" y="960.0" fill="#53657b" font-size="20">R2 objects / sender ownership / restore to workspace</text>
+<polyline points="825,882.5 850,882.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="839.4690092573155,888.2531064632504 850,882.5 839.4690092573155,876.7468935367496" fill="none" stroke="#53657b" stroke-width="2"/>
+<rect x="850" y="1005" width="730" height="154" rx="8" fill="#f1eaff" stroke="#53657b" stroke-width="2"/>
+<text x="872" y="1044.3" fill="#263447" font-size="27">Skills + browser</text>
+<text x="872" y="1083.9" fill="#263447" font-size="21">load_skill</text>
+<text x="872" y="1110.15" fill="#263447" font-size="21">load_skill_resource</text>
+<text x="872" y="1146.0" fill="#53657b" font-size="20">SKILL.md / repo exploration / browser</text>
+<polyline points="825,1082.0 850,1082.0" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="839.4690092573155,1087.7531064632503 850,1082.0 839.4690092573155,1076.2468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
+<rect x="850" y="1191" width="730" height="127" rx="8" fill="#e5f5e8" stroke="#53657b" stroke-width="2"/>
+<text x="872" y="1230.3" fill="#263447" font-size="27">Speech delivery</text>
+<text x="872" y="1269.9" fill="#263447" font-size="21">send_text_to_speech</text>
+<text x="872" y="1305.0" fill="#53657b" font-size="20">Kokoro text -&gt; MP3 -&gt; current Telegram chat</text>
+<polyline points="825,1254.5 850,1254.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="839.4690092573155,1260.2531064632503 850,1254.5 839.4690092573155,1248.7468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
+<rect x="850" y="1350" width="730" height="127" rx="8" fill="#e3f3f1" stroke="#53657b" stroke-width="2"/>
+<text x="872" y="1389.3" fill="#263447" font-size="27">Google Health</text>
+<text x="872" y="1428.9" fill="#263447" font-size="21">get_health_summary</text>
+<text x="872" y="1464.0" fill="#53657b" font-size="20">Read stored summaries / separate OAuth refresh job</text>
+<polyline points="825,1413.5 850,1413.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="839.4690092573155,1419.2531064632503 850,1413.5 839.4690092573155,1407.7468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
+<rect x="850" y="1509" width="730" height="235" rx="8" fill="#e5f5e8" stroke="#53657b" stroke-width="2"/>
+<text x="872" y="1548.3" fill="#263447" font-size="27">Zepto shopping / MCP</text>
+<text x="872" y="1587.9" fill="#263447" font-size="21">zepto_*  (discovered manifest)</text>
+<text x="872" y="1614.15" fill="#263447" font-size="21">zepto_create_order</text>
+<text x="872" y="1640.4" fill="#263447" font-size="21">zepto_create_online_payment_order</text>
+<text x="872" y="1666.65" fill="#263447" font-size="21">zepto_create_upi_reserve_pay_order</text>
+<text x="872" y="1692.9" fill="#263447" font-size="21">zepto_create_wallet_order</text>
+<text x="872" y="1731.0" fill="#53657b" font-size="20">Search / cart / address / history / confirm final order</text>
+<polyline points="825,1626.5 850,1626.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="839.4690092573155,1632.2531064632503 850,1626.5 839.4690092573155,1620.7468935367497" fill="none" stroke="#53657b" stroke-width="2"/>
+<polyline points="825,335 825,1626.5" fill="none" stroke="#53657b" stroke-width="2" stroke-linejoin="round"/>
 <rect x="1640" y="390" width="730" height="289" rx="8" fill="#e3f3f1" stroke="#53657b" stroke-width="2"/>
 <text x="1662" y="429.3" fill="#263447" font-size="27">Meals + nutrition</text>
 <text x="1662" y="468.9" fill="#263447" font-size="21">log_meal</text>

@@ -56,11 +56,14 @@ class SandboxSettings(BaseModel):
     domain: str = "localhost:8080"
     api_key: SecretStr = SecretStr("")
     use_server_proxy: bool = False
-    image: str = "opensandbox/code-interpreter:v1.0.1"
+    image: str = "theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3"
     timeout_seconds: int = Field(default=3600, ge=60, le=3600)
 
 
 class StorageSettings(BaseModel):
+    checkpoint_keep: int = Field(default=3, ge=1, le=100)
+    gc_interval_seconds: int = Field(default=3600, ge=60, le=86400)
+    gc_grace_seconds: int = Field(default=3600, ge=60, le=604800)
     endpoint: str = ""
     bucket: str = ""
     access_key: SecretStr = SecretStr("")
@@ -151,6 +154,7 @@ class Settings(ClientSettings):
     users: dict[str, SecretStr] = Field(default_factory=dict)
     admins: set[str] = Field(default_factory=set)
     web_url: str = ""
+    frontend_secret: SecretStr = SecretStr("")
     provider: Literal["gemini", "openrouter", "openai", "anthropic", "llama", "fake"] = (
         DEFAULT_PROVIDER
     )
@@ -177,11 +181,9 @@ class Settings(ClientSettings):
     max_scheduled_tasks: int = Field(default=50, ge=1, le=200)
     turn_timeout: int = Field(default=300, ge=10, le=3600)
     context_tokens: int | None = Field(default=None, ge=4096)
+    compaction_model: str | None = None
     compaction_trigger_ratio: float = Field(default=0.5, gt=0, le=1)
-    compaction_model: str = "gpt-6-luna"
-    compaction_context_tokens: int | None = Field(default=None, ge=1024)
-    compaction_tail_mode: Literal["current", "lean"] = "lean"
-    compaction_min_tail_user_messages: int = Field(default=1, ge=1, le=20)
+    compaction_tail_ratio: float = Field(default=0.025, gt=0, le=0.5)
     max_output_tokens: int = Field(default=8192, ge=1, le=1_000_000)
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=25 * 1024 * 1024)
     timezone: str = "UTC"
@@ -202,8 +204,11 @@ class Settings(ClientSettings):
     transcription_key: SecretStr = SecretStr("")
     transcription_model: str = "whisper-1"
     kokoro_url: str = ""
-    kokoro_voice: str = "af_heart"
+    kokoro_voice: str = "am_michael(0.7)+bm_george(0.3)"
+    kokoro_speed: float = Field(default=0.9, ge=0.5, le=2)
+    kokoro_key: SecretStr = SecretStr("")
     github: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
+    slack: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
     gmail: OAuthSettings = Field(default_factory=OAuthSettings)
     health: OAuthSettings = Field(default_factory=OAuthSettings)
     token_encryption_key: SecretStr = SecretStr("")
@@ -216,6 +221,8 @@ class Settings(ClientSettings):
     def validate_configuration(self):
         ZoneInfo(self.timezone)
         self.web_url = self.web_url.strip().rstrip("/")
+        if self.frontend_secret and len(self.frontend_secret.get_secret_value()) < 32:
+            raise ValueError("AGENT_FRONTEND_SECRET must contain at least 32 characters.")
         if self.web_url:
             web = urlsplit(self.web_url)
             if (
@@ -243,7 +250,14 @@ class Settings(ClientSettings):
         if not self.admins <= self.users.keys():
             raise ValueError("Each administrator must have a browser token.")
         self.github.check_callback("github")
-        if self.gmail.enabled or self.health.enabled or self.zepto_url or self.github.enabled:
+        self.slack.check_callback("slack")
+        if (
+            self.gmail.enabled
+            or self.health.enabled
+            or self.zepto_url
+            or self.slack.enabled
+            or self.github.enabled
+        ):
             from cryptography.fernet import Fernet
 
             try:

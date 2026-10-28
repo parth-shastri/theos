@@ -1,17 +1,25 @@
 """Gmail tools bound to one owner and current draft approval."""
 
+import asyncio
 import base64
 import json
 from email.message import EmailMessage
+from typing import Annotated
+
+from pydantic import Field
 
 from harness import tool
 from harness.events import _tool_scope
+from theos.services.result_files import for_model
 
 from .client import decode_raw, resource_id
+from .content import message_detail, message_summary
 
 
-def gmail_tools(client, owner):
+def gmail_tools(client, owner, *, result_stager=None, file_importer=None):
     """Build account tools bound to one authenticated private owner."""
+
+    # Only filtered, normalized dictionaries below reach the shared staging helper.
 
     @tool
     async def gmail_connect():
@@ -24,12 +32,41 @@ def gmail_tools(client, owner):
         return await client.oauth.disconnect(owner, "gmail")
 
     @tool(parallel_safe=True)
-    async def gmail_search_messages(query: str, page_token: str | None = None):
-        """Search Gmail messages outside Spam and Trash."""
-        params = {"q": f"({query}) -in:spam -in:trash", "maxResults": 50}
+    async def gmail_search_messages(
+        query: str,
+        page_token: str | None = None,
+        max_results: Annotated[int, Field(ge=1, le=25)] = 10,
+    ):
+        """Return headers and short snippets; pass next_page_token to continue and open a selected ID for its body."""
+        params = {"q": f"({query}) -in:spam -in:trash", "maxResults": max_results}
         if page_token:
             params["pageToken"] = page_token
-        return await client.request(owner, "GET", "messages", params=params)
+        result = await client.request(owner, "GET", "messages", params=params)
+        headers = ["From", "To", "Cc", "Date", "Subject"]
+
+        async def message_metadata(item):
+            message = await client.request(
+                owner,
+                "GET",
+                "messages/" + resource_id(item["id"]),
+                params={"format": "metadata", "metadataHeaders": headers},
+            )
+            return message_summary(message, message_id=item["id"])
+
+        messages = await asyncio.gather(
+            *(message_metadata(item) for item in result.get("messages", []) if item.get("id"))
+        )
+        total_results = result.get("resultSizeEstimate", len(messages))
+        return await for_model(
+            {
+                "messages": messages,
+                "next_page_token": result.get("nextPageToken"),
+                "total_results": total_results,
+            },
+            tool_name="gmail_search_messages",
+            summary=f"Returned {len(messages)} message headers; Gmail estimates {total_results} matches.",
+            save_result=result_stager,
+        )
 
     async def get_message(message_id):
         message = await client.request(
@@ -40,26 +77,68 @@ def gmail_tools(client, owner):
         return message
 
     @tool(parallel_safe=True)
-    async def gmail_get_message(message_id: str):
-        """Read a Gmail message, including its MIME body and attachment IDs."""
-        return await get_message(message_id)
+    async def gmail_get_message(
+        message_id: str,
+        body_offset: Annotated[int, Field(ge=0)] = 0,
+        body_limit: Annotated[int, Field(ge=1, le=12000)] = 4000,
+        include_body: bool = True,
+        include_quoted: bool = False,
+    ):
+        """Read a bounded body range; set include_quoted to include replies and use the returned offset to continue."""
+        message = await get_message(message_id)
+        detail = message_detail(
+            message,
+            body_offset=body_offset,
+            body_limit=body_limit,
+            include_body=include_body,
+            include_quoted=include_quoted,
+        )
+        return await for_model(
+            detail,
+            tool_name="gmail_get_message",
+            summary=(
+                f"Message {detail.get('id')}: {detail.get('body_chars', 0)} body characters, "
+                f"{len(detail.get('attachments', []))} attachments."
+            ),
+            save_result=result_stager,
+        )
 
     @tool(parallel_safe=True)
-    async def gmail_get_thread(thread_id: str):
-        """Read a Gmail thread outside Spam and Trash."""
+    async def gmail_get_thread(
+        thread_id: str,
+        message_limit: Annotated[int, Field(ge=1, le=50)] = 10,
+    ):
+        """List recent message headers in a thread; use gmail_get_message for selected content."""
         thread = await client.request(
-            owner, "GET", "threads/" + resource_id(thread_id), params={"format": "full"}
+            owner,
+            "GET",
+            "threads/" + resource_id(thread_id),
+            params={
+                "format": "metadata",
+                "metadataHeaders": ["From", "To", "Cc", "Date", "Subject"],
+            },
         )
-        thread["messages"] = [
-            m
-            for m in thread.get("messages", [])
-            if not set(m.get("labelIds", [])) & {"SPAM", "TRASH"}
+        visible = [
+            message
+            for message in thread.get("messages", [])
+            if not set(message.get("labelIds", [])) & {"SPAM", "TRASH"}
         ]
-        return thread
+        selected = visible[-message_limit:]
+        return await for_model(
+            {
+                "thread_id": thread_id,
+                "message_count": len(visible),
+                "omitted_older_messages": len(visible) - len(selected),
+                "messages": [message_summary(message) for message in selected],
+            },
+            tool_name="gmail_get_thread",
+            summary=f"Thread {thread_id}: returned {len(selected)} of {len(visible)} message headers.",
+            save_result=result_stager,
+        )
 
     @tool
     async def gmail_download_attachment(message_id: str, attachment_id: str):
-        """Download an attachment from one of your accessible messages."""
+        """Download one selected attachment by ID. Its returned workspace path is ready for analysis."""
         message = await get_message(message_id)
 
         def find_part(part):
@@ -85,22 +164,67 @@ def gmail_tools(client, owner):
             part.get("mimeType", "application/octet-stream"),
             decode_raw(payload["data"]),
         )
-        return {"file_id": row["id"], "name": row["name"]}
+        if file_importer:
+            path = await file_importer(row)
+            return {
+                "path": path,
+                "name": row["name"],
+                "media_type": row["media_type"],
+                "size": row["size"],
+            }
+        return {
+            "file_id": row["id"],
+            "name": row["name"],
+            "media_type": row["media_type"],
+            "size": row["size"],
+        }
 
     @tool(parallel_safe=True)
-    async def gmail_list_drafts(page_token: str | None = None):
-        """List your Gmail drafts."""
-        return await client.request(
+    async def gmail_list_drafts(
+        page_token: str | None = None,
+        max_results: Annotated[int, Field(ge=1, le=25)] = 10,
+    ):
+        """List draft IDs without loading their bodies; inspect a selected draft with gmail_get_draft."""
+        result = await client.request(
             owner,
             "GET",
             "drafts",
-            params={"maxResults": 50, **({"pageToken": page_token} if page_token else {})},
+            params={
+                "maxResults": max_results,
+                **({"pageToken": page_token} if page_token else {}),
+            },
         )
+        return {
+            "drafts": [
+                {"draft_id": item.get("id"), "message_id": item.get("message", {}).get("id")}
+                for item in result.get("drafts", [])
+            ],
+            "next_page_token": result.get("nextPageToken"),
+        }
 
     @tool(parallel_safe=True)
-    async def gmail_get_draft(draft_id: str):
-        """Read a draft with its recipients, subject, body, and content hash."""
-        return await client.preview(owner, draft_id)
+    async def gmail_get_draft(
+        draft_id: str,
+        body_offset: Annotated[int, Field(ge=0)] = 0,
+        body_limit: Annotated[int, Field(ge=1, le=12000)] = 4000,
+    ):
+        """Read selected draft details and a bounded body range before deciding to send."""
+        result = await client.preview(owner, draft_id)
+        body = result.pop("body", "")
+        body_chars = len(body)
+        end = body_offset + body_limit
+        return await for_model(
+            {
+                **result,
+                "body": body[body_offset:end],
+                "body_chars": body_chars,
+                "body_offset": body_offset,
+                "next_body_offset": end if end < body_chars else None,
+            },
+            tool_name="gmail_get_draft",
+            summary=f"Draft {draft_id}: {body_chars} body characters; returned range {body_offset}-{min(end, body_chars)}.",
+            save_result=result_stager,
+        )
 
     @tool
     async def gmail_create_draft(
@@ -148,8 +272,14 @@ def gmail_tools(client, owner):
 
     @tool(parallel_safe=True)
     async def gmail_list_labels():
-        """List Gmail labels."""
-        return await client.request(owner, "GET", "labels")
+        """List Gmail label IDs, names, and types."""
+        result = await client.request(owner, "GET", "labels")
+        return {
+            "labels": [
+                {key: label[key] for key in ("id", "name", "type") if key in label}
+                for label in result.get("labels", [])
+            ]
+        }
 
     @tool
     async def gmail_create_label(name: str):

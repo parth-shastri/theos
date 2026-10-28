@@ -162,23 +162,12 @@ async def test_personal_activity_is_owner_scoped_and_admin_dashboard_has_no_cont
         assert (await browser.get(f"/api/sessions/{bob['id']}")).status_code == 404
 
 
-async def test_browser_serves_markdown_dependencies_locally_with_existing_csp(runtime):
+async def test_api_does_not_serve_the_separate_frontend(runtime):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=create_app(runtime.settings, runtime)),
         base_url="http://test",
     ) as browser:
-        page = await browser.get("/")
-        assets = [
-            "vendor/marked.umd.js",
-            "vendor/purify.min.js",
-            "markdown.js",
-            "charts.js",
-            "app.js",
-        ]
-        assert [page.text.index(f"/static/{asset}") for asset in assets] == sorted(
-            page.text.index(f"/static/{asset}") for asset in assets
-        )
-        for asset in assets:
-            response = await browser.get(f"/static/{asset}")
-            assert response.status_code == 200
+        for path in ("/", "/static/app.js", "/_next/static/app.js"):
+            response = await browser.get(path)
+            assert response.status_code == 404
             assert "script-src 'self'" in response.headers["Content-Security-Policy"]

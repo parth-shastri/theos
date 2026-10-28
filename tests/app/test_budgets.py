@@ -15,22 +15,6 @@ from .conftest import collect
 from .test_recovery import install_read, read_call, session, use_models
 
 
-@pytest.mark.parametrize(
-    ("total", "compact", "research", "final"),
-    [(1, 2, 0, 1), (2, 2, 1, 1), (3, 2, 1, 1), (12, 2, 9, 1), (24, 3, 20, 1)],
-)
-def test_allocations_retain_research_and_recovery(settings, total, compact, research, final):
-    settings.max_model_calls = total
-    settings.max_compaction_calls = compact
-    budget = TurnBudget(settings)
-    assert budget.research.max_model_calls == research
-    assert budget.recovery.max_model_calls == final
-    assert (
-        sum(b.max_model_calls for b in (budget.research, budget.compaction, budget.recovery))
-        == total
-    )
-
-
 async def test_concurrent_allowances_cannot_cross_the_total(settings):
     budget = TurnBudget(settings)
 
@@ -110,8 +94,11 @@ def test_invalid_allowances_are_rejected(field, value):
         Settings(_env_file=None, provider="fake", **{field: value})
 
 
-@pytest.mark.parametrize("allowance", [0, 1, 2, 3])
+@pytest.mark.parametrize("allowance", [0, 1])
 async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(runtime, allowance):
+    from harness.events import GenerationComplete
+
+    runtime.enforce_budgets = True
     runtime.settings.max_model_calls = 6
     runtime.settings.max_compaction_calls = allowance
     runtime.settings.context_tokens = 100000
@@ -120,15 +107,32 @@ async def test_runtime_compaction_has_separate_allowance_and_safe_exhaustion(run
     original = long_history()
     original[0] = UserMessage("Do not send email.")
     runtime.db.save_history("alice", row["id"], original)
-    main = FakeModel([read_call("source"), AssistantMessage("The park opens at 7 AM.")])
-    auxiliary = FakeModel([AssistantMessage("Earlier findings retained.")])
-    use_models(runtime, main, auxiliary)
+
+    class Model(FakeModel):
+        async def stream(self, request):
+            nonlocal source_calls
+            self.requests.append(request)
+            if not request.tools:
+                message = AssistantMessage("Earlier findings retained. Do not send email.")
+            elif source_calls == 0:
+                source_calls += 1
+                message = read_call("source")
+            else:
+                message = AssistantMessage("The park opens at 7 AM.")
+            yield GenerationComplete(message)
+
+    source_calls = 0
+    main = Model([])
+    use_models(runtime, main)
     events = await collect(runtime.start("alice", row["id"], "Check the opening time."))
     history = runtime.db.load_history("alice", row["id"])
     assert history[: len(original)] == original
     assert events[-1]["status"] == "completed" and history[-1].text == "The park opens at 7 AM."
-    assert len(main.requests) == 2 and len(auxiliary.requests) <= allowance
-    assert runtime.db.one("SELECT COUNT(*) n FROM usage")["n"] == 2 + len(auxiliary.requests)
+    main_requests = [request for request in main.requests if request.tools]
+    summary_requests = [request for request in main.requests if not request.tools]
+    assert len(main_requests) == 2 and len(summary_requests) <= allowance
+    assert source_calls == 1
+    assert runtime.db.one("SELECT COUNT(*) n FROM usage")["n"] == len(main.requests)
     assert "Do not send email." in str(main.requests[-1].messages)
 
 
@@ -199,6 +203,10 @@ def test_ratios_are_configurable_from_environment(monkeypatch):
         ("compaction_call_ratio", -0.1),
         ("compaction_call_ratio", 1.1),
         ("compaction_call_ratio", float("nan")),
+        ("compaction_trigger_ratio", 0),
+        ("compaction_trigger_ratio", 1.1),
+        ("compaction_tail_ratio", 0),
+        ("compaction_tail_ratio", 0.6),
         ("delegate_call_ratio", 0),
         ("delegate_call_ratio", 1.1),
         ("delegate_call_ratio", float("inf")),

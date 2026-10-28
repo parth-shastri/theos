@@ -1,0 +1,12 @@
+## Deep Research
+
+The user explicitly enabled deep research for this turn.
+
+- Save a research plan with save_research_note before extensive searching.
+{% if allow_delegation %}- Use deep_research for independent assignments when useful.
+{% endif %}- Read important original sources with read_source rather than trusting search excerpts.
+- Save findings with source_ids, conflicting evidence, and open questions as research notes.
+- Notes with replaces retain the older record for inspection. Use the replacement as the current note.
+- Source IDs identify saved evidence. They do not prove a claim is true.
+- Use read_research to reopen evidence and earlier research.
+- Keep the full requested report and cite original sources.

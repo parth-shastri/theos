@@ -35,21 +35,24 @@ class Deployer:
         self.pending_path = self.directory / "pending.json"
         self.result_path = self.directory / "deployment-result.json"
 
-    def docker(self, *args):
+    def docker(self, *args, timeout=300):
         try:
             return subprocess.run(
                 ["docker", *args],
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=300,
+                timeout=timeout,
             ).stdout.strip()
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
             raise DeploymentError(f"Docker command failed: {' '.join(args[:3])}") from error
 
     def compose(self, release, *args):
         environment = dict(
-            os.environ, AGENT_IMAGE=release["image"], AGENT_DATA_VOLUME=release["volume"]
+            os.environ,
+            AGENT_IMAGE=release["image"],
+            AGENT_DATA_VOLUME=release["volume"],
+            AGENT_WEB_IMAGE=release.get("web_image", "theos-web:local"),
         )
         command = [
             "docker",
@@ -75,17 +78,25 @@ class Deployer:
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
             raise DeploymentError(f"Compose command failed: {' '.join(args)}") from error
 
+    @staticmethod
+    def services(release):
+        return ("theos", "web") if release.get("web_image") else ("theos",)
+
     def healthy(self, release):
         deadline = time.monotonic() + self.health_timeout
         while time.monotonic() < deadline:
-            container = self.compose(release, "ps", "-q", "theos")
-            if container:
-                raw = self.docker("inspect", container)
-                state = json.loads(raw)[0]["State"]
-                if state.get("Health", {}).get("Status") == "healthy":
-                    return
+            healthy = True
+            for service in self.services(release):
+                container = self.compose(release, "ps", "-q", service)
+                if not container:
+                    healthy = False
+                    continue
+                state = json.loads(self.docker("inspect", container))[0]["State"]
                 if state.get("Status") in {"exited", "dead"}:
-                    break
+                    raise DeploymentError(f"The {service} service stopped before readiness.")
+                healthy = healthy and state.get("Health", {}).get("Status") == "healthy"
+            if healthy:
+                return
             time.sleep(2)
         raise DeploymentError("Application readiness did not pass before the deadline.")
 
@@ -104,9 +115,13 @@ class Deployer:
             print(output)
 
     def restore_previous(self, candidate, previous):
-        self.compose(candidate, "stop", "theos")
+        self.compose(candidate, "stop", *self.services(candidate))
+        for kind in ("backup", "restore"):
+            self.remove_helper(f"theos-{kind}-{candidate['revision'][:12]}")
         if previous:
-            self.compose(previous, "up", "--no-build", "--pull", "never", "-d", "theos")
+            self.compose(
+                previous, "up", "--no-build", "--pull", "never", "-d", *self.services(previous)
+            )
             self.healthy(previous)
         self.pending_path.unlink(missing_ok=True)
 
@@ -121,11 +136,37 @@ class Deployer:
             return
         self.restore_previous(pending["candidate"], pending["previous"])
 
+    def remove_helper(self, name):
+        container = self.docker("ps", "-aq", "--filter", f"name=^/{name}$")
+        if container:
+            try:
+                self.docker("rm", "-f", container)
+            except DeploymentError:
+                # The --rm process can finish between the lookup and removal.
+                if self.docker("ps", "-aq", "--filter", f"id={container}"):
+                    raise
+
+    def run_helper(self, name, *args, timeout):
+        """Remove an interrupted helper before rollback reopens the data volume."""
+        try:
+            return self.docker(
+                "run",
+                "--rm",
+                "--name",
+                name,
+                "--no-healthcheck",
+                "--label",
+                "theos.deployment-helper=true",
+                *args,
+                timeout=timeout,
+            )
+        finally:
+            self.remove_helper(name)
+
     def snapshot(self, previous, candidate):
         archive = f"/data/backups/{candidate['tag']}-{candidate['revision'][:12]}.tar.gz"
-        self.docker(
-            "run",
-            "--rm",
+        self.run_helper(
+            f"theos-backup-{candidate['revision'][:12]}",
             "--network",
             "none",
             "--read-only",
@@ -140,6 +181,7 @@ class Deployer:
             "create",
             "/data",
             archive,
+            timeout=1800,
         )
         # Restore with the old code; only the candidate runs new migrations.
         restore_code = (
@@ -148,9 +190,8 @@ class Deployer:
             'os.chown("/restore",10001,10001); '
             '[os.chown(p,10001,10001) for p in Path("/restore").rglob("*")]'
         )
-        self.docker(
-            "run",
-            "--rm",
+        self.run_helper(
+            f"theos-restore-{candidate['revision'][:12]}",
             "--user",
             "0",
             "--network",
@@ -166,16 +207,21 @@ class Deployer:
             "python",
             "-c",
             restore_code,
+            timeout=900,
         )
         return f"{previous['volume']}:{archive}"
 
-    def deploy(self, image, tag, revision):
+    def deploy(self, image, tag, revision, web_image=None):
         if not re.fullmatch(r"ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[a-f0-9]{64}", image):
             raise DeploymentError("Use an immutable GHCR image digest.")
         if not re.fullmatch(r"rpi-v\d+\.\d+\.\d+", tag) or not re.fullmatch(
             r"[a-f0-9]{40}", revision
         ):
             raise DeploymentError("Invalid release tag or commit revision.")
+        if web_image and not re.fullmatch(
+            r"ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[a-f0-9]{64}", web_image
+        ):
+            raise DeploymentError("Use an immutable GHCR frontend image digest.")
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         environment = self.directory / ".env"
         if not environment.is_file():
@@ -183,9 +229,9 @@ class Deployer:
         environment.chmod(0o600)
         with (self.directory / "deploy.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            return self.deploy_locked(image, tag, revision)
+            return self.deploy_locked(image, tag, revision, web_image)
 
-    def deploy_locked(self, image, tag, revision):
+    def deploy_locked(self, image, tag, revision, web_image=None):
         self.recover_interrupted()
         previous = json.loads(self.current_path.read_text()) if self.current_path.exists() else None
         existing = self.docker(
@@ -198,7 +244,12 @@ class Deployer:
         )
         if existing and not previous:
             raise DeploymentError("An unmanaged Theos service exists. Adopt it before deployment.")
-        if previous and previous["image"] == image and previous["revision"] == revision:
+        if (
+            previous
+            and previous["image"] == image
+            and previous["revision"] == revision
+            and previous.get("web_image") == web_image
+        ):
             self.healthy(previous)
             self.telegram_ready(previous)
             result = dict(status="already_deployed", current=previous)
@@ -218,11 +269,15 @@ class Deployer:
             volume=f"{self.project_name}-rpi-{revision[:12]}-{uuid.uuid4().hex[:8]}",
             activated_at=datetime.now(UTC).isoformat(),
         )
+        if web_image:
+            candidate["web_image"] = web_image
         result = dict(status="failed", candidate=candidate, previous=previous, backup=None)
         changing = False
         try:
             # Pull and validate configuration while the previous service stays available.
             self.docker("pull", image)
+            if web_image:
+                self.docker("pull", web_image)
             self.compose(candidate, "config", "--quiet")
             self.docker("volume", "create", candidate["volume"])
             self.docker(
@@ -245,9 +300,11 @@ class Deployer:
             write_json(self.pending_path, dict(candidate=candidate, previous=previous))
             changing = True
             if previous:
-                self.compose(previous, "stop", "theos")
+                self.compose(previous, "stop", *self.services(previous))
                 result["backup"] = self.snapshot(previous, candidate)
-            self.compose(candidate, "up", "--no-build", "--pull", "never", "-d", "theos")
+            self.compose(
+                candidate, "up", "--no-build", "--pull", "never", "-d", *self.services(candidate)
+            )
             self.healthy(candidate)
             self.telegram_ready(candidate)
             write_json(self.current_path, candidate)
@@ -273,6 +330,7 @@ class Deployer:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", required=True)
+    parser.add_argument("--web-image", required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--deploy-dir", type=Path, default=Path.home() / "theos-deploy")
@@ -285,7 +343,7 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     try:
         result = Deployer(args.deploy_dir, args.compose_file).deploy(
-            args.image, args.tag, args.revision
+            args.image, args.tag, args.revision, args.web_image
         )
     except (DeploymentError, BlockingIOError) as error:
         parser.exit(1, f"{error}\n")

@@ -1,4 +1,8 @@
-"""Telegram polling, durable updates, media, commands, and approval buttons."""
+"""Telegram's boundary: receive updates, identify users, then hand work to Theos.
+
+This module does not run the model loop itself. It turns Telegram-shaped updates into
+Theos conversations and hands the resulting turn back to the Telegram renderer.
+"""
 
 import asyncio
 import json
@@ -6,26 +10,42 @@ import logging
 import time
 
 import httpx
-from cryptography.fernet import Fernet
 
 from theos.services.errors import ServiceError
 from theos.services.zepto.auth import prepare_telegram_update as prepare_zepto_update
 from theos.storage.telegram_access import prepare_update as prepare_access_update
 
-from . import approval_messages, client, commands, media, onboarding, rendering, web_access
+from . import (
+    approval_messages,
+    client,
+    commands,
+    connections,
+    media,
+    onboarding,
+    rendering,
+    web_access,
+)
 
 logger = logging.getLogger("theos")
 
 
-def prepare_update(settings, update):
+def prepare_update(settings, update, db=None):
     """Redact one-time account credentials before the durable Telegram inbox."""
-    return prepare_zepto_update(settings, prepare_access_update(settings, update))
+    # Telegram updates can contain one-time access or account-return secrets. Remove them
+    # before the raw update is stored, so a restartable inbox is not also a secret store.
+    return prepare_zepto_update(
+        settings,
+        prepare_access_update(settings, update),
+        return_prompt=connections.is_return_reply(db, update),
+    )
 
 
 class Telegram:
     """Keep transport access checks outside model-controlled tool arguments."""
 
     def __init__(self, runtime):
+        # Reuse the application's database, HTTP client, configuration, and service layer;
+        # the transport should not create a second copy of those long-lived resources.
         self.runtime = runtime
         self.settings = runtime.settings
         self.db = runtime.db
@@ -45,20 +65,26 @@ class Telegram:
 
     def identity(self, message, sender=None):
         """Authenticate the sender and derive an isolated owner identity."""
+        # A callback button has its own sender field, while a normal message keeps it
+        # under "from". Both forms must pass the same checks before reaching user data.
         sender = sender or message.get("from", {})
         user_id = sender.get("id")
         chat = message.get("chat", {})
         chat_id, kind = chat.get("id"), chat.get("type")
         if type(user_id) is not int or user_id <= 0 or sender.get("is_bot"):
             raise PermissionError("This Telegram sender is not a user.")
+        # An optional configured allowlist is an early gate, before creating a session.
         if self.settings.telegram_users and user_id not in self.settings.telegram_users:
             raise PermissionError("This Telegram user is not allowed.")
         if kind == "private":
+            # In a private chat, Telegram's chat ID must match the person ID. This gives
+            # the conversation the same stable owner key used by personal services.
             if chat_id != user_id:
                 raise PermissionError("The private chat identity does not match its sender.")
             owner, channel = f"telegram:{user_id}", "telegram-private"
         elif kind in {"group", "supergroup"} and chat_id in self.settings.telegram_chats:
             # Group conversations cannot access the sender's private records or accounts.
+            # Include both group and topic IDs so separate topics do not share history.
             owner, channel = (
                 f"telegram-group:{chat_id}:{message.get('message_thread_id', 0)}:{user_id}",
                 "telegram-group",
@@ -70,6 +96,8 @@ class Telegram:
 
     def session(self, owner, channel, address):
         """Find or create the conversation for this owner and chat address."""
+        # Stable owner/channel/address keys make a Telegram chat resume its history after
+        # restart, while keeping private, group, and topic conversations separate.
         row = self.db.one(
             "SELECT * FROM sessions WHERE owner=? AND channel=? AND address=?",
             (owner, channel, address),
@@ -105,8 +133,12 @@ class Telegram:
 
     async def handle(self, updates):
         """Route an authenticated update group to a command, approval, or turn."""
-        updates = [prepare_update(self.settings, update) for update in updates]
+        # Redact again at the routing boundary too: callers may supply an update group
+        # that did not come through this poller's normal save path.
+        updates = [prepare_update(self.settings, update, self.db) for update in updates]
         first = updates[0]
+        # Telegram puts button presses in callback_query and chat messages in message.
+        # Both need the associated chat message to find the owner and destination.
         callback = first.get("callback_query")
         message = (callback or {}).get("message") or first.get("message")
         if not message:
@@ -115,6 +147,8 @@ class Telegram:
             "_theos_zepto_return_invalid"
         )
         if sensitive_return and not callback:
+            # The encrypted return value is still sensitive. Remove the visible Telegram
+            # message when possible; the database copy was already redacted above.
             try:
                 await self.api(
                     "deleteMessage",
@@ -126,52 +160,29 @@ class Telegram:
         owner, channel, address, chat, topic = self.identity(
             message, callback.get("from") if callback else None
         )
+        # Downloads and routing can await network calls. Serialize each conversation so
+        # two quick messages do not race while creating sessions or ordering history.
         async with self.chat_locks.setdefault((owner, address), asyncio.Lock()):
+            # Setup and browser-access callbacks are deterministic account flows, not
+            # requests for the model. Each handler returns True when it consumed the update.
             if await onboarding.handle(self, message, owner, channel, chat, topic, callback):
                 return
             if await web_access.handle(self, message, owner, channel, chat, topic, callback):
                 return
+            if await connections.handle(self, message, owner, channel, chat, topic, callback):
+                return
             if sensitive_return:
+                # This handoff carries a short-lived encrypted URL from the account
+                # connection flow. Accept it only in the owner's private chat.
                 if callback or channel != "telegram-private":
                     await self.send(chat, "Finish Zepto setup in a private Telegram chat.", topic)
                     return
-                if message.get("_theos_zepto_return_invalid"):
-                    await self.send(
-                        chat,
-                        "The Zepto return URL is too long or encryption is unavailable. Start again with /connect_zepto.",
-                        topic,
-                    )
-                    return
-                key = self.settings.token_encryption_key.get_secret_value()
-                try:
-                    return_url = (
-                        Fernet(key.encode())
-                        .decrypt(message["_theos_zepto_return"].encode())
-                        .decode()
-                    )
-                    await self.runtime.zepto.finish_from_telegram(owner, return_url)
-                except Exception as error:
-                    if isinstance(error, (ValueError, ServiceError, PermissionError)):
-                        await self.send(chat, str(error), topic)
-                    else:
-                        logger.warning(
-                            "zepto_return_failed",
-                            extra={"error_type": type(error).__name__},
-                        )
-                        await self.send(
-                            chat,
-                            "The Zepto return link could not be accepted. Start again with /connect_zepto.",
-                            topic,
-                        )
-                else:
-                    await self.send(
-                        chat,
-                        "The Zepto return was accepted. I will confirm the connection here.",
-                        topic,
-                    )
+                await connections.accept_return(self, message, owner, chat, topic)
                 return
             session = self.session(owner, channel, address)
             if callback:
+                # Approval buttons contain only a decision marker and saved approval ID.
+                # Runtime rechecks the saved action and resumes the waiting conversation.
                 data = callback.get("data", "")
                 if not data.startswith(("a:", "d:")):
                     raise ValueError("Unknown approval response.")
@@ -187,17 +198,23 @@ class Telegram:
                 return
             text = message.get("text", "")
             if text.startswith("/"):
+                # Slash commands are parsed by Theos so help/settings/connection commands
+                # do not consume a model call or become ordinary chat text.
                 command, _, argument = text.partition(" ")
                 await self.command(session, command.split("@")[0], argument.strip(), chat, topic)
                 return
             texts, files = [], []
             for update in updates:
                 item = update["message"]
+                # Telegram albums arrive as multiple updates. Refuse to combine parts from
+                # different people or topics into one model turn.
                 if self.identity(item)[:3] != (owner, channel, address):
                     raise PermissionError("An album contains messages from different identities.")
                 attached, transcript = await self.media(item, owner)
                 files.extend(attached)
                 texts.append(item.get("text") or item.get("caption") or transcript)
+            # The runtime checks file ownership and builds the model's UserMessage.
+            # Rendering is started here while the runtime produces events in the background.
             turn = self.runtime.start(
                 owner,
                 session["id"],
@@ -209,6 +226,7 @@ class Telegram:
     async def process(self, updates):
         """Record the outcome of one accepted update group."""
         ids = [u["update_id"] for u in updates]
+        # Mark the group before awaiting the handler so another poll cannot claim it.
         for update_id in ids:
             self.db.execute("UPDATE telegram_updates SET status='running' WHERE id=?", (update_id,))
         status = "completed"
@@ -216,11 +234,15 @@ class Telegram:
             await self.handle(updates)
         except asyncio.CancelledError:
             # Shutdown can interrupt a reply after an external write succeeds.
+            # Keep this distinct from a clean failure: repeating the user request may repeat an action.
             status = "uncertain"
             raise
         except PermissionError:
+            # A rejected sender is a known denial, not a transport or model failure.
             status = "denied"
         except Exception as error:
+            # Delivery or an external tool may have succeeded before an exception surfaced.
+            # Tell the user to review the external service instead of silently replaying it.
             status = "uncertain"
             logger.error("telegram_update_failed", extra={"error_type": type(error).__name__})
             message = updates[0].get("message")
@@ -239,6 +261,8 @@ class Telegram:
                 update = next((item for item in updates if item["update_id"] == update_id), None)
                 if update:
                     message = update.get("message", {})
+                    # Never leave a one-time account URL in the inbox after processing it.
+                    # Replace the stored payload with a harmless marker for restart recovery.
                     if "_theos_zepto_return" in message or message.get(
                         "_theos_zepto_return_invalid"
                     ):
@@ -255,6 +279,8 @@ class Telegram:
 
     async def receive_updates(self):
         """Poll from the last offset committed with the inbox records."""
+        # Telegram uses offset as its acknowledgement: the next poll starts after every
+        # update already committed to our local inbox.
         saved = self.db.one("SELECT value FROM application_state WHERE key='telegram_offset'")
         offset = int(saved["value"]) if saved else 0
         return await self.api(
@@ -265,13 +291,15 @@ class Telegram:
     def save_updates(self, updates):
         """Commit the inbox and offset together before the next poll."""
         # A crash must not leave an acknowledged update outside the durable inbox.
+        # Save both pieces in one transaction so Telegram cannot advance past an update
+        # that Theos failed to record.
         with self.db.transaction():
             for update in updates:
                 self.db.execute(
                     "INSERT OR IGNORE INTO telegram_updates(id,payload,received) VALUES (?,?,?)",
                     (
                         update["update_id"],
-                        json.dumps(prepare_update(self.settings, update)),
+                        json.dumps(prepare_update(self.settings, update, self.db)),
                         time.time(),
                     ),
                 )
@@ -284,6 +312,8 @@ class Telegram:
 
     def pending_groups(self):
         """Group pending album parts without including uncertain updates."""
+        # Only pending rows are eligible for a new handler. Running, completed, denied,
+        # and uncertain rows must not be replayed as new user requests.
         pending = self.db.rows(
             "SELECT payload,received FROM telegram_updates "
             "WHERE status='pending' ORDER BY id LIMIT 100"
@@ -309,6 +339,7 @@ class Telegram:
             if is_album and time.time() - last_received < 1.5:
                 continue
             if len(self.tasks) >= self.settings.max_concurrent_turns:
+                # Bound simultaneous Telegram work to the same configured runtime capacity.
                 break
             # Claim before scheduling so the next poll cannot start the same update twice.
             for update in updates:
@@ -331,6 +362,8 @@ class Telegram:
                 self.save_updates(updates)
                 # 3. Start bounded work from the inbox, including messages saved before restart.
                 self.dispatch_updates()
+                # Resolved approval cards can linger when a decision came from another client;
+                # periodically remove those old Telegram messages as a cleanup pass.
                 if time.monotonic() - last_cleanup >= 10:
                     last_cleanup = time.monotonic()
                     await approval_messages.cleanup(self)
@@ -340,6 +373,8 @@ class Telegram:
 
     async def close(self):
         """Stop polling and await cancellation of active handlers."""
+        # Wait for cancelled handlers so the application closes its shared database and
+        # HTTP client only after Telegram work has stopped using them.
         self.stopping.set()
         for task in self.tasks:
             task.cancel()

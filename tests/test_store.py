@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from harness.store import JsonlStore, MemoryStore, Store
+from harness.store import JsonlStore, MemoryStore
 from harness.types import (
     AssistantMessage,
     SystemMessage,
@@ -33,11 +33,6 @@ def sample_history() -> list:
     ]
 
 
-def test_memory_store_and_jsonl_store_satisfy_the_protocol():
-    assert isinstance(MemoryStore(), Store)
-    assert isinstance(JsonlStore(Path(".")), Store)
-
-
 async def test_memory_store_returns_none_for_an_unknown_key():
     assert await MemoryStore().load("missing") is None
 
@@ -63,7 +58,7 @@ async def test_jsonl_store_returns_none_when_the_file_is_absent(tmp_path: Path):
 
 
 async def test_jsonl_store_round_trip_keeps_views(tmp_path: Path):
-    store = JsonlStore(tmp_path)
+    store = JsonlStore(tmp_path / "new-sessions")
     history = sample_history()
     await store.save("thread-1", history)
     loaded = await store.load("thread-1")
@@ -87,12 +82,6 @@ async def test_jsonl_store_save_overwrites_and_leaves_no_temporary_file(tmp_path
     await store.save("thread-1", [UserMessage(content="fresh")])
     assert await store.load("thread-1") == [UserMessage(content="fresh")]
     assert [p.name for p in tmp_path.iterdir()] == ["thread-1.jsonl"]
-
-
-async def test_jsonl_store_creates_the_directory_on_save(tmp_path: Path):
-    store = JsonlStore(tmp_path / "sessions")
-    await store.save("thread-1", [UserMessage(content="hi")])
-    assert (tmp_path / "sessions" / "thread-1.jsonl").exists()
 
 
 async def test_jsonl_store_saves_an_empty_history(tmp_path: Path):

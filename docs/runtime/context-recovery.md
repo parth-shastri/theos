@@ -1,230 +1,228 @@
-# Context compression and task workspaces
+# Context compaction and task workspaces
 
-Theos uses one compression policy for parent agents, delegates, and final responses.
-The policy protects the head and recent tail, prunes tool output first, and summarizes the middle with an auxiliary model.
-The source revision and MIT license are in `src/harness/compression_provenance.json` and `src/harness/compression_LICENSE`.
-Theos supplies message, provider, storage, and asynchronous execution adapters around that policy.
+The harness keeps the complete transcript and builds a smaller view for each model request.
+Compaction changes only that view. The saved messages remain available through history tools.
 
-Open the [editable context and workspace diagram](context-workspace.excalidraw).
+## Rolling summary algorithm
 
-## End-to-end algorithm
+1. Build a request from the stable instructions, current summary, recent messages, tools, and output setting.
+2. Estimate the complete request, including tool schemas and images.
+   Compact at the configured trigger ratio or when input plus output does not fit.
+   The default trigger ratio is 50%.
+3. Keep the configured fraction of recent messages as the raw tail.
+   The default tail ratio is 2.5% of the context window.
+   Keep a new unanswered user message verbatim.
+   Keep each tool call with its results, or summarize the completed batch as a whole.
+   Unfinished tool batches remain verbatim during normal compaction and overflow recovery.
+4. Summarize earlier conversation history with the initial or update prompt.
+   Supply the existing summary and only newly covered messages.
+   Use the active model by default, or `AGENT_COMPACTION_MODEL` when set.
+   Summary calls have no tools and cap output at the tail ratio of the summary model's context.
+5. When the boundary splits a turn, summarize its original request and earlier progress in a separate call.
+   Combine the history summary and split-turn summary into one checkpoint.
+   Reuse the existing history summary when no new earlier history needs a summary call.
+   If the original request already belongs to the checkpoint, update that checkpoint with new progress.
+6. If one old message exceeds the configured trigger budget, give the summary its history index and tool identifiers.
+   Keep its full content in the transcript for exact recovery through history tools.
+   Include the original user request in full when building a split-turn summary.
+7. Rebuild the request as system instructions, the combined checkpoint, and the retained messages.
+   Do not insert a covered user request after the checkpoint.
+   If it still does not fit, ask the model for shorter summaries in three tiers.
+   Save the new summary and its transcript boundary only after the complete request fits.
+   Both summary calls must succeed before a split-turn checkpoint can replace the previous view.
+   The callback also saves the working session checkpoint.
+8. If the provider rejects a request, leave the failed attempt out of active history.
+   Summarize completed progress and retry with a smaller request.
+   Keep new unanswered user messages and unfinished tool batches verbatim.
+   A retry never repeats a completed tool call.
 
-1. Save each user message and completed tool result in the conversation journal.
-   Preserve the original transcript independently of the model's working context.
-2. For Gmail and Health read tools, save the complete response before returning a readable page.
-   Return a source ID, storage status, and continuation offset with that page.
-3. Build the next model request from the working context and new journal messages.
-   Attach current instructions, tool schemas, research references, and the requested output limit.
-4. Save a checkpoint before the model call.
-   Use provider input usage when the request prefix and tool schemas match the saved usage anchor.
-   Otherwise, use the upstream UTF-8-aware rough estimate, including schemas and image costs.
-5. Compare the complete input against the compression threshold and available input space.
-   If neither limit is reached, call the model.
-6. When compression is needed, prune duplicate and old tool results first.
-   Protect a recent pending tool round when it fits its allocation.
-   Preserve tool-call arguments and keep complete call/result groups.
-7. If pruning supplies enough space, save the working context and continue.
-   Otherwise, select the protected head and a tail by token cost.
-   The first compression protects the system prefix and three additional messages.
-   Later compressions reduce that additional head protection because the summary carries earlier context.
-8. Summarize the middle with the previous summary, exact identifiers, user quotations, and saved research references.
-   Sample large summary inputs across the middle within 160,000 characters.
-   Fit the sample to the auxiliary model's capacity before its single summary request.
-   Use the scaled summary target in the prompt, without a hard summary output cap.
-9. Reject empty, refused, or truncated summaries.
-   A distinct auxiliary model gets one retry through the main model.
-   These failures discard the rejected output and apply a cooldown to later summary calls.
-   Repeated timeouts or sustained overload can produce a deterministic continuity summary.
-10. Check the complete candidate against the window after reserving output space.
-    If necessary, cut tool results, optional replay data, summary text, old complete exchanges, and optional tool documentation.
-    Check again after each cut until the request fits. This loop has no fixed retry count.
-    If a summary fails, apply the same cuts to the remaining request.
-    Preserve current instructions, active user messages, pending tool batches, and tool validation contracts.
-11. Save the fitted working context, full reference index, transcript boundary, and recovery state together.
-    Publish the candidate only after its checkpoint succeeds. A failed transaction restores previous active memory.
-    Continue the task with the same tool names and saved sources.
-12. Save another checkpoint after the model response, after tools, and when the turn ends.
-    If the provider rejects context, reduce the rejected request before another attempt. There is no fixed retry count.
-    A retry must reduce estimated tokens, or serialized bytes when the token estimate stays equal.
-    Recovery never repeats a completed tool or retries an identical request.
-    Only a provider-reported limit can lower the saved model capacity. Recovery does not guess a smaller window.
+The summary is labeled as fallible context, not an instruction or proof of action.
+The model can search and read exact saved messages with `history_search` and `history_read`.
+If safe compaction cannot make a request fit, the runtime reports a context failure.
+It does not remove the current task or claim that omitted evidence was reviewed.
 
-The check happens immediately before each main model call, after application hooks finish building the request.
-Compaction does not run as an independent research agent with its own tool loop.
-The summary model receives a bounded request without tools.
+The code lives in `src/harness/compaction.py` and `src/harness/context_size.py`.
+The runtime supplies the summary model, ratios, model options, and checkpoint callback in `src/theos/runtime/context.py`.
 
-## Text summary structure
+## Summary prompts
 
-The summary model returns Markdown text with the pinned policy's section headings.
-The application does not request JSON generation or parse summary prose as JSON.
-Fresh summaries and later updates use the same template:
+The harness owns shared grounding rules and separate initial, update, and split-turn prompts.
+Their production templates live under `src/harness/prompts/compaction/` as ordinary Markdown Jinja files.
+Theos can override individual prompts through `CompactionConfig`. Missing overrides retain harness defaults.
+See [prompt templates](prompts.md) for the override filenames and rendering rules.
+Initial and update prompts use the same Markdown sections: Goal, Constraints & Preferences, Progress, Key Decisions, Next Steps, and Critical Context.
+The update prompt preserves relevant earlier facts and applies new corrections, confirmed progress, and resolved blockers.
+It keeps uncertain actions separate from confirmed completion.
 
-```text
-## Historical Task Snapshot
-## Goal
-## Constraints & Preferences
-## Completed Actions
-## Active State
-## Blocked
-## Key Decisions
-## Errors & Fixes
-## Resolved Questions
-## Relevant Files
-## Critical Context
-## Detailed Session Log (oldest first)
-```
+The split-turn prompt has its own summary call and includes the original user request.
+It uses Original Request, Progress So Far, and Context Needed to Continue sections.
+The combined checkpoint places the split-turn summary after the earlier history summary.
+Retained messages follow the checkpoint in their original order.
+The covered original request appears inside the checkpoint and is not repeated as a fresh user message.
 
-Lean mode includes the detailed session log. The prompt requests Pruned Skills only when relevant markers exist.
-Code supplies Anchor Index, User Messages, and Context Recovery sections from original data.
-Code replaces model-written versions of those sections before publication.
+The checkpoint uses the provider's user-message role and identifies its contents as fallible conversation history.
+It instructs the model to continue from saved progress without repeating completed work.
+The full transcript remains unchanged.
 
-The reference index includes exact tool identifiers, original message indices, and saved research IDs.
-It also identifies unknown tool outcomes. A summary cannot establish that an uncertain action succeeded.
-The model request receives a bounded reference index. Saved memory retains the full index in `state.references`.
-SQLite and later R2 checkpoints retain this index with the working context and full transcript.
-Research IDs come from owned application records. The model does not need to repeat every ID for acceptance.
+`CompactionConfig.additional_instructions` adds optional focus to each summary request.
+Shortening passes request a paragraph, three sentences, and then one sentence.
+They omit the structured format so the heading requirements cannot conflict with the shorter output.
+Each history, split-turn, or shortening call uses the shared summary allowance and records its own usage.
+If either part fails, keep the previous view when it still fits. Otherwise, report a context failure.
 
-The runtime saves parent history and memory before the next answer request.
-A failed SQLite transaction restores the previous active memory. Child summaries never replace the parent session.
-Existing history tools recover omitted details by original message index or tool call ID.
+New checkpoints use memory schema version 5.
+Version 4 checkpoints recover their omitted request from saved history and include it inside the checkpoint.
+They retain the old schema marker until a successful compaction saves the complete replacement.
+Legacy saved working views remain readable until their next successful compaction.
 
-`AGENT_COMPACTION_TAIL_MODE=lean` retains the current recovery policy's default token tail.
-Set it to `current` for a larger recent tail without the detailed session log.
-`AGENT_COMPACTION_MIN_TAIL_USER_MESSAGES` defaults to one and accepts values from one through twenty.
-Both modes preserve complete tool exchanges and the active request.
-Further cuts can replace verbose results with retrieval notes or remove old complete exchanges from working context.
-A short handoff records missing evidence and uncertain actions when a summary cannot supply enough space.
-The full transcript and reference index remain in storage, even if their request copy needs further cuts.
-A request without retrieval tools must state missing evidence rather than invent omitted details.
+## History and research scratchpad
 
-## Scaled allocations
+The harness registers `history_read` and `history_search` as ordinary tools.
+Both read the saved conversation text without rewriting its content.
+`history_read` pages a message by index or tool call ID.
+`history_search` returns matching message indexes for later reading.
 
-| Allocation | Rule |
-| --- | --- |
-| Effective input space | Context window minus requested output |
-| Trigger fraction | Default 0.5, with a 0.75 floor for windows below 512,000 tokens |
-| Threshold floor | 64,000 tokens, bounded by 85 percent of effective input when the floor binds |
-| Recent tail | 2.5 percent of the window, normally 10,000–25,000 tokens, capped at 20 percent of the window |
-| Summary target | Nominally 20 percent of middle tokens, with the pinned minimum and ceiling, further reduced to fit retained input and output |
-| Summary input | Distributed record sample, at most 160,000 characters, further reduced for auxiliary capacity |
-| Summary timeout | 120 seconds per attempt |
-| Fit cuts and provider overflow | No fixed retry count. Every recovery request must be smaller |
+Deep Research keeps its evidence in the conversation-owned `research_scratchpad` table.
+Migration 013 renames the earlier evidence table without losing saved records.
+Research services keep their existing read and save behavior.
+Compaction neither summarizes nor changes scratchpad records.
 
-At the Pi's 100,000-token window and 8,192-token output reservation, the default threshold is 68,856 input tokens.
-The tail allocation is 10,000 tokens. The nominal summary ceiling is 5,000 tokens.
-The summary prompt includes the structured continuation log within the available request space.
-The model can exceed this target. The fit loop checks its actual returned text and cuts further when needed.
-These are context allocations, not fixed numbers of research calls.
+## Provider sizing
 
-`AGENT_COMPACTION_MODEL` selects the auxiliary model. OpenAI and OpenRouter default to `gpt-6-luna`.
-Other providers use the conversation model unless an auxiliary model is configured.
-Anthropic requires an output maximum. Its adapter uses available capacity, bounded by the model limit, rather than the summary target.
-`AGENT_COMPACTION_CONTEXT_TOKENS` can set its capacity explicitly.
-`AGENT_COMPACTION_TRIGGER_RATIO` defaults to 0.5.
-The upstream policy applies its small-window floor to that configured fraction.
+The runtime reads model capacity from its catalog and refreshes OpenRouter metadata once per hour.
+An operator can set `AGENT_CONTEXT_TOKENS` to choose a smaller window.
+Unknown models use a logged 24,000-token context fallback.
+The runtime includes the requested output limit when it checks each request.
+It does not lower that limit to make an oversized request fit.
 
-## Connector sources and R2
+The harness uses a conservative UTF-8 estimate when provider usage does not describe the current request.
+The estimate includes tool schemas, message framing, and a safe image allowance.
+It does not require a tokenizer package.
 
-The wrappers leave Gmail, Health, and MCP implementations unchanged.
-They return at most 12,000 characters initially. Gmail text views decode MIME bodies and identify unread attachments.
-They retain identifiers, units, dates, and provider pagination tokens.
+## Provider result detail
+
+Gmail search returns selected headers and short snippets, not full messages or MIME payloads.
+`gmail_get_message` accepts a message ID and body range, and lists attachment metadata without attachment contents.
+The model can download one selected attachment by message ID and attachment ID.
+Health returns compact daily metrics by default. Date-range and metric arguments fetch specific detail when needed.
+These details come from Gmail or Health on demand; Theos does not archive full provider responses in a generic source store.
 
 | Tool | Purpose |
 | --- | --- |
-| `source_read` | Read a saved connector result in pages, in raw or readable form |
-| `source_to_workspace` | Copy the complete saved result into `/workspace` without passing it through model context |
-| `history_read` | Recover original transcript content by message index or tool call ID |
-| `history_search` | Search or list original transcript sources, excluding retrieval copies |
+| `history_read` | Read exact saved message text by index or tool call ID |
+| `history_search` | Search saved message text and return indexes for reading |
 
-Source IDs require the same authenticated owner and conversation.
-History tools operate only on the current agent's history.
+History tools can read only the current agent's transcript.
 
-Immutable compressed objects live under `theos/checkpoints/<owner hash>/<session>/` in R2.
+Immutable session objects live under `theos/checkpoints/<owner hash>/<session>/` in R2.
 The local private spool and SQLite `context_objects` table track each transfer.
-An R2 outage leaves the local object pending. The background worker retries the transfer without repeating the connector call.
-The latest remote checkpoint pointer advances only after all referenced objects are saved.
+An R2 outage leaves the local object pending for a background retry.
+The remote checkpoint pointer advances only after the snapshot and its referenced objects upload.
 
-Checkpoints include the full journal, working context, model state, tool execution states, and workspace manifest.
-Delegates also save their own task and model state as checkpoint objects.
+Checkpoints include the full transcript, summary boundary, model state, tool states, and workspace manifest.
+Delegates also save their task and model state as checkpoint objects.
 Restoration checks ownership and content hashes.
-An interrupted action remains uncertain after restore. Restoration does not rerun it.
-Ordinary process restarts use SQLite. `Checkpoints.restore` supports controlled restoration into an owned, empty, inactive session.
-R2 does not contain provider-internal reasoning state that the provider never returned.
+An interrupted action remains uncertain after restore, so the runtime never reruns it automatically.
+Ordinary restarts use SQLite. `Checkpoints.restore` supports controlled restoration into an owned, empty session.
+R2 does not contain provider reasoning that the provider never returned.
 
 ## Normal sandbox use
 
-The model can choose the sandbox when a task needs calculations, data processing, scripts, file inspection, or document creation.
+The model can choose the sandbox for calculations, data processing, scripts, file inspection, or document creation.
 The user does not need to ask for a sandbox.
-Commands and Python execution start in `/workspace`. Relative file paths resolve there.
-The wrapper saves changed files, including nested files, after each operation, even when a command fails.
-Each changed file gets an immutable version in R2 and a manifest entry.
-A replacement sandbox restores missing files. Reconnection preserves newer files already present in a live sandbox.
+Commands and Python execution start in `/workspace`.
+The wrapper saves changed files, including nested files, after each operation.
+Each changed file gets an immutable R2 version and a manifest entry.
+A replacement sandbox restores missing files.
+Reconnection keeps newer files already present in a live sandbox.
 Files outside `/workspace` are outside this checkpoint contract.
 Existing approval checks still apply to execution and external actions.
 
-## Call budgets and remaining limits
+## Call budgets and failures
 
-Theos uses `Runtime(enforce_budgets=False)`.
-The configuration retains total, research, compaction, recovery, and delegate call settings for bounded callers.
-The default harness counts calls without enforcing those allocations or research deadlines.
-There is no fixed three-batch retrieval cutoff.
-
-Provider context and output limits remain active, as do summary timeouts, tool timeouts, upload sizes, concurrency, ownership, and approvals.
-Title generation retains its separate attempt policy.
-There is no configured dollar-spend or cumulative token-spend ceiling.
+Theos uses `Runtime(enforce_budgets=False)` by default.
+The configuration keeps call limits for bounded callers.
+Provider context and output limits, tool timeouts, concurrency, ownership, and approvals remain active.
 See [optional call budgets](call-budgets.md) for bounded mode.
 
-Summary failure and oversized summary output do not stop a task when safe cuts can make the request fit.
-Compression cannot guarantee an answer for an unavailable provider or an irreducible request.
-If a provider rejects the smallest safe request, the runtime preserves the evidence and reports failure.
-A fixed failure message does not count as a useful answer in replay tests.
+An unavailable provider or an irreducible request can still stop a turn.
+When that happens, the runtime preserves the transcript and reports failure.
+A failure message never counts as a useful answer in replay tests.
 
 ## Visible activity and approval reviews
 
-Compaction emits started, progress, completed, and failed events with a separate identifier for each compression.
-Events include token estimates and scope, without private summary prose.
-Browser chat shows a live context indicator. Telegram edits one status message for each compression.
-Both clear active indicators when the turn stops. Browser disconnects also clear the local indicator.
+Compaction emits started, progress, completed, or failed events with token estimates.
+Events do not include private summary text.
+Browser chat shows a live context indicator.
+Telegram edits one status message for each compaction.
+Both clear active indicators when the turn stops.
+Browser disconnects also clear the local indicator.
+
 Telegram shows a tool icon, readable action name, and status for each call.
 Protected actions show requested or waiting for approval before execution.
-
 Approval reviews group cart items and show short labels before exact request details.
-Repeated aliases share a field. The original approval snapshot still controls execution.
-Browser disclosures and Telegram expandable quotes retain technical identifiers and raw price values.
+Repeated aliases share a field.
+The original approval snapshot still controls execution.
 Long Telegram reviews retain all details through message splits or an attached review file.
 For `zepto_update_cart`, cart price and maximum retail price use paise.
 The review shows `3900` as `₹39.00` and retains `3900` in exact request details.
-The display conversion never changes approved arguments. Other tool prices retain their supplied units.
+The display conversion never changes approved arguments.
 
 ## Validation
 
-`scripts/replay_context_failure.py` replays a private saved session with a live model and local history tools.
-It preserves the original transcript, checks expected facts and source reads, and does not access production connectors or Telegram.
+`scripts/replay_context_failure.py` replays a saved session with a live model and local history tools.
+It checks expected facts and source reads without using production connectors or Telegram.
 Use task-specific expectations to check answer completeness.
-See [acceptance checks](acceptance.md) for results and limitations.
+See [acceptance checks](acceptance.md) for results and limits.
 
 ## Local checkpoint latency and remote replication
 
 SQLite state and fsynced local objects remain durable before model requests and tool execution.
 Checkpoint creation does not wait for R2.
 One worker scans bounded batches from the SQLite transfer journal and reuses its storage connection.
-Failed transfers remain pending. Restarted workers retry storage operations without repeating assistant tools.
-A failed object cannot prevent another conversation from receiving transfer attempts indefinitely.
+Failed transfers remain pending.
+Restarted workers retry storage operations without repeating assistant tools.
 
-The worker publishes a remote recovery pointer only after its snapshot and all conversation sources are uploaded.
-Remote recovery can therefore lag the current local transcript during an outage or transfer backlog.
+The worker publishes a remote recovery pointer only after it uploads the snapshot and all conversation sources.
+Remote recovery can lag the current local transcript during an outage or transfer backlog.
 Local recovery continues from SQLite and the checkpoint directory.
-Back up both stores. Do not treat an outstanding remote transfer as an external action failure.
+Back up both stores.
+Do not treat an outstanding remote transfer as an external action failure.
 
-Independent Gmail reads can overlap within the existing bounded tool batches.
-Each call retains its ownership check, journal entry, result, and original result order.
-Writes and approved sends remain sequential. An unfinished action remains uncertain after interruption.
+Independent Gmail reads can overlap within bounded tool batches.
+Each call keeps its ownership check, journal entry, result, and original order.
+Writes and approved sends remain sequential.
+An unfinished action remains uncertain after interruption.
 See [the recovery diagram](../architecture/theos-runtime-recovery.excalidraw) and [latency diagnostics](../base-infra/observability.md#diagnose-turn-latency-and-provider-failures).
 
-Remote restore also pauses tool access for that conversation until operator reconciliation.
+Remote restore pauses tool access for that conversation until operator reconciliation.
 A snapshot can omit calls and actions that occurred after its upload.
 Captured unanswered calls become saved results or uncertain outcomes before the runtime resumes.
-The separate owner-bound review record survives context compaction and later checkpoints.
+The owner-bound review record survives compaction and later checkpoints.
 After checking external effects, operator recovery code calls `checkpoints.confirm_restore_review(owner, session)`.
 This method cannot run as an agent tool and rejects confirmation during a running turn.
-Uncertain call records remain intact after review. The runtime never executes them automatically.
+Uncertain call records remain intact after review.
+The runtime never executes them automatically.
+
+## Runtime checkpoint retention
+
+Theos owns checkpoint retention in `services/files/retention.py`. The generic harness has no storage or garbage-collection policy.
+The default policy keeps three recent recovery checkpoints per session, the current workspace, response attachments, and local and published remote pointers.
+Every retained checkpoint protects its declared file sources. New snapshots declare current workspace and attachment versions without accumulating older workspace objects.
+Older snapshot formats remain readable and keep their original source references while retained.
+
+The existing background checkpoint worker runs collection, including when R2 is disabled.
+An hourly scan retires eligible objects after one hour since their last storage or reuse.
+Each pass marks at most 20 objects. Backlogs continue through further bounded passes.
+Active sessions and sessions awaiting remote-recovery review defer collection. Missing or corrupt retained snapshots also defer collection for their session.
+The collector preserves research evidence, browser profiles, uploaded-file catalog entries, and conversation history.
+
+SQLite migration 015 records pending object deletions before removal.
+The worker handles R2 partial failures and retries with backoff. Retirement does not repeat assistant commands.
+A recreated content-addressed object stays local while its earlier remote deletion finishes. Its replacement upload follows that deletion.
+Recovery pointers advance only after their declared dependencies exist remotely.
+The collector protects the older published snapshot while newer local state awaits replication.
+Pointer publication records its intent before the remote write. Lost responses retain every possibly published snapshot until a later publication is confirmed.
+Remote restoration registers the fetched snapshot as a recovery root, including on a fresh database.
+
+Configure `AGENT_STORAGE__CHECKPOINT_KEEP`, `AGENT_STORAGE__GC_INTERVAL_SECONDS`, and `AGENT_STORAGE__GC_GRACE_SECONDS` in the deployment environment.

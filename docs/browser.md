@@ -2,7 +2,10 @@
 
 The browser supports private conversations, files, model choices, approvals, and an administrator dashboard.
 It stores conversation history in SQLite across restarts.
-The server presents the configured `AGENT_NAME` on the login page and conversation labels.
+The Next.js frontend presents `AGENT_NAME` on the login page and conversation labels.
+FastAPI serves the authenticated API as a separate process.
+Next.js forwards browser API requests over the private service connection.
+The frontend does not receive model keys, connector secrets, or the database.
 
 ## Configure a user
 
@@ -49,7 +52,10 @@ The code is a visual confirmation. It cannot replace the private browser cookie 
 The browser removes the invitation from its address bar before sending it in the setup request.
 Permanent tokens never enter URLs or Telegram messages.
 
-The approved browser receives an HttpOnly session cookie that expires after seven days.
+The approved browser receives an HttpOnly session cookie with a seven-day absolute lifetime.
+A session also expires after twelve hours without an authenticated request.
+HTTPS deployments use a Secure, host-only `__Host-theos-session` cookie with `SameSite=Strict`.
+Local HTTP development uses the unprefixed cookie name.
 You can reload the browser during confirmation or return to an active device session without entering the token.
 On another device, enter your saved token or send `/web` in Telegram for a new confirmation link.
 A new confirmed Telegram sign-in replaces your previous saved token. Other active device sessions remain valid.
@@ -64,26 +70,41 @@ Token reset and revocation retain personal records and history.
 
 ## Open a conversation
 
-1. Open `http://127.0.0.1:8080` through local access or an [SSH tunnel](DEPLOYMENT.md#private-browser-access).
+1. Open the Next.js frontend, on port 8080 with Compose or port 3000 during [local development](development.md#nextjs-frontend).
 2. Enter your token.
 3. Select **New conversation**.
-4. Open **Settings** in the header.
+4. Open **Settings** in the header, or in the sidebar on mobile.
 5. Select an allowed model and reasoning effort.
 6. Select **Save settings**.
 7. Enter your message.
 8. Select **Send**.
 
-For manual token sign-in, the browser keeps the token in tab session storage until sign-out.
-It sends that token in the authorization header.
-It does not place the token in a URL.
-Telegram-confirmed sign-in uses a protected session cookie instead of storing its session secret in JavaScript.
+Model and reasoning choices use animated glass menus with a check beside the selected value.
+Keyboard focus moves through separate rows while the current selection retains its checkmark.
+Each menu matches its field width and opens above the field when space permits.
+Use arrow keys, **Home**, **End**, or type a choice name to move through options.
+Use **Enter** or **Space** to select a choice. **Escape** closes only the menu.
+Reasoning choices follow the selected model. **Cancel** discards changes to both fields.
+
+Manual sign-in submits the token once to `/api/auth/login` and receives a protected session cookie.
+The frontend clears the token field after successful sign-in and removes previously saved tab tokens.
+Both sign-in methods keep session credentials outside JavaScript storage and URLs.
+The API stores session fingerprints, checks expiry on each request, and revokes the current session at logout.
+Changing a configured account token also invalidates sessions created from that token.
+Origin checks and the custom request header protect browser mutations against CSRF.
+The API limits failed token sign-ins to twenty per upstream network address in fifteen minutes.
+It returns the same error for invalid and expired tokens.
+A configured trusted ingress can supply validated client addresses for separate limits.
+See [frontend service settings](base-infra/environment-variables.md#nextjs-service-settings).
 The conversation list contains only browser sessions for that user.
 The sidebar contains conversations and workspace links.
-Use the sidebar icon beside the logo to hide or show conversations.
+Use the sidebar icon to hide or show conversations.
+On mobile, the sidebar contains the theme button, Settings, and conversation actions.
+The mobile chat has no top bar.
 
 ## Files and approvals
 
-Use the attachment button to upload files.
+Select **+**, then **Attach files** to upload files.
 The default file limit is 10 MiB.
 Image checks also apply before the model receives an image.
 Generated file links require the same authenticated owner.
@@ -98,12 +119,13 @@ The [tool catalog](tool-catalog.md#approval-boundary) lists protected actions.
 
 ## Continue or reset
 
-**Resume** continues saved work after an interruption or model-call limit.
+Open **Conversation actions** beside the title, or in the sidebar on mobile.
+**Resume conversation** continues saved work after an interruption or model-call limit.
 Reopen the conversation if a browser stream disconnects.
 The runtime can finish a turn after the browser stops reading events.
 Check the saved result before repeating an external action.
 
-**Reset** clears the current history and approval history.
+**Reset conversation** clears the current history and approval history.
 It retains personal records, files, and conversation model settings.
 Model changes require a finished turn with no pending approvals.
 
@@ -126,8 +148,14 @@ Model request counts include title and delegate requests.
 Charts include complete records across transports, beyond the recent-row limits in diagnostic tables.
 
 Hover over or tap a daily chart to inspect its values.
-Select a model or tool bar for its breakdown. Expand **View chart data** for accessible exact values.
+Select a model or tool bar for its breakdown. Expand **View exact values** for accessible exact values.
 Cost charts exclude unpriced requests and show their count. Hollow points mark days without a recorded price.
+Both usage views use glass panels, a theme-specific Theos logo, and a return-to-chat button that stays visible during scrolling.
+On narrow screens, the arrow button returns to chat. Its accessible name remains **Back to chat**.
+The glass chart-period picker offers 7, 30, and 90 days. Lifetime totals and detailed records stay separate from period charts.
+Tap a day to inspect requests, tokens, or recorded USD. Use the arrow keys, **Home**, and **End** for keyboard selection.
+Rankings show token splits and usage shares. Expand **View exact values** for every source row, including grouped models and tools.
+The top navigation shares the pane material. Desktop panes tint on hover only. Mobile panes retain touch feedback.
 
 The server enforces owner scope and administrator access independently of the visible buttons.
 See [observability](base-infra/observability.md).
@@ -175,18 +203,74 @@ Select **Copy** on a code block to copy its code.
 Raw HTML appears as text. Unsafe links cannot execute scripts, and remote images appear as links.
 Speech playback uses the rendered text without code toolbar labels.
 
-The composer starts with one line and grows with longer drafts, up to 140px.
-Attachment, command, microphone, and send icons share the input row.
-On mobile, recording hides attachment and command buttons until recording stops.
+## Interactive answers
+
+Browser chat answers use OpenUI Lang with Theos components. Simple replies use a required visible summary.
+Other replies can include metric grids, charts, goal rings, tables, linked evidence, status notes, or a reminder draft.
+The OpenUI library defines each component and generates the matching model instructions and schema. The OpenUI renderer composes the answer.
+
+Bar charts compare quantities with the same unit. Line charts show recorded time series and preserve gaps for missing samples.
+Donut charts show parts of one total. Goal rings require a goal supplied by the user or a completed tool.
+Hover, tap, or use arrow keys to inspect chart values. Expand **View exact values** for the underlying table.
+Select chart legends to inspect a share or toggle a series. Different metrics, units, or currencies require separate charts.
+The component library preserves earlier saved answers and uses the existing workspace palette and typography.
+
+Search results use source cards with a domain, title, excerpt, and readable path.
+The query label shows readable search terms. Site and file filters appear separately.
+Expand **Search details** to inspect the original provider query, including operators such as `site:`.
+The renderer removes repeated excerpt prefixes and excludes URLs from reference-ID labels. It preserves the saved source content.
+
+The browser previews the interface while the model streams. It enables actions only when the answer finishes and the renderer confirms that the root, references, and components are valid. It does not show OpenUI source. If an answer cannot render, select **Explain in text** to request a plain-text explanation. That recovery turn uses the saved conversation and does not call tools.
+
+Reminder forms keep edits as a draft. Select **Schedule reminder** to send the reviewed fields through the existing `schedule_reminder` tool and its approval rules. The server validates the date, timezone, recurrence, and daylight-saving time before the assistant calls the tool. Rendering a form does not save a reminder.
+The repeat picker shares the settings menu's glass material and keyboard controls. The date field includes a matching calendar.
+Custom recurrence uses weekday selection buttons. Saved drafts retain these selections after a reload.
+
+The **Read aloud** control for an OpenUI answer reads only its visible summary. The browser saves the form draft and summary as display metadata. Terminal history shows the saved summary when available; otherwise it shows a notice to open that conversation in the browser.
+
+If the browser stream ends early, the application reloads saved history and does not replay the turn. Review the conversation before sending another request.
+
+The frosted composer starts with one line on mobile and desktop.
+The **+** button sits on the left. Microphone and send buttons sit on the right.
+Focus the input to expand it into a text row above the controls and message mode.
+A draft keeps the composer expanded. Longer drafts grow up to 140px.
+At mobile widths up to 700px, **Return** inserts a new line. Select **Send message** to send the draft.
+On desktop, **Enter** sends the draft. **Shift + Enter** inserts a new line.
+Select the message mode to open its glass menu above the input.
+Normal has a conversation icon. Deep research has a search icon.
+Use the arrow keys, **Home**, or **End** to move between modes.
+Use **Enter** or **Space** to select a mode. **Escape** closes the menu.
+The selected mode applies to one message.
+Select **+** for attachments, commands, and conversation settings.
+The browser preserves both color themes and respects reduced-motion and reduced-transparency preferences.
+The composer floats above the chat. Content behind it blurs as you scroll.
+On mobile, the Theos name appears in the sidebar.
+A soft green tint rises from the full bottom edge in both themes, with minimal color at the top corner.
+The dark theme uses less tint. The color remains visible through the sidebar, dialogs, and menus.
+The panes show blurred content behind them, with moving edge highlights and light that follows pointer interaction.
+Chromium also refracts backdrop pixels around the pane edges. Other browsers retain the CSS blur and edge highlights.
+Dialog content scrolls inside the pane without moving its optical layer.
+During microphone recording, three green waves move along the bottom edge.
+Their height and opacity follow microphone volume. Stopping or canceling the recording stops the waves.
+Reduced motion retains static feedback. The effect does not change the recorded audio.
+The header has no private-workspace badge or status dot.
+Idle input prompts rotate every eight seconds. Focus changes the placeholder to **Start Typing...**.
+Phone layouts up to 700px use exaggerated philosophical prompts in three short words.
+Examples include **Sue the void** and **Fix free will**.
+Recording and transcription replace the placeholder with **Listening...** and **Transcribing...**.
+If the field already contains a draft, voice feedback appears inside the composer below the controls.
+Progress and errors also stay inside the composer. A completed transcription adds no readiness message.
+In the light theme, user messages use the same green as the send button, with white text.
 Dropdown arrows have a 14px right margin and reserved space for long values.
 
 ## Commands and generation settings
 
 Type `/` in the message field to see commands and descriptions.
 Use the arrow keys to select a suggestion.
-Use **Enter** or **Tab** to insert it, then **Enter** to run it.
+On desktop, use **Enter** or **Tab** to insert it, then **Enter** to run it.
+On mobile, select a suggestion, then select **Send message**. **Return** inserts a new line while suggestions are visible.
 Use **Escape** to close suggestions.
-`/help` and the slash icon show the command list and keyboard controls.
+`/help` and **+ → Commands & connections** show the command list and keyboard controls.
 Select a command in the help dialog to run it or see its options.
 Commands include `/new`, `/reset`, `/resume`, `/model`, `/reasoning`, `/settings`, `/tools`, `/connections`, `/usage`, and `/voice`.
 Selecting `/model` or `/reasoning` opens a menu of supported options.
@@ -199,7 +283,8 @@ These controls do not send a prompt to the model.
 Type `@` at the start of a word to mention a connection.
 Suggestions include `@gmail`, `@health`, `@zepto`, and configured workspace services such as `@sandbox`.
 Each suggestion shows whether the account is connected, needs sign-in, or is not configured.
-Use the arrow keys to select a suggestion, then **Enter** or **Tab** to insert it.
+On desktop, use the arrow keys to select a suggestion, then **Enter** or **Tab** to insert it.
+On mobile, select a suggestion to insert it. **Return** inserts a new line.
 You can insert mentions anywhere in a draft, including multiple mentions in one request.
 For example: `@gmail find the latest receipt and @zepto search for milk`.
 Mentions enter the conversation as user text. They do not connect accounts or approve tools.
@@ -235,7 +320,7 @@ Replies without provider usage retain the estimate.
 Each model generation has its own duration. Tool execution and title generation do not add to that duration.
 
 User messages also show their timestamps.
-Dates use the browser's local time, such as `6 Oct 14:32`.
+Dates use the browser's local time and include the year, such as `6 Oct 2026 14:32`.
 Hover over the timestamp for the full date, time, and timezone.
 New timestamps and final durations survive conversation reloads and application restarts.
 Older messages retain their token counts, with an estimate when usage is unavailable. They receive no invented timestamps or durations.
@@ -279,9 +364,15 @@ Users authorize their own Gmail, Google Health, and Zepto accounts.
 
 1. Select **Connections** or use `/connections`.
 2. Select **Connect** for an available account service.
-3. Select **Continue sign-in**.
-4. Authorize the account with its provider.
-5. Return to **Connections** to check the saved connection.
+3. Authorize the account in the opened sign-in tab.
+4. If a popup was blocked, select **Open sign-in** on the account card.
+5. Wait for the callback to return to **Connections** and confirm account access.
+
+Initial setup offers available accounts that are not connected. Every connection is optional.
+The browser asks what to call you when your profile has no saved name.
+Use **Continue to chat** to save the profile, or **Skip for now** to defer setup.
+This choice is saved for your account across browser and Telegram.
+An expired or unsuccessful connection shows a retry action. Cancelling setup preserves an account connected before the attempt.
 
 Google Health consent includes nutrition writes.
 Connection enables exports of existing unsynced meals and future meal changes.
@@ -294,11 +385,13 @@ Public HTTPS callbacks complete the handoff directly when the provider permits t
 Unfinished Zepto setup expires after ten minutes and does not survive a server restart.
 
 Use **Cancel setup** to invalidate a pending connection.
+The provider tab can remain open after cancellation. Its old return link can no longer complete setup.
 Use **Disconnect** to remove local credentials and cancel pending setup.
 Health disconnection also cancels incomplete imports and meal exports.
 Use the provider's account settings to remove remaining remote access when needed.
 
 The view refreshes account status while open.
+Account cards and workspace services share the glass material. Status badges distinguish saved authorization from service configuration.
 **Connected** means Theos has saved authorization. It does not prove that every provider request will succeed.
 **Workspace services** shows configured sandbox, memory, search, storage, transcription, speech, weather, and skill resources.
 **Configured** does not prove service reachability or a successful live operation.
@@ -322,7 +415,7 @@ Keep each browser ID stable when rotating its token.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser owner's account access.
 
-Source: [browser application](../src/theos/transports/browser/app.py), [connection routes](../src/theos/transports/browser/connections.py), and [browser assets](../src/theos/transports/browser/static/).
+Source: [browser application](../src/theos/transports/browser/app.py), [connection routes](../src/theos/transports/browser/connections.py), and [browser assets](../web/src/).
 
 ## Explicit deep research
 
@@ -332,3 +425,25 @@ You can also use `/research QUESTION`. Ordinary questions do not enable this mod
 Select **Research** above the conversation to inspect saved researchers, reports, sources, notes, transcripts, and summary checkpoints.
 The records remain in the conversation's persistent SQLite database after a restart or conversation reset.
 See [research behavior](runtime/deep-research.md) and the [call budget map](runtime/call-budgets.md).
+
+## Light navigation readability
+
+Light mode uses darker sidebar text for costs, account identity, conversation actions, and navigation controls.
+The optical material retains its existing opacity, blur, saturation, and refraction.
+The collapsed mobile navigation now has a header box behind its sidebar trigger.
+This box lets the existing glass layer separate the trigger from messages during scrolling.
+Dark mode retains its previous styles and layout.
+The browser favicon and touch icon use the existing Theos Daylight image.
+
+### Search images and logos
+
+OpenUI source cards show search-provided thumbnails beside their excerpts. Mobile cards place the image above the excerpt.
+Each image opens its original source page. Logos use provider metadata or an icon declared by the source origin.
+Missing logos retain domain initials. Failed thumbnails collapse without hiding the title, excerpt, or link.
+Saved answers without image fields remain compatible. They can use discovered site icons.
+
+The authenticated `/api/search-image` route serves raster images from the same origin. It retains the existing content policy.
+The server validates DNS addresses at connection time and checks each redirect. It sends no browser cookies or tokens to source sites.
+Downloads allow three redirects, ten seconds, and two MiB per image. Logo discovery reads at most 256 KiB of HTML.
+The shared cache holds at most 128 entries and 24 MiB for one hour. At most eight downloads run at once.
+SVG and unsupported media use the fallback. Search tools preserve provider payloads and expose `image_url`, `image_alt`, and `logo_url` when supplied.

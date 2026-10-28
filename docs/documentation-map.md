@@ -50,6 +50,5 @@ Configuration defaults come from the current application source and Compose file
 | [Development](development.md) | Local commands, tests, service changes, and documentation rules |
 | [Tool catalog](tool-catalog.md) | Callable names, dependencies, and approval rules |
 | [Diagram library](architecture/README.md) | PNG previews, editable sources, and implementation status |
-| [Source notices](runtime/notices.md) | Attribution and licenses |
 
 The [repository README](../README.md) is the short entry point.

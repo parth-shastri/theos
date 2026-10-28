@@ -9,7 +9,7 @@ Authenticated provider acceptance remains pending.
 
 Register a GitHub App with the exact callback URI.
 Use its OAuth client ID and client secret, not its numeric app ID or signing key.
-Grant read access to repository contents, issues, pull requests, and Actions as needed.
+Grant read access to Contents, Issues, Pull requests, Actions, Checks, and Commit statuses as needed.
 Install the app on the selected repositories before the user authorizes it.
 The default scope list is empty because GitHub App permissions belong to the app registration.
 OAuth Apps can use an explicit scope list, subject to organization policies.
@@ -22,6 +22,9 @@ GitHub also receives the read-only header and selected toolsets.
 5. Set AGENT_TOKEN_ENCRYPTION_KEY to the deployment's valid Fernet key.
 6. Restart Theos after the settings change.
 
+For this local Docker test, register http://localhost:8080/oauth/github/callback.
+Keep expiring user tokens enabled. Leave user authorization during installation off.
+Disable webhooks when the app needs only this connector. The flow needs no app private key.
 HTTP callbacks are allowed only on localhost or 127.0.0.1 for development.
 The callback must reach the deployment that started authorization.
 A localhost callback on another computer will not reach a remote Theos server.
@@ -66,9 +69,10 @@ Unknown tools and write tools remain unavailable.
 GitHub-style method tools also require a reviewed read method.
 
 The adapter pages through the complete discovery catalog.
-It preserves remote read responses as owner-bound source records.
-Large responses return a first page and a source_id.
-The source_read tool retrieves later pages.
+Small responses remain inline. Oversized reads use the current provider result staging service.
+With a sandbox available, results up to 1 MiB receive a temporary result_file path.
+Use run_command to inspect selected sections. These files are not durable workspace checkpoints.
+If staging is unavailable, the tool returns a bounded preview and requests a narrower read.
 The adapter does not fetch external resource links automatically.
 
 ## Disconnect and recovery
@@ -91,10 +95,10 @@ The adapter uses existing mcp, httpx, cryptography, and jsonschema dependencies.
 No new provider SDK, Node.js proxy, or local MCP server is required.
 Provider configuration stays in services/github/.
 Shared account code stays in services/mcp_accounts/.
-The existing runtime owns journals, source records, access checks, and delivery.
+The existing runtime owns journals, result staging, access checks, and delivery.
 
 Focused tests cover OAuth ownership, callback replay, encrypted restart access, discovery, schema rejection, and transport boundaries.
-They also cover durable source paging, optional-service failure, and private Telegram commands.
+They also cover bounded results, temporary staging, setup cancellation, optional-service failure, and private Telegram commands.
 The shared wire test uses the real MCP client against a mock HTTP transport.
 These tests do not prove production provider access.
 

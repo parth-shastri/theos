@@ -25,3 +25,11 @@ test_mem0.sh
 .ci-tools/
 .coverage
 htmlcov/
+
+web/node_modules/
+web/.next/
+web/out/
+web/test-results/
+web/playwright-report/
+
+!web/.env.example

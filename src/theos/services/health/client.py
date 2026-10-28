@@ -24,11 +24,17 @@ class Health:
         response.raise_for_status()
         return response.json() if response.content else {}
 
-    async def import_summary(self, owner):
-        """Import seven days of data into complete daily summaries."""
+    async def import_summary(self, owner, start_date=None, end_date=None, *, save=True):
+        """Import a bounded date range into complete daily summaries."""
         from .imports import import_summary
 
-        return await import_summary(self, owner)
+        return await import_summary(self, owner, start_date, end_date, save=save)
+
+    async def read_summary(self, owner, start_date=None, end_date=None, *, refresh=False):
+        """Read the requested summary and refresh caches that predate vitals support."""
+        from .imports import read_summary
+
+        return await read_summary(self, owner, start_date, end_date, refresh=refresh)
 
     def backfill(self, owner):
         """Queue saved meals that have no export marker."""
@@ -48,8 +54,8 @@ class Health:
 
         return await tick(self)
 
-    def tools(self, owner):
+    def tools(self, owner, *, result_stager=None):
         """Build tools bound to the authenticated owner."""
         from .tools import health_tools
 
-        return health_tools(self, owner)
+        return health_tools(self, owner, result_stager=result_stager)
