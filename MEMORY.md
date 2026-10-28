@@ -16,6 +16,8 @@ The 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scen
 The local services now use `theos:calendar-openui-20261028` and `theos-web:calendar-openui-20261028` with saved connections and the existing volume preserved.
 The installed prompt and manifest expose version 3. Model selection of the new views remains unverified.
 The operator requested merging both UI revisions into dev through the same PR.
+Browser activity checks follow the single active indicator across reasoning disclosures and tool execution.
+OpenUI browser fixtures load their owned session before interception and release routes during teardown. The 88 focused browser scenarios passed after this adjustment.
 
 ## OpenUI summaries and completed thinking, 2026-10-28
 

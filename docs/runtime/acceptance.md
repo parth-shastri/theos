@@ -12,6 +12,7 @@ The browser checks covered four widths in both themes, keyboard inspection, relo
 The Calendar views made no turn requests during browser inspection. Tests used synthetic events and mocked provider responses.
 Formatting, Python lint, generated artifact validation, and production frontend compilation passed.
 Mobile light and desktop dark screenshots passed visual review. Native ARM64 API and frontend image builds passed.
+The 88 activity and OpenUI browser scenarios also passed after updating the active-indicator selector and removing fixture requests during teardown.
 
 Both local services now run the Calendar OpenUI images on ports 8080 and 8081.
 Readiness, installed version 3, generated component instructions, and meeting-link fields passed direct checks.

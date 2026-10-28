@@ -22,9 +22,11 @@ async function fixture(
   let state = {},
     summary = "",
     saves = 0;
+  const saved = await page.request.get(`/api/sessions/${session.id}`);
+  expect(saved.ok()).toBe(true);
+  const snapshot = await saved.json();
   await page.route(`**/api/sessions/${session.id}`, async (route) => {
-    const upstream = await route.fetch();
-    const data = await upstream.json();
+    const data = { ...snapshot };
     data.approvals = approvals;
     data.history = [
       { type: "user", content: "Synthetic visual component acceptance" },
@@ -41,7 +43,7 @@ async function fixture(
         },
       },
     ];
-    await route.fulfill({ response: upstream, json: data });
+    await route.fulfill({ json: data });
   });
   await page.route(
     `**/api/sessions/${session.id}/openui-state`,
@@ -57,6 +59,10 @@ async function fixture(
   await expect(page.locator(".theos-openui-answer")).toBeVisible();
   return { state: () => state, summary: () => summary, saves: () => saves };
 }
+
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
 
 test("approval reviews keep decisions visible and recover from a rejected submission", async ({
   page,
