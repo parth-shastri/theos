@@ -31,7 +31,7 @@ async def offer(bot, owner, chat, topic):
     await bot.send(
         chat,
         "Would you like to connect your accounts?\n"
-        "Gmail helps with email, Zepto with shopping, and Google Health with activity and vitals.\n"
+        "Gmail helps with email, Calendar with events, Zepto with shopping, and Google Health with activity and vitals.\n"
         "All connections are optional. You can add them later.",
         topic,
         {"inline_keyboard": buttons},
@@ -260,6 +260,8 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
             "/connect_slack",
             "/gmail",
             "/connect_gmail",
+            "/calendar",
+            "/connect_calendar",
             "/health",
             "/connect_health",
             "/zepto",
@@ -306,6 +308,7 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
         else:
             service = {
                 "/gmail": "gmail",
+                "/calendar": "calendar",
                 "/health": "health",
                 "/zepto": "zepto",
                 "/github": "github",

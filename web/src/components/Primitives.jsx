@@ -45,6 +45,7 @@ export function ConnectionIcon({ id }) {
       />
     );
   const names = {
+    calendar: "calendar",
     sandbox: "sandbox",
     memory: "memory",
     search: "search",

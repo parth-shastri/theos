@@ -416,3 +416,16 @@ See [GitHub setup](../github-mcp.md) for provider requirements and supported too
 The webhook secret requires a valid AGENT_TOKEN_ENCRYPTION_KEY for queued payloads.
 Configure the same secret and /webhooks/github in the GitHub App settings.
 Each connected owner must opt in. See [event notifications](../github-mcp.md#event-notifications).
+
+## Google Calendar
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `AGENT_CALENDAR__CLIENT_ID` | Empty | Google web application OAuth client ID |
+| `AGENT_CALENDAR__CLIENT_SECRET` | Empty | Google OAuth client secret |
+| `AGENT_CALENDAR__REDIRECT_URI` | Empty | Exact `/oauth/calendar/callback` URI |
+
+Set all three values together. The connector requires the existing valid `AGENT_TOKEN_ENCRYPTION_KEY`.
+Local testing uses `http://localhost:8080/oauth/calendar/callback`.
+Calendar connects separately from Gmail, even when both services reuse the same OAuth client.
+See [Calendar setup](../calendar.md) for scopes, operations, and disconnection behavior.

@@ -51,6 +51,25 @@ class OAuthSettings(BaseModel):
         return self
 
 
+class CalendarSettings(OAuthSettings):
+    @model_validator(mode="after")
+    def registered_callback(self):
+        if self.enabled:
+            uri = urlsplit(self.redirect_uri)
+            if (
+                not uri.hostname
+                or uri.username
+                or uri.password
+                or uri.query
+                or uri.fragment
+                or uri.path != "/oauth/calendar/callback"
+            ):
+                raise ValueError(
+                    "Use the exact /oauth/calendar/callback URI without credentials or queries."
+                )
+        return self
+
+
 class SandboxSettings(BaseModel):
     enabled: bool = False
     domain: str = "localhost:8080"
@@ -211,6 +230,7 @@ class Settings(ClientSettings):
     github: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
     slack: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
     gmail: OAuthSettings = Field(default_factory=OAuthSettings)
+    calendar: CalendarSettings = Field(default_factory=CalendarSettings)
     health: OAuthSettings = Field(default_factory=OAuthSettings)
     token_encryption_key: SecretStr = SecretStr("")
     health_interval: int = Field(default=43200, ge=60)
@@ -256,6 +276,7 @@ class Settings(ClientSettings):
         self.slack.check_callback("slack")
         if (
             self.gmail.enabled
+            or self.calendar.enabled
             or self.health.enabled
             or self.zepto_url
             or self.slack.enabled

@@ -15,6 +15,7 @@ async def command(bot, session, command, argument, chat, topic):
     aliases = {
         "/thinking": "/reasoning",
         "/connect_gmail": "/gmail",
+        "/connect_calendar": "/calendar",
         "/connect_health": "/health",
         "/github": "/connect_github",
         "/slack": "/connect_slack",
@@ -25,8 +26,10 @@ async def command(bot, session, command, argument, chat, topic):
     # calling an account service, even though polling.py has already identified the sender.
     if command in {
         "/gmail",
+        "/calendar",
         "/health",
         "/disconnect_gmail",
+        "/disconnect_calendar",
         "/disconnect_health",
         "/health_summary",
         "/health_refresh",
@@ -49,6 +52,7 @@ async def command(bot, session, command, argument, chat, topic):
     # send a bounded, literal response to Telegram.
     if command in {
         "/disconnect_gmail",
+        "/disconnect_calendar",
         "/disconnect_health",
         "/health_summary",
         "/health_refresh",
@@ -90,7 +94,7 @@ async def command(bot, session, command, argument, chat, topic):
         await bot.send(
             chat,
             f"I am {bot.settings.name}, your personal assistant.\n\n"
-            "Send a message, photo, document, or voice note. Commands: /connections, /web, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /health, /connect_github, /connect_slack, /connect_zepto.",
+            "Send a message, photo, document, or voice note. Commands: /connections, /web, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /calendar, /health, /connect_github, /connect_slack, /connect_zepto.",
             topic,
         )
     elif command in {"/new", "/reset"}:
@@ -121,7 +125,14 @@ async def command(bot, session, command, argument, chat, topic):
             raise ValueError("Use one of: " + ", ".join(choices))
         bot.db.execute("UPDATE sessions SET reasoning=? WHERE id=?", (argument, session["id"]))
         await bot.send(chat, "Reasoning setting saved.", topic)
-    elif command in {"/gmail", "/health", "/connect_github", "/connect_slack", "/connect_zepto"}:
+    elif command in {
+        "/gmail",
+        "/calendar",
+        "/health",
+        "/connect_github",
+        "/connect_slack",
+        "/connect_zepto",
+    }:
         await connections.start(
             bot, owner, command.removeprefix("/connect_").lstrip("/"), chat, topic
         )

@@ -119,6 +119,8 @@ async def build_tools(runtime, session):
             )
         if runtime.settings.health.enabled:
             tools += runtime.health.tools(owner, result_stager=result_stager)
+        if runtime.settings.calendar.enabled:
+            tools += runtime.calendar.tools(owner, result_stager=result_stager)
         if runtime.settings.github.enabled and runtime.github.connected(owner):
             try:
                 tools += await runtime.github.tools(owner, result_stager=result_stager)

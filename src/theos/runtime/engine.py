@@ -134,6 +134,7 @@ class Runtime:
         self.locks: dict[str, asyncio.Lock] = {}
         self.active: dict[str, Turn] = {}
         self.closed = False
+        from theos.services.calendar.client import Calendar
         from theos.services.github import create_account as create_github_account
         from theos.services.gmail.client import Gmail
         from theos.services.google.oauth import OAuth
@@ -144,6 +145,7 @@ class Runtime:
 
         self.oauth = OAuth(settings, db, self.http)
         self.gmail = Gmail(self.oauth, self.http, self.files)
+        self.calendar = Calendar(self.oauth, self.http, settings, db)
         self.health = Health(self.oauth, settings, db, self.http)
         self.sandboxes = Sandboxes(settings, db, self.files)
         from theos.services.sandbox.browser import Browsers
