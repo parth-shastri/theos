@@ -1623,3 +1623,15 @@ The saved Slack OAuth grant survived replacement and appears connected.
 Live MCP initialization returned HTTP 400 and RPC code -32600 because the Slack app lacks MCP server access.
 Enable MCP access in the app settings before repeating discovery and a read.
 No Slack message was sent. Live provider reads and permission-removal acceptance remain open.
+
+
+## Live Slack MCP discovery and channel search, 2026-10-28
+
+The operator enabled MCP access in the registered Slack app.
+The existing encrypted OAuth grant then passed authenticated discovery without reconnecting.
+Five reviewed tools became available: slack_read_channel, slack_read_thread, slack_search_channels, slack_search_public, and slack_search_users.
+A new isolated browser conversation ran slack_search_channels once with a one-result public-channel limit.
+The provider returned one channel and isError=false. The tool and turn both completed in 8.84 seconds.
+The existing journal and SSE delivery recorded one completed call. No Slack write tool ran.
+Channel names, account credentials, and provider response contents remain outside these notes.
+Private conversation access, permission removal, and live disconnection remain unverified.

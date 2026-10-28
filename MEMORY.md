@@ -954,3 +954,12 @@ Live Slack authorization and read acceptance remain pending.
 The saved local Slack OAuth grant survived the updated Docker deployment.
 Live MCP initialization reports that the app is not enabled for Slack MCP server access.
 The operator must enable MCP access in the Slack app settings before live tool discovery can pass.
+
+
+## Slack live acceptance, 2026-10-28
+
+The operator enabled the app's MCP access. The saved grant passed discovery without reconnecting.
+Five reviewed read tools are available under the current scopes.
+A normal browser turn completed one public channel search through the model, adapter, journal, and SSE delivery.
+The search returned one channel in 8.84 seconds. No Slack write ran.
+Private access, permission removal, and live disconnection still need separate acceptance checks.
