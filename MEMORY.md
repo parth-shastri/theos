@@ -109,6 +109,7 @@ Docker Desktop still requires a macOS login. A future login or disk-encryption c
 | Google Health vitals | Import stable v4 daily HRV, SpO2, respiratory rate, and sleep skin temperature. Summarize available heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples. Keep RMSSD and SDNN separate. Preserve units, missing values, and provider confidence bounds. Default summaries include vitals and coverage counts. Version caches and refresh older summaries on tool or Telegram reads. Send complete Telegram summaries through the existing message splitter |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
 | Browser account connections | Offer optional unconnected accounts at first setup. Ask for a preferred name only when missing. Reserve a disowned sign-in tab during Connect, then navigate it after discovery. Keep an explicit link for blocked popups. Successful callbacks return to Connections. Verify setup before closing callback tabs. Show cancellation, expiry, and retry states. Cancel setup preserves the prior account. Keep owner-bound consent and configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials reuse the enrolled Telegram owner. Do not merge separate browser and Telegram accounts |
+| Connector visibility | List configured account connectors in Connections and mentions before owner authorization. Hide connectors without deployment credentials |
 | Browser connection mentions | Show local provider logos for accounts and use-case SVG icons for all workspace services in Connections and `@` suggestions. Complete mentions at the composer caret with current account status and configured workspace services. Preserve draft text. Send mentions as ordinary user text without changing access or approval policy |
 | Zepto account linking | Browser and private Telegram users authorize their own accounts through MCP OAuth. Theos encrypts credentials in SQLite. Use the localhost return handoff by default, with an optional public HTTPS callback |
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
@@ -914,3 +915,51 @@ The collector preserves unrelated research objects, uploaded-file catalog entrie
 Upload intent records preserve uncertain remote writes across restart or configuration changes.
 Uncertain pointer publications remain roots until a later publication is confirmed. Remote restore registers the fetched checkpoint as a recovery root.
 No `src/harness` file changes are required.
+
+## Slack connector planning, 2026-10-15
+
+The operator requested a separate topic branch and a tool-coverage and complexity review.
+Branch: `feature/slack-connector`, from remote `dev` at `8a4360f`.
+Check internal or Marketplace app eligibility before the MCP connection. Review granular search scopes and workspace consent.
+The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
+See [the plan](docs/connectors/slack-plan.md) and its tool inventory.
+
+## Slack official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote Slack MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+Confidential OAuth uses a client secret and durable single-use state.
+Slack public-client PKCE mode is not enabled. Other providers retain the shared adapter default of PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 18 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/slack-mcp.md).
+
+
+## Slack branch synchronization, 2026-10-28
+
+The operator requested a merge of current main into feature/slack-connector before live testing.
+Preserve both branch histories with a merge commit. Keep the current Next.js frontend and native Telegram connection controls.
+Register Slack in the shared account setup, callback proxy, connection cards, and composer mentions.
+Cancel setup invalidates pending consent without deleting the previous Slack grant.
+Use the current provider result staging service for large reads. Do not restore the retired source wrapper or static browser app.
+The local Docker test uses a separate data volume and disables Telegram polling.
+Live Slack authorization and read acceptance remain pending.
+
+The saved local Slack OAuth grant survived the updated Docker deployment.
+Live MCP initialization reports that the app is not enabled for Slack MCP server access.
+The operator must enable MCP access in the Slack app settings before live tool discovery can pass.
+
+
+## Slack live acceptance, 2026-10-28
+
+The operator enabled the app's MCP access. The saved grant passed discovery without reconnecting.
+Five reviewed read tools are available under the current scopes.
+A normal browser turn completed one public channel search through the model, adapter, journal, and SSE delivery.
+The search returned one channel in 8.84 seconds. No Slack write ran.
+Private access, permission removal, and live disconnection still need separate acceptance checks.

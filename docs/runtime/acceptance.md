@@ -1586,3 +1586,52 @@ The focused connector and transport checks passed 73 tests.
 Checks cover delayed Zepto links, reply prompts, Google callbacks, expiry, denial, retry, cancellation, owner isolation, and plaintext redaction.
 Configured lint, formatting, whitespace checks, and the Python package build passed.
 No live Telegram message or provider authorization was used. Native device checks and deployment remain pending.
+
+## Slack official MCP connector, 2026-10-15
+
+The full local suite passed 1,156 tests, with three credential-dependent checks excluded.
+The focused shared and Slack checks passed 34 tests.
+They cover confidential user OAuth, durable single-use state, callback replay, encrypted restart access, and token refresh.
+The Slack adapter uses a client secret without enabling Slack's public-client PKCE mode.
+Other providers keep PKCE as the shared adapter default.
+The default Slack scopes exclude private search and writes. Provider permission checks still apply to every call.
+A private-search refusal remains a failed read. It returns no source page and does not expose private provider error text.
+Tests also cover paged discovery, schema rejection, private transports, optional outages, and complete source ownership.
+The shared wire check uses the real MCP client against a mock HTTP transport. It does not repeat failed reads.
+Python lint, formatting, JavaScript syntax, lock validation, package builds, and whitespace checks passed.
+The setup guide's prose lint reports 1.57 findings per 100 words.
+These checks used local fixtures. Eligible app registration, workspace consent, live tool discovery, and deployment remain pending.
+
+
+## Slack synchronization with main, 2026-10-28
+
+The Slack topic branch merges main at c42b61a with both histories preserved.
+The connector uses the current Next.js workspace, callback proxy, optional onboarding, and native Telegram controls.
+Setup cancellation preserves the existing grant. Large reads use the current bounded result staging service.
+The retired static browser app and connector source wrapper remain removed.
+Provider assets retain their source notice and updated provenance manifest.
+
+The full Python suite passed 1,139 tests, with three live checks deselected.
+The focused account and transport suite passed 73 tests after the final adjustments.
+All 18 frontend unit tests and 48 Chromium connection scenarios passed.
+Browser checks covered four viewport widths and both themes, including Slack sign-in, cancellation, and callback restoration.
+Lint, formatting, OpenUI validation, lock validation, package builds, and native ARM64 Docker builds passed.
+Both isolated Docker services are healthy. Next.js uses localhost port 8080 and the private API uses port 8081.
+The test retains its separate data volume and disables Telegram polling.
+
+The saved Slack OAuth grant survived replacement and appears connected.
+Live MCP initialization returned HTTP 400 and RPC code -32600 because the Slack app lacks MCP server access.
+Enable MCP access in the app settings before repeating discovery and a read.
+No Slack message was sent. Live provider reads and permission-removal acceptance remain open.
+
+
+## Live Slack MCP discovery and channel search, 2026-10-28
+
+The operator enabled MCP access in the registered Slack app.
+The existing encrypted OAuth grant then passed authenticated discovery without reconnecting.
+Five reviewed tools became available: slack_read_channel, slack_read_thread, slack_search_channels, slack_search_public, and slack_search_users.
+A new isolated browser conversation ran slack_search_channels once with a one-result public-channel limit.
+The provider returned one channel and isError=false. The tool and turn both completed in 8.84 seconds.
+The existing journal and SSE delivery recorded one completed call. No Slack write tool ran.
+Channel names, account credentials, and provider response contents remain outside these notes.
+Private conversation access, permission removal, and live disconnection remain unverified.

@@ -381,3 +381,15 @@ The parent holds one summary call for its final response within the summary allo
 Each active delegate holds one when available. Completed delegates release unused holds.
 These holds do not add calls or change the generation output setting.
 See the [call budget map](../runtime/call-budgets.md).
+
+## Slack remote MCP
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_SLACK__CLIENT_ID | Empty | Deployment OAuth client ID |
+| AGENT_SLACK__CLIENT_SECRET | Empty | Deployment OAuth client secret |
+| AGENT_SLACK__REDIRECT_URI | Empty | Exact /oauth/slack/callback URI |
+| AGENT_SLACK__SCOPES | ["search:read.public", "search:read.users", "channels:read", "channels:history", "users:read"] | JSON list of user scopes |
+
+The connector requires a valid AGENT_TOKEN_ENCRYPTION_KEY.
+See [Slack setup](../slack-mcp.md) for provider requirements and supported tools.

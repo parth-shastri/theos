@@ -636,11 +636,13 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/oauth/{service}/callback")
     async def callback(service: str, state: str, request: Request, code: str = ""):
-        if service not in {"gmail", "health", "zepto"}:
+        if service not in {"gmail", "health", "zepto", "slack"}:
             raise HTTPException(404, "Unknown account service.")
         active = current(request)
         try:
-            if service == "zepto":
+            if service == "slack":
+                await active.slack.callback(state, code, request.query_params.get("error", ""))
+            elif service == "zepto":
                 await current(request).zepto.finish_from_browser(
                     state, code, request.query_params.get("error", "")
                 )

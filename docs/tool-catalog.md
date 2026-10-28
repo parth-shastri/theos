@@ -34,7 +34,7 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
-Gmail search, message, thread, and draft reads, plus Health summary and export-status reads, keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
+Gmail reads, Health summaries and export status, and Slack MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
 
 ## CI coverage selection
 
@@ -762,3 +762,20 @@ The runtime reconnects, replaces confirmed expired or missing instances, and res
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
+
+
+## Slack MCP connector
+
+Theos uses the official remote MCP server through an owner-bound account adapter.
+The reviewed allowlist contains 18 read identifiers.
+Only the subset returned by authenticated discovery enters a conversation.
+Write tools and unknown tools remain unavailable.
+
+See [setup and usage](slack-mcp.md), the [allowlist](connectors/slack-tools.json), and the [implementation plan](connectors/slack-plan.md).
+The adapter validates arguments against the discovered JSON schema before execution.
+Small results remain inline. Large reads use the existing 8 KiB inline, 1 MiB staging, and bounded preview limits.
+The tool journal records the returned result. Temporary result files are not durable workspace checkpoints.
+The runtime preserves the existing private-account boundaries and approval policy.
+
+Dependencies remain mcp, httpx, cryptography, and jsonschema.
+Local contract tests pass. Enable Slack MCP access before live provider tool discovery.

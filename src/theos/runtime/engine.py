@@ -138,6 +138,7 @@ class Runtime:
         from theos.services.google.oauth import OAuth
         from theos.services.health.client import Health
         from theos.services.sandbox.client import Sandboxes
+        from theos.services.slack import create_account as create_slack_account
         from theos.services.zepto.auth import Zepto
 
         self.oauth = OAuth(settings, db, self.http)
@@ -149,6 +150,7 @@ class Runtime:
         self.browsers = Browsers(self)
         self.sandboxes.browsers = self.browsers
         self.zepto = Zepto(settings, db, self.http)
+        self.slack = create_slack_account(settings, db, self.http)
 
     def lock(self, session_id):
         """Return the lock that serializes one conversation."""
@@ -664,6 +666,7 @@ class Runtime:
         await asyncio.gather(*tasks, return_exceptions=True)
         await self.checkpoints.close()
         await self.zepto.close()
+        await self.slack.close()
         await self.browsers.close()
         await self.sandboxes.close()
         await self.http.aclose()
