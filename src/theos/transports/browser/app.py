@@ -646,7 +646,7 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/oauth/{service}/callback")
     async def callback(service: str, state: str, request: Request, code: str = ""):
-        if service not in {"gmail", "health", "zepto", "slack", "github"}:
+        if service not in {"gmail", "calendar", "health", "zepto", "slack", "github"}:
             raise HTTPException(404, "Unknown account service.")
         active = current(request)
         try:
@@ -666,7 +666,11 @@ def create_app(settings=None, runtime=None):
                 )
                 if owner.startswith("telegram:") and settings.telegram_token.get_secret_value():
                     try:
-                        label = "Gmail" if service == "gmail" else "Google Health"
+                        label = {
+                            "gmail": "Gmail",
+                            "calendar": "Google Calendar",
+                            "health": "Google Health",
+                        }[service]
                         await Telegram(active).send(
                             int(owner[9:]),
                             f"{label} is connected. You can continue here or in the web workspace.",

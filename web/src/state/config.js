@@ -133,6 +133,8 @@ export const messageModes = {
 };
 
 export const accountDescriptions = {
+  calendar:
+    "Find events, check availability, and create, reschedule, or delete single events in Google Calendar.",
   github:
     "Search and read repositories, issues, pull requests, and Actions through the official GitHub MCP server.",
   slack:

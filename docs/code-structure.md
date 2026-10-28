@@ -101,6 +101,7 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `slack/` | Official Slack MCP endpoint, OAuth configuration, and reviewed read-tool allowlist |
 | `mcp_accounts/` | Shared encrypted account grants, PKCE state, remote sessions, and schema validation |
 | `gmail/` | Gmail requests, draft previews, and account tools |
+| `calendar/` | Google Calendar reads, availability, validated single-event writes, and conditional event versions |
 | `health/` | Imports, normalization, records, nutrition exports, job retries, and tools |
 | `zepto/` | OAuth, encrypted owner tokens, MCP discovery, and account-scoped sessions that serialize tool calls |
 

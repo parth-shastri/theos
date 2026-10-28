@@ -4,19 +4,22 @@ const token =
   process.env.THEOS_E2E_TOKEN || "nextjs-browser-preview-token-123456789";
 async function fixture(page, { onboarding = false, name = "Ada" } = {}) {
   const data = {
-    accounts: ["gmail", "zepto", "health", "slack", "github"].map((id) => ({
-      id,
-      name: {
-        gmail: "Gmail",
-        zepto: "Zepto",
-        health: "Google Health",
-        slack: "Slack",
-        github: "GitHub",
-      }[id],
-      configured: true,
-      connected: false,
-      setup: { status: "idle" },
-    })),
+    accounts: ["gmail", "calendar", "zepto", "health", "slack", "github"].map(
+      (id) => ({
+        id,
+        name: {
+          gmail: "Gmail",
+          calendar: "Google Calendar",
+          zepto: "Zepto",
+          health: "Google Health",
+          slack: "Slack",
+          github: "GitHub",
+        }[id],
+        configured: true,
+        connected: false,
+        setup: { status: "idle" },
+      }),
+    ),
     services: [],
     onboarding: {
       needed: onboarding,
@@ -93,7 +96,7 @@ test("optional onboarding saves a preferred name and returns to chat without sig
   expect(await page.context().pages()).toHaveLength(1);
 });
 
-for (const service of ["gmail", "slack", "github"]) {
+for (const service of ["gmail", "calendar", "slack", "github"]) {
   test(`Connect opens ${service} sign-in automatically and cancellation preserves the previous account`, async ({
     page,
   }) => {

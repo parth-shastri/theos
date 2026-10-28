@@ -6,6 +6,7 @@ from .preferences.tools import preferences
 
 ACCOUNT_LABELS = (
     ("gmail", "Gmail"),
+    ("calendar", "Google Calendar"),
     ("zepto", "Zepto"),
     ("health", "Google Health"),
     ("slack", "Slack"),

@@ -82,7 +82,7 @@ def register_connections(app, settings, current, identity):
     def authorize(request, owner, service):
         if not browser_account_access(settings, owner, current(request).db):
             raise PermissionError("Browser account access is required.")
-        if service not in {"gmail", "health", "zepto", "slack", "github"}:
+        if service not in {"gmail", "calendar", "health", "zepto", "slack", "github"}:
             raise ValueError("Unknown account service.")
 
     @app.get("/api/connections")

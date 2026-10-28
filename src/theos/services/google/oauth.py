@@ -16,6 +16,11 @@ from theos.storage.account_access import account_access
 
 SCOPES = {
     "gmail": ["https://www.googleapis.com/auth/gmail.modify"],
+    "calendar": [
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/calendar.events.freebusy",
+    ],
     "health": [
         "https://www.googleapis.com/auth/googlehealth." + suffix
         for suffix in (
@@ -286,6 +291,15 @@ class OAuth:
                     (owner,),
                 )
         revoked = False
+        if service == "calendar":
+            # Google revocation invalidates the project's other grants, including Gmail.
+            return {
+                "disconnected": True,
+                "revoked_at_google": False,
+                "message": "Calendar is disconnected from Theos. To revoke the Google app, "
+                "use your Google Account settings. Revocation also affects other Google "
+                "connections that share the project.",
+            }
         if not payload.get("refresh_token"):
             return {"disconnected": True, "revoked_at_google": False}
         try:

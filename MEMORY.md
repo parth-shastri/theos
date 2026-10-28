@@ -1041,3 +1041,24 @@ The account grant survives the local restart. The first repository comparison st
 General evidence and tool-pagination guidance now clarify this case. Fresh model pagination behavior remains unverified.
 The operator requested merging the GitHub topic PR into dev, as with Slack, then continuing on the GitLab topic branch.
 Real GitHub notification delivery and private Telegram acceptance remain separate open checks.
+
+## Google Calendar integration, 2026-10-28
+
+The operator cancelled GitLab integration for now. Its branch is pushed and PR 74 is closed without merging.
+Start Calendar work from current dev on feature/google-calendar.
+The operator enabled the Calendar API and selected basic operations before invitations or recurring-event editing.
+Use the existing Google OAuth service with a separate calendar grant for each private owner.
+Support calendar lists, event search and details, free/busy reads, and single-event creation, updates, and deletion.
+Keep invitations and recurring-event mutations unavailable in this increment.
+Use explicit event versions for updates and deletion. Preserve unknown write outcomes without automatic retries.
+Keep time handling and pagination in the Calendar service and tool descriptions. Keep the shared agent prompt general.
+The operator authorized reusing the existing Gmail OAuth client for Calendar, with a separate localhost callback.
+Calendar disconnection removes its local grant without revoking the Google project and disrupting other Google connections.
+Return this distinction in the disconnect result. Existing Gmail and Health revocation behavior remains unchanged.
+
+The implementation passed 1,199 Python tests, 20 frontend unit tests, and 72 browser connection cases.
+Both local Docker services are healthy. The operator registered localhost and deployment callbacks and completed local Google consent.
+A normal Theos conversation completed live calendar listing, event search, and availability reads in 4.7 seconds.
+The live read test listed four calendars, found no events in the selected interval, and reported no availability errors.
+No Calendar writes ran. A temporary create, reschedule, and delete test awaits the operator's decision.
+Production deployment and live Telegram acceptance remain pending.

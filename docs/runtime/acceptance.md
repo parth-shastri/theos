@@ -1720,3 +1720,27 @@ The operator's repository-activity request completed identity, repository-search
 Large responses were staged without truncating the returned page. The first answer stopped after one full commit page.
 The later prompt change clarifies evidence coverage and pagination. A fresh model pagination check remains pending.
 No GitHub write tool ran. Real notification delivery and private Telegram acceptance remain unverified.
+
+## Google Calendar basic operations, 2026-10-28
+
+The Calendar service uses existing Google OAuth and HTTPX with separate owner-bound encrypted credentials.
+It supports calendar lists, event search and details, free/busy reads, and regular single-event creation, updates, and deletion.
+Updates and deletion require the event version and use If-Match. Attendee and recurring-event mutations remain unavailable.
+The service validates local times, daylight-saving ambiguity, and exclusive all-day end dates.
+Unknown writes are not retried. Creation includes a known event ID for read-only reconciliation.
+Calendar disconnection removes its local grant without revoking other grants in the shared Google project.
+The generic harness and general agent instructions remain unchanged. No database migration or provider SDK was added.
+
+All 1,199 Python tests passed, with three live checks deselected. The Calendar module has 35 contract cases.
+The 20 frontend unit tests and 72 Chromium connection cases passed across four widths and both themes.
+Ruff lint, formatting, OpenUI validation, and patch whitespace checks passed.
+Native ARM64 API and frontend images built successfully. Both isolated Docker services are healthy on ports 8081 and 8080.
+
+The operator registered localhost and deployment callbacks and authorized the local Calendar connection.
+A normal browser model turn completed calendar_list_calendars, calendar_list_events, and calendar_free_busy through the normal journal and delivery path.
+Calendar listing returned four calendars without another page. Event search returned zero events for the selected one-hour interval.
+Availability returned no calendar errors. The three reads completed in a 4.7-second turn without any Calendar writes.
+Event titles, descriptions, locations, and attendee data were excluded from the user-facing result and these notes.
+
+Live creation, updates, and deletion await the operator's temporary-event test decision.
+Production deployment and live Telegram acceptance remain pending.

@@ -195,6 +195,8 @@ function AccountCard({ account, busy, action }) {
                 action(() =>
                   json(`/api/connections/${account.id}/disconnect`, {
                     method: "POST",
+                  }).then((result) => {
+                    if (result.message) setNotice(result.message);
                   }),
                 );
             }}

@@ -34,7 +34,7 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
-Gmail reads, Health summaries and export status, and Slack and GitHub MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
+Gmail and Calendar reads, Health summaries and export status, and Slack and GitHub MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
 
 The `truncated` field describes the returned response only. A complete staged response can still require provider pagination or further content ranges. Account tool descriptions explain continuation parameters and page-size limits. General agent instructions govern evidence coverage for the requested task.
 
@@ -520,6 +520,28 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | `gmail_list_labels` | List Gmail labels. |
 | `gmail_create_label` | Create a Gmail label. |
 | `gmail_modify_labels` | Add or remove labels on a message or thread. |
+
+## Google Calendar
+
+HTTPX and the existing Google OAuth service provide private owner-bound Calendar access.
+The service adds no SDK, dependency, or database migration. See [Calendar setup](calendar.md).
+
+| Callable | Action |
+| --- | --- |
+| `calendar_connect` | Create a Google Calendar authorization link for the current owner. |
+| `calendar_disconnect` | Remove the local Calendar connection without revoking other Google project grants. |
+| `calendar_list_calendars(page_token?, max_results=25)` | List one page of calendars, IDs, timezones, and access roles. Pass `next_page_token` to continue. |
+| `calendar_list_events(time_min, time_max, calendar_id="primary", query?, timezone?, page_token?, max_results=25)` | Find events overlapping a date-time range. Recurring events appear as instances. Continue provider pagination with unchanged filters. |
+| `calendar_get_event(event_id, calendar_id="primary")` | Read details and the exact event `etag` before a mutation. |
+| `calendar_free_busy(time_min, time_max, calendar_ids?, timezone?)` | Read busy intervals for up to 50 calendars per request. Preserve individual access errors. |
+| `calendar_create_event(summary, start, end, calendar_id="primary", timezone?, all_day=false, description="", location?)` | Create one regular event without attendees or recurrence. All-day end dates are exclusive. |
+| `calendar_update_event(event_id, etag, calendar_id="primary", summary?, start?, end?, timezone?, all_day?, description?, location?)` | Change selected fields or reschedule a single event using its current version. |
+| `calendar_delete_event(event_id, etag, calendar_id="primary")` | Delete the verified single event using its current version. |
+
+Mutations reject events with attendees, recurrence, or specialized event types.
+Updates and deletion use `If-Match`. Unknown write outcomes remain uncertain and are not retried automatically.
+Known creation IDs permit read-only reconciliation after a lost response.
+The shared agent prompt remains general. Tool descriptions explain pagination, event times, and exclusive all-day end dates.
 
 ## Health
 
