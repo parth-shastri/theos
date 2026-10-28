@@ -148,6 +148,7 @@ export const accountDescriptions = {
 };
 
 export const providerIcons = {
+  calendar: "/static/providers/calendar.svg",
   github: "/static/providers/github.svg",
   slack: "/static/providers/slack.svg",
   gmail: "/static/providers/gmail.svg",
