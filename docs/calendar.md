@@ -81,5 +81,6 @@ See Google's [token revocation contract](https://developers.google.com/identity/
 Provider code lives under `src/theos/services/calendar/`. The generic harness remains unchanged.
 The service uses existing HTTPX, Pydantic, Google OAuth, and timezone dependencies. No provider SDK or database migration is required.
 Contract tests use mocked Calendar responses. Local authorization, calendar listing, event search, and availability passed against Google.
-Live creation, updates, and deletion remain separate acceptance checks.
+An operator-approved temporary event also passed live creation, rescheduling, and deletion.
+A separate Google API read confirmed that the deleted event has status `cancelled`.
 See [runtime acceptance](runtime/acceptance.md) for recorded results.

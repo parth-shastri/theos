@@ -1742,5 +1742,9 @@ Calendar listing returned four calendars without another page. Event search retu
 Availability returned no calendar errors. The three reads completed in a 4.7-second turn without any Calendar writes.
 Event titles, descriptions, locations, and attendee data were excluded from the user-facing result and these notes.
 
-Live creation, updates, and deletion await the operator's temporary-event test decision.
+The operator then approved one temporary primary-calendar event for October 29, 09:00-09:05 Asia/Kolkata.
+The normal model turn created that event, read its version, moved it to 09:05-09:10, read its new version, and deleted it.
+Journal inspection confirmed exactly one create, one update, and one delete for the same event, without attendees.
+One read call was rejected by local argument validation and corrected before the remaining operations completed.
+A separate read-only request to Google returned HTTP 200 with event status cancelled, confirming no active test event remained.
 Production deployment and live Telegram acceptance remain pending.

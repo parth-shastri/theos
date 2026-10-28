@@ -1060,5 +1060,7 @@ The implementation passed 1,199 Python tests, 20 frontend unit tests, and 72 bro
 Both local Docker services are healthy. The operator registered localhost and deployment callbacks and completed local Google consent.
 A normal Theos conversation completed live calendar listing, event search, and availability reads in 4.7 seconds.
 The live read test listed four calendars, found no events in the selected interval, and reported no availability errors.
-No Calendar writes ran. A temporary create, reschedule, and delete test awaits the operator's decision.
+The operator approved a temporary create, reschedule, and delete test on the primary calendar.
+Exactly one event passed all three live writes, using fresh event versions and no attendees.
+A separate read from Google confirmed the deleted event has status cancelled. No active test event remains.
 Production deployment and live Telegram acceptance remain pending.
