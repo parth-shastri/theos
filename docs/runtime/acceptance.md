@@ -1,5 +1,41 @@
 # Feature and acceptance checklist
 
+## Calendar OpenUI components, 2026-10-28
+
+Library version 3 adds an agenda, event card, and availability timeline. Saved versions 1 and 2 remain renderable.
+Calendar views preserve all-day exclusive ends, IANA timezones, and daylight-saving offset changes.
+The availability calculation clips and merges busy intervals. Failed, missing, or malformed results leave unknown gaps.
+Source-provided event and meeting links remain safe links. Event descriptions display as literal text.
+
+All 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scenarios passed.
+The browser checks covered four widths in both themes, keyboard inspection, reloads, partial results, invalid dates, and unsafe links.
+The Calendar views made no turn requests during browser inspection. Tests used synthetic events and mocked provider responses.
+Formatting, Python lint, generated artifact validation, and production frontend compilation passed.
+Mobile light and desktop dark screenshots passed visual review. Native ARM64 API and frontend image builds passed.
+The 88 activity and OpenUI browser scenarios also passed after updating the active-indicator selector and removing fixture requests during teardown.
+
+Both local services now run the Calendar OpenUI images on ports 8080 and 8081.
+Readiness, installed version 3, generated component instructions, and meeting-link fields passed direct checks.
+The existing account connections and data volume survived replacement. No live Calendar event was created or changed for these checks.
+Live model selection of the new views and production deployment remain unverified.
+
+## OpenUI summaries and completed thinking, 2026-10-28
+
+Text-only summary facts now use label/value rows. Completed thinking retains its disclosure and shows `Thought for x s` from the saved generation duration.
+Reasoning-only messages hide their separate role and metadata footer. Hidden OpenUI tool phases retain their reasoning after reload.
+Older summaries without timing show `Thought`. Active reasoning uses one thinking indicator.
+
+Approval reviews now use a neutral panel with a fixed heading and decision controls. Long review contents scroll inside the panel.
+
+All 22 frontend unit tests, 27 focused Python checks, and 64 OpenUI browser scenarios passed.
+Browser checks covered four widths in both themes, streamed completion, disclosure identity, and reload restoration.
+Approval checks covered exact arguments, disabled controls, rejected submissions, and accepted denial. These checks used synthetic data and an isolated local API.
+Formatting, OpenUI artifact validation, and the production frontend build passed. Mobile light and desktop dark screenshots passed visual review.
+
+The native ARM64 frontend image built and replaced only the local frontend container on port 8080.
+The existing API container stayed running. Both readiness endpoints passed. The saved Slack summary displayed the updated rows and completed thought labels.
+Production deployment remains pending.
+
 ## Optional connection onboarding and account returns, 2026-10-24
 
 Telegram offers configured, unconnected accounts after the name and timezone questions.

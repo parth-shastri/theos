@@ -49,6 +49,24 @@
     },
     "DataTable": {
       "$ref": "#/$defs/DataTable"
+    },
+    "CalendarEvent": {
+      "$ref": "#/$defs/CalendarEvent"
+    },
+    "CalendarAgenda": {
+      "$ref": "#/$defs/CalendarAgenda"
+    },
+    "CalendarEventCard": {
+      "$ref": "#/$defs/CalendarEventCard"
+    },
+    "CalendarInterval": {
+      "$ref": "#/$defs/CalendarInterval"
+    },
+    "CalendarBusyCalendar": {
+      "$ref": "#/$defs/CalendarBusyCalendar"
+    },
+    "CalendarAvailability": {
+      "$ref": "#/$defs/CalendarAvailability"
     }
   },
   "required": [
@@ -67,7 +85,13 @@
     "LineChart",
     "DonutChart",
     "ProgressCard",
-    "DataTable"
+    "DataTable",
+    "CalendarEvent",
+    "CalendarAgenda",
+    "CalendarEventCard",
+    "CalendarInterval",
+    "CalendarBusyCalendar",
+    "CalendarAvailability"
   ],
   "additionalProperties": false,
   "$defs": {
@@ -111,6 +135,15 @@
               },
               {
                 "$ref": "#/$defs/DataTable"
+              },
+              {
+                "$ref": "#/$defs/CalendarAgenda"
+              },
+              {
+                "$ref": "#/$defs/CalendarEventCard"
+              },
+              {
+                "$ref": "#/$defs/CalendarAvailability"
               }
             ]
           }
@@ -566,6 +599,199 @@
       ],
       "additionalProperties": false,
       "description": "A readable comparison or exact values table with a title, column headings, and rows. Null cells display No data."
+    },
+    "CalendarAgenda": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "timezone": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "events": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CalendarEvent"
+          }
+        },
+        "coverage": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "title",
+        "timezone",
+        "events"
+      ],
+      "additionalProperties": false,
+      "description": "Events grouped by date in the supplied IANA timezone. Explain partial pages, query filters, and the queried range in coverage and AnswerSummary. An empty page does not prove an empty calendar."
+    },
+    "CalendarEvent": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "start": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "end": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "calendar": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "meeting_url": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 16000
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "confirmed",
+            "tentative",
+            "cancelled"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false,
+      "description": "An event from Calendar tool results. Preserve ISO date-times with offsets, or YYYY-MM-DD all-day dates with an exclusive end. URLs must come from the source."
+    },
+    "CalendarEventCard": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/CalendarEvent"
+        },
+        "timezone": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "event",
+        "timezone"
+      ],
+      "additionalProperties": false,
+      "description": "One event with dates, duration, calendar, location, and source-provided event or meeting links. This is a display, not a create or edit action."
+    },
+    "CalendarAvailability": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "start": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "end": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "timezone": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "calendars": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CalendarBusyCalendar"
+          }
+        },
+        "coverage": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "title",
+        "start",
+        "end",
+        "timezone",
+        "calendars"
+      ],
+      "additionalProperties": false,
+      "description": "An inspectable busy/free timeline for the exact requested range. Computes free time across supplied calendars only when every calendar read succeeded. Failed reads leave unconfirmed gaps."
+    },
+    "CalendarBusyCalendar": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "busy": {
+          "anyOf": [
+            {
+              "maxItems": 100,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CalendarInterval"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "description": "One calendar_free_busy result. Use busy=[] only for a successful read with no busy intervals. Use busy=null and an error for missing or failed reads."
+    },
+    "CalendarInterval": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "end": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false,
+      "description": "One busy interval from calendar_free_busy, using ISO date-times with explicit offsets."
     }
   }
 }

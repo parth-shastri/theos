@@ -12,7 +12,7 @@ from .validation import editable_event, event_version, resource_id
 EVENT_FIELDS = (
     "id,etag,status,summary,description,location,htmlLink,start,end,eventType,"
     "recurrence,recurringEventId,originalStartTime,attendees,attendeesOmitted,organizer,"
-    "transparency,visibility,updated"
+    "transparency,visibility,updated,hangoutLink,conferenceData(entryPoints(entryPointType,uri,label))"
 )
 
 

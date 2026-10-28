@@ -2,6 +2,36 @@
 
 Updated: 2026-10-28.
 
+## Calendar OpenUI components, 2026-10-28
+
+The operator requested agenda, event detail, and availability components before the pending UI merge into dev.
+OpenUI library version 3 adds CalendarAgenda, CalendarEventCard, and CalendarAvailability. Keep saved versions 1 and 2 renderable.
+The views only display Calendar tool results. They do not create, edit, delete, or book events during rendering.
+Group events in the selected IANA timezone. Preserve all-day civil dates and exclusive ends. Show changed daylight-saving offsets explicitly.
+Availability merges overlapping busy intervals within the exact queried range. Failed, missing, or malformed calendar results leave unconfirmed gaps.
+Retain partial-page and coverage notes. Do not infer free time from event searches.
+Read meeting links and video entry points with event details. Render source links safely and keep descriptions as literal text.
+Use existing React and native Intl functions. Add no dependency, generic harness change, or database migration.
+The 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scenarios passed.
+The local services now use `theos:calendar-openui-20261028` and `theos-web:calendar-openui-20261028` with saved connections and the existing volume preserved.
+The installed prompt and manifest expose version 3. Model selection of the new views remains unverified.
+The operator requested merging both UI revisions into dev through the same PR.
+Browser activity checks follow the single active indicator across reasoning disclosures and tool execution.
+OpenUI browser fixtures load their owned session before interception and release routes during teardown. The 88 focused browser scenarios passed after this adjustment.
+
+## OpenUI summaries and completed thinking, 2026-10-28
+
+Show text-only OpenUI summary facts as label/value rows with light separators. Keep numeric metric tiles and charts in their existing components.
+Keep each thinking disclosure in place when generation completes. Change its label to `Thought for x s` using the saved generation duration.
+Show `Thought` when older messages have no duration. Hide the separate role and metadata footer on reasoning-only messages.
+Preserve reasoning from hidden OpenUI tool phases after reload. Keep the hidden presentation source out of the visible answer.
+Show one active thinking indicator when a streamed reasoning disclosure is present.
+The operator identified the local Slack highlights conversation as the visual example.
+Approval reviews use a neutral rounded panel with an action heading, readable fields, collapsed exact details, and fixed decision controls.
+Scroll long reviews inside the panel. Keep both decisions visible and disable them during submission. Preserve the pending review after a rejected request.
+The local frontend now uses `theos-web:chat-ui-continuity-20261028` on port 8080. Its API container and account data remain unchanged.
+The 64 OpenUI browser scenarios, 22 frontend unit tests, and 27 focused Python checks passed. Production deployment remains pending.
+
 ## Release 1.4.2 preparation, 2026-10-27
 
 The operator requested both workspace tools and Telegram connector controls from PR #112 on `main` and `rpi`.

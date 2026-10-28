@@ -151,10 +151,14 @@ async def test_event_pagination_preserves_filters_and_empty_page_continuation(ru
         assert params["timeMin"] == "2026-10-29T00:00:00+05:30"
         assert params["maxResults"] == "2" and params["q"] == "focus"
         assert params["singleEvents"] == "true"
+        assert "hangoutLink" in params["fields"]
+        assert "conferenceData(entryPoints(entryPointType,uri,label))" in params["fields"]
         if "pageToken" not in params:
             return httpx.Response(200, json={"items": [], "nextPageToken": "page-two"})
         assert params["pageToken"] == "page-two"
-        return httpx.Response(200, json={"items": [event()]})
+        return httpx.Response(
+            200, json={"items": [event(hangoutLink="https://meet.google.com/abc-defg-hij")]}
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:
         configured.http = http
@@ -171,6 +175,7 @@ async def test_event_pagination_preserves_filters_and_empty_page_continuation(ru
             tools, "calendar_list_events", page_token=first["next_page_token"], **args
         )
         assert second["events"][0]["id"] == "event123" and second["next_page_token"] is None
+        assert second["events"][0]["hangoutLink"] == "https://meet.google.com/abc-defg-hij"
         assert len(calls) == 2
         for name in ("calendar_list_events", "calendar_list_calendars"):
             description = " ".join(next(t for t in tools if t.name == name).description.split())

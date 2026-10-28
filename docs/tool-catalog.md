@@ -140,6 +140,12 @@ OpenUI evidence cards use search-provided thumbnails and logos. The authenticate
 It discovers source icons, validates public socket addresses and redirects, and bounds downloads and its memory cache. No image service or dependency is added.
 The registered library includes metric grids, bar and line charts, donut charts, progress rings, tables, evidence, notices, and reminder forms.
 `web/src/openui/library.js` generates the model prompt and schema. `web/src/openui/visuals.js` supplies the registered visual components.
+Library version 3 adds `CalendarAgenda`, `CalendarEventCard`, and `CalendarAvailability`. Versions 1 and 2 remain renderable.
+`CalendarEvent`, `CalendarInterval`, and `CalendarBusyCalendar` supply their source data through the same registered schema.
+`web/src/openui/calendar.js` renders these views. `calendar-data.js` uses native `Intl` and date functions for grouping and interval calculations.
+The components add no dependency, model tool, form action, or database migration.
+Availability comes from `calendar_free_busy`. Failed reads stay unknown. All-day dates retain their exclusive end and timed events retain explicit offsets.
+Calendar event reads include source-provided meeting links and video conference entry points. The browser rejects unsafe link protocols and embedded credentials.
 The renderer treats raw HTML as text and removes unsafe links from generated markup.
 
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.

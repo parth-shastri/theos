@@ -58,6 +58,11 @@ Continue with the same filters, including after a short or empty page.
 Page sizes and staged-result metadata describe one response. They do not establish complete provider coverage.
 Free/busy responses retain individual calendar errors. An unavailable calendar does not establish free time.
 
+Browser replies can show events in an agenda, event details in a card, and free/busy results in an interactive timeline.
+The views preserve timezones, all-day end dates, partial result pages, and unavailable calendars.
+Event cards offer source-provided event and meeting links. Displaying a view does not change the calendar.
+See [interactive browser answers](browser.md#interactive-answers).
+
 Before an update or deletion, read the intended event and supply its exact `etag`.
 The service checks that version and sends `If-Match` to prevent concurrent changes from being overwritten.
 Updates preserve omitted fields. Time changes require start, end, and the all-day flag together.

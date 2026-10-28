@@ -45,7 +45,9 @@ test("turn feedback stays in the conversation through tools and final text", asy
     page.evaluate((value) => window.turnFixture.emit(value), event);
   await page.locator("#message").fill("Synthetic activity check");
   await page.locator("#send").click();
-  const indicator = page.locator("#messages .turn-activity");
+  const indicator = page.locator(
+    "#messages .turn-activity, #messages .thinking.is-thinking",
+  );
   await expect(indicator).toHaveText("Thinking…");
   await expect(page.locator("#status")).toBeEmpty();
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -77,10 +79,17 @@ test("turn feedback stays in the conversation through tools and final text", asy
     { type: "assistant_complete", text: "Answer text" },
   ]) {
     await emit(event);
+    if (event.type === "reasoning") {
+      await expect(
+        page.locator(".thinking.is-thinking .thinking-label"),
+      ).toHaveText("Thinking…");
+      await expect(page.locator(".turn-activity")).toHaveCount(0);
+    }
     if (event.type === "tool")
       await expect(page.locator(".tool-activity summary").last()).toHaveText(
         "search · " + event.status,
       );
+    await expect(indicator).toHaveCount(1);
     await expect(indicator).toBeVisible();
     await expect(page.locator("#status")).toBeEmpty();
   }

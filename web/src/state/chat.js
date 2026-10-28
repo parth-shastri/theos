@@ -201,13 +201,13 @@ export function historyEntries(session) {
       });
     if (message.type === "assistant") {
       if (
-        (message.text || message.reasoning) &&
-        !message.display?.openui_hidden
+        message.reasoning ||
+        (message.text && !message.display?.openui_hidden)
       )
         append(state, {
           kind: "message",
           role: "assistant",
-          text: message.text || "",
+          text: message.display?.openui_hidden ? "" : message.text || "",
           reasoning: message.reasoning || "",
           display: message.display,
           usage: message.usage,
@@ -216,6 +216,7 @@ export function historyEntries(session) {
           openuiMessageId: message.display?.openui_message_id || null,
           openuiState: message.display?.openui_state || {},
           openuiSummary: message.display?.openui_summary || "",
+          presentationHidden: Boolean(message.display?.openui_hidden),
         });
       for (const call of message.tool_calls || []) calls.set(call.id, call);
     }
