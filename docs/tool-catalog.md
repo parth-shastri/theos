@@ -795,3 +795,32 @@ The runtime preserves the existing private-account boundaries and approval polic
 
 Dependencies remain mcp, httpx, cryptography, and jsonschema.
 Local contract tests pass. Real account authorization and provider tool discovery remain pending.
+
+
+## GitHub event notifications
+
+The application receives POST /webhooks/github through a dedicated Next.js byte proxy.
+This endpoint uses HMAC-SHA256 rather than browser cookies. Other browser mutation routes retain their existing origin and CSRF checks.
+The API validates X-Hub-Signature-256, X-GitHub-Delivery, and X-GitHub-Event.
+It saves authenticated pending payloads with the existing Fernet encryption key and a durable SQLite queue in migration 016.
+The scheduler runs one background GitHub batch without blocking reminders or starting an agent turn.
+
+Per-owner configuration uses PUT /api/connections/github/notifications.
+POST /api/connections/github/notifications/{id}/read acknowledges only that owner's notice.
+GET /api/connections includes private subscription status and recent alerts.
+GET /api/notifications includes unread GitHub alerts for the authenticated browser or connected terminal owner.
+Private Telegram identities can use /github_notifications on and /github_notifications off.
+
+The service checks the current GitHub identity and repository access through authenticated GET /user and GET /repositories/{id}.
+It formats direct mentions, assignments, review requests, and relevant failed workflow runs as literal text and canonical GitHub links.
+It does not expose an agent tool or execute webhook instructions.
+Uncertain Telegram sends remain recorded and are not retried automatically.
+Dependencies remain HTTPX, cryptography, SQLite, FastAPI, and the existing Telegram client.
+See [setup and retention](github-mcp.md#event-notifications).
+
+
+Temporary webhook testing uses cloudflared 2026.10.5 from Homebrew.
+A loopback FastAPI/HTTPX/Uvicorn proxy exposes only POST /webhooks/github and GET /ready.
+The temporary URL, local port, and process IDs live in .theos/github-testing/tunnel-state.json.
+Stop both recorded processes after the live check to end public ingress.
+The development tunnel is separate from the production application dependencies.

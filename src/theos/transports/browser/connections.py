@@ -26,7 +26,10 @@ def connection_status(runtime, owner):
     accounts = []
     for service, label in ACCOUNT_LABELS:
         if service in {"github", "slack"}:
-            accounts.append(getattr(runtime, service).status(owner))
+            account = getattr(runtime, service).status(owner)
+            if service == "github":
+                account["notifications"] = runtime.github_events.status(owner)
+            accounts.append(account)
             continue
         connected = (
             runtime.zepto.connected(owner)
@@ -125,6 +128,8 @@ def register_connections(app, settings, current, identity):
         authorize(request, owner, service)
         runtime = current(request)
         if service in {"github", "slack"}:
+            if service == "github":
+                runtime.github_events.disable(owner)
             return await getattr(runtime, service).disconnect(owner)
         if service == "zepto":
             await runtime.zepto.disconnect(owner)

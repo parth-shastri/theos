@@ -293,3 +293,63 @@ test("browser sign-in keeps private input outside chat and supports clearing the
   await expect(card.locator(".browser-screen")).toHaveCount(0);
   expect(cleared).toBe(true);
 });
+
+test("GitHub event alerts support opt-in and private inbox actions without model turns", async ({
+  page,
+}, info) => {
+  const state = await fixture(page);
+  const account = state.data.accounts.find((item) => item.id === "github");
+  account.connected = true;
+  account.notifications = {
+    available: true,
+    enabled: false,
+    telegram: false,
+    telegram_available: false,
+    items: [],
+  };
+  await page.route("**/api/connections/github/notifications", async (route) => {
+    Object.assign(account.notifications, route.request().postDataJSON());
+    await route.fulfill({ json: account.notifications });
+  });
+  await page.locator("#refresh-connections").click();
+  const card = page.locator('[data-account="github"]');
+  await card.getByLabel("Notify me in Theos", { exact: true }).check();
+  await expect(
+    card.getByLabel("Notify me in Theos", { exact: true }),
+  ).toBeChecked();
+  await expect(
+    card.getByLabel("Also notify my private Telegram chat"),
+  ).toBeDisabled();
+  account.notifications.items.push({
+    id: "notice-one",
+    text: "Review requested in sample/project #12: Fix <script>",
+    url: "https://github.com/sample/project/pull/12",
+    read: false,
+    telegram: "not_requested",
+  });
+  await page.route(
+    "**/api/connections/github/notifications/notice-one/read",
+    async (route) => {
+      account.notifications.items[0].read = true;
+      await route.fulfill({ json: { read: true } });
+    },
+  );
+  await page.locator("#refresh-connections").click();
+  await expect(
+    card.getByRole("link", { name: /Review requested/ }),
+  ).toHaveAttribute("href", "https://github.com/sample/project/pull/12");
+  await expect(card.getByText(/Fix <script>/)).toBeVisible();
+  await card.scrollIntoViewIfNeeded();
+  await card.screenshot({
+    path: info.outputPath("github-event-notifications.png"),
+  });
+  await card.getByRole("button", { name: "Mark read", exact: true }).click();
+  await expect(
+    card.getByRole("button", { name: "Mark read", exact: true }),
+  ).toHaveCount(0);
+  await card.getByLabel("Notify me in Theos", { exact: true }).uncheck();
+  await expect(
+    card.getByLabel("Notify me in Theos", { exact: true }),
+  ).not.toBeChecked();
+  expect(state.turns).toBe(0);
+});

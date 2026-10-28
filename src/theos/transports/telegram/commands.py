@@ -61,6 +61,8 @@ async def command(bot, session, command, argument, chat, topic):
         if command.startswith("/disconnect_"):
             service = command.removeprefix("/disconnect_")
             if service in {"github", "slack"}:
+                if service == "github":
+                    bot.runtime.github_events.disable(owner)
                 await getattr(bot.runtime, service).disconnect(owner)
                 await bot.send(
                     chat,

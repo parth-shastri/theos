@@ -153,6 +153,9 @@ class Runtime:
         self.zepto = Zepto(settings, db, self.http)
         self.slack = create_slack_account(settings, db, self.http)
         self.github = create_github_account(settings, db, self.http)
+        from theos.services.github.notifications import GitHubNotifications
+
+        self.github_events = GitHubNotifications(settings, db, self.http, self.github)
 
     def lock(self, session_id):
         """Return the lock that serializes one conversation."""

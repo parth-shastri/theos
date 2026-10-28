@@ -1000,3 +1000,27 @@ Live GitHub authorization and repository reads remain pending.
 The synchronized GitHub branch passed 1,148 Python tests, 18 frontend tests, and 56 browser connection scenarios.
 The rebuilt local API and frontend are healthy. Slack retains its grant and five read tools.
 GitHub live acceptance awaits the operator-provided OAuth client credentials in the private environment.
+
+
+## GitHub webhook notifications, 2026-10-28
+
+The operator requested incoming GitHub webhooks and event notifications on the existing connector branch.
+Selected events are direct mentions, review requests, assignments, and failed Actions runs.
+Use /webhooks/github through the public Next.js service and a dedicated AGENT_GITHUB_WEBHOOK_SECRET.
+Verify HMAC-SHA256 over exact bytes before parsing. Encrypt pending payloads and deduplicate delivery IDs in migration 016.
+Keep event handling in the GitHub application service and its own scheduler task. Do not change the generic harness.
+Each connected owner opts in. Verify GitHub identity and current repository access with its own OAuth token before routing.
+Browser and connected terminal owners receive a private inbox. Verified private Telegram owners can enable Telegram delivery.
+Do not infer a Telegram target from a GitHub login, name, repository owner, or deployment administrator.
+Limit workflow alerts to failed runs the user triggered. Team mentions and team review requests remain outside this implementation.
+Keep notifications literal and outside model history. A webhook cannot invoke tools or start an agent turn.
+Mark interrupted or failed Telegram sends uncertain and never retry them automatically.
+Discard processed raw payloads. Expire pending content after seven days and delivery records and alerts after 30 days.
+The local test retains its separate volume with Telegram polling disabled. Production activation and real provider deliveries require separate verification.
+
+The operator selected a temporary HTTPS tunnel for live webhook testing.
+Use a webhook-only loopback proxy and cloudflared. Keep the URL, port, and PIDs in the ignored .theos/github-testing/tunnel-state.json.
+The temporary ingress permits only the webhook POST and a readiness GET. Other app paths return 404.
+Synthetic public ingress checks passed signature validation and deduplication. Real GitHub and Telegram deliveries remain unverified.
+The implementation passed 1,164 Python tests, 20 frontend tests, and 64 browser cases, with eight final themed alert reruns.
+Stop the two tunnel processes after the requested live testing. No production deployment was changed.

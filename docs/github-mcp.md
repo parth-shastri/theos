@@ -24,7 +24,7 @@ GitHub also receives the read-only header and selected toolsets.
 
 For this local Docker test, register http://localhost:8080/oauth/github/callback.
 Keep expiring user tokens enabled. Leave user authorization during installation off.
-Disable webhooks when the app needs only this connector. The flow needs no app private key.
+Enable webhooks for event notifications as described below. The OAuth flow needs no app private key.
 HTTP callbacks are allowed only on localhost or 127.0.0.1 for development.
 The callback must reach the deployment that started authorization.
 A localhost callback on another computer will not reach a remote Theos server.
@@ -34,6 +34,56 @@ The optional AGENT_GITHUB__SCOPES setting accepts a JSON list.
 Default scopes: [].
 The adapter checks returned scopes before saving the initial grant.
 Tokens and authorization state remain bound to the configured client and endpoint.
+
+## Event notifications
+
+Enable **Webhooks → Active** in the GitHub App settings.
+Use this production webhook URL after deploying the receiver:
+
+```text
+https://theos.parth-shastri.com/webhooks/github
+```
+
+GitHub cannot deliver a webhook to localhost. For local testing, use an HTTPS tunnel to port 8080.
+Set the app webhook URL to https://<test-host>/webhooks/github for that test.
+The OAuth callback remains /oauth/github/callback and has a separate purpose.
+
+Set AGENT_GITHUB_WEBHOOK_SECRET to a dedicated random value of at least 32 characters.
+Copy that same value into the app's webhook **Secret** field. Keep SSL verification enabled.
+A secret was generated in the ignored local .env for this development session. Do not commit it.
+
+Subscribe to these app events:
+
+| GitHub event | Alerts selected by Theos |
+| --- | --- |
+| Issues | Assignment to you and new direct @mentions in issue bodies |
+| Issue comment | New direct @mentions in issue or PR comments |
+| Pull request | Assignment, direct review requests, and new direct @mentions |
+| Pull request review | Direct @mentions in submitted review text |
+| Pull request review comment | Direct @mentions in review comments |
+| Workflow run | Failed, timed-out, or action-required runs you triggered |
+
+Team mentions and team review requests are not included. Self-authored issue and PR activity does not notify its author.
+The existing repository read permissions cover these events. No account, organization, or enterprise permissions are added.
+
+After connecting GitHub, enable **Event notifications → Notify me in Theos** in Connections.
+Alerts appear in the private Connections inbox and the existing conversation notification area.
+Marking an alert read removes it from the conversation notification area.
+For private Telegram alerts, connect GitHub from that Telegram identity and send /github_notifications on.
+Use /github_notifications off to stop them. A browser identity is never matched to a Telegram user by name.
+Existing verified Telegram-owned browser sessions can also enable the Telegram checkbox.
+
+The receiver verifies X-Hub-Signature-256 over the original bytes before parsing.
+It accepts up to 1 MiB, commits encrypted pending payloads, and acknowledges without calling the model.
+X-GitHub-Delivery deduplicates redelivery. Reusing an ID with different content is rejected.
+The background worker matches the opted-in GitHub identity and checks current repository access with its user token.
+These native REST checks use GET /user and GET /repositories/{id}. They do not add model tools.
+Reconnection and disconnection disable the previous subscription. No pending alert crosses a subscription revision.
+
+Pending payloads expire after seven days. Processed payload content is discarded immediately.
+Delivery IDs and private inbox records expire after 30 days.
+Telegram sends are claimed before delivery. A failed or interrupted send remains uncertain and is not repeated automatically.
+The raw event cannot start a model turn or execute tools. Live delivery still requires a public route to the deployed receiver.
 
 ## Connect an account
 

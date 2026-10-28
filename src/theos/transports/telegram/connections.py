@@ -253,6 +253,7 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
         and command
         in {
             "/connections",
+            "/github_notifications",
             "/github",
             "/connect_github",
             "/slack",
@@ -286,7 +287,19 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
             )
         return True
     if direct:
-        if command == "/connections":
+        if command == "/github_notifications":
+            argument = message.get("text", "").partition(" ")[2].strip().lower()
+            if argument not in {"on", "off"}:
+                await bot.send(
+                    chat, "Use /github_notifications on or /github_notifications off.", topic
+                )
+                return True
+            try:
+                await bot.runtime.github_events.configure(owner, argument == "on", argument == "on")
+                await bot.send(chat, "GitHub event notifications are " + argument + ".", topic)
+            except (ValueError, ServiceError, PermissionError) as error:
+                await bot.send(chat, str(error), topic)
+        elif command == "/connections":
             await menu(bot, owner, chat, topic)
         elif command == "/zepto_finish":
             await prompt_return(bot, owner, chat, topic)

@@ -405,3 +405,14 @@ See [Slack setup](../slack-mcp.md) for provider requirements and supported tools
 
 The connector requires a valid AGENT_TOKEN_ENCRYPTION_KEY.
 See [GitHub setup](../github-mcp.md) for provider requirements and supported tools.
+
+
+## GitHub webhook notifications
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_GITHUB_WEBHOOK_SECRET | Empty | Dedicated signing secret, at least 32 characters. Empty disables the receiver. |
+
+The webhook secret requires a valid AGENT_TOKEN_ENCRYPTION_KEY for queued payloads.
+Configure the same secret and /webhooks/github in the GitHub App settings.
+Each connected owner must opt in. See [event notifications](../github-mcp.md#event-notifications).

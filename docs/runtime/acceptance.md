@@ -1668,3 +1668,31 @@ The GitHub frontend callback reaches the API and returns the expected invalid-st
 
 The private environment still lacks GitHub OAuth credentials. Live authorization, discovery, and repository reads remain pending.
 These checks used mocked providers for GitHub. No live GitHub account was connected.
+
+
+## Signed GitHub events and private notifications, 2026-10-28
+
+The GitHub connector now receives signed POST /webhooks/github deliveries through the production Next.js byte proxy.
+Migration 016 stores subscriptions, encrypted pending payloads, delivery IDs, private inbox notices, and Telegram delivery status.
+Opted-in owners receive direct mentions, assignments, review requests, and failed workflows they triggered.
+The worker verifies the current GitHub identity and repository access before routing and before a Telegram send.
+Event content never starts a model turn. Browser and Telegram owners retain their existing identity boundaries.
+
+The full Python suite passed 1,164 tests, with three credential-dependent checks deselected.
+The 20 frontend unit tests and 64 Chromium connection scenarios passed.
+Eight alert scenarios passed again after the final theme-color change at four widths in both themes.
+Mobile previews passed visual review at 320 and 390 pixels. Tests use synthetic titles and provider fixtures.
+The checks cover signatures, byte limits, changed payloads, duplicates, access revocation, opt-in revisions, and owner isolation.
+They also cover queue restart recovery, uncertain Telegram sends, disabled-feature retention, and notification acknowledgement.
+Lint, formatting, OpenUI validation, package builds, wheel contents, and native ARM64 API/frontend image builds passed.
+Both isolated Docker services are healthy. SQLite schema 16 passed integrity checking in a consistent local snapshot.
+
+A synthetic UTF-8 ping traversed the public temporary HTTPS tunnel, the webhook-only origin, Next.js, and the API.
+A valid signature returned 202. The same delivery returned duplicate=true. A changed payload returned 403.
+The tunnel returned 404 for the app root and /api/me, and 200 for its readiness route.
+The operator authorized this temporary tunnel. Its processes, URL, and port are recorded only in the ignored local test folder.
+A signing secret was generated in the ignored private .env. It was not included in source or build output.
+
+These checks do not establish a real GitHub App delivery or a live Telegram send.
+GitHub OAuth credentials, provider setup, per-owner opt-in, and actual event delivery still need live acceptance.
+The production Theos deployment is unchanged. The temporary tunnel remains active for the requested local test.
