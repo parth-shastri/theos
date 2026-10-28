@@ -2,6 +2,20 @@
 
 Updated: 2026-10-28.
 
+## Calendar OpenUI components, 2026-10-28
+
+The operator requested agenda, event detail, and availability components before the pending UI merge into dev.
+OpenUI library version 3 adds CalendarAgenda, CalendarEventCard, and CalendarAvailability. Keep saved versions 1 and 2 renderable.
+The views only display Calendar tool results. They do not create, edit, delete, or book events during rendering.
+Group events in the selected IANA timezone. Preserve all-day civil dates and exclusive ends. Show changed daylight-saving offsets explicitly.
+Availability merges overlapping busy intervals within the exact queried range. Failed, missing, or malformed calendar results leave unconfirmed gaps.
+Retain partial-page and coverage notes. Do not infer free time from event searches.
+Read meeting links and video entry points with event details. Render source links safely and keep descriptions as literal text.
+Use existing React and native Intl functions. Add no dependency, generic harness change, or database migration.
+The 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scenarios passed.
+The local services now use `theos:calendar-openui-20261028` and `theos-web:calendar-openui-20261028` with saved connections and the existing volume preserved.
+The installed prompt and manifest expose version 3. Model selection of the new views remains unverified. The dev merge is still on hold.
+
 ## OpenUI summaries and completed thinking, 2026-10-28
 
 Show text-only OpenUI summary facts as label/value rows with light separators. Keep numeric metric tiles and charts in their existing components.

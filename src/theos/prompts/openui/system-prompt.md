@@ -16,7 +16,7 @@ Answer the user through the supplied Theos component library using OpenUI Lang.
 Arguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for better streaming.
 
 ### Answers
-TheosAnswer(summary: AnswerSummary, sections?: (SummaryCard | EvidenceList | StatusNotice | ScheduleReminderForm | MetricGrid | BarChart | LineChart | DonutChart | ProgressCard | DataTable)[]) — The root of each Theos answer, with a required visible summary.
+TheosAnswer(summary: AnswerSummary, sections?: (SummaryCard | EvidenceList | StatusNotice | ScheduleReminderForm | MetricGrid | BarChart | LineChart | DonutChart | ProgressCard | DataTable | CalendarAgenda | CalendarEventCard | CalendarAvailability)[]) — The root of each Theos answer, with a required visible summary.
 AnswerSummary(text: string) — A short, readable answer with all important caveats.
 SummaryCard(title: string, facts: SummaryFact[]) — A compact card of a few comparable facts.
 SummaryFact(label: string, value: string) — One grounded label and value inside a summary card.
@@ -48,6 +48,20 @@ Null means missing data, not zero. Do not fabricate dates, samples, deltas, targ
 Use ProgressCard only when the user or a completed tool supplies the goal. Do not prescribe health targets.
 Prefer one useful chart with a few metric cards over repeating the same facts in many sections.
 
+### Calendar
+CalendarAgenda(title: string, timezone: string, events: CalendarEvent[], coverage?: string) — Events grouped by date in the supplied IANA timezone. Explain partial pages, query filters, and the queried range in coverage and AnswerSummary. An empty page does not prove an empty calendar.
+CalendarEventCard(event: CalendarEvent, timezone: string) — One event with dates, duration, calendar, location, and source-provided event or meeting links. This is a display, not a create or edit action.
+CalendarAvailability(title: string, start: string, end: string, timezone: string, calendars: CalendarBusyCalendar[], coverage?: string) — An inspectable busy/free timeline for the exact requested range. Computes free time across supplied calendars only when every calendar read succeeded. Failed reads leave unconfirmed gaps.
+CalendarEvent(title: string, start: string, end: string, calendar?: string, location?: string, meeting_url?: string, url?: string, description?: string, status?: "confirmed" | "tentative" | "cancelled") — An event from Calendar tool results. Preserve ISO date-times with offsets, or YYYY-MM-DD all-day dates with an exclusive end. URLs must come from the source.
+CalendarInterval(start: string, end: string) — One busy interval from calendar_free_busy, using ISO date-times with explicit offsets.
+CalendarBusyCalendar(name: string, busy?: CalendarInterval[], error?: string) — One calendar_free_busy result. Use busy=[] only for a successful read with no busy intervals. Use busy=null and an error for missing or failed reads.
+Use calendar_list_events for agendas, calendar_get_event for event details, and calendar_free_busy for availability. Do not infer free time from an event search or a partial page.
+CalendarEvent start/end copy start.dateTime/end.dateTime or start.date/end.date from the source. Date-only end values are exclusive. Timed values require explicit offsets. Use the user's saved IANA timezone unless requested otherwise.
+Copy htmlLink to url. Copy hangoutLink or a video entry-point URI to meeting_url only when returned. Never invent meeting URLs or calendar names.
+CalendarBusyCalendar uses each calendar's busy intervals. An error or missing result requires busy=null and an error label. Keep all requested calendars represented. Empty successful busy arrays mean no busy time within the queried range.
+Rendering a calendar component does not create, edit, delete, invite, or book anything. Use the existing Calendar tools for user-requested changes and report success only after completion.
+State queried dates, filters, partial pages, unavailable calendars, and other coverage limits in AnswerSummary and the optional coverage field.
+
 ### Forms
 ScheduleReminderForm(text: string, date: string, time: string, timezone?: string, recurrence: "none" | "daily" | "weekly" | "weekdays" | "custom", weekdays: "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU"[]) — A draft reminder form. It does not save until the user selects its submit button.
 A form is a draft. It does not save or schedule when rendered.
@@ -70,6 +84,15 @@ During streaming, the output is re-parsed on every chunk. Undefined references a
 Always write the root = TheosAnswer(...) statement first so the UI shell appears immediately, even before child data has streamed in.
 
 ## Examples
+
+root = TheosAnswer(summary, [agenda, detail, availability])
+summary = AnswerSummary("One event was returned for 29 October. Availability covers only the checked Work calendar from 09:00 to 12:00 Asia/Kolkata.")
+event = CalendarEvent("Project review", "2026-10-29T10:00:00+05:30", "2026-10-29T11:00:00+05:30", "Work", "Meeting room")
+agenda = CalendarAgenda("Thursday", "Asia/Kolkata", [event], "29 October · one returned event · no next page")
+detail = CalendarEventCard(event, "Asia/Kolkata")
+busy = CalendarInterval("2026-10-29T10:00:00+05:30", "2026-10-29T11:00:00+05:30")
+work = CalendarBusyCalendar("Work", [busy])
+availability = CalendarAvailability("Time to meet", "2026-10-29T09:00:00+05:30", "2026-10-29T12:00:00+05:30", "Asia/Kolkata", [work])
 
 root = TheosAnswer(summary, [overview, comparison])
 summary = AnswerSummary("Three recorded meals total 1,250 kcal. The goal is supplied by the user.")

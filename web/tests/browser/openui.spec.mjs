@@ -281,6 +281,156 @@ test("streamed thinking becomes a completed thought in the same disclosure", asy
   await expect(page.locator("#send")).toBeEnabled();
 });
 
+test("calendar agenda, event details, and availability preserve source dates and support keyboard inspection", async ({
+  page,
+}, testInfo) => {
+  const errors = [],
+    writes = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    if (request.method() === "POST" && /\/turn$/.test(request.url()))
+      writes.push(request.url());
+  });
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [agenda, card, available])",
+      'summary = AnswerSummary("Four returned events and availability from two checked calendars. The event list has another page.")',
+      'review = CalendarEvent("Project review", "2026-10-29T10:30:00+05:30", "2026-10-29T11:15:00+05:30", "Work", "Meeting room", "https://meet.google.com/abc-defg-hij", "https://calendar.google.com/calendar/event?eid=synthetic", "Discuss the draft and the next steps.\\nBring your project notes.", "confirmed")',
+      'leave = CalendarEvent("Team offsite", "2026-10-29", "2026-10-31", "Team")',
+      'late = CalendarEvent("Overnight support", "2026-10-29T23:30:00+05:30", "2026-10-30T00:30:00+05:30", "Work")',
+      'next = CalendarEvent("Morning walk", "2026-10-30T03:30:00Z", "2026-10-30T04:00:00Z", "Personal")',
+      'agenda = CalendarAgenda("Your next few days", "Asia/Kolkata", [next, review, leave, late], "29-30 October · first four events · more events available")',
+      'card = CalendarEventCard(review, "Asia/Kolkata")',
+      'first = CalendarInterval("2026-10-29T10:30:00+05:30", "2026-10-29T11:15:00+05:30")',
+      'overlap = CalendarInterval("2026-10-29T11:00:00+05:30", "2026-10-29T12:00:00+05:30")',
+      'afternoon = CalendarInterval("2026-10-29T15:00:00+05:30", "2026-10-29T16:00:00+05:30")',
+      'work = CalendarBusyCalendar("Work", [first, overlap])',
+      'personal = CalendarBusyCalendar("Personal", [afternoon])',
+      'available = CalendarAvailability("Time to meet", "2026-10-29T09:00:00+05:30", "2026-10-29T18:00:00+05:30", "Asia/Kolkata", [work, personal], "Availability checked for Work and Personal only.")',
+    ].join("\n"),
+    "theos-openui-3",
+  );
+  const agenda = page.locator(".openui-calendar-agenda");
+  await expect(agenda.locator(".openui-calendar-day h4")).toHaveCount(2);
+  await expect(agenda.locator(".openui-calendar-event").first()).toContainText(
+    "Team offsite",
+  );
+  await expect(agenda).toContainText("All day");
+  await expect(agenda).toContainText("2 days");
+  await expect(agenda).toContainText("Thu, 29 Oct 2026 - Fri, 30 Oct 2026");
+  await expect(agenda.locator(".openui-calendar-event").last()).toContainText(
+    "09:00 - 09:30",
+  );
+  await expect(agenda).toContainText("more events available");
+  const card = page.locator(".openui-calendar-event-card");
+  await expect(card).toContainText("45 min");
+  await expect(
+    card.getByRole("link", { name: "Join meeting", exact: true }),
+  ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+  await expect(
+    card.getByRole("link", { name: "Open event", exact: true }),
+  ).toHaveAttribute("rel", "noopener noreferrer");
+  await card.getByText("Event description", { exact: true }).click();
+  await expect(card.locator(".openui-calendar-description p")).toContainText(
+    "Bring your project notes.",
+  );
+  const availability = page.locator(".openui-calendar-availability");
+  await expect(availability).toContainText(
+    "6 hr 30 min free across all checked calendars",
+  );
+  await availability.locator(".openui-calendar-segment").first().focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    availability.locator(".openui-calendar-inspection"),
+  ).toContainText("Busy: Thu, 29 Oct 2026, 10:30 - 12:00 · 1 hr 30 min");
+  await page.keyboard.press("End");
+  await expect(
+    availability.locator(".openui-calendar-inspection"),
+  ).toContainText("16:00 - 18:00");
+  await availability.getByText("View time intervals", { exact: true }).click();
+  await expect(availability.locator(".openui-calendar-exact li")).toHaveCount(
+    5,
+  );
+  await availability.getByText("View time intervals", { exact: true }).click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  for (const [component, filename] of [
+    [agenda, "calendar-agenda"],
+    [card, "calendar-event"],
+    [availability, "calendar-availability"],
+  ]) {
+    await component.evaluate((element) => {
+      const pane = document.getElementById("messages");
+      pane.scrollTop +=
+        element.getBoundingClientRect().top -
+        pane.getBoundingClientRect().top -
+        85;
+    });
+    await page.screenshot({ path: testInfo.outputPath(filename + ".png") });
+  }
+  await page.reload();
+  await expect(page.locator(".openui-calendar-agenda")).toBeVisible();
+  await expect(page.locator(".openui-fallback")).toHaveCount(0);
+  expect(errors).toEqual([]);
+  expect(writes).toEqual([]);
+});
+
+test("calendar views keep empty, unavailable, invalid, and unsafe source data explicit", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [agenda, card, available])",
+      'summary = AnswerSummary("No events in this page. Personal availability could not be checked.")',
+      'agenda = CalendarAgenda("Search results", "Pacific/Honolulu", [], "Empty page · another page is available")',
+      'event = CalendarEvent("Untrusted event", "2026-02-30T10:00:00Z", "2026-03-01T11:00:00Z", "Work", "", "javascript:alert(1)", "https://user:password@example.com/event", "<img src=x onerror=alert(1)>")',
+      'card = CalendarEventCard(event, "UTC")',
+      'busy = CalendarInterval("2026-10-29T10:00:00Z", "2026-10-29T11:00:00Z")',
+      'work = CalendarBusyCalendar("Work", [busy])',
+      'personal = CalendarBusyCalendar("Personal", null, "Access unavailable")',
+      'available = CalendarAvailability("Checked availability", "2026-10-29T09:00:00Z", "2026-10-29T12:00:00Z", "UTC", [work, personal])',
+    ].join("\n"),
+    "theos-openui-3",
+  );
+  await expect(page.locator(".openui-calendar-agenda")).toContainText(
+    "No events in the supplied results.",
+  );
+  await expect(page.locator(".openui-calendar-agenda")).toContainText(
+    "another page is available",
+  );
+  const card = page.locator(".openui-calendar-event-card");
+  await expect(card).toContainText("event time unavailable");
+  await expect(card.locator("a")).toHaveCount(0);
+  await card.getByText("Event description", { exact: true }).click();
+  await expect(card.locator(".openui-calendar-description p")).toHaveText(
+    "<img src=x onerror=alert(1)>",
+  );
+  await expect(card.locator("img")).toHaveCount(0);
+  const availability = page.locator(".openui-calendar-availability");
+  await expect(availability).toContainText("Availability incomplete");
+  await expect(availability).toContainText("Access unavailable");
+  await expect(availability.locator(".is-free")).toHaveCount(0);
+  await expect(
+    availability.locator(".openui-calendar-segment.is-unknown"),
+  ).toHaveCount(2);
+  await expect(
+    availability.locator(".openui-calendar-segment.is-busy"),
+  ).toHaveCount(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("health status notices remain in the chat when the conversation drawer toggles", async ({
   page,
 }) => {

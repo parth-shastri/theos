@@ -1,5 +1,23 @@
 # Feature and acceptance checklist
 
+## Calendar OpenUI components, 2026-10-28
+
+Library version 3 adds an agenda, event card, and availability timeline. Saved versions 1 and 2 remain renderable.
+Calendar views preserve all-day exclusive ends, IANA timezones, and daylight-saving offset changes.
+The availability calculation clips and merges busy intervals. Failed, missing, or malformed results leave unknown gaps.
+Source-provided event and meeting links remain safe links. Event descriptions display as literal text.
+
+All 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scenarios passed.
+The browser checks covered four widths in both themes, keyboard inspection, reloads, partial results, invalid dates, and unsafe links.
+The Calendar views made no turn requests during browser inspection. Tests used synthetic events and mocked provider responses.
+Formatting, Python lint, generated artifact validation, and production frontend compilation passed.
+Mobile light and desktop dark screenshots passed visual review. Native ARM64 API and frontend image builds passed.
+
+Both local services now run the Calendar OpenUI images on ports 8080 and 8081.
+Readiness, installed version 3, generated component instructions, and meeting-link fields passed direct checks.
+The existing account connections and data volume survived replacement. No live Calendar event was created or changed for these checks.
+Live model selection of the new views, the pending dev merge, and production deployment remain unverified.
+
 ## OpenUI summaries and completed thinking, 2026-10-28
 
 Text-only summary facts now use label/value rows. Completed thinking retains its disclosure and shows `Thought for x s` from the saved generation duration.

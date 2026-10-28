@@ -787,6 +787,285 @@ main {
   color: var(--text-muted);
   font-size: 10px;
 }
+.openui-calendar {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface) 38%, transparent);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.openui-calendar-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.openui-calendar-eyebrow,
+.openui-calendar-zone {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.openui-calendar-zone {
+  text-align: right;
+}
+.openui-calendar-heading h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.openui-calendar-day h4 {
+  margin: 20px 0 4px;
+  padding: 4px 0 4px 10px;
+  border-left: 2px solid var(--accent);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+.openui-calendar-day ol,
+.openui-calendar-accounts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.openui-calendar-event {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px 0;
+}
+.openui-calendar-event + .openui-calendar-event {
+  border-top: 1px solid var(--border);
+}
+.openui-calendar-when {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.openui-calendar-when small,
+.openui-calendar-source,
+.openui-calendar-status {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.openui-calendar-event-copy strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.openui-calendar-status {
+  margin-left: 10px;
+}
+.openui-calendar-event-copy p,
+.openui-calendar-note,
+.openui-calendar-range {
+  margin: 5px 0;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.openui-calendar-note {
+  margin-top: 16px;
+  color: var(--text-muted);
+}
+.openui-calendar-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.openui-calendar-links:empty,
+.openui-calendar-fields:empty {
+  display: none;
+}
+.openui-calendar-links a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  text-underline-offset: 4px;
+}
+.openui-calendar-links a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.openui-calendar-date-block {
+  padding-left: 14px;
+  border-left: 2px solid var(--accent);
+  margin: 8px 0 22px;
+}
+.openui-calendar-date-block p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.openui-calendar-date-block strong {
+  display: block;
+  font-size: 22px;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.openui-calendar-date-block > span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.openui-calendar-fields {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.openui-calendar-fields dt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.openui-calendar-fields dd {
+  margin: 0;
+}
+.openui-calendar-description,
+.openui-calendar-exact {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.openui-calendar-description > summary,
+.openui-calendar-exact > summary {
+  padding: 12px 0;
+}
+.openui-calendar-description p {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+.openui-calendar-exact ol {
+  padding-left: 20px;
+}
+.openui-calendar-exact li + li {
+  margin-top: 8px;
+}
+.openui-calendar-availability-total {
+  display: block;
+  margin: 14px 0;
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.openui-calendar-timeline {
+  display: flex;
+  gap: 3px;
+  height: 40px;
+  margin: 20px 0 12px;
+}
+.openui-calendar-timeline .openui-calendar-segment {
+  flex-basis: 0;
+  min-width: 3px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: none;
+}
+.openui-calendar-timeline .is-busy {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.openui-calendar-timeline .is-free {
+  background: var(--accent-soft);
+}
+.openui-calendar-timeline .is-unknown {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--border) 0 2px,
+    transparent 2px 7px
+  );
+  border-style: dashed;
+}
+.openui-calendar-segment[aria-pressed="true"] {
+  outline: 2px solid var(--text-soft);
+  outline-offset: 2px;
+}
+.openui-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.openui-calendar-legend span::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--accent-soft);
+}
+.openui-calendar-legend .is-busy::before {
+  background: var(--accent);
+}
+.openui-calendar-legend .is-unknown::before {
+  background: var(--border);
+}
+.openui-calendar-inspection {
+  min-height: 3.4em;
+  margin: 16px 0;
+  font-size: 12px;
+  line-height: 1.7;
+  font-variant-numeric: tabular-nums;
+}
+.openui-calendar-accounts li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.openui-calendar-accounts li > :last-child {
+  color: var(--text-muted);
+}
+.openui-calendar-accounts li > .is-unavailable {
+  color: var(--warning);
+}
+@media (max-width: 500px) {
+  .openui-calendar {
+    padding: 16px;
+    border-radius: 18px;
+  }
+  .openui-calendar-heading {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  .openui-calendar-event {
+    grid-template-columns: 85px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .openui-calendar-fields {
+    grid-template-columns: 65px minmax(0, 1fr);
+    gap: 8px 12px;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .openui-calendar {
+    background: var(--surface);
+  }
+}
 .openui-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
