@@ -187,7 +187,11 @@ class TheosTui(HarnessTui):
     async def _poll_notices(self):
         try:
             for row in await await_if_needed(self.session.notifications()):
-                title = await await_if_needed(self.session.session_title(row["session"]))
+                title = (
+                    "GitHub"
+                    if row.get("source") == "github"
+                    else await await_if_needed(self.session.session_title(row["session"]))
+                )
                 self.renderer.note(f"Notification · {title}\n{row['text']}")
                 if row["session"] == self.session_id:
                     await self._restore_approvals()

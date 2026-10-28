@@ -393,3 +393,26 @@ See the [call budget map](../runtime/call-budgets.md).
 
 The connector requires a valid AGENT_TOKEN_ENCRYPTION_KEY.
 See [Slack setup](../slack-mcp.md) for provider requirements and supported tools.
+
+## GitHub remote MCP
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_GITHUB__CLIENT_ID | Empty | Deployment OAuth client ID |
+| AGENT_GITHUB__CLIENT_SECRET | Empty | Deployment OAuth client secret |
+| AGENT_GITHUB__REDIRECT_URI | Empty | Exact /oauth/github/callback URI |
+| AGENT_GITHUB__SCOPES | [] | JSON list of user scopes |
+
+The connector requires a valid AGENT_TOKEN_ENCRYPTION_KEY.
+See [GitHub setup](../github-mcp.md) for provider requirements and supported tools.
+
+
+## GitHub webhook notifications
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_GITHUB_WEBHOOK_SECRET | Empty | Dedicated signing secret, at least 32 characters. Empty disables the receiver. |
+
+The webhook secret requires a valid AGENT_TOKEN_ENCRYPTION_KEY for queued payloads.
+Configure the same secret and /webhooks/github in the GitHub App settings.
+Each connected owner must opt in. See [event notifications](../github-mcp.md#event-notifications).

@@ -34,7 +34,9 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
-Gmail reads, Health summaries and export status, and Slack MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
+Gmail reads, Health summaries and export status, and Slack and GitHub MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
+
+The `truncated` field describes the returned response only. A complete staged response can still require provider pagination or further content ranges. Account tool descriptions explain continuation parameters and page-size limits. General agent instructions govern evidence coverage for the requested task.
 
 ## CI coverage selection
 
@@ -779,3 +781,48 @@ The runtime preserves the existing private-account boundaries and approval polic
 
 Dependencies remain mcp, httpx, cryptography, and jsonschema.
 Local contract tests pass. Enable Slack MCP access before live provider tool discovery.
+
+## GitHub MCP connector
+
+Theos uses the official remote MCP server through an owner-bound account adapter.
+The reviewed allowlist contains 23 read identifiers.
+Only the subset returned by authenticated discovery enters a conversation.
+Write tools and unknown tools remain unavailable.
+
+See [setup and usage](github-mcp.md), the [allowlist](connectors/github-tools.json), and the [implementation plan](connectors/github-plan.md).
+The adapter validates arguments against the discovered JSON schema before execution.
+Small results remain inline. Large reads use the existing 8 KiB inline, 1 MiB staging, and bounded preview limits.
+The tool journal records the returned result. Temporary result files are not durable workspace checkpoints.
+The runtime preserves the existing private-account boundaries and approval policy.
+
+Dependencies remain mcp, httpx, cryptography, and jsonschema.
+Local contract tests pass. Real account authorization and provider tool discovery remain pending.
+
+
+## GitHub event notifications
+
+The application receives POST /webhooks/github through a dedicated Next.js byte proxy.
+This endpoint uses HMAC-SHA256 rather than browser cookies. Other browser mutation routes retain their existing origin and CSRF checks.
+The API validates X-Hub-Signature-256, X-GitHub-Delivery, and X-GitHub-Event.
+It saves authenticated pending payloads with the existing Fernet encryption key and a durable SQLite queue in migration 016.
+The scheduler runs one background GitHub batch without blocking reminders or starting an agent turn.
+
+Per-owner configuration uses PUT /api/connections/github/notifications.
+POST /api/connections/github/notifications/{id}/read acknowledges only that owner's notice.
+GET /api/connections includes private subscription status and recent alerts.
+GET /api/notifications includes unread GitHub alerts for the authenticated browser or connected terminal owner.
+Private Telegram identities can use /github_notifications on and /github_notifications off.
+
+The service checks the current GitHub identity and repository access through authenticated GET /user and GET /repositories/{id}.
+It formats direct mentions, assignments, review requests, and relevant failed workflow runs as literal text and canonical GitHub links.
+It does not expose an agent tool or execute webhook instructions.
+Uncertain Telegram sends remain recorded and are not retried automatically.
+Dependencies remain HTTPX, cryptography, SQLite, FastAPI, and the existing Telegram client.
+See [setup and retention](github-mcp.md#event-notifications).
+
+
+Temporary webhook testing uses cloudflared 2026.10.5 from Homebrew.
+A loopback FastAPI/HTTPX/Uvicorn proxy exposes only POST /webhooks/github and GET /ready.
+The temporary URL, local port, and process IDs live in .theos/github-testing/tunnel-state.json.
+Stop both recorded processes after the live check to end public ingress.
+The development tunnel is separate from the production application dependencies.

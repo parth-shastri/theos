@@ -9,6 +9,7 @@ ACCOUNT_LABELS = (
     ("zepto", "Zepto"),
     ("health", "Google Health"),
     ("slack", "Slack"),
+    ("github", "GitHub"),
 )
 
 

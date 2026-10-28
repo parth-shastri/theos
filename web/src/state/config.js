@@ -133,6 +133,8 @@ export const messageModes = {
 };
 
 export const accountDescriptions = {
+  github:
+    "Search and read repositories, issues, pull requests, and Actions through the official GitHub MCP server.",
   slack:
     "Search and read Slack conversations through the official Slack MCP server. Available tools depend on your granted scopes.",
   gmail:
@@ -144,6 +146,7 @@ export const accountDescriptions = {
 };
 
 export const providerIcons = {
+  github: "/static/providers/github.svg",
   slack: "/static/providers/slack.svg",
   gmail: "/static/providers/gmail.svg",
   health: "/static/providers/health.png",

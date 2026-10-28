@@ -1,6 +1,6 @@
 # Theos project memory
 
-Updated: 2026-10-27.
+Updated: 2026-10-28.
 
 ## Release 1.4.2 preparation, 2026-10-27
 
@@ -963,3 +963,81 @@ Five reviewed read tools are available under the current scopes.
 A normal browser turn completed one public channel search through the model, adapter, journal, and SSE delivery.
 The search returned one channel in 8.84 seconds. No Slack write ran.
 Private access, permission removal, and live disconnection still need separate acceptance checks.
+
+## GitHub connector planning, 2026-10-15
+
+The operator requested a separate topic branch and a tool-coverage and complexity review.
+Branch: `feature/github-connector`, from remote `dev` at `8a4360f`.
+Review the official remote MCP server before selecting a native API adapter. Start with an explicit read-tool allowlist.
+The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
+See [the plan](docs/connectors/github-plan.md) and its tool inventory.
+
+## GitHub official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote GitHub MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+OAuth state uses durable single-use records and PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 23 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/github-mcp.md).
+
+
+## GitHub connector synchronization, 2026-10-28
+
+The operator requested merging the tested Slack PR into dev, then preparing GitHub in the same way.
+Slack PR 75 merged with successful CI at f0e523a. Merge that dev history into feature/github-connector with a merge commit.
+Keep the current shared MCP account adapter, bounded result staging, Next.js frontend, and native Telegram controls.
+Register GitHub in optional onboarding, connection cards, composer mentions, cancellation, and the callback proxy.
+The local callback is http://localhost:8080/oauth/github/callback. The operator is creating the GitHub App and its OAuth credentials.
+Live GitHub authorization and repository reads remain pending.
+
+The synchronized GitHub branch passed 1,148 Python tests, 18 frontend tests, and 56 browser connection scenarios.
+The rebuilt local API and frontend are healthy. Slack retains its grant and five read tools.
+GitHub live acceptance awaits the operator-provided OAuth client credentials in the private environment.
+
+
+## GitHub webhook notifications, 2026-10-28
+
+The operator requested incoming GitHub webhooks and event notifications on the existing connector branch.
+Selected events are direct mentions, review requests, assignments, and failed Actions runs.
+Use /webhooks/github through the public Next.js service and a dedicated AGENT_GITHUB_WEBHOOK_SECRET.
+Verify HMAC-SHA256 over exact bytes before parsing. Encrypt pending payloads and deduplicate delivery IDs in migration 016.
+Keep event handling in the GitHub application service and its own scheduler task. Do not change the generic harness.
+Each connected owner opts in. Verify GitHub identity and current repository access with its own OAuth token before routing.
+Browser and connected terminal owners receive a private inbox. Verified private Telegram owners can enable Telegram delivery.
+Do not infer a Telegram target from a GitHub login, name, repository owner, or deployment administrator.
+Limit workflow alerts to failed runs the user triggered. Team mentions and team review requests remain outside this implementation.
+Keep notifications literal and outside model history. A webhook cannot invoke tools or start an agent turn.
+Mark interrupted or failed Telegram sends uncertain and never retry them automatically.
+Discard processed raw payloads. Expire pending content after seven days and delivery records and alerts after 30 days.
+The local test retains its separate volume with Telegram polling disabled. Production activation and real provider deliveries require separate verification.
+
+The operator selected a temporary HTTPS tunnel for live webhook testing.
+Use a webhook-only loopback proxy and cloudflared. Keep the URL, port, and PIDs in the ignored .theos/github-testing/tunnel-state.json.
+The temporary ingress permits only the webhook POST and a readiness GET. Other app paths return 404.
+Synthetic public ingress checks passed signature validation and deduplication. Real GitHub and Telegram deliveries remain unverified.
+The implementation passed 1,164 Python tests, 20 frontend tests, and 64 browser cases, with eight final themed alert reruns.
+Stop the two tunnel processes after the requested live testing. No production deployment was changed.
+
+## General evidence guidance, 2026-10-28
+
+The operator requested removal of mailbox-specific rules from the shared agent prompt.
+Keep evidence coverage general. Distinguish partial results from complete coverage, and estimates from exact counts.
+Continue retrieval when missing evidence could materially change the answer.
+Describe pagination mechanics beside the tools. Page size limits one response, not the total available results.
+The staged-result `truncated` field describes one response. It does not establish complete provider coverage.
+
+## GitHub acceptance and GitLab transition, 2026-10-28
+
+The operator completed GitHub App authorization in the local Docker workspace.
+The model completed identity, repository-search, and commit-list reads through the reviewed MCP tools.
+The account grant survives the local restart. The first repository comparison stopped after one full commit page.
+General evidence and tool-pagination guidance now clarify this case. Fresh model pagination behavior remains unverified.
+The operator requested merging the GitHub topic PR into dev, as with Slack, then continuing on the GitLab topic branch.
+Real GitHub notification delivery and private Telegram acceptance remain separate open checks.

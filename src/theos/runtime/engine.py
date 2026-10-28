@@ -134,6 +134,7 @@ class Runtime:
         self.locks: dict[str, asyncio.Lock] = {}
         self.active: dict[str, Turn] = {}
         self.closed = False
+        from theos.services.github import create_account as create_github_account
         from theos.services.gmail.client import Gmail
         from theos.services.google.oauth import OAuth
         from theos.services.health.client import Health
@@ -151,6 +152,10 @@ class Runtime:
         self.sandboxes.browsers = self.browsers
         self.zepto = Zepto(settings, db, self.http)
         self.slack = create_slack_account(settings, db, self.http)
+        self.github = create_github_account(settings, db, self.http)
+        from theos.services.github.notifications import GitHubNotifications
+
+        self.github_events = GitHubNotifications(settings, db, self.http, self.github)
 
     def lock(self, session_id):
         """Return the lock that serializes one conversation."""
@@ -667,6 +672,7 @@ class Runtime:
         await self.checkpoints.close()
         await self.zepto.close()
         await self.slack.close()
+        await self.github.close()
         await self.browsers.close()
         await self.sandboxes.close()
         await self.http.aclose()

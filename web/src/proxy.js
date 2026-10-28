@@ -40,6 +40,6 @@ export function proxy(request) {
 export const config = {
   // API handlers validate origins themselves. Keep upload bodies out of Proxy buffering.
   matcher: [
-    "/((?!api/|oauth/|ready|_next/static|_next/image|static/|favicon.ico).*)",
+    "/((?!api/|oauth/|webhooks/|ready|_next/static|_next/image|static/|favicon.ico).*)",
   ],
 };

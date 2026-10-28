@@ -1,0 +1,4 @@
+GitHub icon from Simple Icons 11.15.0.
+Source: https://raw.githubusercontent.com/simple-icons/simple-icons/11.15.0/icons/github.svg
+License: CC0-1.0, https://github.com/simple-icons/simple-icons/blob/11.15.0/LICENSE.md
+The provider retains its trademarks.

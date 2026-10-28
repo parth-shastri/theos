@@ -207,6 +207,8 @@ class Settings(ClientSettings):
     kokoro_voice: str = "am_michael(0.7)+bm_george(0.3)"
     kokoro_speed: float = Field(default=0.9, ge=0.5, le=2)
     kokoro_key: SecretStr = SecretStr("")
+    github_webhook_secret: SecretStr = SecretStr("")
+    github: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
     slack: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
     gmail: OAuthSettings = Field(default_factory=OAuthSettings)
     health: OAuthSettings = Field(default_factory=OAuthSettings)
@@ -248,8 +250,18 @@ class Settings(ClientSettings):
             raise ValueError("Use a different browser token for each user.")
         if not self.admins <= self.users.keys():
             raise ValueError("Each administrator must have a browser token.")
+        if self.github_webhook_secret and len(self.github_webhook_secret.get_secret_value()) < 32:
+            raise ValueError("AGENT_GITHUB_WEBHOOK_SECRET must contain at least 32 characters.")
+        self.github.check_callback("github")
         self.slack.check_callback("slack")
-        if self.gmail.enabled or self.health.enabled or self.zepto_url or self.slack.enabled:
+        if (
+            self.gmail.enabled
+            or self.health.enabled
+            or self.zepto_url
+            or self.slack.enabled
+            or self.github.enabled
+            or self.github_webhook_secret
+        ):
             from cryptography.fernet import Fernet
 
             try:

@@ -26,7 +26,7 @@ All source paths below start at `src/theos`.
 | Final answers and failures | Reserve a final model call after runtime limits. Explain failures without exposing raw findings | `runtime/recovery.py`, `runtime/errors.py` |
 | Context and output | Read provider capacity metadata, apply conservative OpenAI caps, and share compaction rules | `runtime/context.py` |
 | Call budgets | Count calls without enforcement by default. Retain optional bounded allocations | `runtime/budgets.py` |
-| Provider result shaping | Return concise Gmail and Health summaries, fetch selected details, and stage oversized reads | `services/gmail/tools.py`, `services/health/tools.py`, `services/result_files.py` |
+| Provider result shaping | Return concise account results and stage oversized reads | `services/gmail/tools.py`, `services/health/tools.py`, `services/mcp_accounts/tools.py`, `services/result_files.py` |
 | Managed browser | Route browser CLI calls, isolate owner profiles, capture encrypted recovery state, and provide private sign-in controls | `services/sandbox/browser.py`, `services/sandbox/profile.py`, `transports/browser/managed_browser.py` |
 | File retention | Retain recovery roots and retry deletion of unreferenced local and R2 objects | `services/files/retention.py`, migration 015 |
 | History retrieval | Read exact saved messages after compaction | `../harness/tools.py` |
@@ -97,6 +97,7 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `voice/` | Transcription and Kokoro clients with audio tools |
 | `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
+| `github/` | Official MCP configuration, reviewed read tools, signed event queue, per-owner subscriptions, and literal notifications |
 | `slack/` | Official Slack MCP endpoint, OAuth configuration, and reviewed read-tool allowlist |
 | `mcp_accounts/` | Shared encrypted account grants, PKCE state, remote sessions, and schema validation |
 | `gmail/` | Gmail requests, draft previews, and account tools |
@@ -107,6 +108,9 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 `transports/telegram/connections.py` owns native account cards, sign-in buttons, status actions, and Zepto reply prompts.
 `polling.py` identifies prompt replies before inbox persistence and routes encrypted return links outside model history.
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
+`transports/browser/github_events.py` receives signed GitHub webhooks and manages private notification settings.
+`services/github/events.py` selects attention events. `notifications.py` owns routing, access checks, queue retention, and delivery status.
+The Next.js webhook route forwards exact bytes without browser credentials. The scheduler runs the independent GitHub worker.
 `services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
 It reports configuration status without exposing credentials.
 Groups and standalone terminal sessions receive no account tools.

@@ -4858,3 +4858,64 @@ tr:last-child td {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.github-notifications {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.github-notification-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.github-notification-heading h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.github-notifications > p {
+  line-height: 1.6;
+}
+.github-notification-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.github-notification-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.github-notification-list {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+}
+.github-notification-list li {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.github-notification-list a {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.github-notification-list button {
+  justify-self: start;
+}
+.github-notification-list .is-read {
+  opacity: 0.65;
+}
+
+.github-notification-list a,
+#notifications a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}

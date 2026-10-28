@@ -535,12 +535,22 @@ def create_app(settings=None, runtime=None):
             row = await active.files.speech(owner, body.text)
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
+    from .github_events import register_github_events
+
+    register_github_events(app, current, identity)
+
     @app.get("/api/notifications")
     async def notifications(request: Request, owner=Depends(identity)):
-        return current(request).db.rows(
+        active = current(request)
+        reminders = active.db.rows(
             "SELECT id,session,text,created,delivered FROM notifications WHERE owner=? ORDER BY created DESC LIMIT 50",
             (owner,),
         )
+        github = [
+            dict(item, source="github", session=None, delivered=0)
+            for item in active.github_events.inbox(owner, unread=True)
+        ]
+        return sorted(reminders + github, key=lambda item: item["created"], reverse=True)[:50]
 
     @app.get("/api/activity")
     async def personal_activity(
@@ -636,12 +646,16 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/oauth/{service}/callback")
     async def callback(service: str, state: str, request: Request, code: str = ""):
-        if service not in {"gmail", "health", "zepto", "slack"}:
+        if service not in {"gmail", "health", "zepto", "slack", "github"}:
             raise HTTPException(404, "Unknown account service.")
         active = current(request)
         try:
-            if service == "slack":
-                await active.slack.callback(state, code, request.query_params.get("error", ""))
+            if service in {"github", "slack"}:
+                account_owner = await getattr(active, service).callback(
+                    state, code, request.query_params.get("error", "")
+                )
+                if service == "github":
+                    active.github_events.disable(account_owner)
             elif service == "zepto":
                 await current(request).zepto.finish_from_browser(
                     state, code, request.query_params.get("error", "")

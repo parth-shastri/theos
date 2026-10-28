@@ -30,6 +30,14 @@
       "source_asset": "https://raw.githubusercontent.com/simple-icons/simple-icons/11.15.0/icons/slack.svg",
       "license": "CC0-1.0",
       "sha256": "1cdb8b412256ab2b474fc0980f309c93a1ad4e8cf13d4a3f2d182d23586f5aaf"
+    },
+    {
+      "provider": "GitHub",
+      "path": "web/public/static/providers/github.svg",
+      "source_page": "https://simpleicons.org/",
+      "source_asset": "https://raw.githubusercontent.com/simple-icons/simple-icons/11.15.0/icons/github.svg",
+      "license": "CC0-1.0",
+      "sha256": "04e94957c36b4de45bcc447da86fd6f10a167b8bdff24906953baf727363de65"
     }
   ]
 }

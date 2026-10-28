@@ -25,8 +25,11 @@ def connection_status(runtime, owner):
     settings = runtime.settings
     accounts = []
     for service, label in ACCOUNT_LABELS:
-        if service == "slack":
-            accounts.append(runtime.slack.status(owner))
+        if service in {"github", "slack"}:
+            account = getattr(runtime, service).status(owner)
+            if service == "github":
+                account["notifications"] = runtime.github_events.status(owner)
+            accounts.append(account)
             continue
         connected = (
             runtime.zepto.connected(owner)
@@ -79,7 +82,7 @@ def register_connections(app, settings, current, identity):
     def authorize(request, owner, service):
         if not browser_account_access(settings, owner, current(request).db):
             raise PermissionError("Browser account access is required.")
-        if service not in {"gmail", "health", "zepto", "slack"}:
+        if service not in {"gmail", "health", "zepto", "slack", "github"}:
             raise ValueError("Unknown account service.")
 
     @app.get("/api/connections")
@@ -92,8 +95,8 @@ def register_connections(app, settings, current, identity):
     async def connect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
         authorize(request, owner, service)
         runtime = current(request)
-        if service == "slack":
-            return await runtime.slack.start(owner)
+        if service in {"github", "slack"}:
+            return await getattr(runtime, service).start(owner)
         if service == "zepto":
             return await runtime.zepto.connect_from_browser(owner)
         return {"status": "waiting", "url": runtime.oauth.start(owner, service)}
@@ -112,8 +115,8 @@ def register_connections(app, settings, current, identity):
     async def cancel(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
         authorize(request, owner, service)
         runtime = current(request)
-        if service == "slack":
-            await runtime.slack.cancel(owner)
+        if service in {"github", "slack"}:
+            await getattr(runtime, service).cancel(owner)
         elif service == "zepto":
             await runtime.zepto.cancel(owner)
         else:
@@ -124,8 +127,10 @@ def register_connections(app, settings, current, identity):
     async def disconnect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
         authorize(request, owner, service)
         runtime = current(request)
-        if service == "slack":
-            return await runtime.slack.disconnect(owner)
+        if service in {"github", "slack"}:
+            if service == "github":
+                runtime.github_events.disable(owner)
+            return await getattr(runtime, service).disconnect(owner)
         if service == "zepto":
             await runtime.zepto.disconnect(owner)
             return {"disconnected": True}

@@ -119,6 +119,11 @@ async def build_tools(runtime, session):
             )
         if runtime.settings.health.enabled:
             tools += runtime.health.tools(owner, result_stager=result_stager)
+        if runtime.settings.github.enabled and runtime.github.connected(owner):
+            try:
+                tools += await runtime.github.tools(owner, result_stager=result_stager)
+            except ServiceError:
+                logger.warning("integration_unavailable", extra={"error_type": "GitHubUnavailable"})
         if runtime.settings.slack.enabled and runtime.slack.connected(owner):
             try:
                 tools += await runtime.slack.tools(owner, result_stager=result_stager)

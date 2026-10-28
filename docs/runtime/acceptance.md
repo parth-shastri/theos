@@ -1635,3 +1635,88 @@ The provider returned one channel and isError=false. The tool and turn both comp
 The existing journal and SSE delivery recorded one completed call. No Slack write tool ran.
 Channel names, account credentials, and provider response contents remain outside these notes.
 Private conversation access, permission removal, and live disconnection remain unverified.
+
+## GitHub official MCP connector, 2026-10-15
+
+The full local suite passed 1,153 tests, with three credential-dependent checks excluded.
+The final focused suite passed 31 tests after the callback URI and Git tree toolset checks.
+Checks cover encrypted account recovery, owner binding, PKCE, callback replay, cancellation, and token rotation.
+They also cover refresh/disconnect races, session teardown, paged discovery, schema rejection, and private transport access.
+A real MCP client read two discovery pages through a mock HTTP transport. A failed tool call executed once.
+A scripted runtime read saved the complete result and returned a bounded source page. Other owners could not read that source.
+An optional connector outage left ordinary chat available. Unknown tools and write tools remained unavailable.
+Python lint, formatting, JavaScript syntax, lock validation, package builds, and whitespace checks passed.
+The setup guide's prose lint reports 1.20 findings per 100 words.
+These checks used local fixtures. Live GitHub App authorization, repository access, and deployment remain pending.
+
+
+## GitHub synchronization with dev, 2026-10-28
+
+Slack PR 75 merged into dev after all required GitHub CI checks passed.
+The GitHub branch merges dev at f0e523a and retains the tested shared MCP account adapter.
+GitHub now uses the current Next.js workspace, callback proxy, optional setup, composer mentions, and native Telegram controls.
+Canceling setup preserves the previous grant. Large reads use the current bounded result staging service.
+The removed static browser app and connector source wrapper remain removed. Provider attribution remains available.
+
+The full Python suite passed 1,148 tests, with three live checks deselected.
+The focused connector and transport suite passed 82 tests. All 18 frontend unit tests and 56 Chromium connection cases passed.
+Browser cases covered GitHub, Slack, and Google sign-in, cancellation, and callback restoration across four widths and both themes.
+Lint, formatting, OpenUI validation, lock validation, package builds, and native ARM64 API/frontend image builds passed.
+The isolated Docker frontend and API are healthy on localhost ports 8080 and 8081.
+Slack retains its connected grant and all five previously discovered read tools.
+The GitHub frontend callback reaches the API and returns the expected invalid-state response for a synthetic state.
+
+The private environment still lacks GitHub OAuth credentials. Live authorization, discovery, and repository reads remain pending.
+These checks used mocked providers for GitHub. No live GitHub account was connected.
+
+
+## Signed GitHub events and private notifications, 2026-10-28
+
+The GitHub connector now receives signed POST /webhooks/github deliveries through the production Next.js byte proxy.
+Migration 016 stores subscriptions, encrypted pending payloads, delivery IDs, private inbox notices, and Telegram delivery status.
+Opted-in owners receive direct mentions, assignments, review requests, and failed workflows they triggered.
+The worker verifies the current GitHub identity and repository access before routing and before a Telegram send.
+Event content never starts a model turn. Browser and Telegram owners retain their existing identity boundaries.
+
+The full Python suite passed 1,164 tests, with three credential-dependent checks deselected.
+The 20 frontend unit tests and 64 Chromium connection scenarios passed.
+Eight alert scenarios passed again after the final theme-color change at four widths in both themes.
+Mobile previews passed visual review at 320 and 390 pixels. Tests use synthetic titles and provider fixtures.
+The checks cover signatures, byte limits, changed payloads, duplicates, access revocation, opt-in revisions, and owner isolation.
+They also cover queue restart recovery, uncertain Telegram sends, disabled-feature retention, and notification acknowledgement.
+Lint, formatting, OpenUI validation, package builds, wheel contents, and native ARM64 API/frontend image builds passed.
+Both isolated Docker services are healthy. SQLite schema 16 passed integrity checking in a consistent local snapshot.
+
+A synthetic UTF-8 ping traversed the public temporary HTTPS tunnel, the webhook-only origin, Next.js, and the API.
+A valid signature returned 202. The same delivery returned duplicate=true. A changed payload returned 403.
+The tunnel returned 404 for the app root and /api/me, and 200 for its readiness route.
+The operator authorized this temporary tunnel. Its processes, URL, and port are recorded only in the ignored local test folder.
+A signing secret was generated in the ignored private .env. It was not included in source or build output.
+
+These checks do not establish a real GitHub App delivery or a live Telegram send.
+GitHub OAuth credentials, provider setup, per-owner opt-in, and actual event delivery still need live acceptance.
+The production Theos deployment is unchanged. The temporary tunnel remains active for the requested local test.
+
+## General evidence and pagination guidance, 2026-10-28
+
+The shared chat prompt no longer contains mailbox-specific coverage rules.
+General guidance requires enough evidence for the task and distinguishes partial coverage, estimates, and exact counts.
+Gmail and shared MCP tool descriptions explain page limits and continuation parameters.
+Staged-result guidance distinguishes a complete response from complete provider coverage.
+
+The 86 focused prompt, account, connector, Gmail, checkpoint, and result-staging tests passed.
+Ruff lint, formatting, and patch whitespace checks passed.
+The local API image rebuilt successfully. Both Docker services returned healthy.
+The running API exposes the updated GitHub and Gmail descriptions and retains both connected account grants.
+The installed prompt and staging helper contain the new guidance.
+These checks verify configuration and existing contracts. Model behavior after the prompt change remains unverified.
+
+## GitHub live account reads, 2026-10-28
+
+The operator created the GitHub App and authorized its localhost callback.
+The local Docker workspace retained the encrypted account grant after restart.
+Authenticated discovery exposed reviewed GitHub tools in the existing browser conversation.
+The operator's repository-activity request completed identity, repository-search, and commit-list reads through the model.
+Large responses were staged without truncating the returned page. The first answer stopped after one full commit page.
+The later prompt change clarifies evidence coverage and pagination. A fresh model pagination check remains pending.
+No GitHub write tool ran. Real notification delivery and private Telegram acceptance remain unverified.

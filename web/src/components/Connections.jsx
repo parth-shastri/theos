@@ -10,6 +10,7 @@ import {
 import { ConnectionIcon, Glass, Icon } from "./Primitives";
 import PanelHeading from "./PanelHeading";
 import BrowserSignIn from "./BrowserSignIn";
+import GitHubNotifications from "./GitHubNotifications";
 
 function SignInLink({ url }) {
   try {
@@ -245,6 +246,13 @@ function AccountCard({ account, busy, action }) {
             This private link goes to account setup. It is not sent to the chat.
           </p>
         </details>
+      )}
+      {account.id === "github" && account.connected && !pending && (
+        <GitHubNotifications
+          settings={account.notifications}
+          busy={busy}
+          action={action}
+        />
       )}
       {account.id === "zepto" && account.connected && !pending && (
         <button
