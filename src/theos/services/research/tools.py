@@ -7,20 +7,11 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from harness import tool
+from theos.prompts import render
 from theos.services.errors import ServiceError
 from theos.services.http import request_json
 
-RESEARCH_INSTRUCTIONS = (
-    "The user explicitly enabled deep research for this turn. "
-    "Save a research plan with save_research_note before extensive searching. "
-    "Use deep_research for independent assignments when useful. "
-    "Read important original sources with read_source rather than trusting search excerpts. "
-    "Save findings with source_ids, conflicting evidence, and open questions as research notes. "
-    "Notes with replaces retain the older record for inspection. Use the replacement as the current note. "
-    "Source IDs identify saved evidence. They do not prove a claim is true. "
-    "Use read_research to reopen evidence and earlier research. "
-    "Keep the full requested report and cite original sources."
-)
+RESEARCH_INSTRUCTIONS = render("capabilities/research.md", allow_delegation=True)
 
 
 def research_tools(runtime, session, run_id):
@@ -42,16 +33,16 @@ def research_tools(runtime, session, run_id):
         source_ids = source_ids or []
         root = store.family(owner, session_id, run_id)
         for reference in source_ids:
-            item = store.item(owner, session_id, reference)
+            item = store.scratchpad_item(owner, session_id, reference)
             if item["kind"] != "source" or store.family(owner, session_id, item["run"]) != root:
                 raise ValueError("Use source references from this research run.")
         if kind == "finding" and status in {"supported", "disputed"} and not source_ids:
             raise ValueError("Attach saved sources or mark the finding unverified.")
         if replaces:
-            old = store.item(owner, session_id, replaces)
+            old = store.scratchpad_item(owner, session_id, replaces)
             if old["kind"] != kind or old["run"] != run_id:
                 raise ValueError("Replace only your own note of the same kind.")
-        item_id = store.save_item(
+        item_id = store.save_scratchpad(
             owner,
             session_id,
             run_id,
@@ -69,7 +60,7 @@ def research_tools(runtime, session, run_id):
     async def read_research(run: str | None = None, item_id: str | None = None):
         """Reopen a saved research run or item in this conversation. Source items contain complete retrieved text. Answers are returned in full."""
         if item_id:
-            return store.item(owner, session_id, item_id)
+            return store.scratchpad_item(owner, session_id, item_id)
         selected = run or run_id
         row = store.get(owner, session_id, selected)
         return {
@@ -77,7 +68,7 @@ def research_tools(runtime, session, run_id):
             "task": row["task"],
             "status": row["status"],
             "answer": row["answer"],
-            "items": store.items(owner, session_id, selected, family=True),
+            "scratchpad": store.scratchpad(owner, session_id, selected, family=True),
         }
 
     @tool
@@ -121,7 +112,7 @@ def research_tools(runtime, session, run_id):
         if not results or not results[0].get("text"):
             raise ServiceError("The source could not be read. Keep it marked unverified.")
         source = {**results[0], "retrieved_at": time.time()}
-        reference = store.save_item(owner, session_id, run_id, "source", source)
+        reference = store.save_scratchpad(owner, session_id, run_id, "source", source)
         return {"source_id": reference, **source}
 
     return [save_research_note, read_research, list_research, read_source]
@@ -137,7 +128,7 @@ def capture_search(runtime, session, run_id, result):
         payload = json.loads(result.content)
         rows = payload.get("results") or payload.get("web", {}).get("results", [])
         references = [
-            runtime.research.save_item(session["owner"], session["id"], run_id, "source", row)
+            runtime.research.save_scratchpad(session["owner"], session["id"], run_id, "source", row)
             for row in rows
         ]
         # Retain the complete search payload. Added IDs help notes refer to saved evidence.

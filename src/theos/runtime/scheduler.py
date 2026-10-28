@@ -22,6 +22,7 @@ class Scheduler:
         self.last_tick = 0.0
         self.health_task = None
         self.memory_task = None
+        self.github_task = None
         from .scheduled import ScheduledTasks
 
         self.scheduled = ScheduledTasks(runtime, telegram)
@@ -80,6 +81,8 @@ class Scheduler:
         )
         # 2. Deliver saved notifications. Keep uncertain sends for review.
         await self.notifications()
+        if self.github_task is None or self.github_task.done():
+            self.github_task = asyncio.create_task(self.github_work())
         # 3. Start at most one Health batch so slow imports cannot block reminders.
         if self.runtime.settings.health.enabled and (
             self.health_task is None or self.health_task.done()
@@ -88,6 +91,13 @@ class Scheduler:
             self.health_task = asyncio.create_task(self.health_work())
         if self.memory_task is None or self.memory_task.done():
             self.memory_task = asyncio.create_task(self.memory_work())
+
+    async def github_work(self):
+        """Keep signed-event processing separate from reminder delivery."""
+        try:
+            await self.runtime.github_events.tick(self.telegram)
+        except Exception:
+            logger.warning("github_notifications_failed")
 
     async def memory_work(self):
         """Isolate optional consolidation from reminder and scheduled-task delivery."""
@@ -107,6 +117,9 @@ class Scheduler:
         """Stop background workers before their database and HTTP client close."""
         self.stopping.set()
         await self.scheduled.close()
+        if self.github_task is not None:
+            self.github_task.cancel()
+            await asyncio.gather(self.github_task, return_exceptions=True)
         if self.memory_task is not None:
             self.memory_task.cancel()
             await asyncio.gather(self.memory_task, return_exceptions=True)

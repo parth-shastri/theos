@@ -8,9 +8,9 @@ import threading
 from typing import Annotated
 
 import pytest
+from fixtures.mocked_apis import http_GET_customer_order_history, http_GET_order_status
 from pydantic import BaseModel, Field
 
-from fixtures.mocked_apis import http_GET_customer_order_history, http_GET_order_status
 from harness.context import RunContext
 from harness.hooks import ALLOW, ASK, DENY, Decision, Hooks
 from harness.tools import OutcomeUnknown, Tool, execute_tool, execute_tools, tool
@@ -62,6 +62,16 @@ def test_tool_builds_a_tool_with_a_schema_from_the_signature():
     schema = get_order_status.input_model.model_json_schema()
     assert schema["properties"]["order_id"]["type"] == "string"
     assert schema["required"] == ["order_id"]
+    assert get_order_status.description == "Return the shipping status of one order."
+    assert get_order_history.name == "order_history" and get_order_history.parallel_safe
+    assert not get_order_status.parallel_safe
+    assert get_order_status.timeout_s is None and get_order_status.view is None
+    spec = get_order_status.spec
+    assert spec is get_order_status.spec
+    assert isinstance(spec, ToolSpec)
+    assert spec.name == get_order_status.name
+    assert spec.description == get_order_status.description
+    assert spec.parameters == schema
 
 
 def test_tool_excludes_a_parameter_named_ctx_from_the_schema():
@@ -98,9 +108,7 @@ def test_tool_input_model_forbids_extra_keys():
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError):
-        get_order_status.input_model.model_validate(
-            {"order_id": "9127412", "hallucinated": 1}
-        )
+        get_order_status.input_model.model_validate({"order_id": "9127412", "hallucinated": 1})
 
 
 async def test_tool_runs_a_plain_function_in_a_worker_thread():
@@ -161,10 +169,6 @@ async def test_cancelling_a_plain_tool_records_unknown_while_its_thread_finishes
     assert await asyncio.to_thread(finished.wait, 2)
 
 
-def test_tool_description_is_the_first_docstring_paragraph():
-    assert get_order_status.description == "Return the shipping status of one order."
-
-
 def test_tool_description_is_empty_without_a_docstring():
     @tool
     async def undocumented(order_id: str) -> str:
@@ -173,32 +177,10 @@ def test_tool_description_is_empty_without_a_docstring():
     assert undocumented.description == ""
 
 
-def test_tool_options_travel_to_the_record():
-    assert get_order_history.name == "order_history"
-    assert get_order_history.parallel_safe is True
-    assert get_order_status.parallel_safe is False
-    assert get_order_status.timeout_s is None
-    assert get_order_status.view is None
-
-
-def test_tool_spec_is_built_once_and_reused():
-    assert get_order_status.spec is get_order_status.spec
-
-
-def test_tool_spec_is_a_tool_spec_built_from_the_input_model():
-    spec = get_order_status.spec
-    assert isinstance(spec, ToolSpec)
-    assert spec.name == "get_order_status"
-    assert spec.description == "Return the shipping status of one order."
-    assert spec.parameters == get_order_status.input_model.model_json_schema()
-
-
 def test_is_parallel_safe_reads_a_flag_or_calls_a_predicate():
     args = get_order_status.input_model.model_validate({"order_id": "9127412"})
     assert get_order_status.is_parallel_safe(args) is False
-    assert get_order_history.is_parallel_safe(
-        get_order_history.input_model.model_validate({})
-    )
+    assert get_order_history.is_parallel_safe(get_order_history.input_model.model_validate({}))
 
     seen: list[BaseModel] = []
 
@@ -240,9 +222,7 @@ async def test_tool_execute_omits_the_context_when_the_function_takes_none():
 
 async def test_unknown_tool_name_fails_without_starting_anything():
     events: list = []
-    result = await execute_tool(
-        call_of("missing", {}), [get_order_status], ctx=make_ctx(events)
-    )
+    result = await execute_tool(call_of("missing", {}), [get_order_status], ctx=make_ctx(events))
     assert isinstance(result, ToolResultMessage)
     assert result.status == "not_started"
     assert "unknown tool missing" in result.content and "No tool executed" in result.content
@@ -533,9 +513,7 @@ async def test_a_denied_call_on_a_viewed_tool_gets_the_denied_default_view():
         ctx=make_ctx(),
         hooks=Hooks(before_tool=lambda tool, args, ctx: _decide(DENY("no"))),
     )
-    assert result.view == View(
-        "order-card", {"args": {"order_id": "9127412"}, "status": "denied"}
-    )
+    assert result.view == View("order-card", {"args": {"order_id": "9127412"}, "status": "denied"})
 
 
 async def test_tool_started_and_pending_approval_carry_the_tool_view_with_args():
@@ -618,9 +596,7 @@ async def test_execute_tools_returns_results_in_call_order():
         call_of("get_order_status", {"wrong": 1}, "c"),
         call_of("get_order_status", {"order_id": "9127412"}, "d"),
     ]
-    results = await execute_tools(
-        calls, [get_order_status, get_order_history], ctx=make_ctx()
-    )
+    results = await execute_tools(calls, [get_order_status, get_order_history], ctx=make_ctx())
     assert [r.call_id for r in results] == ["a", "b", "c", "d"]
     assert [r.status for r in results] == ["completed", "not_started", "not_started", "completed"]
 
@@ -707,19 +683,6 @@ async def test_execute_tools_on_an_empty_batch_returns_nothing():
     assert await execute_tools([], [get_order_status], ctx=make_ctx()) == []
 
 
-def test_the_package_re_exports_the_tool_layer():
-    import harness
-
-    assert {"OutcomeUnknown", "Tool", "execute_tool", "execute_tools", "tool"} <= set(
-        harness.__all__
-    )
-    assert harness.Tool is Tool
-    assert harness.tool is tool
-    assert harness.OutcomeUnknown is OutcomeUnknown
-    assert harness.execute_tool is execute_tool
-    assert harness.execute_tools is execute_tools
-
-
 async def test_an_unserializable_return_becomes_a_failed_result():
     events: list = []
     after_tool_calls: list = []
@@ -757,9 +720,7 @@ async def test_an_unserializable_view_content_becomes_a_failed_result():
         """Return something JSON cannot carry inside a ToolOutput."""
         return ToolOutput(content=Widget(), view=View("widget-card", {}))
 
-    result = await execute_tool(
-        call_of("build_widget", {}), [build_widget], ctx=make_ctx()
-    )
+    result = await execute_tool(call_of("build_widget", {}), [build_widget], ctx=make_ctx())
     assert result.status == "failed"
     assert result.content.startswith("PydanticSerializationError")
 

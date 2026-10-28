@@ -142,7 +142,13 @@ The sequence diagram explains checkpoint order.
 The current transport stores inbound updates and reminder delivery state.
 It does not implement a general durable outbox for every streamed reply.
 
-Browser API requests use a bearer token from `AGENT_USERS`.
+The Next.js frontend runs separately from the FastAPI API.
+React components define the workspace. The existing browser controller retains native interactions and optical effects.
+Next.js forwards same-origin browser requests to the private API and streams responses without buffering.
+A shared service secret authenticates the frontend connection.
+Browser sign-in exchanges a private token or Telegram approval for a revocable HttpOnly session cookie.
+FastAPI resolves the owner and current role for each authenticated request.
+Direct terminal clients retain bearer-token access to the API.
 The server derives the owner from that token.
 A caller cannot select another owner through the request body.
 The browser receives turn events through an HTTP stream.

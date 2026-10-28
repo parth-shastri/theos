@@ -9,10 +9,11 @@ import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from .records import HealthDay, HealthSleep, HealthWorkout
+from .vitals import SAMPLE_VITAL_TYPES, VITAL_COMPONENTS, VitalBuilder
 
 DATA_COMPONENTS = {
     "steps": "steps",
@@ -27,7 +28,9 @@ DATA_COMPONENTS = {
     "time-in-heart-rate-zone": "timeInHeartRateZone",
     "weight": "weight",
     "body-fat": "bodyFat",
+    **VITAL_COMPONENTS,
 }
+SAMPLE_DATA_TYPES = {"weight", "body-fat"} | SAMPLE_VITAL_TYPES
 
 _DURATION_PATTERN = re.compile(r"^(?P<seconds>-?\d+(?:\.\d+)?)s$")
 
@@ -57,6 +60,7 @@ class _DayBuilder:
     sleep_keys: set[str] = field(default_factory=set)
     latest_weight_time: str = ""
     latest_body_fat_time: str = ""
+    vitals: VitalBuilder = field(default_factory=VitalBuilder)
 
     def to_day(self, day: str) -> HealthDay:
         """Build an immutable normalized day."""
@@ -80,6 +84,7 @@ class _DayBuilder:
             heart_rate_zone_thresholds=tuple(self.heart_rate_zone_thresholds),
             workouts=tuple(self.workouts),
             sleep=tuple(self.sleep),
+            vitals=self.vitals.to_dict(),
         )
 
 
@@ -111,7 +116,9 @@ def _apply_component(
     data_type: str,
     point: Mapping[str, Any],
 ) -> None:
-    if data_type == "steps":
+    if data_type in VITAL_COMPONENTS:
+        builder.vitals.add(data_type, component, _record_key(point))
+    elif data_type == "steps":
         value = _number(component.get("count"))
         if value is not None:
             builder.steps += max(0, int(value))
@@ -314,7 +321,7 @@ def _set_latest_measurement(
 
 
 def _date_for_component(component: Mapping[str, Any], data_type: str) -> str | None:
-    if data_type in {"daily-resting-heart-rate", "daily-heart-rate-zones"}:
+    if data_type.startswith("daily-"):
         direct = _date_from_value(component.get("date"))
         if direct is not None:
             return direct
@@ -342,7 +349,21 @@ def _date_for_component(component: Mapping[str, Any], data_type: str) -> str | N
         parsed = _date_from_value(sample_time.get("civilTime"))
         if parsed is not None:
             return parsed
-        parsed = _date_from_value(sample_time.get("physicalTime"))
+        physical_time = sample_time.get("physicalTime")
+        offset = sample_time.get("utcOffset")
+        if isinstance(physical_time, str) and isinstance(offset, str):
+            match = _DURATION_PATTERN.fullmatch(offset)
+            if match and abs(float(match["seconds"])) < 86400:
+                try:
+                    observed = datetime.fromisoformat(physical_time.replace("Z", "+00:00"))
+                    if observed.tzinfo is not None:
+                        local = observed.astimezone(UTC) + timedelta(
+                            seconds=float(match["seconds"])
+                        )
+                        return local.date().isoformat()
+                except (ValueError, OverflowError):
+                    pass
+        parsed = _date_from_value(physical_time)
         if parsed is not None:
             return parsed
     return None

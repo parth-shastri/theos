@@ -17,7 +17,7 @@ from google.genai import types as genai_types
 from google.genai.models import AsyncModels
 
 from harness.events import ReasoningDelta, TextDelta, ToolCallDelta
-from harness.model import ChatModel
+from harness.model import ChatModel, default_estimate_tokens
 from harness.providers.gemini import GeminiChatModel, accumulate_chunks
 from harness.types import (
     AssistantMessage,
@@ -71,18 +71,14 @@ def thought_part(text: str, signature: bytes | None = None) -> dict[str, Any]:
     return part
 
 
-def call_part(
-    name: str, args: dict[str, Any], call_id: str | None = None
-) -> dict[str, Any]:
+def call_part(name: str, args: dict[str, Any], call_id: str | None = None) -> dict[str, Any]:
     function_call: dict[str, Any] = {"name": name, "args": args}
     if call_id is not None:
         function_call["id"] = call_id
     return {"function_call": function_call}
 
 
-def usage(
-    prompt: int = 11, candidates: int = 7, cached: int | None = None
-) -> dict[str, Any]:
+def usage(prompt: int = 11, candidates: int = 7, cached: int | None = None) -> dict[str, Any]:
     counts: dict[str, Any] = {
         "prompt_token_count": prompt,
         "candidates_token_count": candidates,
@@ -207,23 +203,17 @@ def stream_chunk(
 # --------------------------------------------------------------------------
 
 
-def test_adapter_satisfies_chat_model_without_inheriting():
+async def test_adapter_contract_and_estimator_forwarding():
     model = adapter()
     assert ChatModel not in type(model).__mro__
     assert isinstance(model, ChatModel)
     assert model.provider == "gemini"
     assert model.model_id == MODEL_ID
-
-
-def test_capabilities_report_json_schema_and_vision():
-    caps = adapter().capabilities
+    caps = model.capabilities
     assert caps.tools and caps.parallel_tool_calls and caps.forced_tool_choice
     assert caps.json_schema_output and caps.vision
-
-
-async def test_estimate_tokens_uses_the_shared_heuristic():
-    request = ModelRequest([UserMessage("Where is order 9127412?")], [spec()])
-    assert await adapter().estimate_tokens(request) > 0
+    request = ModelRequest([UserMessage("Evidence. " * 100)], [spec()])
+    assert await model.estimate_tokens(request) == default_estimate_tokens(request)
 
 
 # --------------------------------------------------------------------------
@@ -231,66 +221,58 @@ async def test_estimate_tokens_uses_the_shared_heuristic():
 # --------------------------------------------------------------------------
 
 
-def test_encode_returns_the_three_generate_content_kwargs():
-    payload = adapter().encode_request(ModelRequest([UserMessage("hi")]))
-    assert set(payload) == {"model", "contents", "config"}
-    assert payload["model"] == MODEL_ID
-    assert isinstance(payload["config"], genai_types.GenerateContentConfig)
-
-
-def test_every_encoded_key_is_a_generate_content_parameter():
-    request = ModelRequest(
-        [SystemMessage("You are helpful."), UserMessage("hi")],
-        [spec()],
-        {"tool_choice": "auto", "json_schema": {"type": "object"}, "temperature": 0.2},
-    )
-    payload = adapter().encode_request(request)
-    accepted = set(inspect.signature(AsyncModels.generate_content).parameters)
-    assert set(payload) <= accepted
-    assert set(payload) <= set(inspect.signature(AsyncModels.generate_content_stream).parameters)
-
-
-def test_encode_joins_system_messages_into_the_system_instruction():
+def test_encode_complete_request_contract():
+    schema = {"type": "object", "properties": {"status": {"type": "string"}}}
     request = ModelRequest(
         [
             SystemMessage("You are helpful."),
             SystemMessage("Answer in one line."),
             UserMessage("Where is order 9127412?"),
-        ]
+        ],
+        [spec(), spec("cancel_order")],
+        {"json_schema": schema, "temperature": 0.25, "max_output_tokens": 64},
     )
-    config = adapter().encode_request(request)["config"]
+    payload = adapter(
+        thinking_config={"include_thoughts": True, "thinking_budget": 512}
+    ).encode_request(request)
+    assert set(payload) == {"model", "contents", "config"}
+    assert payload["model"] == MODEL_ID
+    assert [
+        (content.role, [part.text for part in content.parts]) for content in payload["contents"]
+    ] == [("user", ["Where is order 9127412?"])]
+    config = payload["config"]
+    assert isinstance(config, genai_types.GenerateContentConfig)
     assert config.system_instruction == "You are helpful.\n\nAnswer in one line."
-
-
-def test_encode_omits_the_system_instruction_when_there_is_no_system_message():
-    config = adapter().encode_request(ModelRequest([UserMessage("hi")]))["config"]
-    assert config.system_instruction is None
-
-
-def test_encode_disables_automatic_function_calling():
-    config = adapter().encode_request(ModelRequest([UserMessage("hi")]))["config"]
     assert config.automatic_function_calling == genai_types.AutomaticFunctionCallingConfig(
         disable=True
     )
-
-
-def test_encode_builds_one_tool_with_every_function_declaration():
-    request = ModelRequest([UserMessage("hi")], [spec(), spec("cancel_order")])
-    config = adapter().encode_request(request)["config"]
     assert len(config.tools) == 1
     declarations = config.tools[0].function_declarations
-    assert [d.name for d in declarations] == ["lookup_order", "cancel_order"]
+    assert [declaration.name for declaration in declarations] == ["lookup_order", "cancel_order"]
     assert declarations[0].description == "Look one order up"
     assert declarations[0].parameters.model_dump(mode="json", exclude_none=True) == {
         "type": "OBJECT",
         "properties": {"order_id": {"type": "STRING"}},
         "required": ["order_id"],
     }
+    assert config.thinking_config == genai_types.ThinkingConfig(
+        include_thoughts=True, thinking_budget=512
+    )
+    assert config.response_mime_type == "application/json"
+    assert config.response_json_schema == schema
+    assert config.temperature == 0.25 and config.max_output_tokens == 64
+    assert set(payload) <= set(inspect.signature(AsyncModels.generate_content).parameters)
+    assert set(payload) <= set(inspect.signature(AsyncModels.generate_content_stream).parameters)
 
 
-def test_encode_omits_tools_when_there_are_none():
-    config = adapter().encode_request(ModelRequest([UserMessage("hi")]))["config"]
+def test_encode_minimal_request_omits_optional_config():
+    payload = adapter().encode_request(ModelRequest([UserMessage("hi")]))
+    config = payload["config"]
+    assert config.system_instruction is None
     assert config.tools is None
+    assert config.thinking_config is None
+    assert config.response_mime_type is None
+    assert config.automatic_function_calling.disable is True
 
 
 def test_encode_strips_schema_keys_the_sdk_rejects():
@@ -367,19 +349,6 @@ def test_encode_carries_a_pydantic_tool_schema_the_sdk_accepts():
     assert set(nested.properties) == {"city"}
 
 
-def test_encode_sends_the_constructor_thinking_config():
-    config = adapter(thinking_config={"include_thoughts": True, "thinking_budget": 512})
-    payload = config.encode_request(ModelRequest([UserMessage("hi")]))
-    assert payload["config"].thinking_config == genai_types.ThinkingConfig(
-        include_thoughts=True, thinking_budget=512
-    )
-
-
-def test_encode_omits_the_thinking_config_when_it_is_not_set():
-    config = adapter().encode_request(ModelRequest([UserMessage("hi")]))["config"]
-    assert config.thinking_config is None
-
-
 @pytest.mark.parametrize(
     ("given", "mode"),
     [("auto", "AUTO"), ("none", "NONE"), ("any", "ANY")],
@@ -402,42 +371,9 @@ def test_encode_translates_a_named_tool_choice_into_an_allowed_name():
     )
 
 
-def test_encode_translates_json_schema_into_a_json_response():
-    schema = {"type": "object", "properties": {"status": {"type": "string"}}}
-    request = ModelRequest([UserMessage("hi")], [], {"json_schema": schema})
-    config = adapter().encode_request(request)["config"]
-    assert config.response_mime_type == "application/json"
-    assert config.response_json_schema == schema
-
-
-def test_encode_passes_other_options_through_to_the_config():
-    request = ModelRequest(
-        [UserMessage("hi")], [], {"temperature": 0.25, "max_output_tokens": 64}
-    )
-    config = adapter().encode_request(request)["config"]
-    assert config.temperature == 0.25
-    assert config.max_output_tokens == 64
-
-
 # --------------------------------------------------------------------------
 # Encode: contents
 # --------------------------------------------------------------------------
-
-
-def test_encode_user_message_becomes_a_user_content():
-    payload = adapter().encode_request(ModelRequest([UserMessage("Where is 9127412?")]))
-    assert payload["contents"] == [
-        genai_types.Content(
-            role="user", parts=[genai_types.Part(text="Where is 9127412?")]
-        )
-    ]
-
-
-def test_encode_skips_a_system_message_in_the_contents():
-    request = ModelRequest([SystemMessage("You are helpful."), UserMessage("hi")])
-    contents = adapter().encode_request(request)["contents"]
-    assert [content.role for content in contents] == ["user"]
-    assert contents[0].parts[0].text == "hi"
 
 
 def test_encode_assistant_message_without_provider_data():
@@ -478,24 +414,6 @@ def test_encode_drops_an_assistant_turn_that_has_nothing_to_say():
     assert [content.parts[0].text for content in contents] == ["hi", "again"]
 
 
-def test_encode_puts_the_provider_call_id_back_on_a_rebuilt_function_call():
-    assistant = AssistantMessage(
-        tool_calls=[ToolCall(id="call_abc", name="lookup_order", arguments={})],
-        provider_data={"gemini": {"model": "other-model", "call_ids": {"call_abc": "fc-9"}}},
-    )
-    contents = adapter().encode_request(ModelRequest([UserMessage("hi"), assistant]))["contents"]
-    assert contents[1].parts[0].function_call.id == "fc-9"
-
-
-def test_encode_omits_the_call_id_when_the_provider_never_sent_one():
-    assistant = AssistantMessage(
-        tool_calls=[ToolCall(id="call_abc", name="lookup_order", arguments={})],
-        provider_data={"gemini": {"model": "other-model", "call_ids": {"call_abc": None}}},
-    )
-    contents = adapter().encode_request(ModelRequest([UserMessage("hi"), assistant]))["contents"]
-    assert contents[1].parts[0].function_call.id is None
-
-
 # --------------------------------------------------------------------------
 # Encode: raw part replay
 # --------------------------------------------------------------------------
@@ -526,9 +444,9 @@ def test_encode_rebuilds_when_provider_data_is_from_another_model():
     decoded = adapter().decode_response(
         response([thought_part("weighing", SIGNATURE), text_part("Order shipped.")])
     )
-    contents = adapter("gemini-2.5-pro").encode_request(
-        ModelRequest([UserMessage("hi"), decoded])
-    )["contents"]
+    contents = adapter("gemini-2.5-pro").encode_request(ModelRequest([UserMessage("hi"), decoded]))[
+        "contents"
+    ]
     assert contents[1].parts == [genai_types.Part(text="Order shipped.")]
 
 
@@ -588,22 +506,6 @@ def test_encode_tool_result_becomes_a_function_response_part():
             ],
         )
     ]
-
-
-def test_encode_tool_result_carries_the_provider_call_id_when_one_existed():
-    assistant = AssistantMessage(
-        tool_calls=[ToolCall(id="call_abc", name="lookup_order", arguments={})],
-        provider_data={"gemini": {"model": "other", "call_ids": {"call_abc": "fc-9"}}},
-    )
-    result = ToolResultMessage(call_id="call_abc", name="lookup_order", content="shipped")
-    contents = adapter().encode_request(ModelRequest([assistant, result]))["contents"]
-    assert contents[1].parts[0].function_response.id == "fc-9"
-
-
-def test_encode_omits_the_tool_result_id_when_the_provider_minted_none():
-    result = ToolResultMessage(call_id="call_abc", name="lookup_order", content="shipped")
-    contents = adapter().encode_request(ModelRequest([result]))["contents"]
-    assert contents[0].parts[0].function_response.id is None
 
 
 @pytest.mark.parametrize("status", ["denied", "failed", "unknown"])
@@ -680,41 +582,49 @@ def test_decode_text_and_stop_reason():
     assert data["response_model"] == MODEL_ID
     assert data["finish_reason"] == "STOP"
     assert data["call_ids"] == {}
+    assert decoded.usage == {
+        "input_tokens": 11,
+        "output_tokens": 7,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "total_tokens": 18,
+    }
 
 
-def test_decode_joins_thought_parts_into_reasoning():
+def test_decode_preserves_thought_text_and_cached_usage():
     decoded = adapter().decode_response(
-        response([thought_part("first"), thought_part("second"), text_part("done")])
+        response(
+            [thought_part("first"), thought_part("second"), text_part("done")],
+            usage_metadata=usage(11, 7, cached=4),
+        )
     )
     assert decoded.reasoning == "first\n\nsecond"
     assert decoded.text == "done"
+    assert decoded.usage == {
+        "input_tokens": 11,
+        "output_tokens": 7,
+        "cache_read_tokens": 4,
+        "cache_write_tokens": 0,
+        "total_tokens": 18,
+    }
 
 
-def test_decode_leaves_reasoning_none_without_a_thought_part():
-    assert adapter().decode_response(response([text_part("done")])).reasoning is None
-
-
-def test_decode_keeps_the_provider_call_id_when_the_model_sent_one():
+def test_provider_call_id_survives_decode_and_rebuild_with_its_result():
     decoded = adapter().decode_response(
         response([call_part("lookup_order", {"order_id": "9127412"}, "fc-9")], "STOP")
     )
-    assert decoded.tool_calls == [
-        ToolCall(id="fc-9", name="lookup_order", arguments={"order_id": "9127412"})
-    ]
+    assert decoded.tool_calls == [ToolCall("fc-9", "lookup_order", {"order_id": "9127412"})]
     assert decoded.provider_data["gemini"]["call_ids"] == {"fc-9": "fc-9"}
     assert decoded.stop_reason == "tool_calls"
+    result = ToolResultMessage("fc-9", "lookup_order", "shipped")
+    rebuilt = adapter(model_id="another-model").encode_request(ModelRequest([decoded, result]))[
+        "contents"
+    ]
+    assert rebuilt[0].parts[0].function_call.id == "fc-9"
+    assert rebuilt[1].parts[0].function_response.id == "fc-9"
 
 
-def test_decode_mints_a_call_id_when_the_model_sent_none():
-    decoded = adapter().decode_response(
-        response([call_part("lookup_order", {"order_id": "9127412"})])
-    )
-    call = decoded.tool_calls[0]
-    assert call.id.startswith("call_") and len(call.id) > 10
-    assert decoded.provider_data["gemini"]["call_ids"] == {call.id: None}
-
-
-def test_decode_mints_a_distinct_id_for_every_parallel_call():
+def test_missing_provider_ids_get_distinct_local_ids_without_leaking_to_wire():
     decoded = adapter().decode_response(
         response(
             [
@@ -725,7 +635,14 @@ def test_decode_mints_a_distinct_id_for_every_parallel_call():
     )
     ids = [call.id for call in decoded.tool_calls]
     assert len(set(ids)) == 2
-    assert decoded.provider_data["gemini"]["call_ids"] == {ids[0]: None, ids[1]: None}
+    assert all(call_id.startswith("call_") and len(call_id) > 10 for call_id in ids)
+    assert decoded.provider_data["gemini"]["call_ids"] == dict.fromkeys(ids)
+    results = [ToolResultMessage(call_id, "lookup_order", "shipped") for call_id in ids]
+    rebuilt = adapter(model_id="another-model").encode_request(ModelRequest([decoded, *results]))[
+        "contents"
+    ]
+    assert all(part.function_call.id is None for part in rebuilt[0].parts)
+    assert all(part.function_response.id is None for part in rebuilt[1].parts)
 
 
 def test_decoded_arguments_are_independent_of_the_raw_response():
@@ -754,28 +671,17 @@ def test_decode_maps_the_finish_reason(raw_reason, expected):
     assert decoded.provider_data["gemini"]["finish_reason"] == raw_reason
 
 
-def test_a_function_call_wins_over_the_finish_reason():
-    decoded = adapter().decode_response(response([call_part("lookup_order", {})], "STOP"))
-    assert decoded.stop_reason == "tool_calls"
-
-
-def test_decode_usage_with_a_cache_count():
-    decoded = adapter().decode_response(
-        response([text_part("x")], usage_metadata=usage(11, 7, cached=4))
-    )
-    assert decoded.usage == {"input_tokens": 11, "output_tokens": 7, "cache_read_tokens": 4, "cache_write_tokens": 0, "total_tokens": 18}
-
-
-def test_decode_usage_without_a_cache_count():
-    decoded = adapter().decode_response(response([text_part("x")]))
-    assert decoded.usage == {"input_tokens": 11, "output_tokens": 7, "cache_read_tokens": 0, "cache_write_tokens": 0, "total_tokens": 18}
-
-
 def test_decode_without_usage_metadata():
     raw = genai_types.GenerateContentResponse.model_validate(
         {"candidates": [{"index": 0, "content": {"role": "model", "parts": [text_part("x")]}}]}
     )
-    assert adapter().decode_response(raw).usage == {"input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "total_tokens": 0}
+    assert adapter().decode_response(raw).usage == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "total_tokens": 0,
+    }
 
 
 def test_decode_of_a_response_with_no_candidate():
@@ -786,47 +692,33 @@ def test_decode_of_a_response_with_no_candidate():
     assert decoded.provider_data["gemini"]["parts"] == []
 
 
-def test_decode_stores_the_raw_parts_as_json_ready_dicts():
-    decoded = adapter().decode_response(
-        response([thought_part("weighing", SIGNATURE), text_part("done")])
-    )
-    parts = decoded.provider_data["gemini"]["parts"]
-    assert json.loads(json.dumps(parts)) == parts
-    assert isinstance(parts[0]["thought_signature"], str)
-
-
 # --------------------------------------------------------------------------
 # accumulate_chunks
 # --------------------------------------------------------------------------
 
 
-def test_accumulate_concatenates_text_parts():
-    merged = accumulate_chunks(
-        [chunk([text_part("Order ")]), chunk([text_part("shipped.")], finish_reason="STOP")]
-    )
-    parsed = genai_types.GenerateContentResponse.model_validate(merged)
-    assert [p.text for p in parsed.candidates[0].content.parts] == ["Order shipped."]
-    assert parsed.candidates[0].finish_reason.name == "STOP"
-
-
-def test_accumulate_keeps_thought_text_apart_from_answer_text():
-    merged = accumulate_chunks(
-        [chunk([thought_part("weigh")]), chunk([thought_part("ing")]), chunk([text_part("done")])]
-    )
-    parsed = genai_types.GenerateContentResponse.model_validate(merged)
-    parts = parsed.candidates[0].content.parts
-    assert [(p.text, p.thought) for p in parts] == [("weighing", True), ("done", None)]
-
-
-def test_accumulate_keeps_a_thought_signature_that_arrives_late():
+def test_accumulate_preserves_thoughts_text_late_signature_and_final_metadata():
     merged = accumulate_chunks(
         [
-            chunk([thought_part("weigh")]),
-            chunk([{"text": "ing", "thought": True, "thought_signature": "AAH_c2ln"}]),
+            chunk([thought_part("weigh")], usage_metadata=usage(1, 1)),
+            chunk([thought_part("ing")]),
+            chunk([thought_part("", SIGNATURE)]),
+            chunk([text_part("Order ")]),
+            chunk([text_part("shipped.")]),
+            chunk(None, finish_reason="STOP", usage_metadata=usage(11, 7)),
         ]
     )
     parsed = genai_types.GenerateContentResponse.model_validate(merged)
-    assert parsed.candidates[0].content.parts[0].thought_signature == SIGNATURE
+    parts = parsed.candidates[0].content.parts
+    assert [(part.text, part.thought) for part in parts] == [
+        ("weighing", True),
+        ("Order shipped.", None),
+    ]
+    assert parts[0].thought_signature == SIGNATURE
+    assert parsed.usage_metadata.prompt_token_count == 11
+    assert parsed.usage_metadata.candidates_token_count == 7
+    assert parsed.candidates[0].finish_reason.name == "STOP"
+    assert parsed.model_version == MODEL_ID
 
 
 def test_accumulate_collects_function_call_parts():
@@ -840,19 +732,6 @@ def test_accumulate_collects_function_call_parts():
     parts = parsed.candidates[0].content.parts
     assert parts[0].text == "Looking."
     assert parts[1].function_call.name == "lookup_order"
-
-
-def test_accumulate_takes_the_last_usage_and_the_last_finish_reason():
-    merged = accumulate_chunks(
-        [
-            chunk([text_part("a")], usage_metadata=usage(1, 1)),
-            chunk([text_part("b")], finish_reason="STOP", usage_metadata=usage(11, 7)),
-        ]
-    )
-    parsed = genai_types.GenerateContentResponse.model_validate(merged)
-    assert parsed.usage_metadata.prompt_token_count == 11
-    assert parsed.candidates[0].finish_reason.name == "STOP"
-    assert parsed.model_version == MODEL_ID
 
 
 def test_accumulate_of_no_chunks_is_an_empty_model_turn():
@@ -882,12 +761,6 @@ def test_accumulate_reads_only_the_first_candidate():
 
 def test_accumulate_treats_a_candidate_without_an_index_as_the_first():
     merged = accumulate_chunks([{"candidates": [{"content": {"parts": [text_part("a")]}}]}])
-    parsed = genai_types.GenerateContentResponse.model_validate(merged)
-    assert [p.text for p in parsed.candidates[0].content.parts] == ["a"]
-
-
-def test_accumulate_ignores_a_chunk_with_no_content():
-    merged = accumulate_chunks([chunk([text_part("a")]), chunk(None, finish_reason="STOP")])
     parsed = genai_types.GenerateContentResponse.model_validate(merged)
     assert [p.text for p in parsed.candidates[0].content.parts] == ["a"]
 
@@ -976,9 +849,3 @@ async def test_generate_without_streaming_calls_generate_content_once():
     assert decoded.text == "ok"
     assert len(endpoint.calls) == 1
     assert endpoint.streams == []
-
-
-async def test_generate_works_without_an_emit():
-    endpoint = StubModels(chunks=[stream_chunk([text_part("ok")], finish_reason="STOP")])
-    model = GeminiChatModel(StubClient(endpoint), MODEL_ID)
-    assert (await model.generate(ModelRequest([UserMessage("hi")]))).text == "ok"

@@ -22,7 +22,7 @@ The deployment must run the matching server version.
 2. Start the client with the same URL you use for browser access.
 
    ```sh
-   theos --server http://127.0.0.1:8080
+   theos --server http://127.0.0.1:8081
    ```
 
 3. Enter your browser login token at the hidden prompt.
@@ -47,7 +47,7 @@ Use a private configuration file to save the connection settings.
 The [client sample](../.env.client.example) contains only the URL and browser token.
 
 ```dotenv
-AGENT_SERVER_URL=http://your-vps:8080
+AGENT_SERVER_URL=http://your-vps:8081
 AGENT_SERVER_TOKEN=replace-with-your-browser-token
 ```
 

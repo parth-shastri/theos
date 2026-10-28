@@ -53,11 +53,15 @@ Before consent, sign into the Google Health mobile app with the Google account y
 Complete its profile setup or Fitbit migration.
 Google authorization can succeed without a linked Health profile, but subsequent data requests can fail.
 See [Google's account linking procedure](https://developers.google.com/health/setup#link-google-health-before-oauth-consent).
-Theos does not currently check `users.getIdentity` during the callback.
+The callback verifies `users.getIdentity` before it saves new credentials.
+An inaccessible or missing Health profile leaves the previous connected account intact.
+Complete the profile setup in the Google Health app before trying again.
 
-Browser users select **Connections > Google Health > Connect**, then **Continue sign-in**.
-Return to the browser workspace after consent.
+Browser users select **Connections > Google Health > Connect**.
+Complete sign-in in the opened tab. If it does not open, use the sign-in link on the account card.
+The shared connection flow returns users to Connections after consent.
 Ask for a Health summary refresh to check access.
+Profile verification confirms account access. It does not guarantee that a device has synchronized readings.
 
 For Telegram, complete `/start` and timezone setup in the bot's private chat first.
 
@@ -100,6 +104,41 @@ Manual refresh and background imports use the same service.
 Browser and private Telegram sessions receive configured Health account tools.
 Groups and terminal sessions receive no Health account tools.
 The service stores normalized summaries rather than complete raw response bodies.
+
+### Vitals and heart rate variability
+
+Default summaries include `vitals`. The connector uses stable Google Health v4 data types under its existing health metrics permission.
+
+| Metric selector | Returned data and units |
+| --- | --- |
+| `heart_rate_variability` | Daily average RMSSD, deep-sleep RMSSD, and sample RMSSD and SDNN statistics, in milliseconds. Non-REM heart rate uses beats per minute. Entropy remains separate. |
+| `oxygen_saturation` | Daily average, confidence bounds, and sample statistics, in percent. The provider's standard deviation covers daily averages over 7 to 30 days. |
+| `respiratory_rate` | Daily breathing rate and available full-sleep, deep-sleep, light-sleep, and REM statistics, in breaths per minute. |
+| `skin_temperature` | Nightly skin temperature, baseline, and 30-day relative standard deviation, in Celsius. |
+| `heart_rate` | Sample heart rate statistics, in beats per minute. These do not replace resting heart rate. |
+| `core_body_temperature` | Sample core temperature statistics, in Celsius. These remain separate from skin temperature. |
+| `blood_glucose` | Sample glucose statistics, in milligrams per deciliter. |
+
+Use `get_health_summary(metrics=["vitals"])` to select all vitals.
+Use individual selectors to read selected categories, such as `metrics=["heart_rate_variability", "oxygen_saturation"]`.
+Selected categories remain under each day's `vitals` field.
+
+Sample statistics contain `sample_count`, `sample_mean`, `minimum`, and `maximum`.
+The sample mean is the arithmetic mean of returned measurements. It is separate from the provider's daily value.
+The API can return overlapping readings from different devices. Sample counts do not establish continuous coverage.
+Repeated records with the same provider identity count once within each day.
+Oxygen confidence bounds are not sample minimum and maximum values.
+
+`vitals_coverage` counts days with readings for each requested category.
+A zero coverage count means the returned summary has no readings for that category. It is not a zero physiological measurement.
+Missing optional values remain absent. Invalid and nonfinite numeric values do not become zero.
+Device support and source synchronization determine which readings Google returns.
+See [Google's vitals guide](https://developers.google.com/health/data-types/vitals) and [v4 data point schema](https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints).
+
+Calendar-date queries use sample civil time. Normalization uses civil dates or the recorded UTC offset when available.
+Older saved summaries refresh on their next tool or `/health_summary` read.
+Telegram sends complete summaries in bounded messages instead of cutting the response at 4,000 characters.
+The connector does not request ECG or irregular-rhythm permissions, or beta-only skin sensor data.
 
 ## Meal exports
 

@@ -16,7 +16,8 @@ Use private service endpoints where possible.
 | Gmail | [Gmail](gmail.md) |
 | Google Health | [Google Health](google-health.md) |
 | Zepto tools | [Zepto MCP](zepto-mcp.md) |
-| GitLab account tools | [GitLab MCP](gitlab-mcp.md) |
+| GitHub account tools | [GitHub MCP](github-mcp.md) |
+| Slack account tools | [Slack MCP](slack-mcp.md) |
 
 ## Models
 
@@ -63,3 +64,5 @@ Mocked tests check application behavior and request formats.
 They do not prove that a real account has service access or billing enabled.
 Use the [live acceptance checklist](runtime/acceptance.md#live-service-checks) after service setup.
 Do not mark a live test as passed from a mock result.
+
+GitLab account reads use the official MCP endpoint through the shared encrypted account adapter. See [GitLab setup](gitlab-mcp.md).

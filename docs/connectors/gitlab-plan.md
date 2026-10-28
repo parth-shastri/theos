@@ -1,8 +1,8 @@
 # GitLab connector plan
 
-Status: read-only adapter implemented on 2026-10-15. Live account acceptance remains pending.
+Status: read-only adapter synchronized with current dev on 2026-10-28. Live account acceptance remains pending.
 See [the setup guide](../gitlab-mcp.md) for the current supported scope.
-Branch: `feature/gitlab-connector`. Base: `origin/dev` at `8a4360f`.
+Branch: `feature/gitlab-connector`. Updated base: `origin/dev` at `c8ce44b`.
 
 ## Tool evidence
 
@@ -53,18 +53,15 @@ The [REST OAuth guide](https://docs.gitlab.com/api/oauth2/) describes PKCE and r
 REST credentials and MCP credentials have different requirements.
 Do not automatically broaden scopes or switch adapters after a failed call.
 
-## Delivery steps
+## Implemented scope
 
-1. Record the target instance version, MCP settings, authentication metadata, and complete discovered schemas.
-2. Select a supported version range from actual discovery results.
-3. Define schema adapters for required reads and reject unsupported method variants.
-4. Add `services/gitlab/` with explicit authentication, client, and tool modules.
-5. Add connection records keyed by owner, instance, and remote account.
-6. Bind callbacks and encrypted tokens to the selected instance.
-7. Add Connections status, instance selection, local icons, and mentions.
-8. Register a fixed read-tool allowlist with validated arguments and `gitlab_` names.
-9. Preserve fetched patches and logs through the existing source and checkpoint services.
-10. Add issue, note, and merge-request writes as separate increments.
+The deployment selects one GitLab instance. Each private owner authorizes a separate account grant.
+`services/gitlab/` configures endpoints, toolsets, and the reviewed read allowlist.
+The shared account adapter owns PKCE, encrypted credentials, refresh, cancellation, discovery, and schema validation.
+Next.js Connections, onboarding, mentions, callbacks, and native Telegram controls use the current account paths.
+Large reads use temporary result files. Journals retain tool outcomes and returned result pointers.
+The generic harness and removed static frontend remain unchanged.
+Issue, note, and merge-request writes require a separate increment.
 
 Use configured instance origins and prevent credential forwarding through cross-origin redirects.
 Handle project IDs separately from encoded project paths.
@@ -80,7 +77,7 @@ Keep GitLab protocols under `services/gitlab/` and client lifecycle in the appli
 
 Test owner and instance isolation, callback replay, token rotation, refresh/disconnect races, pagination, and schema differences.
 Test missing MCP settings, unsupported scopes, partial facets, unavailable search, and optional-service failure.
-Check source retrieval after compaction and preserve partial reads without claiming complete results.
+Check result-file handling and preserve partial reads without claiming complete results.
 Test permission removal and unknown write outcomes before enabling write tools.
 
 Live acceptance needs a configured instance, an OAuth app, and a disposable project.
@@ -90,11 +87,11 @@ Keep mock results separate from live results in `docs/runtime/acceptance.md`.
 
 ## Open checks
 
-- Is the target GitLab.com or a self-managed instance, and what version does it run?
+- The operator selected GitLab.com. Its authenticated server version remains to be recorded.
 - Does the operator permit MCP for that group or instance?
 - Which read facets and pagination formats does the endpoint expose?
 - Is basic search sufficient without semantic search or Duo?
 - Is an older-instance REST adapter part of the first release?
 
-The branch remains independent of GitHub and Slack implementation.
-Coordinate shared credential migrations through `dev` before assigning migration numbers.
+The branch includes GitHub and Slack through dev and reuses their shared account adapter.
+The GitLab connector adds no credential migration or provider SDK.

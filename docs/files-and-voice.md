@@ -2,7 +2,7 @@
 
 Theos stores uploads and generated files in a private catalog.
 Local files persist in the application data volume.
-R2 archives and voice services are optional external integrations.
+R2 replication and voice services are optional external integrations.
 
 Read [speech hosting](speech-hosting.md) for Docker, native Apple Silicon, hosted providers, and live test procedures.
 
@@ -10,7 +10,7 @@ Read [speech hosting](speech-hosting.md) for Docker, native Apple Silicon, hoste
 
 Each file has an opaque ID, an owner, metadata, and a local path.
 A supplied filename cannot select the storage path.
-Downloads and file tools check the authenticated owner.
+Downloads and workspace input transfers check the authenticated owner.
 
 The default file limit is 10 MiB.
 `AGENT_MAX_UPLOAD_BYTES` can set a limit from 1 KiB to 25 MiB.
@@ -20,7 +20,7 @@ A model still needs image capability to inspect an image.
 
 Telegram voice notes also remain in the file catalog after transcription.
 A conversation reset retains uploaded and generated files.
-There is no automatic file expiry policy.
+The uploaded-file catalog has no automatic expiry policy. Runtime checkpoint retention applies separately to workspace versions and recovery snapshots.
 
 ## R2 archives
 
@@ -36,18 +36,23 @@ AGENT_STORAGE__SECRET_KEY=replace-me
 The credential needs object read, write, and delete access for the selected bucket.
 The application uses an S3-compatible client.
 
-| Tool | Action |
-| --- | --- |
-| `list_user_files` | List recent catalog entries |
-| `archive_user_file` | Copy a local file to R2 |
-| `restore_user_file` | Download an archived object to its catalog path |
-| `delete_user_file` | Delete the remote object, local file, and catalog entry after approval |
+The runtime automatically saves changed `/workspace` files into the session checkpoint journal.
+A background worker replicates those objects to R2. Storage outages retain pending transfers without repeating model commands.
+Selected uploads enter `/workspace/uploads/` before the next model request.
+Gmail attachment downloads return a ready workspace path when execution is configured.
 
-Archiving does not delete the local file.
-The object key uses `theos/` plus the opaque file ID.
-`AGENT_NAME` does not change existing object keys.
-R2 is not required for ordinary uploads or image input.
-A full backup needs the local catalog and a separate policy for remote objects.
+The model uses `run_command` for filesystem work and `attach_file` for response attachments.
+Attachment recovery retains the same file ID and exact bytes after remote restoration.
+The model has no catalog listing, archive, restore, or transfer tool.
+
+R2 is not required for ordinary uploads or image input. Without it, recovery uses the local application data directory.
+A full backup needs the local catalog, checkpoint directory, and separate retention for remote objects.
+Deleting a workspace file removes the current manifest entry. Saved response attachments and retained checkpoints preserve their recorded bytes.
+The runtime retains three recent recovery checkpoints per session, plus current local and published remote pointers.
+An hourly collector removes unreferenced versions after a one-hour grace period. Storage settings can change these defaults.
+The collector records pending deletions before removing local or R2 objects. Failed remote deletions retry after restart.
+It protects active sessions and defers collection when retained checkpoint references cannot be verified.
+This policy belongs to Theos file services. It does not change the generic harness or its conversation compaction rules.
 
 ## Transcription
 
@@ -70,12 +75,20 @@ The returned transcript can enter model requests and saved conversation history.
 
 ```dotenv
 AGENT_KOKORO_URL=http://speech.example.internal:8880/v1
-AGENT_KOKORO_VOICE=af_heart
+AGENT_KOKORO_VOICE=am_michael(0.7)+bm_george(0.3)
+AGENT_KOKORO_SPEED=0.9
 ```
 
 `send_text_to_speech` accepts text from 1 to 12,000 characters.
 The client appends `/audio/speech` and requests MP3 audio.
 It saves the result as `speech.mp3` in the private catalog.
+
+For the approved subtle robotic effect, point `AGENT_KOKORO_URL` to the separate
+[speech gateway](../speech/README.md) and set its bearer key in `AGENT_KOKORO_KEY`.
+Direct Kokoro connections return the voice blend without the effect.
+Every request first generates expressive spoken wording through the configured model.
+This step retains the source facts and records its model usage.
+See [personality and voice](personality.md) for the selected style and system prompt changes.
 The normal file size limit applies to the saved result.
 Telegram sends audio through its audio delivery path.
 Browser chat supplies an authenticated download link.

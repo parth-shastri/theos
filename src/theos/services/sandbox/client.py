@@ -1,13 +1,20 @@
 """Remote OpenSandbox execution with per-conversation lifecycle state."""
 
 import asyncio
+import hashlib
+import re
 from datetime import UTC, datetime, timedelta
+from pathlib import PurePosixPath
 
 from theos.services.errors import ServiceError
+
+from .errors import WorkspaceUnavailable
 
 
 class Sandboxes:
     """Never mount the application filesystem or pass application credentials."""
+
+    TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 
     def __init__(self, settings, db, files):
         self.settings = settings
@@ -15,6 +22,41 @@ class Sandboxes:
         self.files = files
         self.clients = {}
         self.locks = {}
+        self.browsers = None
+
+    @staticmethod
+    def workspace_path(path):
+        parsed = PurePosixPath(path)
+        full = parsed if parsed.is_absolute() else PurePosixPath("/workspace") / parsed
+        if ".." in full.parts or not full.is_relative_to("/workspace"):
+            raise ValueError("Use a path inside /workspace.")
+        return str(full)
+
+    async def read_bytes(self, sandbox, path):
+        """Preserve binary bytes and reject oversize transfers before catalog writes."""
+        data = await sandbox.files.read_bytes(
+            path, range_header=f"bytes=0-{self.settings.max_upload_bytes}"
+        )
+        if len(data) > self.settings.max_upload_bytes:
+            raise ValueError("The file exceeds the upload limit.")
+        return data
+
+    async def stage_result(self, owner, session_id, name, content):
+        """Write one normalized provider result outside the durable task workspace."""
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", name):
+            raise ValueError("Use a simple provider tool name for a staged result.")
+
+        data = content.encode("utf-8")
+        digest = hashlib.sha256(name.encode() + b"\0" + data).hexdigest()[:20]
+        path = f"/tmp/theos-results/{name}-{digest}.json"
+        sandbox = await self.get(owner, session_id)
+
+        # /tmp is outside /workspace, which is the only directory checkpointed to R2.
+        result = await sandbox.commands.run("mkdir -p /tmp/theos-results")
+        if getattr(result, "error", None):
+            raise RuntimeError("The temporary result directory could not be prepared.")
+        await sandbox.files.write_file(path, data)
+        return {"path": path, "size_bytes": len(data)}
 
     async def forget(self, owner, session_id):
         """Close only the local connection and remove its saved reference."""
@@ -46,7 +88,7 @@ class Sandboxes:
         except SandboxException as error:
             if getattr(error, "status_code", None) not in {404, 410}:
                 raise ServiceError(
-                    "The sandbox could not be destroyed. Its saved reference remains."
+                    "The workspace could not be cleared. Its saved connection remains."
                 ) from error
         finally:
             if sandbox and (owner, session_id) not in self.clients:
@@ -88,9 +130,32 @@ class Sandboxes:
 
     async def get(self, owner, session_id):
         """Check cached state and replace only confirmed expired or missing instances."""
+        import httpx
+        from opensandbox.exceptions import SandboxException, SandboxReadyTimeoutException
+
         lock = self.locks.setdefault((owner, session_id), asyncio.Lock())
         async with lock:
-            return await self._get(owner, session_id)
+            try:
+                return await self._get(owner, session_id)
+            except WorkspaceUnavailable:
+                raise
+            except (httpx.RequestError, TimeoutError) as error:
+                raise WorkspaceUnavailable(
+                    "The workspace is temporarily unavailable. Saved files remain available. "
+                    "The runtime will try to reconnect on the next workspace operation."
+                ) from error
+            except SandboxReadyTimeoutException as error:
+                raise WorkspaceUnavailable(
+                    "The workspace did not become ready. Saved files remain available. "
+                    "The runtime will try again on the next workspace operation."
+                ) from error
+            except SandboxException as error:
+                if getattr(error, "status_code", None) in self.TRANSIENT_STATUS_CODES:
+                    raise WorkspaceUnavailable(
+                        "The workspace is temporarily unavailable. Saved files remain available. "
+                        "The runtime will try to reconnect on the next workspace operation."
+                    ) from error
+                raise
 
     async def _get(self, owner, session_id):
         from opensandbox import Sandbox
@@ -121,11 +186,17 @@ class Sandboxes:
                     self.clients[key] = sandbox
                     return sandbox
             except SandboxException as error:
-                if getattr(error, "status_code", None) not in {404, 410}:
+                status_code = getattr(error, "status_code", None)
+                if status_code not in {404, 410}:
                     if sandbox and key not in self.clients:
                         await sandbox.close()
+                    if status_code in self.TRANSIENT_STATUS_CODES:
+                        raise WorkspaceUnavailable(
+                            "The workspace is temporarily unavailable. Saved files remain available. "
+                            "The runtime will try to reconnect on the next workspace operation."
+                        ) from error
                     raise ServiceError(
-                        "The saved sandbox is unavailable. Its work remains saved. Retry the connection."
+                        "The workspace request failed. Its saved connection remains available."
                     ) from error
                 if sandbox and key not in self.clients:
                     await sandbox.close()

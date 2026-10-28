@@ -1,4 +1,4 @@
-"""Harness checkpoints and application approval policy."""
+"""Connect generic harness boundaries to Theos saves, approvals, and recovery data."""
 
 import json
 import time
@@ -10,7 +10,7 @@ from harness import (
     message_to_dict,
 )
 from theos.runtime.models import session_options
-from theos.storage.messages import stamp_message
+from theos.storage.messages import display_metadata, stamp_message, update_display_metadata
 
 from .approvals import check_approval
 from .context import ResearchStopped, options
@@ -20,6 +20,8 @@ from .usage import message_model
 
 def build_hooks(runtime, session, *, limits=None, deadline=None):
     """Save model and tool checkpoints at the harness execution boundaries."""
+    # Hooks are callbacks the harness runs around work. This keeps the generic loop free
+    # of SQLite and Theos-specific rules while making those rules run at exact boundaries.
     owner = session["owner"]
     session_id = session["id"]
     started = None
@@ -30,14 +32,27 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         turn = runtime.active.get(session_id)
         if turn and turn.provider_failure:
             raise turn.provider_failure
-        # Add sandbox images once, after the file catalog checks their owner.
-        for file_id in ctx.state.pop("view_images", []):
-            image = UserMessage("Image from the sandbox:", [runtime.files.image(owner, file_id)])
+        await runtime.workspaces.stage_inputs(owner, session_id, ctx.history)
+        # Command inspection queues owned image versions. Delivery remains a separate action.
+        # The hook adds pixels without exposing storage operations to the model.
+        queued = ctx.state.pop("view_images", [])
+        try:
+            queued += runtime.db.record(owner, "workspace_inspections", session_id)["files"]
+        except LookupError:
+            pass
+        seen = {display_metadata(message).get("workspace_inspection") for message in ctx.history}
+        for file_id in dict.fromkeys(queued):
+            if file_id in seen:
+                continue
+            image = UserMessage("Image from your workspace:", [runtime.files.image(owner, file_id)])
             stamp_message(image)
+            update_display_metadata(image, {"workspace_inspection": file_id})
             ctx.history.append(image)
             request.messages.append(image)
         if deadline is not None and monotonic() >= deadline:
             raise ResearchStopped("The research reached its time limit.")
+        # Apply this conversation's model and generation settings at the last safe point
+        # before sending a request, rather than storing provider options in the transcript.
         request.options.update(
             options(runtime, session, limits)
             if limits
@@ -49,12 +64,16 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             runtime.research.checkpoint(
                 owner, session_id, turn.research_id, ctx.history, ctx.memory
             )
+        # A checkpoint before each call makes the exact prompt/history available for restart
+        # recovery and diagnostics if the process stops while the provider is responding.
         await runtime.checkpoints.save(owner, session_id, ctx.history, ctx.memory, "before_model")
         started = time.monotonic()
         created_at = time.time()
         return request
 
     async def after_model(message, ctx):
+        turn = runtime.active.get(session_id)
+        # Clean generated punctuation and attach display-only timing metadata before saving.
         if message.text is not None:
             message.text = reply_text(message.text)
         if message.reasoning is not None:
@@ -64,7 +83,22 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             created_at=created_at,
             duration_ms=(time.monotonic() - started) * 1000 if started is not None else None,
         )
-        # Save the tool call and usage together before the harness executes the call.
+        if turn.browser_ui and message.text:
+            turn.prepare_output()
+            if message.tool_calls:
+                update_display_metadata(message, {"openui_hidden": True})
+            else:
+                update_display_metadata(
+                    message,
+                    {
+                        "format": "openui-lang",
+                        "library_version": turn.library_version,
+                        "openui_message_id": turn.output_message_id,
+                        "openui_state": {},
+                    },
+                )
+        # Save the assistant message and usage together before the harness executes any
+        # requested tool. A crash after this point can identify the action that was pending.
         with runtime.db.transaction():
             runtime.db.save_history(
                 owner, session_id, [*ctx.history, message], ctx.memory.to_dict()
@@ -73,9 +107,17 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         await runtime.checkpoints.save(
             owner, session_id, [*ctx.history, message], ctx.memory, "after_model"
         )
+        # The saved history now contains the image inputs. A restart no longer needs
+        # the pending inspection queue, which existed before the model request.
+        runtime.db.execute(
+            "DELETE FROM records WHERE owner=? AND kind='workspace_inspections' AND id=?",
+            (owner, session_id),
+        )
         return message
 
     async def before_tool(tool, args, ctx):
+        # This is the last application gate before a tool's side effect. It can allow,
+        # deny, or pause the call for an owner approval.
         if deadline is not None and monotonic() >= deadline:
             raise ResearchStopped("The research reached its time limit.")
         decision = await check_approval(runtime, session, tool, args, ctx)
@@ -102,10 +144,18 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
             runtime.research.checkpoint(
                 owner, session_id, turn.research_id, [*ctx.history, result], ctx.memory
             )
-        if result.name == "sandbox_view_image" and result.status == "completed":
+        if result.name == "view_image" and result.status == "completed":
             value = json.loads(result.content)
             ctx.state.setdefault("view_images", []).append(value["file_id"])
-        # This hook runs before the harness resumes the model, so results survive a process exit.
+        if ctx.state.get("view_images"):
+            runtime.db.put_record(
+                owner,
+                "workspace_inspections",
+                session_id,
+                {"files": list(dict.fromkeys(ctx.state["view_images"]))},
+            )
+        # Save the exact result before the harness asks the model what to do next. After a
+        # restart, recovery can pair this result with its call instead of running it again.
         runtime.db.execute(
             "INSERT INTO tool_runs VALUES (?,?,?,?,?) ON CONFLICT(session,call_id) DO UPDATE SET "
             "status=excluded.status,result=excluded.result",

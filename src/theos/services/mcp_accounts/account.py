@@ -32,6 +32,7 @@ class AccountSpec:
     methods: dict[str, frozenset[str]] = field(default_factory=dict)
     scope_separator: str = " "
     token_basic_auth: bool = False
+    pkce: bool = True
 
 
 class MCPAccount:
@@ -68,6 +69,7 @@ class MCPAccount:
             self.config.client_secret.get_secret_value(),
             self.config.redirect_uri,
             self.scopes,
+            self.spec.pkce,
         ]
         return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
@@ -120,15 +122,19 @@ class MCPAccount:
 
     def status(self, owner):
         waiting = self.db.one(
-            "SELECT 1 FROM oauth_states WHERE owner=? AND service=? AND expires>?",
-            (owner, self.spec.name, time.time()),
+            "SELECT expires FROM oauth_states WHERE owner=? AND service=?",
+            (owner, self.spec.name),
         )
         return {
             "id": self.spec.name,
             "name": self.spec.label,
             "configured": self.config.enabled,
             "connected": self.connected(owner),
-            "setup": {"status": "waiting" if waiting else "idle"},
+            "setup": {
+                "status": ("waiting" if waiting["expires"] > time.time() else "expired")
+                if waiting
+                else "idle"
+            },
         }
 
     async def start(self, owner):
@@ -156,9 +162,10 @@ class MCPAccount:
                 "redirect_uri": self.config.redirect_uri,
                 "state": state,
                 "response_type": "code",
-                "code_challenge": challenge.decode().rstrip("="),
-                "code_challenge_method": "S256",
             }
+            if self.spec.pkce:
+                params["code_challenge"] = challenge.decode().rstrip("=")
+                params["code_challenge_method"] = "S256"
             if self.scopes:
                 params["scope"] = self.spec.scope_separator.join(self.scopes)
             return {
@@ -258,14 +265,14 @@ class MCPAccount:
                 raise ValueError("Account authorization was canceled. Connect again when ready.")
             # 2. Bind the exchange to the original owner, client, endpoint, and verifier.
             fingerprint = self.fingerprint()
-            payload = await self.token_request(
-                {
-                    "code": code,
-                    "grant_type": "authorization_code",
-                    "redirect_uri": self.config.redirect_uri,
-                    "code_verifier": saved["verifier"],
-                }
-            )
+            form = {
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": self.config.redirect_uri,
+            }
+            if self.spec.pkce:
+                form["code_verifier"] = saved["verifier"]
+            payload = await self.token_request(form)
             self.authorize(owner)
             if fingerprint != self.fingerprint():
                 raise ServiceError("Account configuration changed. Connect again.")
@@ -293,6 +300,14 @@ class MCPAccount:
                 self.save(owner, payload)
             return payload["access_token"]
 
+    async def cancel(self, owner):
+        """Invalidate pending consent while preserving the connected account."""
+        self.authorize(owner)
+        async with self.lock(owner):
+            self.db.execute(
+                "DELETE FROM oauth_states WHERE owner=? AND service=?", (owner, self.spec.name)
+            )
+
     async def disconnect(self, owner):
         # Remove the local grant even when the provider is offline or configuration changed.
         if not account_access(self.settings, self.db, owner):
@@ -318,10 +333,10 @@ class MCPAccount:
             self.sessions[owner] = session
         return await session.request(name, arguments)
 
-    async def tools(self, owner):
+    async def tools(self, owner, *, result_stager=None):
         from .tools import account_tools
 
-        return await account_tools(self, owner)
+        return await account_tools(self, owner, result_stager=result_stager)
 
     async def close_session(self, owner):
         session = self.sessions.pop(owner, None)

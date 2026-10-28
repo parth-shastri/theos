@@ -10,6 +10,14 @@ def display_metadata(message):
     return dict(getattr(message, "_theos_display", {}))
 
 
+def update_display_metadata(message, values):
+    """Merge application display values without changing the model message."""
+    display = display_metadata(message)
+    display.update(values)
+    message._theos_display = display
+    return message
+
+
 def stamp_message(message, *, created_at=None, duration_ms=None):
     """Attach display values without sending them to a model provider."""
     display = {"created_at": time.time() if created_at is None else created_at}

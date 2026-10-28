@@ -48,8 +48,10 @@ A final response uses its held summary first, then any unheld summary calls stil
 
 The bounded mode checks its call allowance before building the request.
 Both modes then use the same [context and workspace algorithm](context-recovery.md).
-The context check prunes old tool results and, when needed, summarizes the middle once.
-It does not split complete evidence into a chain of summary calls.
+It uses the active model to update one rolling summary and keeps recent messages in the raw tail.
+The summary calls use the bounded mode's shared summary allowance.
+A split turn can use separate history and turn-prefix summary calls.
+Each call uses that allowance. Commit the combined checkpoint only after both parts succeed.
 
 ## When research stops
 
@@ -57,7 +59,8 @@ The final-response path uses the same compression policy before calling the mode
 
 
 The held summary is a protected opportunity, not a promise that any amount of evidence will fit.
-A distinct auxiliary model can require one main-model retry. Large original requirements can still exceed the model window.
+The active model can shorten its summary in tiers when the rebuilt request remains too large.
+Large original requirements can still exceed the model window.
 If summaries fail or cannot fit, the application retains the evidence and returns a clear failure.
 It does not retry the final response or cut the text to force a fit.
 Provider failures return a clear explanation without another research attempt.
@@ -76,8 +79,7 @@ Explicit cancellation interrupts the turn instead of starting a final response.
 | `AGENT_TURN_TIMEOUT` | `300` seconds | Before new main-agent model calls and tools |
 | Delegate research deadline | `85` seconds | Before new delegate model calls and tools, also bounded by the parent's research deadline |
 | Ordinary tool timeout | `90` seconds | Tool execution. Delegation groups permit active final responses to finish |
-| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.5` | Upstream floors and scaled summary allocations apply |
-| Conversation `max_output_tokens` | 8,192 by default | Main generation parameter. Auxiliary summaries use a prompt target without a hard output cap |
+| Conversation `max_output_tokens` | 8,192 by default | Main generation parameter. Rolling summaries cap output at 2.5 percent of the context window |
 
 Explicit counts override their ratios independently. Remove old explicit counts from `.env` to enable derivation.
 For example, keeping `AGENT_DELEGATE_MAX_MODEL_CALLS=10` keeps that ceiling at ten when the total becomes 50.

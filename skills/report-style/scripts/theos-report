@@ -1,0 +1,3 @@
+#!/bin/sh
+exec /opt/theos/report-style/.venv/bin/python \
+  /opt/theos/report-style/scripts/render_report.py "$@"

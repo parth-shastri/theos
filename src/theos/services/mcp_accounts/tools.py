@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from harness import Tool
 from theos.services.errors import ServiceError
+from theos.services.result_files import for_model
 
 
 def local_references(value):
@@ -46,7 +47,7 @@ def argument_model(schema, methods):
     return Arguments
 
 
-async def account_tools(account, owner):
+async def account_tools(account, owner, *, result_stager=None):
     account.authorize(owner)
     if not account.connected(owner):
         return []
@@ -68,7 +69,7 @@ async def account_tools(account, owner):
                 raise ValueError("Unsupported remote schema")
             model = argument_model(schema, account.spec.methods.get(remote.name))
 
-            async def execute(args, ctx, remote_name=remote.name, input_type=model):
+            async def execute(args, ctx, remote_name=remote.name, input_type=model, tool_name=name):
                 # Validate again for direct callers that bypass the harness input check.
                 input_type.model_validate(args.model_dump())
                 account.authorize(owner)
@@ -77,11 +78,18 @@ async def account_tools(account, owner):
                     raise ServiceError(
                         "The account rejected this read. Check access and tool arguments."
                     )
-                return response.model_dump(mode="json")
+                return await for_model(
+                    response.model_dump(mode="json"),
+                    tool_name=tool_name,
+                    save_result=result_stager,
+                )
 
             description = (
                 (remote.description or remote.name)[:4000]
-                + "\nRead-only account tool. Remote argument schema: "
+                + "\nRead-only account tool. Large results use a temporary result_file or an incomplete preview. "
+                "For paginated reads, page size limits one response, not the total results. "
+                "Use the remote schema's page or cursor parameters to continue. "
+                "A full page does not establish the total count. Remote argument schema: "
                 + json.dumps(schema, separators=(",", ":"))
             )
             tools.append(Tool(name, description, model, execute, view="mcp_account_read"))

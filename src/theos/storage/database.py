@@ -77,6 +77,9 @@ class Database:
     def recover(self):
         """Preserve uncertain writes instead of repeating them after a crash."""
         with self.transaction():
+            self.execute(
+                "UPDATE github_notifications SET telegram='uncertain' WHERE telegram='sending'"
+            )
             # 1. Preserve uncertainty. An interrupted process cannot prove an external write failed.
             self.execute("UPDATE tool_runs SET status='unknown' WHERE status='running'")
             self.execute("UPDATE sessions SET status='interrupted' WHERE status='running'")

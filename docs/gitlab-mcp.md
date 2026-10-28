@@ -8,6 +8,7 @@ Authenticated provider acceptance remains pending.
 ## Configure the deployment
 
 Register an OAuth application on the configured instance with the mcp scope.
+For the GitLab MCP application, clear the Confidential checkbox.
 Enable the instance's MCP server or the required group setting.
 The default instance is https://gitlab.com.
 AGENT_GITLAB__INSTANCE_URL selects another HTTPS origin.
@@ -21,11 +22,12 @@ Missing tools remain unavailable. The adapter does not switch silently to REST.
 
 1. Register https://<theos-host>/oauth/gitlab/callback with the provider.
 2. Set AGENT_GITLAB__CLIENT_ID in the private deployment environment.
-3. Set AGENT_GITLAB__CLIENT_SECRET in that environment.
+3. Set AGENT_GITLAB__CLIENT_SECRET to the application's generated secret.
 4. Set AGENT_GITLAB__REDIRECT_URI to the exact registered URI.
 5. Set AGENT_TOKEN_ENCRYPTION_KEY to the deployment's valid Fernet key.
 6. Restart Theos after the settings change.
 
+For this local Docker test, register http://localhost:8080/oauth/gitlab/callback.
 HTTP callbacks are allowed only on localhost or 127.0.0.1 for development.
 The callback must reach the deployment that started authorization.
 A localhost callback on another computer will not reach a remote Theos server.
@@ -67,12 +69,11 @@ Each tool takes an arguments object that matches its discovered JSON schema.
 The model receives that schema with the tool description.
 The adapter rejects invalid arguments before a remote action starts.
 Unknown tools and write tools remain unavailable.
-GitHub-style method tools also require a reviewed read method.
 
 The adapter pages through the complete discovery catalog.
-It preserves remote read responses as owner-bound source records.
-Large responses return a first page and a source_id.
-The source_read tool retrieves later pages.
+Large responses use the shared temporary result-file service.
+The model can inspect selected sections with run_command.
+A staged response does not establish complete provider pagination.
 The adapter does not fetch external resource links automatically.
 
 ## Disconnect and recovery
@@ -95,10 +96,10 @@ The adapter uses existing mcp, httpx, cryptography, and jsonschema dependencies.
 No new provider SDK, Node.js proxy, or local MCP server is required.
 Provider configuration stays in services/gitlab/.
 Shared account code stays in services/mcp_accounts/.
-The existing runtime owns journals, source records, access checks, and delivery.
+The existing runtime owns journals, result staging, access checks, and delivery.
 
 Focused tests cover OAuth ownership, callback replay, encrypted restart access, discovery, schema rejection, and transport boundaries.
-They also cover durable source paging, optional-service failure, and private Telegram commands.
+They also cover bounded result staging, optional-service failure, and private Telegram commands.
 The shared wire test uses the real MCP client against a mock HTTP transport.
 These tests do not prove production provider access.
 

@@ -1,11 +1,12 @@
-"""Shared writing rules for assistant output."""
+"""Shared personality and writing rules for assistant output."""
 
 import re
 
-WRITING_RULES = (
-    "Never use em dashes in any output, including explanations, reasoning summaries, "
-    "quotes, and titles. Use commas, parentheses, or separate sentences instead. "
-)
+from theos.prompts import render
+
+PERSONALITY = render("shared/personality.md")
+
+WRITING_RULES = render("shared/writing.md")
 _em_dash = re.compile(r"\u2014|&mdash;|&#0*8212;|&#[xX]0*2014;", re.IGNORECASE)
 
 

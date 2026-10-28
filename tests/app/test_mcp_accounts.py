@@ -392,3 +392,21 @@ async def test_session_teardown_can_finish_authentication_without_token_lock_dea
                 await account.callback(state_from(await account.start("alice")), "code")
         assert closed == ["disconnected" if action == "disconnect" else "fresh"]
         assert not account.sessions
+
+
+async def test_confidential_oauth_preserves_one_use_state_without_public_client_pkce(settings, db):
+    def remote(request):
+        assert request.headers["authorization"].startswith("Basic ")
+        form = parse_qs(request.content.decode())
+        assert "code_verifier" not in form
+        return httpx.Response(200, json={"access_token": "user-token", "token_type": "user"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(remote)) as http:
+        account = make_account(settings, db, http, pkce=False, token_basic_auth=True)
+        query = parse_qs(urlsplit((await account.start("alice"))["url"]).query)
+        assert "code_challenge" not in query and "code_challenge_method" not in query
+        state = query["state"][0]
+        await account.callback(state, "code")
+        assert account.connected("alice")
+        with pytest.raises(ValueError, match="invalid or expired"):
+            await account.callback(state, "code")

@@ -49,15 +49,20 @@ class PendingConnection:
     state: str | None = None
     task: asyncio.Task | None = None
     failed: bool = False
+    verified: bool = False
+    cancelled: bool = False
+    authorization_url: str | None = None
+    staged_credentials: str | None = None
 
 
 class ZeptoTokenStorage(TokenStorage):
     """Keep one OAuth client's registration and each owner's tokens encrypted."""
 
-    def __init__(self, settings, db, owner):
+    def __init__(self, settings, db, owner, pending=None):
         self.settings = settings
         self.db = db
         self.owner = owner
+        self.pending = pending
         key = settings.token_encryption_key.get_secret_value()
         self.cipher = Fernet(key.encode()) if key else None
 
@@ -77,6 +82,12 @@ class ZeptoTokenStorage(TokenStorage):
             ) from error
 
     def _read_owner(self):
+        if self.pending is not None:
+            return (
+                self._decrypt(self.pending.staged_credentials)
+                if self.pending.staged_credentials
+                else {}
+            )
         row = self.db.one(
             "SELECT encrypted FROM credentials WHERE owner=? AND service='zepto'", (self.owner,)
         )
@@ -84,6 +95,9 @@ class ZeptoTokenStorage(TokenStorage):
 
     def _write_owner(self, value):
         encrypted = self._encrypt(value)
+        if self.pending is not None:
+            self.pending.staged_credentials = encrypted
+            return
         self.db.ensure_user(self.owner)
         with self.db.transaction():
             self.db.execute(
@@ -162,6 +176,12 @@ class Zepto:
         return bool(self.settings.zepto_url)
 
     def connected(self, owner):
+        flow = self.pending.get(owner)
+        if flow and not flow.verified:
+            return False
+        return self._credentials_present(owner)
+
+    def _credentials_present(self, owner):
         try:
             return (
                 ZeptoTokenStorage(self.settings, self.db, owner)._read_owner().get("endpoint")
@@ -181,10 +201,38 @@ class Zepto:
             raise PermissionError("Connect Zepto from an authorized private workspace.")
 
     def connection_status(self, owner):
-        """Return setup progress only to its authenticated browser owner."""
-        if not browser_account_access(self.settings, owner, self.db):
-            raise PermissionError("Browser account access is required.")
-        return self.browser_status.get(owner, {"status": "idle"})
+        """Return setup progress only to its authorized private owner."""
+        if not account_access(self.settings, self.db, owner):
+            raise PermissionError("Private account access is required.")
+        flow = self.pending.get(owner)
+        if flow and not flow.verified and not flow.failed:
+            if time.time() - flow.created > CALLBACK_TIMEOUT:
+                return {"status": "expired", "message": "Zepto sign-in expired. Connect again."}
+            if flow.callback.done():
+                return {"status": "starting", "message": "Verifying your Zepto connection."}
+            if flow.authorization_url:
+                return {
+                    "status": "waiting",
+                    "url": flow.authorization_url,
+                    "manual_return": not flow.redirect_uri.startswith("https://"),
+                }
+        if owner in self.browser_status:
+            return self.browser_status[owner]
+        try:
+            saved = self.db.record(owner, "account_connections", "zepto")
+        except LookupError:
+            return {"status": "starting" if flow else "idle"}
+        if not flow and saved["status"] in {"starting", "waiting"}:
+            return {"status": "failed", "message": "Zepto setup was interrupted. Connect again."}
+        return {key: saved[key] for key in ("status", "message")}
+
+    def _status(self, owner, status, message):
+        self.browser_status[owner] = {"status": status, "message": message}
+        self.db.put_record(owner, "account_connections", "zepto", self.browser_status[owner])
+
+    def _discard_credentials(self, flow):
+        if not flow.verified:
+            flow.staged_credentials = None
 
     async def connect_from_browser(self, owner):
         """Publish a sign-in link without putting OAuth data in chat history."""
@@ -193,7 +241,9 @@ class Zepto:
         self.authorize(owner)
         current = self.pending.get(owner)
         if current and current.task and not current.task.done():
-            return self.connection_status(owner)
+            if time.time() - current.created <= CALLBACK_TIMEOUT:
+                return self.connection_status(owner)
+            await self.cancel(owner)
         self.browser_status[owner] = {"status": "starting"}
 
         async def send_link(url):
@@ -205,12 +255,17 @@ class Zepto:
 
         async def send_status(message):
             flow = self.pending.get(owner)
-            self.browser_status[owner] = {
-                "status": "connected"
+            if flow and not flow.failed and self._credentials_present(owner):
+                flow.verified = True
+            self._status(
+                owner,
+                "connected"
                 if self.connected(owner) and not (flow and flow.failed)
+                else "cancelled"
+                if flow and flow.cancelled
                 else "failed",
-                "message": message,
-            }
+                message,
+            )
 
         await self.connect(owner, send_link, send_status)
         return self.connection_status(owner)
@@ -268,7 +323,7 @@ class Zepto:
                 ) from error
 
     def _provider(self, owner, flow=None):
-        store = ZeptoTokenStorage(self.settings, self.db, owner)
+        store = ZeptoTokenStorage(self.settings, self.db, owner, pending=flow)
 
         async def redirect(url):
             state = parse_qs(urlsplit(url).query).get("state", [None])[0]
@@ -276,6 +331,8 @@ class Zepto:
                 raise OAuthFlowError("Zepto did not return an OAuth state.")
             flow.state = state
             self.pending_by_state[state] = flow
+            flow.authorization_url = url
+            self._status(owner, "waiting", "Finish Zepto sign-in in the opened browser tab.")
             await flow.send_link(url)
 
         async def callback():
@@ -313,6 +370,7 @@ class Zepto:
             created=time.time(),
         )
         self.pending[owner] = flow
+        self._status(owner, "starting", "Preparing your private Zepto sign-in link.")
         flow.task = asyncio.create_task(self._connect(flow))
 
     async def _connect(self, flow):
@@ -328,11 +386,41 @@ class Zepto:
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         listed = await session.list_tools()
-            await flow.send_status(f"Zepto is connected. I found {len(listed.tools)} tools.")
+            if not account_access(self.settings, self.db, flow.owner):
+                raise PermissionError("This user no longer has account access.")
+            staged = ZeptoTokenStorage(
+                self.settings, self.db, flow.owner, pending=flow
+            )._read_owner()
+            if not staged.get("tokens"):
+                raise ServiceError("Zepto did not complete account authorization. Connect again.")
+            ZeptoTokenStorage(self.settings, self.db, flow.owner)._write_owner(staged)
+            flow.verified = True
+            self._status(
+                flow.owner,
+                "connected",
+                "Zepto is connected. Choose a delivery address before shopping.",
+            )
+            try:
+                await flow.send_status(f"Zepto is connected. I found {len(listed.tools)} tools.")
+            except Exception as error:
+                logger.warning(
+                    "zepto_connection_notification_failed",
+                    extra={"error_type": type(error).__name__},
+                )
         except asyncio.CancelledError:
+            self._discard_credentials(flow)
+            self._status(flow.owner, "cancelled", "Zepto setup stopped. You can connect again.")
             raise
         except Exception as error:
             flow.failed = True
+            self._discard_credentials(flow)
+            self._status(
+                flow.owner,
+                "cancelled" if flow.cancelled else "failed",
+                "Zepto sign-in was cancelled. Connect again when ready."
+                if flow.cancelled
+                else "Zepto could not connect. Check authorization and connect again.",
+            )
             logger.warning("zepto_connect_failed", extra={"error_type": type(error).__name__})
             await flow.send_status(
                 "Zepto could not connect. Check the account authorization and connect again."
@@ -343,14 +431,25 @@ class Zepto:
             if flow.state:
                 self.pending_by_state.pop(flow.state, None)
 
-    def _resolve(self, flow, code, state):
+    def _validate_return(self, flow, state):
         if time.time() - flow.created > CALLBACK_TIMEOUT:
             raise ValueError("This Zepto link expired. Connect Zepto again.")
         if not flow.state or not secrets.compare_digest(state, flow.state):
             raise ValueError("This Zepto return link does not match the pending setup.")
-        if not code or flow.callback.done():
+        if flow.callback.done():
             raise ValueError("This Zepto return link is empty or already used.")
+
+    def _resolve(self, flow, code, state):
+        self._validate_return(flow, state)
+        if not code:
+            raise ValueError("The Zepto return link has no authorization code. Connect again.")
         flow.callback.set_result((code, state))
+
+    def _reject(self, flow, state):
+        self._validate_return(flow, state)
+        flow.cancelled = True
+        flow.callback.set_exception(OAuthFlowError("Zepto sign-in was cancelled."))
+        raise ValueError("Zepto sign-in was cancelled. Connect again when ready.")
 
     async def finish_from_telegram(self, owner, return_url):
         """Pass a localhost redirect back to the pending OAuth client."""
@@ -381,7 +480,7 @@ class Zepto:
         code = query.get("code", [""])[0]
         error = query.get("error", [""])[0]
         if error:
-            raise ValueError("Zepto sign-in was cancelled. Connect Zepto again.")
+            self._reject(flow, state)
         self._resolve(flow, code, state)
 
     async def finish_from_browser(self, state, code, error=""):
@@ -393,8 +492,22 @@ class Zepto:
             raise ValueError("This Zepto link expired. Connect Zepto again.")
         self.authorize(flow.owner)
         if error:
-            raise ValueError("Zepto sign-in was cancelled. Connect Zepto again.")
+            self._reject(flow, state)
         self._resolve(flow, code, state)
+
+    async def cancel(self, owner):
+        """Cancel setup and preserve the account that was connected before it."""
+        self.authorize(owner, require_enabled=False)
+        flow = self.pending.get(owner)
+        if flow and flow.task and not flow.task.done():
+            flow.task.cancel()
+            await asyncio.gather(flow.task, return_exceptions=True)
+            self._discard_credentials(flow)
+            if self.pending.get(owner) is flow:
+                self.pending.pop(owner, None)
+            if flow.state:
+                self.pending_by_state.pop(flow.state, None)
+        self._status(owner, "cancelled", "Zepto setup cancelled. You can connect later.")
 
     async def disconnect(self, owner):
         """Remove one owner's local Zepto credentials and cancel pending setup."""
@@ -407,6 +520,12 @@ class Zepto:
         with self.db.transaction():
             self.db.execute("DELETE FROM credentials WHERE owner=? AND service='zepto'", (owner,))
         self.browser_status.pop(owner, None)
+        self.db.put_record(
+            owner,
+            "account_connections",
+            "zepto",
+            {"status": "idle", "message": "Zepto disconnected."},
+        )
         return True
 
     async def _remote(self, owner, name=None, arguments=None):
@@ -436,29 +555,36 @@ class Zepto:
         await asyncio.gather(*(session.close() for session in sessions))
 
 
-def prepare_telegram_update(settings, update):
+def prepare_telegram_update(settings, update, *, return_prompt=False):
     """Encrypt pasted authorization URLs before the Telegram inbox saves them."""
     result = deepcopy(update)
     message = result.get("message", {})
-    text = message.get("text", "")
+    text = message.get("text") or message.get("caption", "")
     command, separator, value = text.partition(" ")
     is_finish_command = command.split("@")[0] == "/zepto_finish"
-    if not (is_finish_command and separator):
+    if "_theos_zepto_return" in message or message.get("_theos_zepto_return_invalid"):
+        return result
+    if return_prompt and not is_finish_command:
+        value = text
+    elif not (is_finish_command and separator):
         try:
             parts = urlsplit(text.strip())
-            query = parse_qs(parts.query, max_num_fields=20)
         except ValueError:
             return result
         if not (
             parts.scheme == "http"
             and parts.hostname in {"localhost", "127.0.0.1"}
             and parts.path == "/callback"
-            and query.get("code")
-            and query.get("state")
+            # Even malformed or denied callbacks must stay outside model history.
         ):
             return result
         value = text
     message["text"] = "/zepto_finish"
+    message.pop("caption", None)
+    message.pop("caption_entities", None)
+    message.pop("entities", None)
+    message.pop("reply_to_message", None)
+    message.pop("quote", None)
     if len(value) > 4000:
         message["_theos_zepto_return_invalid"] = True
         return result

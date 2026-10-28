@@ -22,7 +22,9 @@ def main():
         Path(__file__).resolve().parents[1] / "src/theos/services/sandbox/client.py"
     ).read_text()
     program = (
-        "import asyncio, logging, sys\nlogging.disable(logging.CRITICAL)\nnamespace = {}\nexec("
+        "import asyncio, logging, sys\nlogging.disable(logging.CRITICAL)\n"
+        "namespace = {'__name__': 'theos.services.sandbox.client', "
+        "'__package__': 'theos.services.sandbox'}\nexec("
         + repr(source)
         + ", namespace)\n"
         + """
