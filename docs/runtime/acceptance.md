@@ -16,7 +16,7 @@ Mobile light and desktop dark screenshots passed visual review. Native ARM64 API
 Both local services now run the Calendar OpenUI images on ports 8080 and 8081.
 Readiness, installed version 3, generated component instructions, and meeting-link fields passed direct checks.
 The existing account connections and data volume survived replacement. No live Calendar event was created or changed for these checks.
-Live model selection of the new views, the pending dev merge, and production deployment remain unverified.
+Live model selection of the new views and production deployment remain unverified.
 
 ## OpenUI summaries and completed thinking, 2026-10-28
 

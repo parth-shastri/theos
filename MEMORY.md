@@ -14,7 +14,8 @@ Read meeting links and video entry points with event details. Render source link
 Use existing React and native Intl functions. Add no dependency, generic harness change, or database migration.
 The 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scenarios passed.
 The local services now use `theos:calendar-openui-20261028` and `theos-web:calendar-openui-20261028` with saved connections and the existing volume preserved.
-The installed prompt and manifest expose version 3. Model selection of the new views remains unverified. The dev merge is still on hold.
+The installed prompt and manifest expose version 3. Model selection of the new views remains unverified.
+The operator requested merging both UI revisions into dev through the same PR.
 
 ## OpenUI summaries and completed thinking, 2026-10-28
 
