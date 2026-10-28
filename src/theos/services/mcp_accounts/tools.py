@@ -86,7 +86,10 @@ async def account_tools(account, owner, *, result_stager=None):
 
             description = (
                 (remote.description or remote.name)[:4000]
-                + "\nRead-only account tool. Large results use a temporary result_file or an incomplete preview. Remote argument schema: "
+                + "\nRead-only account tool. Large results use a temporary result_file or an incomplete preview. "
+                "For paginated reads, page size limits one response, not the total results. "
+                "Use the remote schema's page or cursor parameters to continue. "
+                "A full page does not establish the total count. Remote argument schema: "
                 + json.dumps(schema, separators=(",", ":"))
             )
             tools.append(Tool(name, description, model, execute, view="mcp_account_read"))

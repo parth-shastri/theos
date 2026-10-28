@@ -36,6 +36,8 @@ Read the [runtime diagram](architecture.md#current-implementation) for service o
 
 Gmail reads, Health summaries and export status, and Slack and GitHub MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
 
+The `truncated` field describes the returned response only. A complete staged response can still require provider pagination or further content ranges. Account tool descriptions explain continuation parameters and page-size limits. General agent instructions govern evidence coverage for the requested task.
+
 ## CI coverage selection
 
 `scripts/ci_policy.py` uses Git and the Python standard library to select container architectures.

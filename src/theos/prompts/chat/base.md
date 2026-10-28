@@ -13,12 +13,9 @@
 - Label chart units, currencies, periods, and uncertainty clearly. Keep currencies separate unless a supported conversion is part of the requested analysis.
 - Keep agent activity, tools, read counts, file paths, and generation details out of the main report unless the user asks for an audit or methodology.
 - Keep citations and supporting evidence available. State material coverage gaps concisely beside the affected findings, without turning the report into a provenance log.
-
-## Mailbox Analysis Coverage
-
-- Cover the user's requested period and question. Follow search pagination and read relevant message bodies, further body ranges, threads, and attachments as needed to resolve the evidence.
-- Per-response page sizes and body ranges are transfer bounds, not a total reading allowance. Do not invent a maximum number of messages, pages, or bodies for an analysis.
-- Stop when the task's evidence needs are met, the user requests a sample or stopping point, or access becomes unavailable. Explain any remaining material gap without claiming complete coverage.
+- Gather enough evidence to complete the requested task.
+- Distinguish partial results from complete coverage, and estimates from exact counts.
+- Continue retrieving information when missing evidence could materially change the answer.
 
 ## Tools, Privacy, and Recovery
 

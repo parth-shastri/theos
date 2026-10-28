@@ -1024,3 +1024,20 @@ The temporary ingress permits only the webhook POST and a readiness GET. Other a
 Synthetic public ingress checks passed signature validation and deduplication. Real GitHub and Telegram deliveries remain unverified.
 The implementation passed 1,164 Python tests, 20 frontend tests, and 64 browser cases, with eight final themed alert reruns.
 Stop the two tunnel processes after the requested live testing. No production deployment was changed.
+
+## General evidence guidance, 2026-10-28
+
+The operator requested removal of mailbox-specific rules from the shared agent prompt.
+Keep evidence coverage general. Distinguish partial results from complete coverage, and estimates from exact counts.
+Continue retrieval when missing evidence could materially change the answer.
+Describe pagination mechanics beside the tools. Page size limits one response, not the total available results.
+The staged-result `truncated` field describes one response. It does not establish complete provider coverage.
+
+## GitHub acceptance and GitLab transition, 2026-10-28
+
+The operator completed GitHub App authorization in the local Docker workspace.
+The model completed identity, repository-search, and commit-list reads through the reviewed MCP tools.
+The account grant survives the local restart. The first repository comparison stopped after one full commit page.
+General evidence and tool-pagination guidance now clarify this case. Fresh model pagination behavior remains unverified.
+The operator requested merging the GitHub topic PR into dev, as with Slack, then continuing on the GitLab topic branch.
+Real GitHub notification delivery and private Telegram acceptance remain separate open checks.

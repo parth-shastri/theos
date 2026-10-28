@@ -1696,3 +1696,27 @@ A signing secret was generated in the ignored private .env. It was not included 
 These checks do not establish a real GitHub App delivery or a live Telegram send.
 GitHub OAuth credentials, provider setup, per-owner opt-in, and actual event delivery still need live acceptance.
 The production Theos deployment is unchanged. The temporary tunnel remains active for the requested local test.
+
+## General evidence and pagination guidance, 2026-10-28
+
+The shared chat prompt no longer contains mailbox-specific coverage rules.
+General guidance requires enough evidence for the task and distinguishes partial coverage, estimates, and exact counts.
+Gmail and shared MCP tool descriptions explain page limits and continuation parameters.
+Staged-result guidance distinguishes a complete response from complete provider coverage.
+
+The 86 focused prompt, account, connector, Gmail, checkpoint, and result-staging tests passed.
+Ruff lint, formatting, and patch whitespace checks passed.
+The local API image rebuilt successfully. Both Docker services returned healthy.
+The running API exposes the updated GitHub and Gmail descriptions and retains both connected account grants.
+The installed prompt and staging helper contain the new guidance.
+These checks verify configuration and existing contracts. Model behavior after the prompt change remains unverified.
+
+## GitHub live account reads, 2026-10-28
+
+The operator created the GitHub App and authorized its localhost callback.
+The local Docker workspace retained the encrypted account grant after restart.
+Authenticated discovery exposed reviewed GitHub tools in the existing browser conversation.
+The operator's repository-activity request completed identity, repository-search, and commit-list reads through the model.
+Large responses were staged without truncating the returned page. The first answer stopped after one full commit page.
+The later prompt change clarifies evidence coverage and pagination. A fresh model pagination check remains pending.
+No GitHub write tool ran. Real notification delivery and private Telegram acceptance remain unverified.

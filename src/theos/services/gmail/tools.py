@@ -37,7 +37,11 @@ def gmail_tools(client, owner, *, result_stager=None, file_importer=None):
         page_token: str | None = None,
         max_results: Annotated[int, Field(ge=1, le=25)] = 10,
     ):
-        """Return headers and short snippets; pass next_page_token to continue and open a selected ID for its body."""
+        """Return one page of headers and short snippets.
+        max_results limits this page, not the total matches. Pass the returned
+        next_page_token as page_token to continue. A full page does not establish
+        the total count. Open a selected message ID for its body.
+        """
         params = {"q": f"({query}) -in:spam -in:trash", "maxResults": max_results}
         if page_token:
             params["pageToken"] = page_token
@@ -184,7 +188,11 @@ def gmail_tools(client, owner, *, result_stager=None, file_importer=None):
         page_token: str | None = None,
         max_results: Annotated[int, Field(ge=1, le=25)] = 10,
     ):
-        """List draft IDs without loading their bodies; inspect a selected draft with gmail_get_draft."""
+        """Return one page of draft IDs without their bodies.
+        max_results limits this page, not the total drafts. Pass the returned
+        next_page_token as page_token to continue. Inspect a selected draft with
+        gmail_get_draft.
+        """
         result = await client.request(
             owner,
             "GET",
