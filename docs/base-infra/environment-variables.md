@@ -21,7 +21,8 @@ Samples can choose different values, such as `Asia/Kolkata` instead of `UTC`.
 Empty credentials mean that no credential exists.
 
 For an older installation, replace `THEOS_` with `AGENT_` in environment variable names.
-The old prefix is no longer read.
+The Python settings model no longer reads that prefix.
+The Next.js service settings below intentionally use `THEOS_API_URL` and `THEOS_FRONTEND_SECRET`.
 After a Compose environment change, recreate the container:
 
 ```sh
@@ -38,7 +39,8 @@ A process restart alone does not replace container environment values.
 | `AGENT_NAME` | `Theos` | Assistant identity, browser labels, and Telegram greeting |
 | `AGENT_USERS` | `{}` | Browser user IDs mapped to unique tokens |
 | `AGENT_ADMINS` | `[]` | Browser user IDs with dashboard and log access |
-| `AGENT_WEB_URL` | Empty | HTTPS deployment origin for Telegram-confirmed browser sign-in links |
+| `AGENT_WEB_URL` | Empty | Frontend HTTPS origin for browser mutations and Telegram sign-in links |
+| `AGENT_FRONTEND_SECRET` | Empty | Shared random service credential, at least 32 characters |
 | `AGENT_TIMEZONE` | `UTC` | Default timezone for personal records and reminders |
 
 Names contain 1 to 100 characters after trimming surrounding whitespace.
@@ -90,24 +92,21 @@ See the [terminal guide](../terminal.md#connect-to-a-deployment).
 | `AGENT_DELEGATE_CALL_RATIO` | `1/3` | Fraction of total for each delegate ceiling when the count is absent, greater than 0 and at most 1. Round up |
 | `AGENT_TURN_TIMEOUT` | `300` | Optional bounded mode only. Deadline for new research, from 10 to 3600 seconds |
 | `AGENT_CONTEXT_TOKENS` | Unset | Optional context override, at least 4096 tokens and within known provider capacity |
-| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.5` | Configured trigger fraction, greater than zero and at most one. The policy applies its small-window floor |
-| `AGENT_COMPACTION_MODEL` | `gpt-6-luna` | Auxiliary summary model. Other providers use their conversation model unless configured |
-| `AGENT_COMPACTION_CONTEXT_TOKENS` | Unset | Optional auxiliary context capacity, at least 1024 tokens |
-| `AGENT_COMPACTION_TAIL_MODE` | `lean` | Token-sized lean tail or a larger current tail. Both preserve complete tool exchanges |
-| `AGENT_COMPACTION_MIN_TAIL_USER_MESSAGES` | `1` | Recent user messages retained in the tail, from 1 to 20. More messages can exceed the tail target |
+| `AGENT_COMPACTION_MODEL` | Conversation model | Optional provider model ID for summary calls |
+| `AGENT_COMPACTION_TRIGGER_RATIO` | `0.5` | Start rolling compaction at this fraction of the context window, greater than 0 and at most 1 |
+| `AGENT_COMPACTION_TAIL_RATIO` | `0.025` | Keep this fraction of recent raw messages, greater than 0 and at most 0.5 |
 | `AGENT_MAX_OUTPUT_TOKENS` | `8192` | Default output allowance. Explicit conversation output settings override it |
 | `AGENT_MAX_UPLOAD_BYTES` | `10485760` | File limit, from 1024 to 26214400 bytes |
 
 Compose overrides the host, port, and data directory with `0.0.0.0`, `8080`, and `/data`.
-Use `HOST_BIND_IP` and `HOST_PORT` to change the host mapping.
+Use `API_BIND_IP` and `API_PORT` to change the private API host mapping.
+Use `HOST_BIND_IP` and `HOST_PORT` for the separate frontend listener.
 Unset context uses the model capacity from provider metadata or the verified catalog.
 Unknown models use a logged 24,000-token fallback unless the operator configures a window.
 The context override does not increase the selected model's capacity.
 Pi uses `AGENT_CONTEXT_TOKENS=100000` and `AGENT_MAX_OUTPUT_TOKENS=8192`.
-The default policy starts compaction at 68,856 input tokens for this Pi cap and output reservation.
+Compaction uses the configured trigger and tail ratios. Output reservations can trigger it earlier.
 Theos disables call budgets and research deadlines by default. Summary calls still enter usage records.
-An explicit trigger ratio overrides the default. Output reservations can require earlier compaction.
-Compaction starts at 70 percent by default and targets 45 percent after a complete summary.
 
 Omitted counts derive from the total using the configured ratios, rounded up.
 Explicit counts override their own ratios. Remove old explicit counts to enable automatic derivation.
@@ -265,7 +264,7 @@ See [external services](../services.md#search-weather-and-skills).
 | `AGENT_SANDBOX__DOMAIN` | `localhost:8080` | OpenSandbox server address |
 | `AGENT_SANDBOX__API_KEY` | Empty | Server credential |
 | `AGENT_SANDBOX__USE_SERVER_PROXY` | `false` | Route sandbox execution and file requests through the server. Enable for remote hosts over Tailscale |
-| `AGENT_SANDBOX__IMAGE` | `opensandbox/code-interpreter:v1.0.1` | Remote sandbox image |
+| `AGENT_SANDBOX__IMAGE` | `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` | Versioned Theos sandbox image with report, document, and browser dependencies |
 | `AGENT_SANDBOX__TIMEOUT_SECONDS` | `3600` | Lifetime from creation, from 60 to 3600 seconds. Reads and renew calls do not extend it |
 
 Container loopback refers to the assistant container.
@@ -276,6 +275,9 @@ See [sandbox](../sandbox.md) for browser dependencies and lifecycle operations.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
+| `AGENT_STORAGE__CHECKPOINT_KEEP` | `3` | Recent recovery checkpoints per session. Current local and published remote pointers remain protected |
+| `AGENT_STORAGE__GC_INTERVAL_SECONDS` | `3600` | Interval between runtime retention scans. Bounded backlog passes continue sooner |
+| `AGENT_STORAGE__GC_GRACE_SECONDS` | `3600` | Minimum age since an object was stored or reused before retirement |
 | `AGENT_STORAGE__ENDPOINT` | Empty | R2 S3-compatible endpoint |
 | `AGENT_STORAGE__BUCKET` | Empty | Private bucket |
 | `AGENT_STORAGE__ACCESS_KEY` | Empty | Bucket access key |
@@ -337,7 +339,12 @@ These settings control Compose rather than the Python settings model.
 | --- | --- | --- |
 | `HOST_BIND_IP` | `127.0.0.1` | Host interface for browser access |
 | `HOST_PORT` | `8080` | Published host port |
-| `AGENT_IMAGE` | `theos:local` | Built or selected image reference |
+| `AGENT_IMAGE` | `theos:local` | API image reference |
+| `AGENT_WEB_IMAGE` | `theos-web:local` | Frontend image reference |
+| `API_BIND_IP` | `127.0.0.1` | Private API host interface |
+| `API_PORT` | `8081` | Private API host port |
+| `AGENT_WEB_MEMORY_LIMIT` | `512m` | Frontend memory limit |
+| `AGENT_WEB_CPU_LIMIT` | `1.0` | Frontend CPU limit |
 | `AGENT_DATA_VOLUME` | `theos-data` | Named volume mounted at `/data` |
 | `AGENT_MEMORY_LIMIT` | `768m` | Container memory limit |
 | `AGENT_CPU_LIMIT` | `1.0` | Container CPU limit |
@@ -346,6 +353,21 @@ Shell variables can override Compose interpolation from `.env`.
 The service always reads its container environment from `.env` plus explicit Compose overrides.
 A different `--env-file` does not change the service `env_file: .env` declaration.
 See the [Compose workflow](docker-compose-workflow.md) before changing that behavior.
+
+## Next.js service settings
+
+Next.js uses `AGENT_NAME`, `AGENT_WEB_URL`, `THEOS_API_URL`, `THEOS_FRONTEND_SECRET`, and optional `THEOS_CLIENT_IP_HEADER`.
+`THEOS_API_URL` is the private FastAPI origin, defaulting to `http://127.0.0.1:8080` for local execution.
+`THEOS_FRONTEND_SECRET` must match the API's `AGENT_FRONTEND_SECRET`.
+Production requires an explicit frontend origin and service secret.
+Keep these settings in `web/.env.local` for local development. Compose sets them explicitly.
+The frontend does not load the backend `.env` file.
+
+Set `THEOS_CLIENT_IP_HEADER` only when the trusted ingress overwrites that header on every request.
+For Cloudflare Tunnel, use `cf-connecting-ip` to separate login limits by client address.
+The frontend forwards validated addresses under its private service credential.
+Without this setting, limits share the frontend service's upstream address.
+The API stores address fingerprints without plaintext IP addresses.
 
 ## Credentials
 

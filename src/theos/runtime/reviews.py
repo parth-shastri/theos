@@ -13,8 +13,9 @@ def readable_name(name):
 def tool_label(name):
     labels = {
         "gmail_send_draft": "Send Gmail draft",
-        "sandbox_execute_code": "Run code in sandbox",
-        "sandbox_run_command": "Run sandbox command",
+        "execute_code": "Run Python code",
+        "run_command": "Run command",
+        "attach_file": "Attach file to response",
         "web_search": "Search the web",
         "history_read": "Read saved evidence",
         "history_search": "Find saved evidence",
@@ -31,7 +32,7 @@ def tool_icon(name):
         return "✉️"
     if "search" in name or "research" in name:
         return "🔎"
-    if name.startswith("sandbox_"):
+    if name in {"run_command", "execute_code", "browser"}:
         return "🧰"
     if "file" in name or name.startswith("source_"):
         return "📄"

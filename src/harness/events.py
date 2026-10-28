@@ -48,6 +48,7 @@ class ReasoningDelta(_ScopedEvent):
     """One chunk of the model's reasoning summary as it streams."""
 
     text: str
+    display_summary: bool = field(default=False, compare=False)
     at: float = _at()
 
 

@@ -8,9 +8,9 @@ from theos.runtime.approvals import requires_approval
 @pytest.mark.parametrize(
     "name",
     [
-        "sandbox_run_command",
-        "sandbox_execute_code",
-        "sandbox_browser",
+        "run_command",
+        "execute_code",
+        "browser",
         "gmail_create_draft",
         "gmail_get_draft",
         "delete_user_file",

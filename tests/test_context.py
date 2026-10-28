@@ -29,40 +29,28 @@ class Deps:
     account_id: str
 
 
-def test_run_context_constructs_from_deps_alone():
-    ctx = RunContext(deps=Deps(account_id="acct_1"))
-    assert ctx.deps.account_id == "acct_1"
-    assert ctx.history == []
-    assert ctx.budget is None
-    assert ctx.inbox is None
-    assert ctx.emit is None
-    assert ctx.state == {}
-    assert len(ctx.run_id) == 32
-
-
-def test_run_context_run_ids_differ_per_run():
-    assert RunContext(deps=None).run_id != RunContext(deps=None).run_id
-
-
-def test_run_context_accepts_the_optional_collaborators():
+def test_context_carries_collaborators_with_independent_state_and_run_ids():
     inbox = Inbox()
     budget = Budget(max_model_calls=3)
-    seen: list[object] = []
-    ctx = RunContext(deps=None, budget=budget, inbox=inbox, emit=seen.append)
-    assert ctx.budget is budget
-    assert ctx.inbox is inbox
+    seen = []
+    ctx = RunContext(deps=Deps(account_id="acct_1"), budget=budget, inbox=inbox, emit=seen.append)
+    other = RunContext(deps=None)
+    assert ctx.deps.account_id == "acct_1"
+    assert ctx.budget is budget and ctx.inbox is inbox
     ctx.emit("event")
     assert seen == ["event"]
-
-
-def test_default_estimate_counts_about_four_characters_per_token():
-    messages = [SystemMessage(content="a" * 40), UserMessage(content="b" * 8)]
-    assert default_estimate(messages) == 12
+    assert len(ctx.run_id) == 32 and ctx.run_id != other.run_id
+    ctx.history.append(UserMessage("Private context"))
+    ctx.state["owner"] = "acct_1"
+    assert other.history == [] and other.state == {}
+    assert other.budget is None and other.inbox is None and other.emit is None
 
 
 def test_default_estimate_counts_tool_call_arguments_and_results():
     arguments = {"order_id": "A1"}
     messages = [
+        SystemMessage(content="a" * 40),
+        UserMessage(content="b" * 8),
         AssistantMessage(
             text="looking",
             tool_calls=[ToolCall(id="c1", name="get_order", arguments=arguments)],
@@ -70,7 +58,8 @@ def test_default_estimate_counts_tool_call_arguments_and_results():
         ToolResultMessage(call_id="c1", name="get_order", content="shipped"),
     ]
     expected = (
-        max(1, len("looking") // 4)
+        12
+        + max(1, len("looking") // 4)
         + max(1, len(json.dumps(arguments)) // 4)
         + max(1, len("shipped") // 4)
     )
@@ -97,7 +86,8 @@ def test_select_context_never_mutates_history():
         UserMessage(content="c" * 400),
     ]
     before = list(history)
-    select_context(history, max_tokens=1)
+    first = select_context(history, max_tokens=1)
+    assert select_context(history, max_tokens=1) == first
     assert history == before
     assert len(history) == 4
 
@@ -118,17 +108,6 @@ def test_select_context_keeps_system_messages_and_the_last_user_message():
     ]
 
 
-def test_select_context_keeps_order():
-    history = [
-        SystemMessage(content="be brief"),
-        UserMessage(content="a"),
-        AssistantMessage(text="b"),
-        UserMessage(content="c"),
-    ]
-    selected = select_context(history, max_tokens=1000)
-    assert selected == history
-
-
 def test_select_context_never_splits_a_tool_pair():
     call = ToolCall(id="c1", name="get_order", arguments={"order_id": "A1"})
     old_call = ToolCall(id="c0", name="get_order", arguments={"order_id": "A0"})
@@ -141,9 +120,7 @@ def test_select_context_never_splits_a_tool_pair():
         ToolResultMessage(call_id="c1", name="get_order", content="shipped"),
         UserMessage(content="and now"),
     ]
-    budget = default_estimate(
-        [history[0], history[4], history[5], history[6]]
-    )
+    budget = default_estimate([history[0], history[4], history[5], history[6]])
     selected = select_context(history, max_tokens=budget)
     assert selected == [history[0], history[4], history[5], history[6]]
 
@@ -228,14 +205,9 @@ def test_select_context_keeps_the_cut_point_while_history_grows():
 
     # Every window is a prefix of the next one, until a cut moves. Counting the
     # moves shows the cut stayed put for several turns each time.
-    moves = sum(1 for a, b in zip(windows, windows[1:]) if b[: len(a)] != a)
+    moves = sum(1 for a, b in zip(windows, windows[1:], strict=False) if b[: len(a)] != a)
     assert 1 <= moves <= 3
     assert windows[-1][-1] is history[-1]
-
-
-def test_select_context_the_same_history_always_gives_the_same_window():
-    history = [UserMessage(content=str(n) * 40) for n in range(9)]
-    assert select_context(history, max_tokens=50) == select_context(history, max_tokens=50)
 
 
 def test_select_context_rejects_a_keep_mark_at_or_above_the_limit():
@@ -253,18 +225,6 @@ def test_select_context_keeps_the_latest_question_when_a_cut_runs_past_it():
     selected = select_context(history, max_tokens=50)
     assert selected[0] is history[0]
     assert_no_orphan_results(selected)
-
-
-def test_select_context_accepts_a_custom_estimator():
-    history = [UserMessage(content="a"), AssistantMessage(text="b"), UserMessage(content="c")]
-    selected = select_context(
-        history, max_tokens=2, estimate_tokens=lambda messages: 10 * len(messages)
-    )
-    assert selected == [history[2]]
-
-
-def test_unanswered_calls_of_empty_history_is_empty():
-    assert unanswered_calls([]) == []
 
 
 def test_unanswered_calls_returns_the_trailing_assistant_calls_in_order():

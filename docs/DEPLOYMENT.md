@@ -2,7 +2,7 @@
 
 This procedure runs Theos from source with Docker Compose.
 Run commands from the repository root.
-The Compose service name is `theos`, regardless of `AGENT_NAME`.
+The API service is `theos`. The separate Next.js frontend service is `web`.
 
 ## Before you start
 
@@ -10,7 +10,7 @@ You need a Linux server, Docker with the Compose plugin, and a copy of this repo
 You also need a model credential and a Telegram bot token for Telegram use.
 The image uses Python 3.13. Routine CI checks Linux amd64, arm64, 386, ARMv7, and PPC64LE builds. Extended CI also checks s390x and RISC-V64.
 See [architecture coverage](releases.md#architecture-coverage) for native and emulated checks and deployment limits.
-The default resource limits are one CPU and 768 MiB of memory.
+The API defaults to one CPU and 768 MiB. The frontend defaults to one CPU and 512 MiB.
 These limits are not measured minimum requirements.
 
 The [acceptance checklist](runtime/acceptance.md) records container checks.
@@ -86,8 +86,14 @@ Complete the [live account checks](runtime/acceptance.md#live-service-checks) be
 4. Set `AGENT_NAME` to the assistant name.
 5. Replace `AGENT_API_KEY` with the model credential.
 6. Replace the token in `AGENT_USERS` with the generated value.
-7. Set `AGENT_TIMEZONE` to your timezone.
-8. Configure the bot and allowlist with the [Telegram guide](telegram-setup.md).
+7. Generate a different random secret for `AGENT_FRONTEND_SECRET` with the same command.
+8. Set `AGENT_WEB_URL` to the frontend's public HTTPS origin, or localhost for development.
+9. Set `AGENT_TIMEZONE` to your timezone.
+10. Configure the bot and allowlist with the [Telegram guide](telegram-setup.md).
+
+Compose passes the service secret to the frontend as `THEOS_FRONTEND_SECRET`.
+It passes only the selected frontend settings, without model keys or connector credentials.
+The frontend connects to `http://theos:8080` over the private Compose network.
 
 The default model configuration is:
 
@@ -147,7 +153,10 @@ The fake provider returns a fixed answer and does not call tools.
 ## Private browser access
 
 The host port binds to `127.0.0.1` by default.
-The application listens on `0.0.0.0:8080` inside the container.
+Next.js listens on port 3000 inside its container and maps to host port 8080.
+FastAPI listens on port 8080 inside its container and maps to loopback port 8081.
+Route the public HTTPS origin to the frontend. Keep direct API access on a private network.
+The frontend forwards API calls and account callbacks.
 
 1. Create a Secure Shell (SSH) tunnel from your computer.
 
@@ -166,15 +175,15 @@ Google account connections need a reachable callback URL.
 ## Terminal access to the deployment
 
 Install `theos[client]` on your computer or VPS host.
-Use the same server URL and browser token for the terminal client.
+Use the private API URL and the same personal access token for the terminal client.
 
 ```sh
-theos --server http://127.0.0.1:8080
+theos --server http://127.0.0.1:8081
 ```
 
-This URL works on the VPS or through the existing localhost tunnel.
+This URL works on the VPS or through an SSH tunnel that forwards port 8081.
 For direct Tailscale access, use the server's reachable Tailscale address and published port.
-Compose binds localhost by default. Use the existing tunnel or set `HOST_BIND_IP` to the VPS Tailscale address.
+Compose binds localhost by default. Use the existing tunnel or set `API_BIND_IP` to the VPS Tailscale address for private terminal access.
 The client shares the browser user's conversations and account-tool permissions.
 The deployment retains its single runtime, database, and scheduler when terminal clients connect or disconnect.
 Do not start a standalone runtime against the deployment volume.

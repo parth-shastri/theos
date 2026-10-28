@@ -79,13 +79,34 @@ Telegram enrollment does not grant administrator access.
 The deployment operator configures their administrator account through `AGENT_USERS` and `AGENT_ADMINS`.
 The first enrolled Telegram user receives ordinary access, like later users.
 After setup, **Open Theos** opens the browser confirmation flow when `AGENT_WEB_URL` is configured.
-The setup confirmation points users to Connections in the web UI to add connectors, or to `/help` for more information.
-Without a configured web URL, it points users to `/help` for capabilities and account connections.
 Confirm the matching code in your private Telegram chat before the browser receives access.
 Save the personal token shown in the browser for future sign-in.
 Send `/web` for another link or `/web revoke` to end all generated browser access.
 See [browser access](browser.md#open-the-web-ui-from-telegram) for expiry, token rotation, and sign-out behavior.
 Encryption setup is deferred. This flow does not encrypt personal content.
+
+After profile setup, Theos offers buttons for configured accounts that are not connected.
+Gmail and Zepto have direct connection buttons. Google Health remains optional.
+Use **Skip for now** to continue without connecting accounts. The same preference applies in browser onboarding.
+`/connections` and `/help` remain available later. A configured web URL also enables browser access.
+Account cards include **Sign in**, **Check connection**, **Try again**, and **Cancel setup** buttons.
+Canceling setup preserves the previously connected account.
+Google sign-in returns through the configured HTTPS callback. Its Telegram confirmation includes **Back to accounts**.
+
+For Zepto's localhost flow:
+
+1. Tap **Sign in to Zepto** and complete phone verification.
+2. Copy the full address-bar link when the browser opens localhost. A connection error on that page is expected.
+3. Return to Telegram and tap **Paste return link**.
+4. Paste the link into the reply prompt and send it. No slash command is required.
+5. Wait for Theos to verify the connection. Choose a saved delivery address before shopping.
+
+Theos encrypts prompt replies before inbox storage and removes the pasted Telegram message when possible.
+Return links do not enter conversation history or model requests.
+Expired or rejected links show controls to retry or cancel.
+Use **Back to accounts** or `/connections` to add another account.
+The older `/zepto_finish <url>` command remains available.
+
 
 The default limit is 50 unique Telegram users per database.
 `AGENT_TELEGRAM_MAX_USERS` accepts limits from 1 to 50.
@@ -132,9 +153,10 @@ The [acceptance checklist](runtime/acceptance.md) distinguishes mock workflows f
 | `/model NAME` | Select an allowed model |
 | `/reasoning LEVEL`, `/thinking LEVEL` | Select `default`, `none`, `low`, `medium`, or `high` |
 | `/settings` | Show model, reasoning effort, and session ID |
-| `/connect_gmail`, `/gmail` | Create a Gmail authorization link |
+| `/connections` | Open optional account cards and connection controls |
+| `/connect_gmail`, `/gmail` | Open the Gmail sign-in card |
 | `/disconnect_gmail` | Disconnect Gmail |
-| `/connect_health`, `/health` | Create a Google Health authorization link |
+| `/connect_health`, `/health` | Open the Google Health sign-in card |
 | `/health_summary` | Read the last saved Health summary |
 | `/health_refresh` | Import a new Health summary |
 | `/disconnect_health` | Disconnect Health and cancel pending account jobs |

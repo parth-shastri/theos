@@ -1,17 +1,19 @@
 """FastAPI entry point for private chat, approvals, files, and operations."""
 
 import asyncio
-import hmac
 import json
 import logging
 from contextlib import asynccontextmanager
-from html import escape
-from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from pydantic import BaseModel, Field
 
 from theos.operations.logging import configure_logging
@@ -31,8 +33,22 @@ from theos.services.preferences.tools import preferences
 from theos.settings import Settings
 from theos.storage import browser_access
 from theos.storage.database import Database
+from theos.storage.messages import display_metadata, update_display_metadata
 from theos.transports.browser.activity import activity_summary
-from theos.transports.browser.auth import SESSION_COOKIE, register_auth, same_origin
+from theos.transports.browser.auth import (
+    SESSION_COOKIE,
+    cookie_value,
+    frontend_access,
+    register_auth,
+    same_origin,
+)
+from theos.transports.browser.openui import (
+    OpenUIActionInput,
+    action_message,
+    clean_openui_state,
+    validate_source,
+)
+from theos.transports.telegram.connections import controls as connection_controls
 from theos.transports.telegram.polling import Telegram
 
 
@@ -56,12 +72,47 @@ class TranscriptionInput(BaseModel):
 
 class SpeechInput(BaseModel):
     text: str = Field(min_length=1, max_length=12000)
+    session_id: str | None = None
 
 
 class SessionSettings(BaseModel):
     model: str
     reasoning: Literal["default", "none", "low", "medium", "high", "xhigh", "max"] = "default"
     generation: GenerationConfig | None = None
+
+
+class OpenUIStateInput(BaseModel):
+    message_id: str = Field(min_length=32, max_length=32, pattern=r"^[0-9a-f]{32}$")
+    state: dict[str, Any] = Field(default_factory=dict)
+    summary: str | None = Field(default=None, max_length=4000)
+
+
+class OpenUIIssueInput(BaseModel):
+    library_version: str = Field(pattern=r"^[A-Za-z0-9._-]{1,64}$")
+    codes: list[
+        Literal[
+            "unknown-component",
+            "missing-required",
+            "null-required",
+            "type-mismatch",
+            "excess-args",
+            "inline-reserved",
+            "unknown-function",
+            "no-root",
+            "tool-not-found",
+            "tool-error",
+            "mcp-error",
+            "parse-failed",
+            "parse-exception",
+            "runtime-error",
+            "render-error",
+            "library-version-mismatch",
+            "other",
+        ]
+    ] = Field(default_factory=list, max_length=16)
+    component_count: int = Field(default=0, ge=0, le=100)
+    unresolved_count: int = Field(default=0, ge=0, le=100)
+    orphaned_count: int = Field(default=0, ge=0, le=100)
 
 
 class BodyLimit:
@@ -144,17 +195,12 @@ def create_app(settings=None, runtime=None):
     async def identity(request: Request):
         authorization = request.headers.get("Authorization", "")
         token = authorization.removeprefix("Bearer ") if authorization.startswith("Bearer ") else ""
-        owner = None
-        for user, secret in settings.users.items():
-            if hmac.compare_digest(token.encode(), secret.get_secret_value().encode()):
-                owner = user
         db = request.app.state.runtime.db
-        if not owner and token:
-            owner = browser_access.credential_owner(settings, db, token, "token")
-        if not authorization and request.cookies.get(SESSION_COOKIE):
-            owner = browser_access.credential_owner(
-                settings, db, request.cookies[SESSION_COOKIE], "session"
-            )
+        owner = browser_access.token_owner(settings, db, token)
+        session = cookie_value(request, SESSION_COOKIE, settings)
+        if not authorization and session:
+            frontend_access(request, settings)
+            owner = browser_access.credential_owner(settings, db, session, "session")
             if request.method not in {"GET", "HEAD", "OPTIONS"}:
                 same_origin(request, settings)
         if not owner:
@@ -172,7 +218,10 @@ def create_app(settings=None, runtime=None):
 
     register_auth(app, settings, current)
     from .connections import register_connections
+    from .managed_browser import register_managed_browser
 
+    # Specific browser paths precede the generic account-service paths.
+    register_managed_browser(app, current, identity)
     register_connections(app, settings, current, identity)
 
     def browser_session(request, owner, session_id):
@@ -207,6 +256,8 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/ready")
     async def ready(request: Request):
+        if request.headers.get("X-Theos-Frontend-Secret"):
+            frontend_access(request, settings)
         active = current(request)
         active.db.one("SELECT 1")
         configured = (
@@ -224,11 +275,11 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/api/me")
     async def me(request: Request, owner=Depends(identity)):
+        user_preferences = preferences(current(request).db, owner, settings.timezone)
         return {
             "id": owner,
-            "display_name": preferences(current(request).db, owner, settings.timezone).get(
-                "display_name", ""
-            ),
+            "display_name": user_preferences.get("display_name", ""),
+            "timezone": user_preferences.get("timezone", settings.timezone),
             "admin": owner in settings.admins,
             "models": model_choices(settings),
             "generation_capabilities": {
@@ -280,7 +331,7 @@ def create_app(settings=None, runtime=None):
         row = store.get(owner, session_id, run_id)
         row["history"] = json.loads(row["history"])
         row["memory"] = json.loads(row["memory"])
-        row["items"] = store.items(owner, session_id, run_id, family=True)
+        row["scratchpad"] = store.scratchpad(owner, session_id, run_id, family=True)
         row["checkpoints"] = current(request).db.rows(
             "SELECT id,history,memory,created FROM research_checkpoints WHERE run=? ORDER BY id",
             (run_id,),
@@ -361,13 +412,77 @@ def create_app(settings=None, runtime=None):
         if not body.text.strip() and not body.files:
             raise ValueError("Enter a message or attach a file.")
         return stream(
-            current(request).start(owner, session_id, body.text, body.files, mode=body.mode)
+            current(request).start(
+                owner,
+                session_id,
+                body.text,
+                body.files,
+                mode=body.mode,
+                browser_ui=True,
+            )
         )
 
     @app.post("/api/sessions/{session_id}/resume")
     async def resume(session_id: str, request: Request, owner=Depends(identity)):
         browser_session(request, owner, session_id)
-        return stream(current(request).start(owner, session_id))
+        return stream(current(request).start(owner, session_id, browser_ui=True))
+
+    @app.post("/api/sessions/{session_id}/openui-actions")
+    async def openui_action(
+        session_id: str,
+        body: OpenUIActionInput,
+        request: Request,
+        owner=Depends(identity),
+    ):
+        browser_session(request, owner, session_id)
+        validate_source(current(request), owner, session_id, body.message_id)
+        text, browser_ui, text_recovery, display_text = action_message(
+            current(request), owner, body
+        )
+        turn = current(request).start(
+            owner,
+            session_id,
+            text,
+            browser_ui=browser_ui,
+            tools_disabled=text_recovery,
+            text_recovery=text_recovery,
+            display_text=display_text,
+        )
+        return stream(turn)
+
+    @app.put("/api/sessions/{session_id}/openui-state")
+    async def openui_state(
+        session_id: str,
+        body: OpenUIStateInput,
+        request: Request,
+        owner=Depends(identity),
+    ):
+        browser_session(request, owner, session_id)
+        runtime = current(request)
+        if session_id in runtime.active:
+            raise ValueError("Wait for the current turn before saving the interface draft.")
+        state = clean_openui_state(body.state)
+        history = runtime.db.load_history(owner, session_id)
+        message = validate_source(runtime, owner, session_id, body.message_id, history)
+        display = display_metadata(message)
+        display["openui_state"] = state
+        if body.summary is not None:
+            display["openui_summary"] = body.summary.strip()
+        update_display_metadata(message, display)
+        runtime.db.save_history(owner, session_id, history)
+        return {"saved": True}
+
+    @app.post("/api/openui/issues")
+    async def openui_issue(body: OpenUIIssueInput, owner=Depends(identity)):
+        logging.getLogger("theos").warning(
+            "openui_render_issue version=%s codes=%s components=%d unresolved=%d orphaned=%d",
+            body.library_version,
+            ",".join(body.codes) or "unknown",
+            body.component_count,
+            body.unresolved_count,
+            body.orphaned_count,
+        )
+        return {"recorded": True}
 
     @app.post("/api/sessions/{session_id}/approvals/{approval_id}")
     async def approve(
@@ -379,7 +494,12 @@ def create_app(settings=None, runtime=None):
     ):
         browser_session(request, owner, session_id)
         runtime = current(request)
-        turn = runtime.start(owner, session_id, approval=(approval_id, body.approved))
+        turn = runtime.start(
+            owner,
+            session_id,
+            approval=(approval_id, body.approved),
+            browser_ui=True,
+        )
         return stream(turn, approvals=runtime.pending(owner, session_id))
 
     @app.post("/api/files")
@@ -407,7 +527,12 @@ def create_app(settings=None, runtime=None):
 
     @app.post("/api/audio/speech")
     async def speech(body: SpeechInput, request: Request, owner=Depends(identity)):
-        row = await current(request).files.speech(owner, body.text)
+        active = current(request)
+        if body.session_id:
+            active.session(owner, body.session_id)
+            row = await active.files.speech(owner, body.text, session_id=body.session_id)
+        else:
+            row = await active.files.speech(owner, body.text)
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
     @app.get("/api/notifications")
@@ -511,34 +636,43 @@ def create_app(settings=None, runtime=None):
 
     @app.get("/oauth/{service}/callback")
     async def callback(service: str, state: str, request: Request, code: str = ""):
-        if service == "zepto":
-            try:
+        if service not in {"gmail", "health", "zepto", "slack"}:
+            raise HTTPException(404, "Unknown account service.")
+        active = current(request)
+        try:
+            if service == "slack":
+                await active.slack.callback(state, code, request.query_params.get("error", ""))
+            elif service == "zepto":
                 await current(request).zepto.finish_from_browser(
                     state, code, request.query_params.get("error", "")
                 )
-            except ValueError as error:
-                raise HTTPException(400, str(error)) from error
+            else:
+                owner = await active.oauth.callback(
+                    service, state, code, request.query_params.get("error", "")
+                )
+                if owner.startswith("telegram:") and settings.telegram_token.get_secret_value():
+                    try:
+                        label = "Gmail" if service == "gmail" else "Google Health"
+                        await Telegram(active).send(
+                            int(owner[9:]),
+                            f"{label} is connected. You can continue here or in the web workspace.",
+                            markup=connection_controls(service, pending=False),
+                        )
+                    except ServiceError:
+                        pass
+        except (ValueError, ServiceError, PermissionError) as error:
+            from html import escape
+
             return HTMLResponse(
-                "<!doctype html><title>Zepto connected</title>"
-                "<p>Authorization received. Return to the workspace or private chat that started setup.</p>"
+                '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1">'
+                "<title>Sign-in needs attention</title><h1>Sign-in needs attention</h1>"
+                f'<p>{escape(str(error))}</p><p><a href="/?connections=1">Return to Connections</a></p>'
+                "<p>You can also return to your private Telegram chat to try again.</p>",
+                status_code=403 if isinstance(error, PermissionError) else 400,
+                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
             )
-        if service == "slack":
-            await current(request).slack.callback(
-                state, code, request.query_params.get("error", "")
-            )
-        else:
-            await current(request).oauth.callback(service, state, code)
-        return HTMLResponse(
-            "<!doctype html><title>Account connected</title>"
-            "<p>Account connected. Return to the workspace or private chat that started setup.</p>"
+        return RedirectResponse(
+            "/?connections=1", status_code=303, headers={"Cache-Control": "no-store"}
         )
-
-    static = Path(__file__).parent / "static"
-    app.mount("/static", StaticFiles(directory=static), name="static")
-
-    @app.get("/")
-    async def index():
-        page = (static / "index.html").read_text(encoding="utf-8")
-        return HTMLResponse(page.replace("{{AGENT_NAME}}", escape(settings.name)))
 
     return app

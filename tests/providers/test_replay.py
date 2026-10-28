@@ -140,16 +140,11 @@ def history(assistant: AssistantMessage, call_id: str) -> list[Any]:
 # --------------------------------------------------------------------------
 
 
-def test_an_anthropic_turn_decodes_into_the_common_fields():
+def test_an_anthropic_history_replays_through_the_responses_api():
     decoded = anthropic_model().decode_response(anthropic_message())
     assert decoded.text == "Looking that up."
     assert decoded.reasoning == "The order id is 9127412."
-    assert [call.name for call in decoded.tool_calls] == ["lookup_order"]
     assert decoded.provider_data["anthropic"]["content"][0]["type"] == "thinking"
-
-
-def test_an_anthropic_history_replays_through_the_responses_api():
-    decoded = anthropic_model().decode_response(anthropic_message())
     request = ModelRequest(history(decoded, "toolu_1"), [SPEC])
     payload = openai_model().encode_request(request)
     assert payload["input"] == [
@@ -202,16 +197,11 @@ def test_an_anthropic_history_replays_through_gemini():
 # --------------------------------------------------------------------------
 
 
-def test_an_openai_turn_decodes_into_the_common_fields():
+def test_an_openai_history_replays_through_anthropic():
     decoded = openai_model().decode_response(openai_response())
     assert decoded.text == "Looking that up."
     assert decoded.reasoning == "Look the order up."
-    assert [call.id for call in decoded.tool_calls] == ["call_1"]
     assert decoded.provider_data["openai"]["output"][0]["type"] == "reasoning"
-
-
-def test_an_openai_history_replays_through_anthropic():
-    decoded = openai_model().decode_response(openai_response())
     request = ModelRequest(history(decoded, "call_1"), [SPEC])
     payload = anthropic_model().encode_request(request)
     assert payload["messages"] == [

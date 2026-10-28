@@ -40,7 +40,7 @@ async def test_resumed_session_uses_saved_compaction_memory(tmp_path):
     store = JsonlStore(tmp_path)
     history = long_history()
     await store.save("research", history)
-    config = CompactionConfig("Summarize the conversation.", {"max_tokens": 256}, 128)
+    config = CompactionConfig("Summarize the conversation.", {"max_tokens": 256})
     model = FakeModel([AssistantMessage(text="Compare both options; first option examined.")] * 3)
     session = AgentSession(
         Agent(model, context_window=100000, reserved_output_tokens=256, compaction=config), store
@@ -50,7 +50,7 @@ async def test_resumed_session_uses_saved_compaction_memory(tmp_path):
         async for event in session.stream("Continue with the other option.", session_id="research")
     ]
     state = await store.load_state("research")
-    assert state["memory"]["covered_messages"] == len(history) + 1
+    assert state["memory"]["covered_messages"] == len(history)
     assert state["memory"]["summary"]
     assert (await store.load("research"))[: len(history)] == history
 
@@ -62,7 +62,7 @@ async def test_resumed_session_uses_saved_compaction_memory(tmp_path):
     _ = [event async for event in resumed.stream("Explain further.", session_id="research")]
     assert len(next_model.requests) == 1
     assert any(
-        isinstance(m, AssistantMessage) and m.text == state["memory"]["summary"]
+        isinstance(m, UserMessage) and state["memory"]["summary"] in m.content
         for m in next_model.requests[0].messages
     )
     assert "Finding 10: " + "Evidence text. " * 5000 not in str(next_model.requests[0].messages)

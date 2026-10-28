@@ -1,9 +1,17 @@
 # Implemented tool catalog
 
-Context summaries use the pinned Markdown template without JSON generation.
-The harness supplies bounded exact references from the original transcript and owned research records.
-The full reference index stays in saved memory. Existing `history_read`, `history_search`, and research tools recover omitted details.
-This extension adds no tool or runtime dependency.
+Context compaction keeps one rolling summary beside the full transcript.
+The harness registers `history_read` and `history_search` as ordinary tools for exact history retrieval.
+The Deep Research evidence scratchpad stays separate and keeps its existing service behavior.
+Prompt templates use Jinja2 as a core dependency, with MarkupSafe as its transitive dependency.
+The shared renderer loads Markdown files from installed packages and fails on missing template variables.
+Theos can override harness production compaction prompts through configuration.
+See [prompt templates](runtime/prompts.md) for the resource directories, section structure, and override fields.
+Theos chat and speech preparation share one persona fragment. Research delegates and harness summaries keep factual task roles.
+
+Test audits can use Coverage.py through `uv run --with coverage` for source-line and branch comparisons.
+Coverage.py remains an optional audit tool outside the locked project dependencies.
+See [test selection](runtime/testing.md) for the retained-case policy and commands.
 
 Tool responses can contain more than 16 calls. The harness processes valid calls in ordered batches of at most 16.
 It preserves call IDs, approval checks, and completed results. Only tools declared safe may overlap.
@@ -25,6 +33,8 @@ This diagram shows how tool groups fit into the framework.
 It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
+
+Gmail reads, Health summaries and export status, and Slack MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
 
 ## CI coverage selection
 
@@ -89,7 +99,21 @@ Source: [terminal adapter](../src/theos/transports/terminal/session.py), [remote
 
 ## Browser tools view
 
-The browser uses FastAPI and native HTML details controls.
+The browser frontend uses Next.js 16.4.2, React 19.3.1, and React DOM 19.3.1 on Node.js 24.18.0.
+Its OpenUI renderer uses `@openuidev/react-lang` 1.0.1 and Zod 4.6.7. `web/src/openui/library.js` defines the component schema and React renderers. `npm run openui:generate` writes the matching system prompt, JSON schema, and version manifest to `src/theos/prompts/openui/`. CI checks that these files match the library.
+The `server-only` 0.0.1 marker prevents private proxy code from entering a client component.
+FastAPI runs as a separate API service. Native HTML details controls retain the existing tools view.
+React components define the page structure. Browser modules retain streaming, charts, menus, voice, and glass effects.
+Browser chat turns use the generated OpenUI prompt and library. `TheosAnswer` requires a visible `AnswerSummary`; optional components show summary facts, evidence, status notes, and a reminder draft. The renderer never displays raw OpenUI source. It enables actions only after a complete parse with no errors, unresolved references, or orphaned statements. Invalid output offers a user-triggered text explanation without replaying tools.
+The reminder form submits only after a user action. The server validates the fields and sends them to the existing `schedule_reminder` tool through the normal runtime and approval policy. OpenUI adds no model tool and performs no write during rendering.
+The mounted controller releases requests, event listeners, observers, timers, and audio resources on unmount.
+The Next.js server uses Undici 8.12.3 to forward authenticated API requests without buffering streamed replies.
+Its upstream client disables header and body idle timeouts for long model calls and retains disconnect cancellation.
+API routes bypass Next.js Proxy body cloning, so multipart uploads retain the API's configured size limit.
+It validates mutation origins and never forwards browser Authorization headers or unrelated cookies.
+Cookie sign-ins require the private frontend service credential when configured.
+The service uses revocable session fingerprints, absolute and idle expiry, token-rotation invalidation, and persistent login throttling.
+The frontend adds a per-response CSP nonce without permitting arbitrary inline scripts.
 It reads the current conversation's runtime registry without executing tools.
 The view shows tool descriptions, input schemas, and approval requirements.
 Chat shows collapsible tool calls and model reasoning summaries when available.
@@ -101,8 +125,19 @@ Message footers use provider output-token usage, streaming estimates, and elapse
 The application saves UTC timestamps and durations in history JSON through `storage/messages.py`.
 Native browser timers and Intl formatters supply live updates and local timestamps.
 
-Markdown uses locally served [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16.
-The [vendor manifest](browser-vendor-provenance.json) records pinned package sources, file hashes, and included license files.
+Next.js bundles [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16 into locally served chunks.
+The npm lockfile records package integrity. The [vendor manifest](browser-vendor-provenance.json) retains dependency sources and earlier asset hashes.
+Prettier 3.6.2 and Playwright 1.64.1 are development dependencies. They add no model tools.
+
+The shared viewport hook uses native `VisualViewport` events and animation frames to fit the iPhone keyboard area.
+The application frame follows viewport height and vertical offset. Native dialogs use the same bounds in the browser top layer.
+Source: [viewport hook](../web/src/hooks/useVisualViewport.js) and [layout styles](../web/src/app/globals.css).
+
+OpenUI visual components use React, native SVG, the existing theme tokens, and the shared glass picker. They add no chart dependency or service.
+OpenUI evidence cards use search-provided thumbnails and logos. The authenticated Next.js image route uses the existing Undici client and Node DNS.
+It discovers source icons, validates public socket addresses and redirects, and bounds downloads and its memory cache. No image service or dependency is added.
+The registered library includes metric grids, bar and line charts, donut charts, progress rings, tables, evidence, notices, and reminder forms.
+`web/src/openui/library.js` generates the model prompt and schema. `web/src/openui/visuals.js` supplies the registered visual components.
 The renderer treats raw HTML as text and removes unsafe links from generated markup.
 
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.
@@ -110,12 +145,43 @@ Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard cha
 Personal queries use the authenticated owner. Administrator queries cover the workspace.
 
 Web Audio MediaStreamAudioSourceNode and AnalyserNode measure microphone RMS volume for the accent recording glow.
-Reduced motion and unsupported audio analyzers retain a static glow.
+The same smoothed level controls the height and opacity of three SVG waves along the bottom edge.
+CSS supplies their alternating motion. Recording cleanup stops motion and clears both visual meters.
+Reduced motion retains static feedback. Unsupported audio analyzers retain the recording animation without volume modulation.
 These UI features add no Python dependency or model tool.
 
 Browser commands use the existing authenticated conversation APIs.
 Native HTML dialogs supply Settings, command help, and usage cards. Native SVG supplies the settings and sidebar icons.
 These controls add no runtime dependency. Settings saves model, reasoning, generation, and voice choices together.
+The owned `selects.js` module presents model, reasoning, and chart-period choices through keyboard-controlled glass listboxes.
+The Popover API places these menus above the dialog's scroll frame, with bounded height and matching field widths.
+Native select elements retain values, model-specific reasoning choices, and validation. Browsers without popovers retain native menus.
+All dropdowns separate option rows by 4px and draw focus rings inside each row.
+Picker focus scrolls only the option list, without moving the settings pane.
+The composer uses native HTML, CSS Grid, and SVG for its plus menu and expanding input.
+An eight-second browser timer rotates idle placeholders without changing drafts or focused fields.
+Voice activity takes priority over idle prompts. The composer keeps accessible status feedback inside its frame.
+CSS backdrop filters and translucent theme tokens supply frosted surfaces with solid fallbacks.
+The visual treatment follows [Apple's Liquid Glass guidance](https://developer.apple.com/videos/play/wwdc2025/219/) for quiet content and floating navigation surfaces.
+The owned `glass.js` module separates the optical layer from text and controls.
+The top navigation, usage panels, account cards, and workspace services share this material.
+Dynamic panel refreshes release detached optical filters and observers.
+Desktop mouse movement controls the hover tint. Touch input retains press feedback.
+Canvas creates a cached rounded-edge displacement map when a pane changes size.
+Chromium applies this map through SVG `feImage`, `feDisplacementMap`, and CSS backdrop filters.
+Other browsers retain CSS blur, transparent fills, inset edges, and shadows.
+CSS animates edge highlights on entry. Pointer events update the local light position through requestAnimationFrame.
+Dialog content scrolls inside a fixed optical frame.
+Child controls use simple fills instead of additional glass layers.
+The mode picker uses an upward CSS animation, adjacent SVG icons, and keyboard-controlled listbox options.
+ResizeObserver reserves scroll space for the floating composer and approval cards.
+It also bounds command and plus menus to the available screen height.
+Safe-area insets and the VisualViewport resize event keep controls within the available screen.
+The browser skips viewport sizing during pinch zoom and respects reduced-motion and reduced-transparency preferences.
+These changes add no package dependency or model tool.
+The owned `charts.js` module renders request bars, cost lines, and model and tool rankings through SVG and HTML.
+Arrow keys, Home, and End select UTC days. Tap and hover update the visible value panel.
+Cost paths stop at unknown prices. Data disclosures retain exact source values and all ranking rows.
 Generation controls use Pydantic validation and SQLite migration 006.
 Automatic titles use bounded, tool-free requests to the selected model and SQLite migration 007.
 Their token usage is included in the conversation cost.
@@ -130,7 +196,7 @@ The probe uses existing OpenAI, HTTPX, and tracing dependencies. It writes no pr
 It enforces `provider.zdr=true` for every OpenRouter request, including delegated research, compaction, and titles.
 This uses the existing OpenAI SDK and adds no dependency or model tool.
 
-Source: [browser API](../src/theos/transports/browser/app.py) and [browser controls](../src/theos/transports/browser/static/app.js).
+Source: [browser API](../src/theos/transports/browser/app.py), [React workspace state](../web/src/state/WorkspaceContext.jsx), and [message components](../web/src/components/Messages.jsx).
 
 ## Browser connections
 
@@ -144,7 +210,7 @@ Provider icons are local assets. The [provider manifest](browser-provider-proven
 These controls add no Python dependency or model tool.
 Configured sandbox tools work in browser conversations without execution approval prompts.
 
-Source: [connection routes](../src/theos/transports/browser/connections.py), [account access](../src/theos/storage/account_access.py), and [browser controls](../src/theos/transports/browser/static/app.js).
+Source: [connection routes](../src/theos/transports/browser/connections.py), [account access](../src/theos/storage/account_access.py), and [React connection controls](../web/src/components/Connections.jsx).
 
 ## Preferences
 
@@ -299,19 +365,21 @@ See [shared skill maintenance](../skills/README.md) for installation and updates
 
 | Report helper | Dependencies |
 | --- | --- |
-| `build_doc.py` | Python 3.10 or later, Markdown, Chrome or Chromium, network access for CSS fonts |
-| `build_docx.py` | Python 3.10 or later, python-docx, Markdown, Beautiful Soup, Inter and DejaVu Sans Mono fonts |
-| DOCX diagrams | Playwright and Chrome or Chromium |
-| Visual verification | LibreOffice for DOCX conversion and Poppler for PDF page images |
+| `theos-report` / `build_doc.py` | Python 3.14, Markdown, Chrome or Chromium, bundled Space Grotesk and local DejaVu Sans Mono fonts |
+| `build_docx.py` | python-docx, Markdown, Beautiful Soup, Playwright, Chrome or Chromium |
+| Numeric report charts | Matplotlib with headless Agg, bundled Space Grotesk, SVG text paths, and embedded TrueType fonts in PDF |
+| PDF and OCR skills | pypdf, pdfplumber, reportlab, pdf2image, pytesseract, Poppler, and Tesseract |
+| DOCX and XLSX skills | npm `docx`, Pandoc, openpyxl, pandas, markitdown, and LibreOffice Writer/Calc |
+| Paper skills | `arxiv` Python package and the pinned `pwc` command |
+| Browser tool | Node.js 24, `agent-browser`, and Chromium |
 
-The helper scripts declare their Python dependencies for `uv run`.
-Copy their scripts and text assets into the remote sandbox before execution.
-Skill installation does not install browser binaries, fonts, LibreOffice, or Poppler in that sandbox.
+The shared runtime image installs these dependencies and contains the report style files at `/opt/theos/report-style`.
+Other skills still supply their own scripts and text resources when loaded.
 
 Paper research uses the official `pwc-cli` skill first, with arXiv and Hugging Face as supplemental sources.
 The Pi has `pwc 0.4.3` in an isolated Python environment.
 Live search and metadata retrieval passed against the public catalog.
-The remote sandbox needs a separate CLI installation.
+The shared runtime image also installs the pinned `pwc` CLI for remote research work.
 
 On 2026-10-11, the Pi's deployed loader listed eight skills and read every instruction file.
 A temporary host-file change appeared through `load_skill` without a restart.
@@ -322,16 +390,25 @@ Those samples do not verify remote document execution or transport delivery.
 
 ## Files
 
-Private SQLite catalog and local files. R2 operations also use boto3 and configured bucket credentials.
+The runtime owns the private catalog, input transfers, workspace checkpoints, and R2 replication.
+The model uses ordinary paths under `/workspace`. Shell commands list, read, write, and delete task files.
+Selected uploads and Gmail attachments enter the conversation workspace automatically.
+Changed files receive immutable checkpoint versions. Replication runs in the background and retries without repeating commands.
+Deleting a workspace file removes it from the current manifest. Retained checkpoints and response attachments preserve their recorded versions.
+The runtime keeps three recent recovery checkpoints per session by default. It also protects the current workspace, both recovery pointers, and uncertain remote publications.
+A periodic collector retires unreferenced workspace versions, orphaned attachment snapshots, and superseded checkpoints after a one-hour grace period.
+New checkpoints list current file sources rather than every historical workspace version. Legacy checkpoints keep their original references until retention releases them.
+Deletion records survive restarts and partial R2 failures. A recreated blob waits for an old deletion before its replacement upload.
+Local-only deployments run the same retention policy. Active turns and sessions awaiting remote-recovery review defer collection.
+Research evidence, browser credentials, and uploaded-file catalog entries remain outside this collector.
+The [storage settings](base-infra/environment-variables.md) configure the checkpoint count, scan interval, and grace period.
 
-Source: [service tools](../src/theos/services/files/tools.py).
+`attach_file(path)` captures a file version and emits a response attachment through the existing transport adapters.
+Its bytes and metadata enter the session checkpoint journal. Remote recovery restores the same attachment ID.
+Image inspection through `run_command.inspect_images` supplies model image inputs without sending an attachment to the user.
+The internal catalog retains owner checks. The model has no archive, restore, transfer, or catalog-management tools.
 
-| Callable | Action |
-| --- | --- |
-| `list_user_files` | List your uploaded and generated files. |
-| `archive_user_file` | Archive a file in the configured R2 bucket. |
-| `restore_user_file` | Restore one of your archived files. |
-| `delete_user_file` | Delete your file from local storage and R2. |
+Source: [workspace hooks](../src/theos/services/sandbox/workspace.py), [file catalog](../src/theos/services/files/catalog.py), [checkpoints](../src/theos/services/files/checkpoints.py), and [retention](../src/theos/services/files/retention.py).
 
 ## Voice
 
@@ -341,8 +418,17 @@ The [speech hosting guide](speech-hosting.md) covers separate Docker and native 
 Docker uses Speaches with faster-whisper and Kokoro-FastAPI CPU images.
 Native Apple Silicon uses MLX Whisper and Kokoro-FastAPI through PyTorch MPS, with uv, FFmpeg, and espeak-ng.
 Hosted transcription uses a compatible multipart API with bearer authentication.
-The speech client fixes the model to `kokoro` and sends no authentication header.
-Generic hosted speech APIs require an adapter or client changes.
+The speech client fixes the model to `kokoro` and sends the configured voice and speed.
+Its defaults are 70% Michael, 30% George, and speed `0.9`.
+It sends an optional bearer key from `AGENT_KOKORO_KEY`.
+The separate [speech gateway](../speech/README.md) applies the selected subtle robotic effect with
+Pedalboard, NumPy, SciPy, SoundFile, pyloudnorm, and FFmpeg.
+FastAPI and HTTPX serve its authenticated endpoint. Its own `uv.lock` pins Python dependencies.
+These dependencies are not installed in the assistant or Pi image.
+Generic hosted speech APIs still require a compatible adapter.
+Before synthesis, the runtime makes one tool-free model call to prepare expressive spoken wording.
+It retains normal provider privacy controls, usage accounting, owner checks, and the original displayed reply.
+Preparation failure stops synthesis instead of returning a plain-text fallback.
 
 Source: [service tools](../src/theos/services/voice/tools.py).
 
@@ -353,7 +439,7 @@ Source: [service tools](../src/theos/services/voice/tools.py).
 
 ## Sandbox
 
-OpenSandbox and its code interpreter SDK. Browser commands require agent-browser inside the remote image.
+The OpenSandbox Python SDK executes commands. Browser commands require `agent-browser` and Chromium inside the remote image.
 
 The Mac mini uses OpenSandbox server `1.1.1` with configuration and state on the external SSD.
 It uses the `code-interpreter:v1.1.0` and `execd:v1.1.0` images from the `opensandbox` registry namespace.
@@ -367,16 +453,49 @@ This uses the existing SDK and lets remote clients connect without access to con
 
 | Callable | Action |
 | --- | --- |
-| `sandbox_run_command` | Run a shell command in your remote sandbox without an approval prompt. |
-| `sandbox_execute_code` | Run Python in your remote sandbox's persistent interpreter. |
-| `sandbox_write_file` | Write a text file in the remote sandbox. |
-| `sandbox_read_file` | Read a text file from the remote sandbox. |
-| `sandbox_list_files` | List files in a remote sandbox directory. |
-| `sandbox_send_file_to_user` | Download a generated sandbox file and deliver it to the user. |
-| `sandbox_view_image` | Read a sandbox image and attach it to the next model request. |
-| `sandbox_upload_file` | Copy one of your uploaded files into the remote sandbox. |
-| `sandbox_browser` | Run agent-browser in the sandbox. Use snapshot, open, click, fill, or screenshot commands. |
-| `sandbox_lifecycle` | Inspect, restart, destroy, or forget a sandbox. Expiry remains fixed from creation. |
+| `run_command(command?, timeout=60, inspect_images?)` | Execute shell or Python commands, inspect files, or run standalone browser commands. Image paths supply pixels to the next model request. |
+| `attach_file(path)` | Attach the current file version to the response. |
+
+An image-only command call can omit `command`. Inspection errors remain separate from a completed command result.
+`history_read` and `history_search` retain their existing behavior.
+The runtime does not register the previous file, Python-kernel, image-view, or browser-wrapper tools.
+
+Standalone `agent-browser` commands route to a separate sandbox for the authenticated owner.
+Conversations use distinct tabs. An owner lock serializes browser commands and manual sign-in actions.
+Screenshots, PDFs, and explicit downloads copy to the requested task workspace path.
+Browser uploads read a selected workspace file. Profile and connection flags remain runtime-owned.
+Shell pipes and compound browser commands require separate calls.
+
+Connections includes Browser sign-in controls for navigation, pointer actions, private input, keyboard actions, and screenshots.
+The route uses the authenticated owner and existing browser-session protections. Input values do not enter conversation or tool history.
+The browser profile remains outside task workspaces. It includes cookies, local storage, IndexedDB, and other profile files.
+The runtime captures live authentication state and briefly pauses browser writers to snapshot profile files with their SQLite journals.
+A separate watchdog resumes the browser if capture fails or its process exits.
+The application encrypts snapshots with Fernet before SQLite storage. The generated `browser.key` stays in the private application data directory.
+Stopped-application backups include that key. Browser sign-in provides a control to delete the owner's saved profile and active browser.
+The existing fixed sandbox lifetime still applies. Expired browser sandboxes restore their last saved profile before new work.
+This uses the existing cryptography dependency and Python standard library. It adds no package dependency.
+
+Source: [managed browser](../src/theos/services/sandbox/browser.py), [profile capture](../src/theos/services/sandbox/profile.py), and [private sign-in routes](../src/theos/transports/browser/managed_browser.py).
+
+Binary file reads use bounded HTTP byte ranges for delivery, image inspection, and workspace checkpoints.
+The SDK's line-based limits must not handle binary files because they can alter line endings.
+
+## Account connection setup
+
+Shared account setup uses owner-scoped records through `services/account_setup.py`.
+`GET /api/connections` includes optional onboarding and per-account setup states.
+`POST /api/connections/onboarding` saves optional profile edits and completes setup.
+`POST /api/connections/{service}/cancel` cancels pending consent without disconnecting the previous account.
+The existing connect and disconnect routes retain owner checks. OAuth callbacks return only to the fixed Connections route.
+
+Telegram account setup uses native Bot API URL buttons and callback controls through `transports/telegram/connections.py`.
+`/connections` reopens the account list after onboarding.
+Zepto's **Paste return link** button uses `ForceReply` with an input placeholder.
+Owner-scoped `telegram_connections` records retain only recent prompt message IDs.
+Prompt replies are encrypted before inbox storage and never reach the model.
+The existing services still own OAuth state validation, token storage, cancellation, and verification.
+No new package or proxy service is required.
 
 ## Gmail
 
@@ -388,12 +507,12 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | --- | --- |
 | `gmail_connect` | Create a Google authorization link for your Gmail account. |
 | `gmail_disconnect` | Disconnect your Gmail account and revoke its grant. |
-| `gmail_search_messages` | Search Gmail messages outside Spam and Trash. |
-| `gmail_get_message` | Read a Gmail message, including its MIME body and attachment IDs. |
-| `gmail_get_thread` | Read a Gmail thread outside Spam and Trash. |
-| `gmail_download_attachment` | Download an attachment from one of your accessible messages. |
-| `gmail_list_drafts` | List your Gmail drafts. |
-| `gmail_get_draft` | Read a draft with its recipients, subject, body, and content hash. |
+| `gmail_search_messages(query, page_token?, max_results=10)` | Return up to 25 message headers and short snippets outside Spam and Trash. Pass `next_page_token` to continue. |
+| `gmail_get_message(message_id, body_offset=0, body_limit=4000, include_body=true, include_quoted=false)` | Read one bounded body range and attachment metadata; use `next_body_offset` to continue or `include_quoted=true` to include quoted replies. Attachment contents stay out of the result. |
+| `gmail_get_thread(thread_id, message_limit=10)` | Return recent thread headers; fetch a selected message by ID for its body. |
+| `gmail_download_attachment(message_id, attachment_id)` | Download one selected attachment after reviewing its metadata; use its returned workspace path for analysis when sandbox execution is configured. |
+| `gmail_list_drafts(page_token?, max_results=10)` | List draft and message IDs without loading draft bodies. |
+| `gmail_get_draft(draft_id, body_offset=0, body_limit=4000)` | Read a bounded draft body range and its review metadata. |
 | `gmail_create_draft` | Create a draft in your connected account. |
 | `gmail_send_draft` | Send after explicit approval of the current draft. Recheck its contents immediately before sending. |
 | `gmail_list_labels` | List Gmail labels. |
@@ -410,10 +529,16 @@ Source: [service tools](../src/theos/services/health/tools.py).
 | --- | --- |
 | `health_connect` | Create an authorization link for Google Health. |
 | `health_disconnect` | Disconnect Google Health and stop pending imports and exports. |
-| `get_health_summary` | Read your latest seven-day health import, or request a refresh. |
-| `get_meal_sync_status` | List nutrition export states, including uncertain writes. |
+| `get_health_summary(start_date?, end_date?, metrics?, refresh=false)` | Read daily metrics and vitals for up to 31 days. Pass both dates or neither. Select `steps`, `distance_meters`, `active_calories_kcal`, `active_minutes`, `active_zone_minutes`, `resting_heart_rate_bpm`, `weight_kg`, `body_fat_percent`, `heart_rate_zones`, `heart_rate_zone_thresholds`, `workouts`, `sleep`, `vitals`, `heart_rate_variability`, `oxygen_saturation`, `respiratory_rate`, `skin_temperature`, `heart_rate`, `core_body_temperature`, or `blood_glucose`. |
+| `get_meal_sync_status` | List recent nutrition export states without meal contents. |
 | `retry_meal_sync` | Queue failed exports for reconciliation before any retry. |
 | `backfill_nutrition` | Queue historical meals that have no backfill marker. |
+
+Default Health summaries include normalized vitals and category coverage counts.
+New Health consent checks `/v4/users/me/identity` before saving credentials, under the existing scopes.
+The connector reads ten additional stable v4 collections under the existing health metrics permission.
+Daily provider values remain separate from sample statistics. Missing readings remain absent.
+See [vitals and units](google-health.md#vitals-and-heart-rate-variability).
 
 ## Zepto
 
@@ -456,16 +581,20 @@ Source: [runtime tool registration](../src/theos/runtime/tools.py).
 
 Deep research requires the browser mode or an explicit user command. It applies to one turn.
 The `deep_research` tool runs independent assignments within the same shared call ceiling.
-Each researcher saves its full transcript, report, evidence, notes, and summary checkpoints in SQLite migration 010.
+Each researcher saves its full transcript, report, notes, and summary checkpoints in SQLite migration 010.
+Evidence records live in the separate `research_scratchpad` table from migration 013.
 The browser **Research** view permits later inspection within the same account and conversation.
 Normal questions do not receive these tools or create research records.
+
+The lead researcher retains configured workspace tools to compute results and deliver report files.
+Research delegates remain read-only, and personal account tools remain outside explicit research.
 
 | Tool | Behavior | Dependency |
 | --- | --- | --- |
 | `deep_research` | Up to three named delegates with relevant briefs and durable records | Existing harness and runtime |
 | `save_research_note` | Save plans, findings, conflicts, and questions with source IDs and status | Existing SQLite database |
 | `list_research` | List research in the current conversation | Existing SQLite database |
-| `read_research` | Reopen full saved reports and evidence | Existing SQLite database |
+| `read_research` | Reopen full saved reports and the evidence scratchpad | Existing SQLite database |
 | `read_source` | Read and save extracted source text without an application excerpt limit | Exa contents API and `AGENT_EXA_KEY` |
 
 Source extraction uses `POST https://api.exa.ai/contents` with `urls` and `text: true`.
@@ -482,10 +611,14 @@ The runtime caches metadata for one hour and uses verified catalog values when r
 Unknown models use a logged 24,000-token context fallback unless the operator sets a window.
 Unknown Anthropic models use the configured output default because that API requires an output maximum.
 `AGENT_CONTEXT_TOKENS` optionally selects a smaller window, within known provider capacity.
-The shared policy prunes old tool output before summarizing middle turns.
-It protects the head and a tail selected by token cost, and updates the previous summary with an auxiliary model.
-The default trigger fraction is 0.5, with the upstream floor for small windows.
-See [compression and workspaces](runtime/context-recovery.md) for the formulas and execution boundaries.
+The harness updates one rolling summary with the active model.
+It compacts at 50% of the context window or when input plus output does not fit.
+It keeps a 2.5% recent tail and summarizes a split turn's original request with its earlier progress.
+Separate history and turn-prefix summary calls form one checkpoint before the retained messages.
+New unanswered user requests and unfinished tool batches remain verbatim.
+Context overflow triggers shorter summary tiers and a smaller retry without replaying tools.
+History tools read the untouched transcript. Research scratchpad records remain separate.
+See [compression and workspaces](runtime/context-recovery.md) for the full algorithm.
 
 For agents, only `max_output_tokens` enforces response length, through the provider's supported parameter.
 OpenAI Responses and Gemini use `max_output_tokens`. OpenRouter and Anthropic use the equivalent `max_tokens` field.
@@ -493,11 +626,12 @@ Requests default to `AGENT_MAX_OUTPUT_TOKENS`, which defaults to 8,192, bounded 
 An explicit conversation output setting overrides this default.
 Space checks reserve the full requested output before reducing input through summaries.
 Answer and summary requests must fit their input and requested output within the model window.
-The runtime does not silently lower the output setting to fit an oversized input.
+The runtime does not silently lower the answer output setting to fit an oversized input.
 Application code never clips generated answers or rejects them by byte size.
 Calls without a known output setting use one shared 8,192-token space estimate.
-`harness/output.py` defines that estimate for agents, turn entry points, and summary requests.
-Known output settings replace the estimate. The estimate never enters a generation parameter or cuts returned text.
+`harness/output.py` defines that estimate for agents and turn entry points.
+Summary calls use up to 2.5% of the model context for output.
+The estimate never enters a generation parameter or cuts returned text.
 Provider-stopped answers remain intact and carry an incomplete notice.
 
 ## Optional bounded mode and partial answers
@@ -602,17 +736,20 @@ Old pending cards for tools that no longer need approval are retired without cha
 Source: [approval policy](../src/theos/runtime/approvals.py).
 
 
-## Context compression and durable workspaces
+## Context compaction and durable workspaces
 
-The generic policy lives in `src/harness/compression_policy.py` and its asynchronous adapter in `src/harness/lean_context.py`.
-The source manifest pins the upstream revision and preserves its MIT license.
-Request sizing uses provider usage anchors and the upstream UTF-8-aware rough estimator. No tokenizer package is required.
+The harness stores one rolling summary and coverage index in `src/harness/compaction.py`.
+It preserves the raw transcript and places the checkpoint before the retained messages.
+Covered original requests enter the checkpoint and are not repeated after it.
+Split turns use a separate turn-prefix summary call.
+It uses a 50% trigger and a 2.5% recent tail.
+It retries provider context errors with shorter summaries and does not rerun completed tools.
+Large messages remain in history. The summary points to their message indexes for exact retrieval.
+Research evidence uses the separate `research_scratchpad` table and is not part of the summary.
 
-The runtime owns `history_read` and `history_search` for bounded access to original agent history.
-The Gmail and Health wrappers add `source_read` and `source_to_workspace` for complete saved connector responses.
-They preserve raw results in fsynced local objects and queue R2 replication.
-Returned pages include source IDs, offsets, and pagination tokens.
-MIME text views identify unread attachments and do not download them.
+The harness registers `history_read` and `history_search` in `src/harness/tools.py`.
+Gmail and Health tools return concise first-pass results and accept provider-specific arguments for details.
+The Gmail service excludes MIME attachment contents from message results and downloads only a selected attachment.
 MCP tools and connector implementations remain unchanged.
 
 `services/files/checkpoints.py` uses the existing boto3 dependency for R2 objects and the SQLite transfer index.
@@ -621,6 +758,7 @@ Checkpoint persistence and connector reads do not wait for those uploads.
 The storage client is reused and has bounded connection, read, and retry settings.
 `services/sandbox/workspace.py` uses the existing OpenSandbox SDK for `/workspace` files and restoration.
 The agent can choose this workspace without an explicit sandbox request from the user.
+The runtime reconnects, replaces confirmed expired or missing instances, and restores saved files. If connection fails before a tool action starts, the model may retry that same action once. It must not use lifecycle controls for routine recovery or repeat an action with an unknown outcome.
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
@@ -635,8 +773,9 @@ Write tools and unknown tools remain unavailable.
 
 See [setup and usage](slack-mcp.md), the [allowlist](connectors/slack-tools.json), and the [implementation plan](connectors/slack-plan.md).
 The adapter validates arguments against the discovered JSON schema before execution.
-Complete results enter existing source records and durable tool journals.
+Small results remain inline. Large reads use the existing 8 KiB inline, 1 MiB staging, and bounded preview limits.
+The tool journal records the returned result. Temporary result files are not durable workspace checkpoints.
 The runtime preserves the existing private-account boundaries and approval policy.
 
 Dependencies remain mcp, httpx, cryptography, and jsonschema.
-Local contract tests pass. Real account authorization and provider tool discovery remain pending.
+Local contract tests pass. Enable Slack MCP access before live provider tool discovery.

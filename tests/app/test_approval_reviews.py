@@ -37,7 +37,7 @@ def test_nested_review_preserves_newlines_code_and_empty_values():
 def test_telegram_review_formats_prose_and_preserves_literal_code():
     code = 'print("😀\\n**literal**")\nprint("next")'
     fields = approval_fields({"description": "**Review**\n- First\n- Second", "code": code})
-    parts = format_approval("sandbox_execute_code", fields)
+    parts = format_approval("execute_code", fields)
     assert len(parts) == 1
     assert "**Review**" not in parts[0]["text"]
     assert "Review\n\n• First\n• Second" in parts[0]["text"]
@@ -95,7 +95,7 @@ async def test_telegram_review_buttons_follow_complete_unicode_review(runtime):
             "approval",
             row["id"],
             "call",
-            "sandbox_execute_code",
+            "execute_code",
             preview,
             preview,
             time.time(),
@@ -106,7 +106,7 @@ async def test_telegram_review_buttons_follow_complete_unicode_review(runtime):
     async def events():
         yield {
             "type": "approvals",
-            "items": [{"id": "approval", "tool": "sandbox_execute_code", "preview": preview}],
+            "items": [{"id": "approval", "tool": "execute_code", "preview": preview}],
         }
         yield {"type": "done", "status": "waiting_for_approval"}
 

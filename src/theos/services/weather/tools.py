@@ -7,9 +7,13 @@ from theos.services.http import request_json
 def weather_tools(settings, http):
     """Build location lookup and forecast tools."""
 
+    # @tool reads this function's name, docstring, and annotations to give the model a
+    # validated JSON schema. The function body is the real service action.
     @tool
     async def get_weather(location: str, days: int = 3):
         """Get current weather and a daily forecast for a place."""
+        # The forecast API needs coordinates, so first turn the user's place name into
+        # one location result.
         places = await request_json(
             http,
             "GET",
@@ -19,6 +23,8 @@ def weather_tools(settings, http):
         if not places.get("results"):
             raise LookupError("Location not found. Add a region or country.")
         place = places["results"][0]
+        # Ask for both current and daily data. Clamp days so a model cannot request an
+        # unbounded forecast response.
         forecast = await request_json(
             http,
             "GET",
@@ -32,6 +38,8 @@ def weather_tools(settings, http):
                 "forecast_days": min(16, max(1, days)),
             },
         )
+        # Return structured data; the harness serializes it as a tool result for the model.
         return {"location": place, "forecast": forecast}
 
+    # Runtime adds this list to the tools available in a particular conversation.
     return [get_weather]

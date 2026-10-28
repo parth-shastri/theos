@@ -12,6 +12,16 @@
 !src/renderer/**
 !src/config/
 !src/config/**
+!web/
+!web/package.json
+!web/package-lock.json
+!web/next.config.mjs
+!web/src/
+!web/src/**
+!web/public/
+!web/public/**
+!web/scripts/
+!web/scripts/**
 **/__pycache__/
 **/*.pyc
 **/*.sqlite3*

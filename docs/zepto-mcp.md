@@ -54,17 +54,24 @@ docker compose up -d --force-recreate
 ## Connect an account in the browser
 
 1. Select **Connections > Zepto > Connect**.
-2. Select **Continue sign-in**.
+2. Wait for sign-in to open, or select **Open sign-in** if your browser blocks the popup.
 3. Complete the provider's sign-in procedure.
 4. If the provider returns to localhost, copy the full address-bar URL.
 5. Paste that URL into the connection form.
 6. Select **Finish connection**.
 7. Check that the view shows **Connected**.
 
+The account stays pending until authorization and MCP tool discovery succeed.
+After connecting, **Choose a delivery address** opens a chat draft for the existing address-selection tools.
+Select and confirm an address before searching for products.
+Cancel setup preserves the account connected before the attempt.
+
 The localhost browser can show a connection error after sign-in.
 Theos receives the short-lived return through its authenticated endpoint.
 The return URL does not enter model history.
 An approved public HTTPS callback completes the handoff directly.
+Successful callbacks return to Connections. Zepto must allow the configured HTTPS callback URI.
+Its published redirect list does not automatically allow a custom Theos domain.
 Use **Cancel setup** or **Disconnect** to remove pending setup and local credentials.
 Use provider account settings to revoke remote access when needed.
 Unfinished setup expires after ten minutes and does not survive a server restart.

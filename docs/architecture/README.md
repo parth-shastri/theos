@@ -14,7 +14,7 @@ All diagram text uses Excalidraw's traditional handwriting font.
 | Memory and consolidation | [Excalidraw](theos-memory.excalidraw) | [PNG](theos-memory.png) / [SVG](theos-memory.svg) | `9c3e1b00bc29483aa9` |
 | LLMOps feedback loop | [Excalidraw](theos-operations.excalidraw) | [PNG](theos-operations.png) / [SVG](theos-operations.svg) | `ba1a8336d42744aa9a` |
 | Planned tools | [Excalidraw](theos-tools.excalidraw) | [PNG](theos-tools.png) / [SVG](theos-tools.svg) | `e30817048481493188` |
-| Current service boundaries | [Excalidraw](theos-services.excalidraw) | [PNG](theos-services.png) / [SVG](theos-services.svg) | `66eb68d358104b6cac` |
+| Current service boundaries | [Excalidraw](theos-services.excalidraw) | [PNG](theos-services.png) / [SVG](theos-services.svg) | `8ebb1891da70483cac` |
 | Telegram sequence | [Excalidraw](theos-telegram.excalidraw) | [PNG](theos-telegram.png) / [SVG](theos-telegram.svg) | `0ac33544769e4bf2b2` |
 | Conversations, turn tracing, and export | [Excalidraw](theos-tracing.excalidraw) | [PNG](theos-tracing.png) / [SVG](theos-tracing.svg) | `814ad577624f422db2` |
 
@@ -56,6 +56,7 @@ Remote MCP schemas need authenticated discovery before registration.
 ![Current service boundaries](theos-services.png)
 
 This runtime diagram maps the framework to implemented services and code directories.
+The Next.js frontend forwards private API requests to FastAPI and its transport adapters.
 Use the [tool catalog](../tool-catalog.md) for current callable names.
 The architecture guide places this view under [Current implementation](../architecture.md#current-implementation).
 The [code guide](../code-structure.md) uses it as the main navigation view.
@@ -77,7 +78,6 @@ The application does not implement that consolidation path.
 
 The traditional handwriting font uses Excalidraw font family `1`.
 The local previews use the same bundled font.
-The bundled [font license](fonts/LICENSE.md) is the SIL Open Font License.
 
 These diagrams describe the architecture. They do not claim that every component is implemented.
 Read the [code guide](../code-structure.md) and [acceptance checks](../runtime/acceptance.md) for implementation status.

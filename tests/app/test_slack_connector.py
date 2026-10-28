@@ -11,12 +11,11 @@ from mcp.types import CallToolResult, TextContent, Tool
 from pydantic import SecretStr, ValidationError
 
 from harness import AssistantMessage, ToolCall
-from theos.server import create_app
 from theos.services.errors import ServiceError
 from theos.services.slack import READ_TOOLS, create_account
 from theos.settings import Settings
 
-from .conftest import collect
+from .conftest import call_tool, collect
 from .test_browser_connections import browser
 
 
@@ -75,8 +74,8 @@ async def test_browser_oauth_connections_bind_callback_to_original_owner(runtime
             response = await bob.get(
                 "/oauth/slack/callback", params={"state": state, "code": "private-code"}
             )
-            assert response.status_code == 200
-            assert "Return to the workspace" in response.text
+            assert response.status_code == 303
+            assert response.headers["location"] == "/?connections=1"
             assert connector.connected("alice") and not connector.connected("bob")
             assert (
                 await alice.get("/oauth/slack/callback", params={"state": state, "code": "replay"})
@@ -110,13 +109,15 @@ async def test_denied_browser_consent_and_cancellation_do_not_issue_tokens(runti
         assert not runtime.db.one("SELECT 1 FROM oauth_states WHERE service='slack'")
         link = (await client.post("/api/connections/slack/connect")).json()["url"]
         state = parse_qs(urlsplit(link).query)["state"][0]
-        await client.post("/api/connections/slack/disconnect")
+        connector.save("alice", token_payload(connector))
+        assert (await client.post("/api/connections/slack/cancel")).status_code == 200
+        assert connector.connected("alice")
         assert (
             await client.get("/oauth/slack/callback", params={"state": state, "code": "code"})
         ).status_code == 400
 
 
-async def test_runtime_read_is_owner_scoped_paged_and_durably_saved(
+async def test_runtime_read_is_owner_scoped_bounded_and_journaled(
     runtime, connector, scripted_models, monkeypatch
 ):
     connector.save("alice", token_payload(connector))
@@ -167,11 +168,10 @@ async def test_runtime_read_is_owner_scoped_paged_and_durably_saved(
     )
     assert row["status"] == "completed"
     output = json.loads(json.loads(row["result"])["content"])
-    assert output["next_offset"] == 12000
-    source = await runtime.checkpoints.get("alice", session["id"], output["source_id"])
-    assert len(source["raw"]["content"][0]["text"]) > 12000
-    with pytest.raises(LookupError):
-        await runtime.checkpoints.get("bob", session["id"], output["source_id"])
+    assert output["truncated"] and output["result_bytes"] > 12000
+    assert "source evidence" in output["preview"]
+    assert len(output["preview"].encode()) <= 4096
+    assert "source_id" not in output
     assert calls == [("slack_read_thread", {"id": 7})]
 
 
@@ -234,6 +234,7 @@ async def test_unavailable_connector_does_not_block_ordinary_chat(runtime, conne
 
 async def test_private_telegram_connect_and_disconnect_never_use_model_history(runtime, connector):
     from theos.transports.telegram.commands import command
+    from theos.transports.telegram.connections import handle
 
     runtime.settings.telegram_users.add(123)
     sent = []
@@ -245,7 +246,9 @@ async def test_private_telegram_connect_and_disconnect_never_use_model_history(r
     private = runtime.db.create_session(
         "telegram:123", runtime.settings.model, "default", channel="telegram-private"
     )
-    await command(bot, private, "/connect_slack", "", 123, None)
+    assert await handle(
+        bot, {"text": "/slack"}, "telegram:123", "telegram-private", 123, None, None
+    )
     assert sent[-1][3]["inline_keyboard"][0][0]["url"].startswith(connector.spec.authorization_url)
     assert runtime.db.load_history("telegram:123", private["id"]) == []
     await command(bot, private, "/disconnect_slack", "", 123, None)
@@ -256,18 +259,6 @@ async def test_private_telegram_connect_and_disconnect_never_use_model_history(r
     await command(bot, group, "/connect_slack", "", 123, None)
     assert "private chat" in sent[-1][1]
     assert not runtime.db.one("SELECT 1 FROM oauth_states WHERE owner='telegram:123'")
-
-
-async def test_browser_connection_assets_and_mentions(runtime):
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=create_app(runtime.settings, runtime)),
-        base_url="http://test",
-    ) as client:
-        asset = await client.get("/static/providers/slack.svg")
-        assert asset.status_code == 200 and "<svg" in asset.text
-        script = await client.get("/static/app.js")
-        assert '"/static/providers/slack.svg"' in script.text
-        assert "official Slack MCP server" in script.text
 
 
 def test_fixed_catalog_keeps_writes_out(connector):
@@ -324,3 +315,28 @@ async def test_slack_private_consent_failure_is_saved_as_failed_not_empty_succes
     assert "private-token" not in row["result"]
     assert "source_id" not in row["result"]
     assert calls == ["slack_search_public_and_private"]
+
+
+async def test_large_slack_reads_stage_complete_results(runtime, connector, monkeypatch):
+    connector.save("alice", token_payload(connector))
+    text = "thread evidence " * 1600
+
+    async def remote(owner, name=None, arguments=None):
+        assert owner == "alice"
+        if name is None:
+            return [Tool(name="slack_read_thread", inputSchema={"type": "object"})]
+        return CallToolResult(content=[TextContent(type="text", text=text)])
+
+    staged = {}
+
+    async def save_result(name, content):
+        staged.update(name=name, content=json.loads(content))
+        return {"path": "/tmp/theos-results/slack-thread.json"}
+
+    monkeypatch.setattr(connector, "remote", remote)
+    tools = await connector.tools("alice", result_stager=save_result)
+    result = await call_tool(tools, "slack_read_thread", arguments={})
+    assert result["result_file"] == "/tmp/theos-results/slack-thread.json"
+    assert not result["truncated"]
+    assert staged["name"] == "slack_read_thread"
+    assert staged["content"]["content"][0]["text"] == text

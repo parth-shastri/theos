@@ -15,6 +15,123 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.4.3
+
+Package version 1.4.3 uses tag `rpi-v1.4.3` from the current `rpi` tip.
+It contains the workspace tools, browser recovery, checkpoint retention, and Telegram connector controls prepared for 1.4.2.
+It also includes the native Mac mini startup guard.
+Backup helpers now have a 30-minute deadline. Restore helpers have a 15-minute deadline, within a 60-minute deployment job.
+Named helper containers are removed after failure or interruption before rollback reopens the previous database.
+Journal recovery also removes helpers left by an abrupt runner crash.
+Their removal retains the original volume, candidate volume, and backup files.
+
+Prepare this urgent deployment fix from `rpi`, then copy it to a separate topic branch from `dev` through a PR.
+Keep the failed `rpi-v1.4.2` tag unchanged. Confirm both service health and the active manifest after activation.
+
+## Release 1.4.2
+
+The deployment exceeded its five-minute backup limit and initially failed rollback because the helper retained the database lock.
+The operator's deployment request permitted recovery. The helper was stopped, and both 1.4.1 services passed readiness after restoration.
+Release 1.4.3 supersedes this failed activation. The 1.4.2 tag remains immutable.
+
+Package version 1.4.2 uses tag `rpi-v1.4.2` from the promoted `rpi` tip.
+Workspace execution uses `run_command`, with optional image inspection. Responses deliver files through `attach_file`.
+The runtime stages inputs, saves workspace versions, and collects unreferenced checkpoint objects after a grace period.
+History read and search remain separate tools.
+Each owner has a dedicated browser with encrypted login recovery and private sign-in controls under Connections.
+Telegram account setup uses native sign-in buttons, return-link prompts, and connection checks without model turns.
+
+Migration 015 adds the durable checkpoint deletion journal. Backups include the generated private browser encryption key.
+No new private environment value is required. Default retention preserves three recent checkpoints and all recovery roots.
+Promote both feature PRs to `main` and `rpi` through separate PRs and merge commits.
+Publish both ARM64 images through the tagged workflow. Confirm the active Pi manifest after activation.
+
+## Release 1.4.1
+
+Package version 1.4.1 uses tag `rpi-v1.4.1` from the promoted `rpi` tip.
+The mobile application frame retains the full Safari viewport offset through repeated keyboard toggles.
+The ambient glow fades into the document backdrop above the native keyboard.
+The saved theme applies before React loads, so Safari starts with the correct backdrop.
+One pulsing Thinking label and glowing orb remain in the conversation throughout the streamed turn.
+Tool states stay in their collapsible events. The composer retains errors and voice feedback without run state labels.
+
+No database migration or new private environment value is required.
+Promote the release to both `main` and `rpi` through separate PRs and merge commits.
+Publish both ARM64 images through the tagged release workflow and confirm the active Pi manifest after activation.
+Native Safari checks cover iPhone 17 Pro Max. Final Home Screen mode and physical iPhone checks remain pending.
+Safari can retain its previous native bar color after a live theme switch until reload.
+
+## Release 1.4.0
+
+Package version 1.4.0 uses tag `rpi-v1.4.0` from the promoted `rpi` tip.
+The mobile application frame follows keyboard viewport height and vertical movement.
+Navigation, dialogs, and the composer stay within the visible area. Drafts survive keyboard dismissal, and pinch zoom retains native control.
+Sidebar and sign-in actions use SVG northeast arrows instead of Unicode arrows that iOS can display as emoji.
+The existing frost effect, green palette, and theme colors remain unchanged.
+
+No database migration or new private environment value is required.
+Publish and activate both ARM64 images through the tagged release workflow, with the previous image pair and data volume available for rollback.
+Automated keyboard checks passed in Chromium and WebKit. Physical iPhone keyboard animation and Home Screen mode remain unverified.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
+## Release 1.3.0
+
+Package version 1.3.0 uses tag `rpi-v1.3.0` from the promoted `rpi` tip.
+The browser runs as a separate Next.js frontend with protected cookie sessions and the existing assistant API.
+OpenUI renders browser answers, metric cards, charts, tables, source images, source logos, and reminder drafts.
+Reminder actions retain the existing tools, validation, and approval policy. Terminal and Telegram retain their transport boundaries.
+Search media uses an authenticated same-origin endpoint. Saved version 1 and 2 OpenUI answers remain compatible.
+The browser retains the existing green palette, glass effects, and responsive navigation.
+
+Before activation, configure `AGENT_FRONTEND_SECRET` in the private Pi environment and retain the public `AGENT_WEB_URL`.
+Use sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3`.
+The frontend keeps browser port 8080. Direct API and terminal access uses private port 8081.
+The release workflow publishes both ARM64 images, restores a candidate data volume, and checks both services before activation.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
+## Release 1.2.1
+
+Package version 1.2.1 uses tag `rpi-v1.2.1` from the promoted `rpi` tip.
+Rolling compaction uses Markdown prompts with explicit roles, inputs, and output rules.
+Split turns preserve the original request and earlier progress in separate checkpoint summaries.
+Overflow recovery shortens summaries before retrying and never repeats completed tools.
+Research evidence stays in a separate scratchpad and survives compaction.
+Reports can include useful charts and diagrams, with bundled Space Grotesk in PDF and DOCX output.
+Mobile navigation improves contrast in both light and dark themes.
+Telegram asks ready users before it restarts onboarding and preserves their saved conversations.
+Telegram progress shows shell commands, browser commands, and Python code as literal code blocks.
+Migration 013 renames `research_items` to `research_scratchpad` and preserves its rows.
+Use sandbox image `theos/sandbox-skills:v1.1.0-20261019-18e1cc81d4c3` for new sandboxes.
+Update `AGENT_SANDBOX__IMAGE` in the local and Pi deployment environments before activation.
+Confirm the tagged workflow and active Pi manifest before claiming deployment.
+
+## Release 1.2.0
+
+Package version 1.2.0 uses tag `rpi-v1.2.0` from the promoted `rpi` tip.
+This release adds the philosophical personality, expressive spoken-text preparation, and the approved subtle robotic voice.
+Every browser and tool speech request prepares spoken wording before synthesis while retaining displayed text and conversation history.
+Preparation records model usage and stops on invalid output instead of reading plain source text.
+
+The private local `.env`, local `.env.pi`, and Pi deployment environment use the selected Michael/George blend at speed `0.9`.
+They point to the authenticated Mac mini speech gateway at port `8881`.
+The gateway runs separately from Kokoro under the user's `com.parthshastri.theos-speech` launch agent.
+Its source stays under `/Volumes/extssd/voice/theos-speech`.
+Its runtime and private environment live under `~/.local/share/theos-speech` so macOS can launch its Python entry point.
+Console logs live under `~/Library/Logs/Theos`.
+Keep the speech key outside Git. Private backups retain the previous environment values.
+No database migration is required. Confirm release activation through the tagged workflow and the Pi manifest.
+
+## Release 0.1.18
+
+Package version 0.1.18 uses tag `rpi-v0.1.18` from the promoted `rpi` tip.
+The shared ARM64 sandbox image supplies document, spreadsheet, OCR, browser, and paper research dependencies.
+Workspace tools use ordinary names. The runtime restores saved files after confirmed workspace loss.
+Connection failures before execution permit one retry. Unknown outcomes still prevent automatic repetition.
+Telegram progress shows readable tool arguments. Traces measure progress delivery and turn latency.
+The Pi already uses sandbox image `theos/sandbox-skills:v1.1.0-20261015`.
+No database migration or new Pi environment value is required.
+Confirm activation through the tagged workflow and the active Pi manifest.
+
 ## Release 0.1.17
 
 Package version 0.1.17 uses tag `rpi-v0.1.17` from the promoted `rpi` tip.
@@ -95,9 +212,10 @@ Package version 0.1.11 uses the deployment tag `rpi-v0.1.11`.
 - Approval reviews group items and keep exact request details expandable. Zepto cart prices display paise as rupees without changing approval snapshots.
 
 No new private environment setting is required.
-Retain the existing Pi context cap of 100,000, output limit of 8,192, and trigger ratio of 0.7.
-The default tail remains `lean`, with at least one recent user message. Call budgets and research deadlines remain disabled.
-The example environment documents optional tail settings. Existing explicit conversation output settings retain precedence.
+At the time of this release, Pi used a 100,000-token context cap, an 8,192-token output limit,
+and a 70 percent compaction trigger. Current compaction defaults to a 50 percent trigger and
+2.5 percent tail. Both ratios and the summary model can be set in the environment.
+Existing explicit conversation output settings retain precedence.
 Promote the release through PRs before tagging. Confirm activation through the tagged release workflow.
 
 ## Release 0.1.10
@@ -115,7 +233,6 @@ Before tagging, set these values in the private deployment `.env.pi`:
 
 ```dotenv
 AGENT_CONTEXT_TOKENS=100000
-AGENT_COMPACTION_TRIGGER_RATIO=0.7
 AGENT_MAX_OUTPUT_TOKENS=8192
 ```
 
@@ -385,3 +502,17 @@ python3 scripts/rehearse_rpi.py --image theos:rehearsal
 
 The rehearsal installs a release, writes a SQLite record, replaces the release, then starts an intentionally unhealthy image.
 It verifies rollback and the records in both retained databases before removing its containers and volumes.
+
+## Separate frontend releases
+
+The Next.js frontend uses the Docker `web-runtime` target. The API uses `runtime`.
+Pi releases publish both images and retain both immutable digests in the release manifest.
+Deployment checks both services before committing the release. Rollback restores the previous image pair and data volume.
+The API retains its existing architecture coverage. The Next.js frontend release currently targets ARM64.
+Local frontend builds also run on the development host.
+
+Before the first separate-service release, set a random `AGENT_FRONTEND_SECRET` in the deployment environment.
+Keep `AGENT_WEB_URL` pointed at the public frontend origin.
+The frontend retains the host browser port, 8080. Direct API and terminal access moves to the private API port, 8081.
+Existing browser tokens remain valid for sign-in. Previously stored tab tokens are removed by the new client.
+Sessions from earlier versions can require sign-in when their last activity exceeds the new idle limit.

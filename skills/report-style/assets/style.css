@@ -1,12 +1,9 @@
-@font-face { font-family: "InterStatic"; font-weight: 400; src: url("https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.0/files/inter-latin-400-normal.woff2") format("woff2"); }
-@font-face { font-family: "InterStatic"; font-weight: 500; src: url("https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.0/files/inter-latin-500-normal.woff2") format("woff2"); }
-@font-face { font-family: "InterStatic"; font-weight: 600; src: url("https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.0/files/inter-latin-600-normal.woff2") format("woff2"); }
-@font-face { font-family: "InterStatic"; font-weight: 700; src: url("https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.0/files/inter-latin-700-normal.woff2") format("woff2"); }
-@font-face { font-family: "DejaVu Sans Mono"; font-weight: 400;
-  src: url("https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSansMono.ttf"); }
-@font-face { font-family: "DejaVu Sans Mono"; font-weight: 700;
-  src: url("https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSansMono-Bold.ttf"); }
-
+@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 400;
+  src: url("fonts/SpaceGrotesk-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 600;
+  src: url("fonts/SpaceGrotesk-SemiBold.ttf") format("truetype"); }
+@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 700;
+  src: url("fonts/SpaceGrotesk-Bold.ttf") format("truetype"); }
 :root {
   --ink: #070707; --green: #186752; --tint: #f1f2ed; --rule: #b9bbb4;
   --muted: #5b5f58; --orange: #f2672c; --yellow: #efcc3a;
@@ -15,7 +12,7 @@
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin: 0; background: #fff; color: var(--ink);
-  font: 400 9.4pt/1.55 InterStatic, -apple-system, Helvetica, Arial, sans-serif; }
+  font: 400 9.4pt/1.55 "Space Grotesk", sans-serif; }
 
 /* cover */
 .cover { border-bottom: 1.3px dashed var(--ink); padding-bottom: 12px; margin-bottom: 6px; }

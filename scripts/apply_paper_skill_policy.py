@@ -12,15 +12,15 @@ Use arXiv or Hugging Face skills for additional source material or unavailable c
 State catalog gaps and failed lookups. Preserve paper identifiers and source links.
 
 In Theos, load `pwc-cli` through `load_skill` before research.
-The Pi's CLI belongs to the host. The remote sandbox needs its own installation.
-Check `pwc version` there before running commands.
+The task workspace already includes the pinned CLI.
+Check `pwc version` before running commands.
 The upstream source supports Python 3.10 or later and has no runtime dependencies:
 
 ```sh
 python -m pip install 'git+https://github.com/huggingface/pwc-cli.git@dba15a776f9773282fa590f42d7496f2833b5959#subdirectory=standalone_cli'
 ```
 
-Use `sandbox_run_command` for execution under the normal approval policy.
+Use `run_command` to execute commands in the task workspace.
 Public research requires no credentials. Do not authenticate or edit papers unless requested.
 If installation or the catalog is unavailable, report the limitation and use verified primary sources.
 

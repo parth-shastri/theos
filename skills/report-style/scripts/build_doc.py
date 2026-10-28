@@ -19,6 +19,7 @@ The Markdown file may contain, beyond ordinary Markdown:
 # ///
 
 import argparse
+import base64
 import html
 import os
 import re
@@ -201,6 +202,13 @@ def build_html(md_path):
     body = body.replace('<p><strong>', '<p class="lead"><strong>')
 
     css = open(os.path.join(ASSETS, 'style.css'), encoding='utf-8').read()
+    # Embed the bundled fonts so temporary HTML and DOCX figure captures share the same face.
+    def embed_font(match):
+        with open(os.path.join(ASSETS, match.group(1)), 'rb') as font:
+            data = base64.b64encode(font.read()).decode('ascii')
+        return f'url("data:font/ttf;base64,{data}")'
+
+    css = re.sub(r'url\("(fonts/[^"/]+\.ttf)"\)', embed_font, css)
     js = open(os.path.join(ASSETS, 'edges.js'), encoding='utf-8').read()
     title = html.escape(fm.get('title', os.path.splitext(os.path.basename(md_path))[0]))
     return (f'<!doctype html><html><head><meta charset="utf-8"><title>{title}</title>'
@@ -228,8 +236,9 @@ def main():
     page = build_html(a.markdown)
     html_path = a.html or os.path.join(tempfile.mkdtemp(), 'doc.html')
     open(html_path, 'w', encoding='utf-8').write(page)
-    # The virtual-time budget lets the web fonts load and edges.js draw the arrows before printing.
-    subprocess.run([find_chrome(), '--headless', '--disable-gpu', '--no-pdf-header-footer',
+    # The virtual-time budget lets edges.js draw diagram arrows before printing.
+    subprocess.run([find_chrome(), '--headless', '--no-sandbox', '--disable-dev-shm-usage',
+                    '--disable-gpu', '--no-pdf-header-footer',
                     '--virtual-time-budget=20000', '--run-all-compositor-stages-before-draw',
                     f'--print-to-pdf={os.path.abspath(a.out)}', 'file://' + os.path.abspath(html_path)],
                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

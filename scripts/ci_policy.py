@@ -16,6 +16,8 @@ BUILD_PATHS = (
     "compose*.yaml",
     "pyproject.toml",
     "uv.lock",
+    "web/*",
+    "web/**",
     ".github/workflows/*",
     ".github/actionlint.yaml",
     "scripts/ci_policy.py",
