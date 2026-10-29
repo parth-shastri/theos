@@ -1,6 +1,18 @@
 # Theos project memory
 
-Updated: 2026-10-28.
+Updated: 2026-10-29.
+
+## Release 1.4.4 preparation, 2026-10-29
+
+The operator requested the latest connector changes on `main` and the Raspberry Pi.
+Release 1.4.4 includes Slack, GitHub, signed GitHub notifications, Google Calendar, and the integrated browser updates.
+Use a topic PR into `dev`, then separate promotion PRs with merge commits into `main` and `rpi`.
+Publish immutable tag `rpi-v1.4.4` at the promoted `rpi` tip.
+Copy connector credentials and the webhook secret from the private local `.env` into the private Pi environments.
+Use production OAuth callback URLs. Preserve each deployment's existing encryption key and unrelated settings.
+Keep credentials and private environment backups outside Git.
+The operator will edit the GitHub App webhook settings to use the production receiver after activation.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
 
 ## Calendar OpenUI components, 2026-10-28
 
