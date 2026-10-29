@@ -40,7 +40,7 @@ async def test_browser_format_is_saved_without_changing_generic_message_serializ
     answer = runtime.db.load_history("alice", session["id"])[-1]
     display = display_metadata(answer)
     assert display["format"] == "openui-lang"
-    assert display["library_version"] == "theos-openui-2"
+    assert display["library_version"] == "theos-openui-3"
     assert display["openui_message_id"] == format_event["openui_message_id"]
     assert "display" not in message_to_dict(answer)
     scripted_models.responses.append([AssistantMessage("A plain answer.")])

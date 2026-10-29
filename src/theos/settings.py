@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, SecretStr, StringConstraints, model_valid
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from theos.config import DEFAULT_MODEL, DEFAULT_PROVIDER
+from theos.services.mcp_accounts.config import MCPAccountSettings
 
 
 class MemorySettings(BaseModel):
@@ -47,6 +48,25 @@ class OAuthSettings(BaseModel):
                 uri.scheme == "http" and uri.hostname in {"localhost", "127.0.0.1"}
             ):
                 raise ValueError("Use HTTPS for the OAuth callback, except on localhost.")
+        return self
+
+
+class CalendarSettings(OAuthSettings):
+    @model_validator(mode="after")
+    def registered_callback(self):
+        if self.enabled:
+            uri = urlsplit(self.redirect_uri)
+            if (
+                not uri.hostname
+                or uri.username
+                or uri.password
+                or uri.query
+                or uri.fragment
+                or uri.path != "/oauth/calendar/callback"
+            ):
+                raise ValueError(
+                    "Use the exact /oauth/calendar/callback URI without credentials or queries."
+                )
         return self
 
 
@@ -206,7 +226,11 @@ class Settings(ClientSettings):
     kokoro_voice: str = "am_michael(0.7)+bm_george(0.3)"
     kokoro_speed: float = Field(default=0.9, ge=0.5, le=2)
     kokoro_key: SecretStr = SecretStr("")
+    github_webhook_secret: SecretStr = SecretStr("")
+    github: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
+    slack: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
     gmail: OAuthSettings = Field(default_factory=OAuthSettings)
+    calendar: CalendarSettings = Field(default_factory=CalendarSettings)
     health: OAuthSettings = Field(default_factory=OAuthSettings)
     token_encryption_key: SecretStr = SecretStr("")
     health_interval: int = Field(default=43200, ge=60)
@@ -246,7 +270,19 @@ class Settings(ClientSettings):
             raise ValueError("Use a different browser token for each user.")
         if not self.admins <= self.users.keys():
             raise ValueError("Each administrator must have a browser token.")
-        if self.gmail.enabled or self.health.enabled or self.zepto_url:
+        if self.github_webhook_secret and len(self.github_webhook_secret.get_secret_value()) < 32:
+            raise ValueError("AGENT_GITHUB_WEBHOOK_SECRET must contain at least 32 characters.")
+        self.github.check_callback("github")
+        self.slack.check_callback("slack")
+        if (
+            self.gmail.enabled
+            or self.calendar.enabled
+            or self.health.enabled
+            or self.zepto_url
+            or self.slack.enabled
+            or self.github.enabled
+            or self.github_webhook_secret
+        ):
             from cryptography.fernet import Fernet
 
             try:

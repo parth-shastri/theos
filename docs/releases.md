@@ -15,6 +15,26 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.4.4
+
+Package version 1.4.4 uses tag `rpi-v1.4.4` from the promoted `rpi` tip.
+It adds the Slack and GitHub read connectors, signed GitHub notifications, and Google Calendar operations.
+Browser updates include Calendar views, completed thinking disclosures, and revised approval panels.
+Migration 016 adds the signed event queue and private notification records.
+
+Copy the connector credentials and webhook secret from the private local `.env` into the private Pi environment.
+Set the Slack, GitHub, and Calendar callbacks to the production HTTPS origin and their respective `/oauth/<service>/callback` paths.
+Preserve the Pi encryption key and unrelated settings. Keep a private environment backup before editing.
+Register each exact callback with its provider. Existing local account grants do not transfer to the Pi.
+
+After activation, edit the GitHub App webhook URL to `https://theos.parth-shastri.com/webhooks/github`.
+Use the same `AGENT_GITHUB_WEBHOOK_SECRET` value in the app's webhook Secret field.
+Keep webhooks active and SSL verification enabled. See [GitHub setup](github-mcp.md#event-notifications) for event subscriptions and owner opt-in.
+
+Promote through separate PRs and merge commits into `main` and `rpi`.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+Live production account consent and real webhook delivery require separate acceptance checks.
+
 ## Release 1.4.3
 
 Package version 1.4.3 uses tag `rpi-v1.4.3` from the current `rpi` tip.

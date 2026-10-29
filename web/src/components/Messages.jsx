@@ -4,6 +4,7 @@ import {
   memo,
   useContext,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -279,13 +280,20 @@ const ChatMessage = memo(function ChatMessage({
   speech,
   autoPlay,
 }) {
+  const reasoningOnly =
+    entry.role === "assistant" &&
+    !!entry.reasoning &&
+    (!entry.text || entry.presentationHidden);
+  const thoughtDuration = entry.display?.duration_ms;
   return (
     <article
       className={
-        "message " + (entry.role === "workspace" ? "system" : entry.role)
+        "message " +
+        (entry.role === "workspace" ? "system" : entry.role) +
+        (reasoningOnly ? " reasoning-only" : "")
       }
     >
-      <div className="role">
+      <div className="role" hidden={reasoningOnly}>
         {entry.role === "assistant"
           ? agentName
           : entry.role === "workspace"
@@ -293,10 +301,18 @@ const ChatMessage = memo(function ChatMessage({
             : "You"}
       </div>
       {entry.reasoning && (
-        <details className="thinking">
+        <details
+          className={"thinking" + (entry.streaming ? " is-thinking" : "")}
+        >
           <summary>
             <span className="thinking-orb" aria-hidden="true" />
-            <span className="thinking-label">Thinking</span>
+            <span className="thinking-label">
+              {entry.streaming
+                ? "Thinking…"
+                : Number.isFinite(thoughtDuration)
+                  ? `Thought for ${Math.max(0, thoughtDuration / 1000).toFixed(1)} s`
+                  : "Thought"}
+            </span>
           </summary>
           <Markdown
             className="thinking-body"
@@ -339,7 +355,7 @@ const ChatMessage = memo(function ChatMessage({
             ))}
         </div>
       )}
-      <div className="message-footer">
+      <div className="message-footer" hidden={reasoningOnly}>
         {speech &&
           entry.role === "assistant" &&
           entry.format !== "openui-lang" &&
@@ -489,12 +505,13 @@ export function MessageList({ scrollRef, onScroll }) {
             </div>
           ),
         )}
-        {chat.responding && (
-          <div className="turn-activity is-thinking" role="status">
-            <span className="thinking-orb" aria-hidden="true" />
-            <span className="thinking-label">Thinking…</span>
-          </div>
-        )}
+        {chat.responding &&
+          !chat.entries.some((entry) => entry.streaming && entry.reasoning) && (
+            <div className="turn-activity is-thinking" role="status">
+              <span className="thinking-orb" aria-hidden="true" />
+              <span className="thinking-label">Thinking…</span>
+            </div>
+          )}
         {chat.notice && (
           <p className="context-activity" role="status">
             {chat.notice}
@@ -524,6 +541,7 @@ function ReviewField({ field }) {
 }
 function ApprovalCard({ item }) {
   const { busy, approve } = useWorkspace();
+  const titleId = useId();
   const groups = [],
     technical = [];
   let group = null,
@@ -552,34 +570,48 @@ function ApprovalCard({ item }) {
     exact = JSON.stringify(JSON.parse(item.arguments), null, 2);
   } catch {}
   return (
-    <article>
-      <strong>Approval needed</strong>
-      <p className="approval-action">
-        {item.label || item.tool.replaceAll("_", " ")}
-      </p>
-      {groups.map((group, index) => (
-        <ReviewGroup group={group} key={index} />
-      ))}
-      {!!technical.length && (
-        <details className="approval-technical">
-          <summary>Exact request details</summary>
-          <dl className="approval-fields">{technical}</dl>
+    <article aria-labelledby={titleId} aria-busy={busy}>
+      <header className="approval-heading">
+        <span className="approval-status">Approval needed</span>
+        <h3 className="approval-action" id={titleId}>
+          {item.label || item.tool.replaceAll("_", " ")}
+        </h3>
+      </header>
+      <div className="approval-content">
+        {groups.map((group, index) => (
+          <ReviewGroup group={group} key={index} />
+        ))}
+        {!!technical.length && (
+          <details className="approval-technical">
+            <summary>Exact request details</summary>
+            <dl className="approval-fields">{technical}</dl>
+          </details>
+        )}
+        <details>
+          <summary>Exact tool arguments</summary>
+          <pre>{exact}</pre>
         </details>
-      )}
-      <details>
-        <summary>Exact tool arguments</summary>
-        <pre>{exact}</pre>
-      </details>
-      <button
-        className="primary"
-        disabled={busy}
-        onClick={() => approve(item, true)}
-      >
-        Approve
-      </button>
-      <button disabled={busy} onClick={() => approve(item, false)}>
-        Deny
-      </button>
+      </div>
+      <footer className="approval-controls">
+        <span>Applies to this request only.</span>
+        <div className="approval-buttons">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => approve(item, false)}
+          >
+            Deny
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            onClick={() => approve(item, true)}
+          >
+            Approve
+          </button>
+        </div>
+      </footer>
     </article>
   );
 }
@@ -594,7 +626,7 @@ function ReviewGroup({ group }) {
 export function Approvals() {
   const { chat } = useWorkspace();
   return (
-    <div id="approvals">
+    <div id="approvals" role="region" aria-label="Pending approvals">
       {chat.approvals.map((item) => (
         <ApprovalCard item={item} key={item.id} />
       ))}

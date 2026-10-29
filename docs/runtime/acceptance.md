@@ -1,5 +1,41 @@
 # Feature and acceptance checklist
 
+## Calendar OpenUI components, 2026-10-28
+
+Library version 3 adds an agenda, event card, and availability timeline. Saved versions 1 and 2 remain renderable.
+Calendar views preserve all-day exclusive ends, IANA timezones, and daylight-saving offset changes.
+The availability calculation clips and merges busy intervals. Failed, missing, or malformed results leave unknown gaps.
+Source-provided event and meeting links remain safe links. Event descriptions display as literal text.
+
+All 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scenarios passed.
+The browser checks covered four widths in both themes, keyboard inspection, reloads, partial results, invalid dates, and unsafe links.
+The Calendar views made no turn requests during browser inspection. Tests used synthetic events and mocked provider responses.
+Formatting, Python lint, generated artifact validation, and production frontend compilation passed.
+Mobile light and desktop dark screenshots passed visual review. Native ARM64 API and frontend image builds passed.
+The 88 activity and OpenUI browser scenarios also passed after updating the active-indicator selector and removing fixture requests during teardown.
+
+Both local services now run the Calendar OpenUI images on ports 8080 and 8081.
+Readiness, installed version 3, generated component instructions, and meeting-link fields passed direct checks.
+The existing account connections and data volume survived replacement. No live Calendar event was created or changed for these checks.
+Live model selection of the new views and production deployment remain unverified.
+
+## OpenUI summaries and completed thinking, 2026-10-28
+
+Text-only summary facts now use label/value rows. Completed thinking retains its disclosure and shows `Thought for x s` from the saved generation duration.
+Reasoning-only messages hide their separate role and metadata footer. Hidden OpenUI tool phases retain their reasoning after reload.
+Older summaries without timing show `Thought`. Active reasoning uses one thinking indicator.
+
+Approval reviews now use a neutral panel with a fixed heading and decision controls. Long review contents scroll inside the panel.
+
+All 22 frontend unit tests, 27 focused Python checks, and 64 OpenUI browser scenarios passed.
+Browser checks covered four widths in both themes, streamed completion, disclosure identity, and reload restoration.
+Approval checks covered exact arguments, disabled controls, rejected submissions, and accepted denial. These checks used synthetic data and an isolated local API.
+Formatting, OpenUI artifact validation, and the production frontend build passed. Mobile light and desktop dark screenshots passed visual review.
+
+The native ARM64 frontend image built and replaced only the local frontend container on port 8080.
+The existing API container stayed running. Both readiness endpoints passed. The saved Slack summary displayed the updated rows and completed thought labels.
+Production deployment remains pending.
+
 ## Optional connection onboarding and account returns, 2026-10-24
 
 Telegram offers configured, unconnected accounts after the name and timezone questions.
@@ -1586,3 +1622,165 @@ The focused connector and transport checks passed 73 tests.
 Checks cover delayed Zepto links, reply prompts, Google callbacks, expiry, denial, retry, cancellation, owner isolation, and plaintext redaction.
 Configured lint, formatting, whitespace checks, and the Python package build passed.
 No live Telegram message or provider authorization was used. Native device checks and deployment remain pending.
+
+## Slack official MCP connector, 2026-10-15
+
+The full local suite passed 1,156 tests, with three credential-dependent checks excluded.
+The focused shared and Slack checks passed 34 tests.
+They cover confidential user OAuth, durable single-use state, callback replay, encrypted restart access, and token refresh.
+The Slack adapter uses a client secret without enabling Slack's public-client PKCE mode.
+Other providers keep PKCE as the shared adapter default.
+The default Slack scopes exclude private search and writes. Provider permission checks still apply to every call.
+A private-search refusal remains a failed read. It returns no source page and does not expose private provider error text.
+Tests also cover paged discovery, schema rejection, private transports, optional outages, and complete source ownership.
+The shared wire check uses the real MCP client against a mock HTTP transport. It does not repeat failed reads.
+Python lint, formatting, JavaScript syntax, lock validation, package builds, and whitespace checks passed.
+The setup guide's prose lint reports 1.57 findings per 100 words.
+These checks used local fixtures. Eligible app registration, workspace consent, live tool discovery, and deployment remain pending.
+
+
+## Slack synchronization with main, 2026-10-28
+
+The Slack topic branch merges main at c42b61a with both histories preserved.
+The connector uses the current Next.js workspace, callback proxy, optional onboarding, and native Telegram controls.
+Setup cancellation preserves the existing grant. Large reads use the current bounded result staging service.
+The retired static browser app and connector source wrapper remain removed.
+Provider assets retain their source notice and updated provenance manifest.
+
+The full Python suite passed 1,139 tests, with three live checks deselected.
+The focused account and transport suite passed 73 tests after the final adjustments.
+All 18 frontend unit tests and 48 Chromium connection scenarios passed.
+Browser checks covered four viewport widths and both themes, including Slack sign-in, cancellation, and callback restoration.
+Lint, formatting, OpenUI validation, lock validation, package builds, and native ARM64 Docker builds passed.
+Both isolated Docker services are healthy. Next.js uses localhost port 8080 and the private API uses port 8081.
+The test retains its separate data volume and disables Telegram polling.
+
+The saved Slack OAuth grant survived replacement and appears connected.
+Live MCP initialization returned HTTP 400 and RPC code -32600 because the Slack app lacks MCP server access.
+Enable MCP access in the app settings before repeating discovery and a read.
+No Slack message was sent. Live provider reads and permission-removal acceptance remain open.
+
+
+## Live Slack MCP discovery and channel search, 2026-10-28
+
+The operator enabled MCP access in the registered Slack app.
+The existing encrypted OAuth grant then passed authenticated discovery without reconnecting.
+Five reviewed tools became available: slack_read_channel, slack_read_thread, slack_search_channels, slack_search_public, and slack_search_users.
+A new isolated browser conversation ran slack_search_channels once with a one-result public-channel limit.
+The provider returned one channel and isError=false. The tool and turn both completed in 8.84 seconds.
+The existing journal and SSE delivery recorded one completed call. No Slack write tool ran.
+Channel names, account credentials, and provider response contents remain outside these notes.
+Private conversation access, permission removal, and live disconnection remain unverified.
+
+## GitHub official MCP connector, 2026-10-15
+
+The full local suite passed 1,153 tests, with three credential-dependent checks excluded.
+The final focused suite passed 31 tests after the callback URI and Git tree toolset checks.
+Checks cover encrypted account recovery, owner binding, PKCE, callback replay, cancellation, and token rotation.
+They also cover refresh/disconnect races, session teardown, paged discovery, schema rejection, and private transport access.
+A real MCP client read two discovery pages through a mock HTTP transport. A failed tool call executed once.
+A scripted runtime read saved the complete result and returned a bounded source page. Other owners could not read that source.
+An optional connector outage left ordinary chat available. Unknown tools and write tools remained unavailable.
+Python lint, formatting, JavaScript syntax, lock validation, package builds, and whitespace checks passed.
+The setup guide's prose lint reports 1.20 findings per 100 words.
+These checks used local fixtures. Live GitHub App authorization, repository access, and deployment remain pending.
+
+
+## GitHub synchronization with dev, 2026-10-28
+
+Slack PR 75 merged into dev after all required GitHub CI checks passed.
+The GitHub branch merges dev at f0e523a and retains the tested shared MCP account adapter.
+GitHub now uses the current Next.js workspace, callback proxy, optional setup, composer mentions, and native Telegram controls.
+Canceling setup preserves the previous grant. Large reads use the current bounded result staging service.
+The removed static browser app and connector source wrapper remain removed. Provider attribution remains available.
+
+The full Python suite passed 1,148 tests, with three live checks deselected.
+The focused connector and transport suite passed 82 tests. All 18 frontend unit tests and 56 Chromium connection cases passed.
+Browser cases covered GitHub, Slack, and Google sign-in, cancellation, and callback restoration across four widths and both themes.
+Lint, formatting, OpenUI validation, lock validation, package builds, and native ARM64 API/frontend image builds passed.
+The isolated Docker frontend and API are healthy on localhost ports 8080 and 8081.
+Slack retains its connected grant and all five previously discovered read tools.
+The GitHub frontend callback reaches the API and returns the expected invalid-state response for a synthetic state.
+
+The private environment still lacks GitHub OAuth credentials. Live authorization, discovery, and repository reads remain pending.
+These checks used mocked providers for GitHub. No live GitHub account was connected.
+
+
+## Signed GitHub events and private notifications, 2026-10-28
+
+The GitHub connector now receives signed POST /webhooks/github deliveries through the production Next.js byte proxy.
+Migration 016 stores subscriptions, encrypted pending payloads, delivery IDs, private inbox notices, and Telegram delivery status.
+Opted-in owners receive direct mentions, assignments, review requests, and failed workflows they triggered.
+The worker verifies the current GitHub identity and repository access before routing and before a Telegram send.
+Event content never starts a model turn. Browser and Telegram owners retain their existing identity boundaries.
+
+The full Python suite passed 1,164 tests, with three credential-dependent checks deselected.
+The 20 frontend unit tests and 64 Chromium connection scenarios passed.
+Eight alert scenarios passed again after the final theme-color change at four widths in both themes.
+Mobile previews passed visual review at 320 and 390 pixels. Tests use synthetic titles and provider fixtures.
+The checks cover signatures, byte limits, changed payloads, duplicates, access revocation, opt-in revisions, and owner isolation.
+They also cover queue restart recovery, uncertain Telegram sends, disabled-feature retention, and notification acknowledgement.
+Lint, formatting, OpenUI validation, package builds, wheel contents, and native ARM64 API/frontend image builds passed.
+Both isolated Docker services are healthy. SQLite schema 16 passed integrity checking in a consistent local snapshot.
+
+A synthetic UTF-8 ping traversed the public temporary HTTPS tunnel, the webhook-only origin, Next.js, and the API.
+A valid signature returned 202. The same delivery returned duplicate=true. A changed payload returned 403.
+The tunnel returned 404 for the app root and /api/me, and 200 for its readiness route.
+The operator authorized this temporary tunnel. Its processes, URL, and port are recorded only in the ignored local test folder.
+A signing secret was generated in the ignored private .env. It was not included in source or build output.
+
+These checks do not establish a real GitHub App delivery or a live Telegram send.
+GitHub OAuth credentials, provider setup, per-owner opt-in, and actual event delivery still need live acceptance.
+The production Theos deployment is unchanged. The temporary tunnel remains active for the requested local test.
+
+## General evidence and pagination guidance, 2026-10-28
+
+The shared chat prompt no longer contains mailbox-specific coverage rules.
+General guidance requires enough evidence for the task and distinguishes partial coverage, estimates, and exact counts.
+Gmail and shared MCP tool descriptions explain page limits and continuation parameters.
+Staged-result guidance distinguishes a complete response from complete provider coverage.
+
+The 86 focused prompt, account, connector, Gmail, checkpoint, and result-staging tests passed.
+Ruff lint, formatting, and patch whitespace checks passed.
+The local API image rebuilt successfully. Both Docker services returned healthy.
+The running API exposes the updated GitHub and Gmail descriptions and retains both connected account grants.
+The installed prompt and staging helper contain the new guidance.
+These checks verify configuration and existing contracts. Model behavior after the prompt change remains unverified.
+
+## GitHub live account reads, 2026-10-28
+
+The operator created the GitHub App and authorized its localhost callback.
+The local Docker workspace retained the encrypted account grant after restart.
+Authenticated discovery exposed reviewed GitHub tools in the existing browser conversation.
+The operator's repository-activity request completed identity, repository-search, and commit-list reads through the model.
+Large responses were staged without truncating the returned page. The first answer stopped after one full commit page.
+The later prompt change clarifies evidence coverage and pagination. A fresh model pagination check remains pending.
+No GitHub write tool ran. Real notification delivery and private Telegram acceptance remain unverified.
+
+## Google Calendar basic operations, 2026-10-28
+
+The Calendar service uses existing Google OAuth and HTTPX with separate owner-bound encrypted credentials.
+It supports calendar lists, event search and details, free/busy reads, and regular single-event creation, updates, and deletion.
+Updates and deletion require the event version and use If-Match. Attendee and recurring-event mutations remain unavailable.
+The service validates local times, daylight-saving ambiguity, and exclusive all-day end dates.
+Unknown writes are not retried. Creation includes a known event ID for read-only reconciliation.
+Calendar disconnection removes its local grant without revoking other grants in the shared Google project.
+The generic harness and general agent instructions remain unchanged. No database migration or provider SDK was added.
+
+All 1,199 Python tests passed, with three live checks deselected. The Calendar module has 35 contract cases.
+The 20 frontend unit tests and 72 Chromium connection cases passed across four widths and both themes.
+Ruff lint, formatting, OpenUI validation, and patch whitespace checks passed.
+Native ARM64 API and frontend images built successfully. Both isolated Docker services are healthy on ports 8081 and 8080.
+
+The operator registered localhost and deployment callbacks and authorized the local Calendar connection.
+A normal browser model turn completed calendar_list_calendars, calendar_list_events, and calendar_free_busy through the normal journal and delivery path.
+Calendar listing returned four calendars without another page. Event search returned zero events for the selected one-hour interval.
+Availability returned no calendar errors. The three reads completed in a 4.7-second turn without any Calendar writes.
+Event titles, descriptions, locations, and attendee data were excluded from the user-facing result and these notes.
+
+The operator then approved one temporary primary-calendar event for October 29, 09:00-09:05 Asia/Kolkata.
+The normal model turn created that event, read its version, moved it to 09:05-09:10, read its new version, and deleted it.
+Journal inspection confirmed exactly one create, one update, and one delete for the same event, without attendees.
+One read call was rejected by local argument validation and corrected before the remaining operations completed.
+A separate read-only request to Google returned HTTP 200 with event status cancelled, confirming no active test event remained.
+Production deployment and live Telegram acceptance remain pending.

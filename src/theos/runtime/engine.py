@@ -134,14 +134,18 @@ class Runtime:
         self.locks: dict[str, asyncio.Lock] = {}
         self.active: dict[str, Turn] = {}
         self.closed = False
+        from theos.services.calendar.client import Calendar
+        from theos.services.github import create_account as create_github_account
         from theos.services.gmail.client import Gmail
         from theos.services.google.oauth import OAuth
         from theos.services.health.client import Health
         from theos.services.sandbox.client import Sandboxes
+        from theos.services.slack import create_account as create_slack_account
         from theos.services.zepto.auth import Zepto
 
         self.oauth = OAuth(settings, db, self.http)
         self.gmail = Gmail(self.oauth, self.http, self.files)
+        self.calendar = Calendar(self.oauth, self.http, settings, db)
         self.health = Health(self.oauth, settings, db, self.http)
         self.sandboxes = Sandboxes(settings, db, self.files)
         from theos.services.sandbox.browser import Browsers
@@ -149,6 +153,11 @@ class Runtime:
         self.browsers = Browsers(self)
         self.sandboxes.browsers = self.browsers
         self.zepto = Zepto(settings, db, self.http)
+        self.slack = create_slack_account(settings, db, self.http)
+        self.github = create_github_account(settings, db, self.http)
+        from theos.services.github.notifications import GitHubNotifications
+
+        self.github_events = GitHubNotifications(settings, db, self.http, self.github)
 
     def lock(self, session_id):
         """Return the lock that serializes one conversation."""
@@ -664,6 +673,8 @@ class Runtime:
         await asyncio.gather(*tasks, return_exceptions=True)
         await self.checkpoints.close()
         await self.zepto.close()
+        await self.slack.close()
+        await self.github.close()
         await self.browsers.close()
         await self.sandboxes.close()
         await self.http.aclose()

@@ -381,3 +381,51 @@ The parent holds one summary call for its final response within the summary allo
 Each active delegate holds one when available. Completed delegates release unused holds.
 These holds do not add calls or change the generation output setting.
 See the [call budget map](../runtime/call-budgets.md).
+
+## Slack remote MCP
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_SLACK__CLIENT_ID | Empty | Deployment OAuth client ID |
+| AGENT_SLACK__CLIENT_SECRET | Empty | Deployment OAuth client secret |
+| AGENT_SLACK__REDIRECT_URI | Empty | Exact /oauth/slack/callback URI |
+| AGENT_SLACK__SCOPES | ["search:read.public", "search:read.users", "channels:read", "channels:history", "users:read"] | JSON list of user scopes |
+
+The connector requires a valid AGENT_TOKEN_ENCRYPTION_KEY.
+See [Slack setup](../slack-mcp.md) for provider requirements and supported tools.
+
+## GitHub remote MCP
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_GITHUB__CLIENT_ID | Empty | Deployment OAuth client ID |
+| AGENT_GITHUB__CLIENT_SECRET | Empty | Deployment OAuth client secret |
+| AGENT_GITHUB__REDIRECT_URI | Empty | Exact /oauth/github/callback URI |
+| AGENT_GITHUB__SCOPES | [] | JSON list of user scopes |
+
+The connector requires a valid AGENT_TOKEN_ENCRYPTION_KEY.
+See [GitHub setup](../github-mcp.md) for provider requirements and supported tools.
+
+
+## GitHub webhook notifications
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| AGENT_GITHUB_WEBHOOK_SECRET | Empty | Dedicated signing secret, at least 32 characters. Empty disables the receiver. |
+
+The webhook secret requires a valid AGENT_TOKEN_ENCRYPTION_KEY for queued payloads.
+Configure the same secret and /webhooks/github in the GitHub App settings.
+Each connected owner must opt in. See [event notifications](../github-mcp.md#event-notifications).
+
+## Google Calendar
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `AGENT_CALENDAR__CLIENT_ID` | Empty | Google web application OAuth client ID |
+| `AGENT_CALENDAR__CLIENT_SECRET` | Empty | Google OAuth client secret |
+| `AGENT_CALENDAR__REDIRECT_URI` | Empty | Exact `/oauth/calendar/callback` URI |
+
+Set all three values together. The connector requires the existing valid `AGENT_TOKEN_ENCRYPTION_KEY`.
+Local testing uses `http://localhost:8080/oauth/calendar/callback`.
+Calendar connects separately from Gmail, even when both services reuse the same OAuth client.
+See [Calendar setup](../calendar.md) for scopes, operations, and disconnection behavior.

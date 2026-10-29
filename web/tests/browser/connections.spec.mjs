@@ -4,13 +4,22 @@ const token =
   process.env.THEOS_E2E_TOKEN || "nextjs-browser-preview-token-123456789";
 async function fixture(page, { onboarding = false, name = "Ada" } = {}) {
   const data = {
-    accounts: ["gmail", "zepto", "health"].map((id) => ({
-      id,
-      name: { gmail: "Gmail", zepto: "Zepto", health: "Google Health" }[id],
-      configured: true,
-      connected: false,
-      setup: { status: "idle" },
-    })),
+    accounts: ["gmail", "calendar", "zepto", "health", "slack", "github"].map(
+      (id) => ({
+        id,
+        name: {
+          gmail: "Gmail",
+          calendar: "Google Calendar",
+          zepto: "Zepto",
+          health: "Google Health",
+          slack: "Slack",
+          github: "GitHub",
+        }[id],
+        configured: true,
+        connected: false,
+        setup: { status: "idle" },
+      }),
+    ),
     services: [],
     onboarding: {
       needed: onboarding,
@@ -87,48 +96,59 @@ test("optional onboarding saves a preferred name and returns to chat without sig
   expect(await page.context().pages()).toHaveLength(1);
 });
 
-test("Connect opens Google sign-in automatically and cancellation preserves the previous account", async ({
-  page,
-}) => {
-  const state = await fixture(page);
-  const account = state.data.accounts[0];
-  account.connected = true;
-  await page.route("**/api/connections/gmail/connect", async (route) => {
-    account.setup = { status: "waiting" };
-    await route.fulfill({
-      json: { status: "waiting", url: "https://accounts.example.test/google" },
+for (const service of ["gmail", "calendar", "slack", "github"]) {
+  test(`Connect opens ${service} sign-in automatically and cancellation preserves the previous account`, async ({
+    page,
+  }) => {
+    const state = await fixture(page);
+    const account = state.data.accounts.find(
+      (account) => account.id === service,
+    );
+    account.connected = true;
+    await page.route(`**/api/connections/${service}/connect`, async (route) => {
+      account.setup = { status: "waiting" };
+      await route.fulfill({
+        json: {
+          status: "waiting",
+          url: `https://accounts.example.test/${service}`,
+        },
+      });
     });
-  });
-  await page.route("**/api/connections/gmail/cancel", async (route) => {
-    account.setup = { status: "cancelled", message: "Sign-in cancelled." };
-    await route.fulfill({ json: { cancelled: true } });
-  });
-  await page.locator("#refresh-connections").click();
-  const card = page.locator('[data-account="gmail"]');
-  const opened = page.waitForEvent("popup");
-  await card.getByRole("button", { name: "Reconnect", exact: true }).click();
-  const popup = await opened;
-  await expect(popup).toHaveURL("https://accounts.example.test/google");
-  await expect(
-    card.getByText("Awaiting sign-in", { exact: true }),
-  ).toBeVisible();
-  await card.getByRole("button", { name: "Cancel setup", exact: true }).click();
-  await expect(card.getByText("Connected", { exact: true })).toBeVisible();
-  expect(account.connected).toBe(true);
-  await popup.close();
-  const nextOpened = page.waitForEvent("popup");
-  await card.getByRole("button", { name: "Reconnect", exact: true }).click();
-  const nextPopup = await nextOpened;
-  await expect(nextPopup).toHaveURL("https://accounts.example.test/google");
-  account.setup = { status: "connected" };
-  await nextPopup
-    .goto(new URL("/?connections=1", page.url()).href)
-    .catch((error) => {
-      if (!nextPopup.isClosed()) throw error;
+    await page.route(`**/api/connections/${service}/cancel`, async (route) => {
+      account.setup = { status: "cancelled", message: "Sign-in cancelled." };
+      await route.fulfill({ json: { cancelled: true } });
     });
-  await expect.poll(() => nextPopup.isClosed()).toBe(true);
-  expect(state.turns).toBe(0);
-});
+    await page.locator("#refresh-connections").click();
+    const card = page.locator(`[data-account="${service}"]`);
+    const opened = page.waitForEvent("popup");
+    await card.getByRole("button", { name: "Reconnect", exact: true }).click();
+    const popup = await opened;
+    await expect(popup).toHaveURL(`https://accounts.example.test/${service}`);
+    await expect(
+      card.getByText("Awaiting sign-in", { exact: true }),
+    ).toBeVisible();
+    await card
+      .getByRole("button", { name: "Cancel setup", exact: true })
+      .click();
+    await expect(card.getByText("Connected", { exact: true })).toBeVisible();
+    expect(account.connected).toBe(true);
+    await popup.close();
+    const nextOpened = page.waitForEvent("popup");
+    await card.getByRole("button", { name: "Reconnect", exact: true }).click();
+    const nextPopup = await nextOpened;
+    await expect(nextPopup).toHaveURL(
+      `https://accounts.example.test/${service}`,
+    );
+    account.setup = { status: "connected" };
+    await nextPopup
+      .goto(new URL("/?connections=1", page.url()).href)
+      .catch((error) => {
+        if (!nextPopup.isClosed()) throw error;
+      });
+    await expect.poll(() => nextPopup.isClosed()).toBe(true);
+    expect(state.turns).toBe(0);
+  });
+}
 
 test("Zepto opens its discovered link and verifies the private return before reporting success", async ({
   page,
@@ -275,4 +295,64 @@ test("browser sign-in keeps private input outside chat and supports clearing the
   await expect(card.getByText("Saved browser login cleared.")).toBeVisible();
   await expect(card.locator(".browser-screen")).toHaveCount(0);
   expect(cleared).toBe(true);
+});
+
+test("GitHub event alerts support opt-in and private inbox actions without model turns", async ({
+  page,
+}, info) => {
+  const state = await fixture(page);
+  const account = state.data.accounts.find((item) => item.id === "github");
+  account.connected = true;
+  account.notifications = {
+    available: true,
+    enabled: false,
+    telegram: false,
+    telegram_available: false,
+    items: [],
+  };
+  await page.route("**/api/connections/github/notifications", async (route) => {
+    Object.assign(account.notifications, route.request().postDataJSON());
+    await route.fulfill({ json: account.notifications });
+  });
+  await page.locator("#refresh-connections").click();
+  const card = page.locator('[data-account="github"]');
+  await card.getByLabel("Notify me in Theos", { exact: true }).check();
+  await expect(
+    card.getByLabel("Notify me in Theos", { exact: true }),
+  ).toBeChecked();
+  await expect(
+    card.getByLabel("Also notify my private Telegram chat"),
+  ).toBeDisabled();
+  account.notifications.items.push({
+    id: "notice-one",
+    text: "Review requested in sample/project #12: Fix <script>",
+    url: "https://github.com/sample/project/pull/12",
+    read: false,
+    telegram: "not_requested",
+  });
+  await page.route(
+    "**/api/connections/github/notifications/notice-one/read",
+    async (route) => {
+      account.notifications.items[0].read = true;
+      await route.fulfill({ json: { read: true } });
+    },
+  );
+  await page.locator("#refresh-connections").click();
+  await expect(
+    card.getByRole("link", { name: /Review requested/ }),
+  ).toHaveAttribute("href", "https://github.com/sample/project/pull/12");
+  await expect(card.getByText(/Fix <script>/)).toBeVisible();
+  await card.scrollIntoViewIfNeeded();
+  await card.screenshot({
+    path: info.outputPath("github-event-notifications.png"),
+  });
+  await card.getByRole("button", { name: "Mark read", exact: true }).click();
+  await expect(
+    card.getByRole("button", { name: "Mark read", exact: true }),
+  ).toHaveCount(0);
+  await card.getByLabel("Notify me in Theos", { exact: true }).uncheck();
+  await expect(
+    card.getByLabel("Notify me in Theos", { exact: true }),
+  ).not.toBeChecked();
+  expect(state.turns).toBe(0);
 });

@@ -34,7 +34,9 @@ It preserves earlier design names and planned delivery phases.
 The tables below describe the current implementation.
 Read the [runtime diagram](architecture.md#current-implementation) for service ownership.
 
-Gmail search, message, thread, and draft reads, plus Health summary and export-status reads, keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
+Gmail and Calendar reads, Health summaries and export status, and Slack and GitHub MCP reads keep normalized results below 8 KiB inline. Larger results up to 1 MiB are staged under `/tmp/theos-results` and returned with a short summary and path. These files are temporary and are not copied into durable `/workspace` checkpoints. If staging is unavailable, the tool returns a bounded preview and asks for a narrower read. Use `run_command` with `cat`, `grep`, or `sed` to inspect selected sections.
+
+The `truncated` field describes the returned response only. A complete staged response can still require provider pagination or further content ranges. Account tool descriptions explain continuation parameters and page-size limits. General agent instructions govern evidence coverage for the requested task.
 
 ## CI coverage selection
 
@@ -138,6 +140,12 @@ OpenUI evidence cards use search-provided thumbnails and logos. The authenticate
 It discovers source icons, validates public socket addresses and redirects, and bounds downloads and its memory cache. No image service or dependency is added.
 The registered library includes metric grids, bar and line charts, donut charts, progress rings, tables, evidence, notices, and reminder forms.
 `web/src/openui/library.js` generates the model prompt and schema. `web/src/openui/visuals.js` supplies the registered visual components.
+Library version 3 adds `CalendarAgenda`, `CalendarEventCard`, and `CalendarAvailability`. Versions 1 and 2 remain renderable.
+`CalendarEvent`, `CalendarInterval`, and `CalendarBusyCalendar` supply their source data through the same registered schema.
+`web/src/openui/calendar.js` renders these views. `calendar-data.js` uses native `Intl` and date functions for grouping and interval calculations.
+The components add no dependency, model tool, form action, or database migration.
+Availability comes from `calendar_free_busy`. Failed reads stay unknown. All-day dates retain their exclusive end and timed events retain explicit offsets.
+Calendar event reads include source-provided meeting links and video conference entry points. The browser rejects unsafe link protocols and embedded credentials.
 The renderer treats raw HTML as text and removes unsafe links from generated markup.
 
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.
@@ -519,6 +527,28 @@ Source: [service tools](../src/theos/services/gmail/tools.py).
 | `gmail_create_label` | Create a Gmail label. |
 | `gmail_modify_labels` | Add or remove labels on a message or thread. |
 
+## Google Calendar
+
+HTTPX and the existing Google OAuth service provide private owner-bound Calendar access.
+The service adds no SDK, dependency, or database migration. See [Calendar setup](calendar.md).
+
+| Callable | Action |
+| --- | --- |
+| `calendar_connect` | Create a Google Calendar authorization link for the current owner. |
+| `calendar_disconnect` | Remove the local Calendar connection without revoking other Google project grants. |
+| `calendar_list_calendars(page_token?, max_results=25)` | List one page of calendars, IDs, timezones, and access roles. Pass `next_page_token` to continue. |
+| `calendar_list_events(time_min, time_max, calendar_id="primary", query?, timezone?, page_token?, max_results=25)` | Find events overlapping a date-time range. Recurring events appear as instances. Continue provider pagination with unchanged filters. |
+| `calendar_get_event(event_id, calendar_id="primary")` | Read details and the exact event `etag` before a mutation. |
+| `calendar_free_busy(time_min, time_max, calendar_ids?, timezone?)` | Read busy intervals for up to 50 calendars per request. Preserve individual access errors. |
+| `calendar_create_event(summary, start, end, calendar_id="primary", timezone?, all_day=false, description="", location?)` | Create one regular event without attendees or recurrence. All-day end dates are exclusive. |
+| `calendar_update_event(event_id, etag, calendar_id="primary", summary?, start?, end?, timezone?, all_day?, description?, location?)` | Change selected fields or reschedule a single event using its current version. |
+| `calendar_delete_event(event_id, etag, calendar_id="primary")` | Delete the verified single event using its current version. |
+
+Mutations reject events with attendees, recurrence, or specialized event types.
+Updates and deletion use `If-Match`. Unknown write outcomes remain uncertain and are not retried automatically.
+Known creation IDs permit read-only reconciliation after a lost response.
+The shared agent prompt remains general. Tool descriptions explain pagination, event times, and exclusive all-day end dates.
+
 ## Health
 
 HTTPX, Google OAuth, and encrypted owner tokens. Tools require a browser or private Telegram conversation.
@@ -762,3 +792,65 @@ The runtime reconnects, replaces confirmed expired or missing instances, and res
 Changed files, including nested files and output from failed commands, receive versioned checkpoints.
 Sources and model checkpoints require the authenticated owner and conversation.
 See [compression and workspaces](runtime/context-recovery.md) for the complete storage contract.
+
+
+## Slack MCP connector
+
+Theos uses the official remote MCP server through an owner-bound account adapter.
+The reviewed allowlist contains 18 read identifiers.
+Only the subset returned by authenticated discovery enters a conversation.
+Write tools and unknown tools remain unavailable.
+
+See [setup and usage](slack-mcp.md), the [allowlist](connectors/slack-tools.json), and the [implementation plan](connectors/slack-plan.md).
+The adapter validates arguments against the discovered JSON schema before execution.
+Small results remain inline. Large reads use the existing 8 KiB inline, 1 MiB staging, and bounded preview limits.
+The tool journal records the returned result. Temporary result files are not durable workspace checkpoints.
+The runtime preserves the existing private-account boundaries and approval policy.
+
+Dependencies remain mcp, httpx, cryptography, and jsonschema.
+Local contract tests pass. Enable Slack MCP access before live provider tool discovery.
+
+## GitHub MCP connector
+
+Theos uses the official remote MCP server through an owner-bound account adapter.
+The reviewed allowlist contains 23 read identifiers.
+Only the subset returned by authenticated discovery enters a conversation.
+Write tools and unknown tools remain unavailable.
+
+See [setup and usage](github-mcp.md), the [allowlist](connectors/github-tools.json), and the [implementation plan](connectors/github-plan.md).
+The adapter validates arguments against the discovered JSON schema before execution.
+Small results remain inline. Large reads use the existing 8 KiB inline, 1 MiB staging, and bounded preview limits.
+The tool journal records the returned result. Temporary result files are not durable workspace checkpoints.
+The runtime preserves the existing private-account boundaries and approval policy.
+
+Dependencies remain mcp, httpx, cryptography, and jsonschema.
+Local contract tests pass. Real account authorization and provider tool discovery remain pending.
+
+
+## GitHub event notifications
+
+The application receives POST /webhooks/github through a dedicated Next.js byte proxy.
+This endpoint uses HMAC-SHA256 rather than browser cookies. Other browser mutation routes retain their existing origin and CSRF checks.
+The API validates X-Hub-Signature-256, X-GitHub-Delivery, and X-GitHub-Event.
+It saves authenticated pending payloads with the existing Fernet encryption key and a durable SQLite queue in migration 016.
+The scheduler runs one background GitHub batch without blocking reminders or starting an agent turn.
+
+Per-owner configuration uses PUT /api/connections/github/notifications.
+POST /api/connections/github/notifications/{id}/read acknowledges only that owner's notice.
+GET /api/connections includes private subscription status and recent alerts.
+GET /api/notifications includes unread GitHub alerts for the authenticated browser or connected terminal owner.
+Private Telegram identities can use /github_notifications on and /github_notifications off.
+
+The service checks the current GitHub identity and repository access through authenticated GET /user and GET /repositories/{id}.
+It formats direct mentions, assignments, review requests, and relevant failed workflow runs as literal text and canonical GitHub links.
+It does not expose an agent tool or execute webhook instructions.
+Uncertain Telegram sends remain recorded and are not retried automatically.
+Dependencies remain HTTPX, cryptography, SQLite, FastAPI, and the existing Telegram client.
+See [setup and retention](github-mcp.md#event-notifications).
+
+
+Temporary webhook testing uses cloudflared 2026.10.5 from Homebrew.
+A loopback FastAPI/HTTPX/Uvicorn proxy exposes only POST /webhooks/github and GET /ready.
+The temporary URL, local port, and process IDs live in .theos/github-testing/tunnel-state.json.
+Stop both recorded processes after the live check to end public ingress.
+The development tunnel is separate from the production application dependencies.

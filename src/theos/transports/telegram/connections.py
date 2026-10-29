@@ -31,7 +31,7 @@ async def offer(bot, owner, chat, topic):
     await bot.send(
         chat,
         "Would you like to connect your accounts?\n"
-        "Gmail helps with email, Zepto with shopping, and Google Health with activity and vitals.\n"
+        "Gmail helps with email, Calendar with events, Zepto with shopping, and Google Health with activity and vitals.\n"
         "All connections are optional. You can add them later.",
         topic,
         {"inline_keyboard": buttons},
@@ -58,6 +58,8 @@ def controls(service, url=None, manual=False, pending=True):
 
 
 def connected(bot, owner, service):
+    if service in {"github", "slack"}:
+        return getattr(bot.runtime, service).connected(owner)
     if service == "zepto":
         return bot.runtime.zepto.connected(owner)
     return bool(
@@ -95,6 +97,8 @@ async def show_status(bot, owner, service, chat, topic):
     status = (
         bot.runtime.zepto.connection_status(owner)
         if service == "zepto"
+        else getattr(bot.runtime, service).status(owner)["setup"]
+        if service in {"github", "slack"}
         else bot.runtime.oauth.connection_status(owner, service)
     )
     state = status["status"]
@@ -126,7 +130,11 @@ async def start(bot, owner, service, chat, topic):
     """Open provider sign-in through native Telegram URL buttons."""
     try:
         if service != "zepto":
-            url = bot.runtime.oauth.start(owner, service)
+            url = (
+                (await getattr(bot.runtime, service).start(owner))["url"]
+                if service in {"github", "slack"}
+                else bot.runtime.oauth.start(owner, service)
+            )
             await bot.send(
                 chat,
                 "Connect " + LABELS[service] + "\n"
@@ -245,8 +253,15 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
         and command
         in {
             "/connections",
+            "/github_notifications",
+            "/github",
+            "/connect_github",
+            "/slack",
+            "/connect_slack",
             "/gmail",
             "/connect_gmail",
+            "/calendar",
+            "/connect_calendar",
             "/health",
             "/connect_health",
             "/zepto",
@@ -274,14 +289,31 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
             )
         return True
     if direct:
-        if command == "/connections":
+        if command == "/github_notifications":
+            argument = message.get("text", "").partition(" ")[2].strip().lower()
+            if argument not in {"on", "off"}:
+                await bot.send(
+                    chat, "Use /github_notifications on or /github_notifications off.", topic
+                )
+                return True
+            try:
+                await bot.runtime.github_events.configure(owner, argument == "on", argument == "on")
+                await bot.send(chat, "GitHub event notifications are " + argument + ".", topic)
+            except (ValueError, ServiceError, PermissionError) as error:
+                await bot.send(chat, str(error), topic)
+        elif command == "/connections":
             await menu(bot, owner, chat, topic)
         elif command == "/zepto_finish":
             await prompt_return(bot, owner, chat, topic)
         else:
-            service = {"/gmail": "gmail", "/health": "health", "/zepto": "zepto"}.get(
-                command, command.removeprefix("/connect_")
-            )
+            service = {
+                "/gmail": "gmail",
+                "/calendar": "calendar",
+                "/health": "health",
+                "/zepto": "zepto",
+                "/github": "github",
+                "/slack": "slack",
+            }.get(command, command.removeprefix("/connect_"))
             await start(bot, owner, service, chat, topic)
         return True
     action, _, service = data.removeprefix("connect:").partition(":")
@@ -309,7 +341,9 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
                 await prompt_return(bot, owner, chat, topic)
             else:
                 if action in {"retry", "cancel"}:
-                    if service == "zepto":
+                    if service in {"github", "slack"}:
+                        await getattr(bot.runtime, service).cancel(owner)
+                    elif service == "zepto":
                         await bot.runtime.zepto.cancel(owner)
                     else:
                         await bot.runtime.oauth.cancel(owner, service)
