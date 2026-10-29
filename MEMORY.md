@@ -1,6 +1,48 @@
 # Theos project memory
 
-Updated: 2026-10-27.
+Updated: 2026-10-29.
+
+## Release 1.4.4 preparation, 2026-10-29
+
+The operator requested the latest connector changes on `main` and the Raspberry Pi.
+Release 1.4.4 includes Slack, GitHub, signed GitHub notifications, Google Calendar, and the integrated browser updates.
+Use a topic PR into `dev`, then separate promotion PRs with merge commits into `main` and `rpi`.
+Publish immutable tag `rpi-v1.4.4` at the promoted `rpi` tip.
+Copy connector credentials and the webhook secret from the private local `.env` into the private Pi environments.
+Use production OAuth callback URLs. Preserve each deployment's existing encryption key and unrelated settings.
+Keep credentials and private environment backups outside Git.
+The operator will edit the GitHub App webhook settings to use the production receiver after activation.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
+## Calendar OpenUI components, 2026-10-28
+
+The operator requested agenda, event detail, and availability components before the pending UI merge into dev.
+OpenUI library version 3 adds CalendarAgenda, CalendarEventCard, and CalendarAvailability. Keep saved versions 1 and 2 renderable.
+The views only display Calendar tool results. They do not create, edit, delete, or book events during rendering.
+Group events in the selected IANA timezone. Preserve all-day civil dates and exclusive ends. Show changed daylight-saving offsets explicitly.
+Availability merges overlapping busy intervals within the exact queried range. Failed, missing, or malformed calendar results leave unconfirmed gaps.
+Retain partial-page and coverage notes. Do not infer free time from event searches.
+Read meeting links and video entry points with event details. Render source links safely and keep descriptions as literal text.
+Use existing React and native Intl functions. Add no dependency, generic harness change, or database migration.
+The 27 frontend unit tests, 48 focused Python checks, and 80 OpenUI browser scenarios passed.
+The local services now use `theos:calendar-openui-20261028` and `theos-web:calendar-openui-20261028` with saved connections and the existing volume preserved.
+The installed prompt and manifest expose version 3. Model selection of the new views remains unverified.
+The operator requested merging both UI revisions into dev through the same PR.
+Browser activity checks follow the single active indicator across reasoning disclosures and tool execution.
+OpenUI browser fixtures load their owned session before interception and release routes during teardown. The 88 focused browser scenarios passed after this adjustment.
+
+## OpenUI summaries and completed thinking, 2026-10-28
+
+Show text-only OpenUI summary facts as label/value rows with light separators. Keep numeric metric tiles and charts in their existing components.
+Keep each thinking disclosure in place when generation completes. Change its label to `Thought for x s` using the saved generation duration.
+Show `Thought` when older messages have no duration. Hide the separate role and metadata footer on reasoning-only messages.
+Preserve reasoning from hidden OpenUI tool phases after reload. Keep the hidden presentation source out of the visible answer.
+Show one active thinking indicator when a streamed reasoning disclosure is present.
+The operator identified the local Slack highlights conversation as the visual example.
+Approval reviews use a neutral rounded panel with an action heading, readable fields, collapsed exact details, and fixed decision controls.
+Scroll long reviews inside the panel. Keep both decisions visible and disable them during submission. Preserve the pending review after a rejected request.
+The local frontend now uses `theos-web:chat-ui-continuity-20261028` on port 8080. Its API container and account data remain unchanged.
+The 64 OpenUI browser scenarios, 22 frontend unit tests, and 27 focused Python checks passed. Production deployment remains pending.
 
 ## Release 1.4.2 preparation, 2026-10-27
 
@@ -109,6 +151,7 @@ Docker Desktop still requires a macOS login. A future login or disk-encryption c
 | Google Health vitals | Import stable v4 daily HRV, SpO2, respiratory rate, and sleep skin temperature. Summarize available heart rate, HRV, SpO2, core temperature, glucose, and sleep breathing samples. Keep RMSSD and SDNN separate. Preserve units, missing values, and provider confidence bounds. Default summaries include vitals and coverage counts. Version caches and refresh older summaries on tool or Telegram reads. Send complete Telegram summaries through the existing message splitter |
 | Google credential ownership | Each deployment operator supplies OAuth clients and an encryption key. Each browser or private Telegram user authorizes their own accounts |
 | Browser account connections | Offer optional unconnected accounts at first setup. Ask for a preferred name only when missing. Reserve a disowned sign-in tab during Connect, then navigate it after discovery. Keep an explicit link for blocked popups. Successful callbacks return to Connections. Verify setup before closing callback tabs. Show cancellation, expiry, and retry states. Cancel setup preserves the prior account. Keep owner-bound consent and configured browser IDs outside reserved namespaces. Telegram-confirmed browser credentials reuse the enrolled Telegram owner. Do not merge separate browser and Telegram accounts |
+| Connector visibility | List configured account connectors in Connections and mentions before owner authorization. Hide connectors without deployment credentials |
 | Browser connection mentions | Show local provider logos for accounts and use-case SVG icons for all workspace services in Connections and `@` suggestions. Complete mentions at the composer caret with current account status and configured workspace services. Preserve draft text. Send mentions as ordinary user text without changing access or approval policy |
 | Zepto account linking | Browser and private Telegram users authorize their own accounts through MCP OAuth. Theos encrypts credentials in SQLite. Use the localhost return handoff by default, with an optional public HTTPS callback |
 | External memory | Separate Mem0 OSS REST service with explicit, owner-scoped tools. Use OpenRouter for Mem0 models. Mem0 Platform needs an adapter |
@@ -914,3 +957,152 @@ The collector preserves unrelated research objects, uploaded-file catalog entrie
 Upload intent records preserve uncertain remote writes across restart or configuration changes.
 Uncertain pointer publications remain roots until a later publication is confirmed. Remote restore registers the fetched checkpoint as a recovery root.
 No `src/harness` file changes are required.
+
+## Slack connector planning, 2026-10-15
+
+The operator requested a separate topic branch and a tool-coverage and complexity review.
+Branch: `feature/slack-connector`, from remote `dev` at `8a4360f`.
+Check internal or Marketplace app eligibility before the MCP connection. Review granular search scopes and workspace consent.
+The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
+See [the plan](docs/connectors/slack-plan.md) and its tool inventory.
+
+## Slack official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote Slack MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+Confidential OAuth uses a client secret and durable single-use state.
+Slack public-client PKCE mode is not enabled. Other providers retain the shared adapter default of PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 18 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/slack-mcp.md).
+
+
+## Slack branch synchronization, 2026-10-28
+
+The operator requested a merge of current main into feature/slack-connector before live testing.
+Preserve both branch histories with a merge commit. Keep the current Next.js frontend and native Telegram connection controls.
+Register Slack in the shared account setup, callback proxy, connection cards, and composer mentions.
+Cancel setup invalidates pending consent without deleting the previous Slack grant.
+Use the current provider result staging service for large reads. Do not restore the retired source wrapper or static browser app.
+The local Docker test uses a separate data volume and disables Telegram polling.
+Live Slack authorization and read acceptance remain pending.
+
+The saved local Slack OAuth grant survived the updated Docker deployment.
+Live MCP initialization reports that the app is not enabled for Slack MCP server access.
+The operator must enable MCP access in the Slack app settings before live tool discovery can pass.
+
+
+## Slack live acceptance, 2026-10-28
+
+The operator enabled the app's MCP access. The saved grant passed discovery without reconnecting.
+Five reviewed read tools are available under the current scopes.
+A normal browser turn completed one public channel search through the model, adapter, journal, and SSE delivery.
+The search returned one channel in 8.84 seconds. No Slack write ran.
+Private access, permission removal, and live disconnection still need separate acceptance checks.
+
+## GitHub connector planning, 2026-10-15
+
+The operator requested a separate topic branch and a tool-coverage and complexity review.
+Branch: `feature/github-connector`, from remote `dev` at `8a4360f`.
+Review the official remote MCP server before selecting a native API adapter. Start with an explicit read-tool allowlist.
+The connector remains proposed and unimplemented. Live authorization and discovery remain pending.
+See [the plan](docs/connectors/github-plan.md) and its tool inventory.
+
+## GitHub official MCP implementation, 2026-10-15
+
+The operator requested existing connectors wherever possible and implementation on each separate branch.
+Use the official remote GitHub MCP server through a reviewed read-tool allowlist.
+Keep provider tools on the remote server and account access in Theos.
+The initial adapter supports one provider connection per owner without a schema migration.
+Browser Connections and private Telegram commands share that owner's encrypted credentials.
+OAuth state uses durable single-use records and PKCE.
+Refresh and disconnection share an owner lock. Configuration changes invalidate saved grants.
+Tool discovery is paged. Unknown tools and writes stay unavailable.
+Remote read results use the existing source and journal services.
+The initial allowlist contains 23 tool identifiers, subject to discovery and provider permissions.
+Tests use mock services. Live account consent and discovery remain pending.
+See [setup](docs/github-mcp.md).
+
+
+## GitHub connector synchronization, 2026-10-28
+
+The operator requested merging the tested Slack PR into dev, then preparing GitHub in the same way.
+Slack PR 75 merged with successful CI at f0e523a. Merge that dev history into feature/github-connector with a merge commit.
+Keep the current shared MCP account adapter, bounded result staging, Next.js frontend, and native Telegram controls.
+Register GitHub in optional onboarding, connection cards, composer mentions, cancellation, and the callback proxy.
+The local callback is http://localhost:8080/oauth/github/callback. The operator is creating the GitHub App and its OAuth credentials.
+Live GitHub authorization and repository reads remain pending.
+
+The synchronized GitHub branch passed 1,148 Python tests, 18 frontend tests, and 56 browser connection scenarios.
+The rebuilt local API and frontend are healthy. Slack retains its grant and five read tools.
+GitHub live acceptance awaits the operator-provided OAuth client credentials in the private environment.
+
+
+## GitHub webhook notifications, 2026-10-28
+
+The operator requested incoming GitHub webhooks and event notifications on the existing connector branch.
+Selected events are direct mentions, review requests, assignments, and failed Actions runs.
+Use /webhooks/github through the public Next.js service and a dedicated AGENT_GITHUB_WEBHOOK_SECRET.
+Verify HMAC-SHA256 over exact bytes before parsing. Encrypt pending payloads and deduplicate delivery IDs in migration 016.
+Keep event handling in the GitHub application service and its own scheduler task. Do not change the generic harness.
+Each connected owner opts in. Verify GitHub identity and current repository access with its own OAuth token before routing.
+Browser and connected terminal owners receive a private inbox. Verified private Telegram owners can enable Telegram delivery.
+Do not infer a Telegram target from a GitHub login, name, repository owner, or deployment administrator.
+Limit workflow alerts to failed runs the user triggered. Team mentions and team review requests remain outside this implementation.
+Keep notifications literal and outside model history. A webhook cannot invoke tools or start an agent turn.
+Mark interrupted or failed Telegram sends uncertain and never retry them automatically.
+Discard processed raw payloads. Expire pending content after seven days and delivery records and alerts after 30 days.
+The local test retains its separate volume with Telegram polling disabled. Production activation and real provider deliveries require separate verification.
+
+The operator selected a temporary HTTPS tunnel for live webhook testing.
+Use a webhook-only loopback proxy and cloudflared. Keep the URL, port, and PIDs in the ignored .theos/github-testing/tunnel-state.json.
+The temporary ingress permits only the webhook POST and a readiness GET. Other app paths return 404.
+Synthetic public ingress checks passed signature validation and deduplication. Real GitHub and Telegram deliveries remain unverified.
+The implementation passed 1,164 Python tests, 20 frontend tests, and 64 browser cases, with eight final themed alert reruns.
+Stop the two tunnel processes after the requested live testing. No production deployment was changed.
+
+## General evidence guidance, 2026-10-28
+
+The operator requested removal of mailbox-specific rules from the shared agent prompt.
+Keep evidence coverage general. Distinguish partial results from complete coverage, and estimates from exact counts.
+Continue retrieval when missing evidence could materially change the answer.
+Describe pagination mechanics beside the tools. Page size limits one response, not the total available results.
+The staged-result `truncated` field describes one response. It does not establish complete provider coverage.
+
+## GitHub acceptance and GitLab transition, 2026-10-28
+
+The operator completed GitHub App authorization in the local Docker workspace.
+The model completed identity, repository-search, and commit-list reads through the reviewed MCP tools.
+The account grant survives the local restart. The first repository comparison stopped after one full commit page.
+General evidence and tool-pagination guidance now clarify this case. Fresh model pagination behavior remains unverified.
+The operator requested merging the GitHub topic PR into dev, as with Slack, then continuing on the GitLab topic branch.
+Real GitHub notification delivery and private Telegram acceptance remain separate open checks.
+
+## Google Calendar integration, 2026-10-28
+
+The operator cancelled GitLab integration for now. Its branch is pushed and PR 74 is closed without merging.
+Start Calendar work from current dev on feature/google-calendar.
+The operator enabled the Calendar API and selected basic operations before invitations or recurring-event editing.
+Use the existing Google OAuth service with a separate calendar grant for each private owner.
+Support calendar lists, event search and details, free/busy reads, and single-event creation, updates, and deletion.
+Keep invitations and recurring-event mutations unavailable in this increment.
+Use explicit event versions for updates and deletion. Preserve unknown write outcomes without automatic retries.
+Keep time handling and pagination in the Calendar service and tool descriptions. Keep the shared agent prompt general.
+The operator authorized reusing the existing Gmail OAuth client for Calendar, with a separate localhost callback.
+Calendar disconnection removes its local grant without revoking the Google project and disrupting other Google connections.
+Return this distinction in the disconnect result. Existing Gmail and Health revocation behavior remains unchanged.
+
+The implementation passed 1,199 Python tests, 20 frontend unit tests, and 72 browser connection cases.
+Both local Docker services are healthy. The operator registered localhost and deployment callbacks and completed local Google consent.
+A normal Theos conversation completed live calendar listing, event search, and availability reads in 4.7 seconds.
+The live read test listed four calendars, found no events in the selected interval, and reported no availability errors.
+The operator approved a temporary create, reschedule, and delete test on the primary calendar.
+Exactly one event passed all three live writes, using fresh event versions and no attendees.
+A separate read from Google confirmed the deleted event has status cancelled. No active test event remains.
+Production deployment and live Telegram acceptance remain pending.

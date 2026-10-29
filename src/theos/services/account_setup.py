@@ -4,7 +4,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .preferences.tools import preferences
 
-ACCOUNT_LABELS = (("gmail", "Gmail"), ("zepto", "Zepto"), ("health", "Google Health"))
+ACCOUNT_LABELS = (
+    ("gmail", "Gmail"),
+    ("calendar", "Google Calendar"),
+    ("zepto", "Zepto"),
+    ("health", "Google Health"),
+    ("slack", "Slack"),
+    ("github", "GitHub"),
+)
 
 
 def setup_status(settings, db, owner, zepto):

@@ -22,6 +22,6 @@ Read [docs/code-structure.md](docs/code-structure.md) for service boundaries and
 - Promotions are independent. Do not require both promotion PRs for every change. Publish Pi releases from `rpi`.
 - Use merge commits for branch promotion and history synchronization PRs. Do not squash or rebase these PRs.
 - Do not commit changes directly to `dev`, `main`, or `rpi`.
-- Do not add or restore standalone upstream license files or source attribution notices. Keep the project's root license and provenance manifests.
+- Preserve source attribution and the starter provenance manifest.
 - Follow `/Users/nightowl/WRITING.md` for long Markdown changes when that file exists.
 - Do not claim that a planned component is implemented.

@@ -133,6 +133,12 @@ export const messageModes = {
 };
 
 export const accountDescriptions = {
+  calendar:
+    "Find events, check availability, and create, reschedule, or delete single events in Google Calendar.",
+  github:
+    "Search and read repositories, issues, pull requests, and Actions through the official GitHub MCP server.",
+  slack:
+    "Search and read Slack conversations through the official Slack MCP server. Available tools depend on your granted scopes.",
   gmail:
     "Search messages, manage drafts and labels. Sending a draft requires approval.",
   health:
@@ -142,6 +148,9 @@ export const accountDescriptions = {
 };
 
 export const providerIcons = {
+  calendar: "/static/providers/calendar.svg",
+  github: "/static/providers/github.svg",
+  slack: "/static/providers/slack.svg",
   gmail: "/static/providers/gmail.svg",
   health: "/static/providers/health.png",
   zepto: "/static/providers/zepto.png",

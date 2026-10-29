@@ -215,6 +215,17 @@ Hover, tap, or use arrow keys to inspect chart values. Expand **View exact value
 Select chart legends to inspect a share or toggle a series. Different metrics, units, or currencies require separate charts.
 The component library preserves earlier saved answers and uses the existing workspace palette and typography.
 
+Calendar answers can show an agenda, one event, or an availability timeline.
+The agenda groups returned events by date and shows their calendar, time, and duration.
+Event cards show the location and source-provided links to open the event or join its meeting.
+Timed events use the selected IANA timezone. All-day dates retain their exclusive end date and do not shift with the timezone.
+Event descriptions stay collapsed until opened. They display as text.
+
+Availability uses the requested range and the supplied Calendar free/busy results.
+Select an interval or use arrow keys to inspect its time and duration. Expand **View time intervals** for the full list.
+Free time applies across all checked calendars. Failed calendar reads leave unconfirmed gaps, rather than free time.
+Coverage notes retain partial pages, query filters, and unavailable calendars. Displaying these views does not change events.
+
 Search results use source cards with a domain, title, excerpt, and readable path.
 The query label shows readable search terms. Site and file filters appear separately.
 Expand **Search details** to inspect the original provider query, including operators such as `site:`.

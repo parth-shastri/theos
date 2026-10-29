@@ -3,25 +3,49 @@
   "notice": "Provider marks remain the property of their respective owners. These files identify existing integrations. This manifest does not grant a trademark license.",
   "assets": [
     {
+      "provider": "Google Calendar",
+      "path": "web/public/static/providers/calendar.svg",
+      "retrieved": "2026-10-28",
+      "source_page": "https://workspace.google.com/products/calendar/",
+      "source_asset": "https://www.gstatic.com/images/branding/productlogos/calendar_2026/v2/web/192px.svg",
+      "sha256": "7f55cd877b2261948168db3d2e9468c0cf3f07766789489e853a0f9931dff8ea"
+    },
+    {
       "provider": "Gmail",
-      "path": "src/theos/transports/browser/static/providers/gmail.svg",
+      "path": "web/public/static/providers/gmail.svg",
       "source_page": "https://workspace.google.com/products/gmail/",
       "source_asset": "https://www.gstatic.com/images/branding/productlogos/gmail_2026/v2/web/192px.svg",
       "sha256": "0a242131424b796a26247a8edd41d66fa294da6d177897526a19b7e81aedfdb8"
     },
     {
       "provider": "Google Health (Google G favicon)",
-      "path": "src/theos/transports/browser/static/providers/health.png",
+      "path": "web/public/static/providers/health.png",
       "source_page": "https://health.google/",
       "source_asset": "https://www.gstatic.com/marketing-cms/assets/images/15/8d/b5f770d74c39b01a3da119f3d9d2/gradient-high-quality.png=s180",
       "sha256": "0f63e9de66a9136de0e0d207459735fcc027f1c9d7f3f17f16f514af450dff4a"
     },
     {
       "provider": "Zepto",
-      "path": "src/theos/transports/browser/static/providers/zepto.png",
+      "path": "web/public/static/providers/zepto.png",
       "source_page": "https://github.com/zeptonow",
       "source_asset": "https://avatars.githubusercontent.com/u/84562117?s=128&v=4",
       "sha256": "9eb99015feb70bb6337cad27ff3d820bd8ccc7d5044209c6870d0eaa6abc8fe6"
+    },
+    {
+      "provider": "Slack",
+      "path": "web/public/static/providers/slack.svg",
+      "source_page": "https://simpleicons.org/",
+      "source_asset": "https://raw.githubusercontent.com/simple-icons/simple-icons/11.15.0/icons/slack.svg",
+      "license": "CC0-1.0",
+      "sha256": "1cdb8b412256ab2b474fc0980f309c93a1ad4e8cf13d4a3f2d182d23586f5aaf"
+    },
+    {
+      "provider": "GitHub",
+      "path": "web/public/static/providers/github.svg",
+      "source_page": "https://simpleicons.org/",
+      "source_asset": "https://raw.githubusercontent.com/simple-icons/simple-icons/11.15.0/icons/github.svg",
+      "license": "CC0-1.0",
+      "sha256": "04e94957c36b4de45bcc447da86fd6f10a167b8bdff24906953baf727363de65"
     }
   ]
 }

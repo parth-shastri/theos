@@ -157,7 +157,20 @@ export default function Conversation() {
       >
         <div id="notifications" aria-live="polite">
           {notifications.map((notification, index) => (
-            <p key={index}>Reminder: {notification.text}</p>
+            <p key={notification.id || index}>
+              {notification.source === "github" ? "GitHub: " : "Reminder: "}
+              {notification.url ? (
+                <a
+                  href={notification.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {notification.text}
+                </a>
+              ) : (
+                notification.text
+              )}
+            </p>
           ))}
         </div>
         <MessageList
