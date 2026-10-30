@@ -1,0 +1,2 @@
+# Historical dummy credential in the installer test. Real speech keys remain private.
+cc3d80fffb37f51ec7fe475edb6cb7f571332d52:transcription/tests/test_install.py:generic-api-key:19

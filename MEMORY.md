@@ -1,6 +1,35 @@
 # Theos project memory
 
-Updated: 2026-10-29.
+Updated: 2026-10-30.
+
+## Native MLX transcription, 2026-10-30
+
+The operator requested Whisper Large v3 Turbo on the M4 Mac mini through MLX.
+Run the owned, authenticated service under `transcription/`, separate from Kokoro, assistant services, and the generic harness.
+Use `mlx-whisper==0.4.3` and model revision `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb`.
+Its dependency lock and Linux contract workflow remain separate from the assistant image.
+
+The native login agent is `com.parthshastri.theos-transcription`, with its runtime under `~/.local/share/theos-transcription`.
+The active model also lives there. macOS denied launchd model reads from the external SSD during the first startup.
+Retain the SSD download, but use the internal copy without changing macOS security permissions.
+Keep the existing speech bearer credential and bind port `8002` only to the private Tailscale address.
+Load the model through Metal before readiness. Keep inference on one worker and reject concurrent transcription requests.
+Retain the Docker Whisper Small endpoint on port `8001` for rollback. The host guard still manages that container.
+
+The private local `.env`, local `.env.pi`, and both Pi deployment environments now select the MLX endpoint and model.
+Only the transcription URL and model changed. Private backups retain the previous values.
+The Pi API was recreated with its existing release images and data volume. Both application services remain healthy.
+The deployed application client transcribed an OGG/Opus fixture in 1.9 seconds. SQLite quick checking returned `ok`.
+
+An Indian-English synthetic recording lasted 7.48 seconds. MLX took about 1.7 seconds across OGG/Opus, WebM, and WAV.
+Whisper Small took 15.4 seconds on the same OGG recording. Both models misspelled the spoken name Priya.
+Eight local checks cover authentication, input bounds, worker serialization, file cleanup, startup failure, and login-agent replacement.
+Lint, formatting, dependency locks, whitespace checks, and the standalone package build passed.
+These checks establish service integration, not accuracy for the operator's voice. A real Telegram voice-note check remains open.
+
+PR 128 CI flagged a synthetic installer-test credential. Replace it with a repeated fixture string.
+Ignore only that historical finding's exact commit, path, rule, and line fingerprint. Keep normal secret scanning enabled.
+The hosted runner lacks ripgrep. Use `find` with null-delimited paths for JavaScript syntax checks and fail on pipeline errors.
 
 ## Release 1.4.4 preparation, 2026-10-29
 
@@ -162,6 +191,7 @@ Docker Desktop still requires a macOS login. A future login or disk-encryption c
 | Reply generation requirement | Main responses use the configured provider output limit, default 8,192. Do not clip generated answers. Summary calls use no tools and cap output at the configured tail ratio of the summary model's context. Explicit cancellation, provider timeouts, and output truncation remain distinct. Bounded callers retain research deadlines without cancelling an active answer |
 | Explicit deep research | Start only through the browser mode or an explicit user command. Apply the mode to one turn. Normal questions receive focused delegate briefs and protected final response capacity. Deep research adds conversation-owned SQLite records, full source reading through Exa, structured notes, validated summary references, and the browser Research view. Retain original sources, notes, transcripts, reports, and summary checkpoints. Source references protect retrieval, not factual truth |
 | Speech hosting | Separate services. Document Docker CPU, native Apple Silicon MLX/MPS, and hosted transcription. Generic hosted speech output needs an adapter or client changes |
+| Active transcription | Native MLX Whisper Large v3 Turbo on the Mac mini, through the authenticated `transcription/` service on private port `8002`. Keep its runtime and active model on internal storage because launchd cannot read the SSD model. Preserve the SSD download and CPU Small endpoint on `8001` for rollback |
 | Final voice | Kokoro `am_michael(0.7)+bm_george(0.3)`, speed `0.9`, with the approved subtle robotic treatment in the separate `speech` gateway. Keep DSP dependencies out of the Pi application image. Authenticate gateway requests with `AGENT_KOKORO_KEY`. Existing environment overrides require an explicit rollout update. The louder audition is not the selected profile |
 | Personality | Straightforward, commanding, self-assured, philosophical, and darkly witty, with deliberate cadence and restrained theatrical weight. Ordinary discouragement and procrastination receive firm, masculine encouragement and one achievable action. Challenge avoidance without insulting the user. Honor requested gentleness and treat serious distress with care. Describe these traits directly without naming a fictional character. Chat and speech preparation share one persona. Facts, source fidelity, requested tone, and urgency take precedence over style. Use original observations and verify attributed quotations. Keep research delegates and harness summaries factual. See `docs/personality.md` |
 | Expressive TTS text | Every browser or tool synthesis request first uses one bounded, tool-free model call to write an expressive spoken rendition. Preserve facts, numbers, quotations, uncertainty, and action outcomes. Use words and punctuation rather than unsupported emotion tags. Retain display text and history. Record model usage under the owner and conversation. Fail preparation rather than silently reading plain source text |
