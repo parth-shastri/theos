@@ -1,5 +1,29 @@
 # Feature and acceptance checklist
 
+## Native MLX transcription, 2026-10-30
+
+The M4 Mac mini runs the authenticated MLX service under its native login agent.
+Metal is available, and startup completes an inference call before the service accepts HTTP requests.
+Unauthenticated model discovery returns HTTP 401. The Pi's configured credential returns HTTP 200.
+
+The first login startup could not read model files from the external SSD because macOS denied access.
+The active model now uses internal storage. The downloaded copy remains on the SSD.
+The service uses a pinned model revision and offline startup. No macOS security permission changed.
+
+A 7.48-second synthetic Indian-English recording passed OGG/Opus, WebM, and WAV transcription.
+MLX returned each transcript in 1.69 to 1.72 seconds. CPU Whisper Small took 15.43 seconds on the same OGG file.
+Both models misspelled Priya. These probes do not establish accuracy for human Indian accents or mixed-language speech.
+
+The private local and Pi environments now select the MLX model and port `8002`.
+The Pi API retains the existing `rpi-v1.4.4` images and data volume. Both application services returned healthy.
+The deployed `Voice.transcribe` client completed the OGG fixture in 1.90 seconds with its normal 30-second timeout.
+Its temporary fixture used no catalog entry or conversation. SQLite quick checking returned `ok`.
+The CPU Small service, Kokoro, speech gateway, and memory services remain available.
+
+Eight local contract and installer checks passed. Lint, formatting, dependency locks, whitespace checks, and the standalone package build passed.
+The installer check covers a launchd replacement delay and private configuration backups.
+No Telegram message was sent. Real voice-note delivery, natural language mixing, and reboot recovery still need acceptance.
+
 ## Calendar OpenUI components, 2026-10-28
 
 Library version 3 adds an agenda, event card, and availability timeline. Saved versions 1 and 2 remain renderable.

@@ -433,6 +433,9 @@ The separate [speech gateway](../speech/README.md) applies the selected subtle r
 Pedalboard, NumPy, SciPy, SoundFile, pyloudnorm, and FFmpeg.
 FastAPI and HTTPX serve its authenticated endpoint. Its own `uv.lock` pins Python dependencies.
 These dependencies are not installed in the assistant or Pi image.
+The separate [MLX transcription service](../transcription/README.md) uses `mlx-whisper==0.4.3`, MLX Metal, NumPy, FFmpeg, FastAPI, and Uvicorn.
+Its `uv.lock` pins Python dependencies. The selected Large v3 Turbo model revision is `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb`.
+It requires a bearer key and loads the model before readiness. The native login agent uses port `8002`.
 Generic hosted speech APIs still require a compatible adapter.
 Before synthesis, the runtime makes one tool-free model call to prepare expressive spoken wording.
 It retains normal provider privacy controls, usage accounting, owner checks, and the original displayed reply.
