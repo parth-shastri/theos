@@ -2,6 +2,17 @@
 
 Updated: 2026-10-30.
 
+## Release 1.4.5 preparation, 2026-10-30
+
+The operator requested separate `dev` promotions to `main` and `rpi`, then a new Pi patch release.
+Increment the package version from 1.4.4 to 1.4.5 through a topic PR into `dev`.
+Merge each promotion PR only after its destination CI passes. Use merge commits for both promotions.
+Publish immutable tag `rpi-v1.4.5` at the promoted `rpi` tip.
+Preserve the private MLX transcription settings already active on the Pi and the Mac mini service.
+The release includes the authenticated MLX service source and the CI fixture and JavaScript discovery fixes from PR 128.
+No database migration or new private credential is required.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
 ## Native MLX transcription, 2026-10-30
 
 The operator requested Whisper Large v3 Turbo on the M4 Mac mini through MLX.

@@ -15,6 +15,20 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.4.5
+
+Package version 1.4.5 uses tag `rpi-v1.4.5` from the promoted `rpi` tip.
+This patch includes the separate authenticated MLX transcription service and its locked dependencies, login installer, and operating notes.
+The Mac mini already runs Whisper Large v3 Turbo through Metal. The Pi already selects its private endpoint on port `8002`.
+Keep the active model on the Mac mini's internal storage because macOS blocks launchd from reading the SSD copy.
+Retain the SSD download and CPU Whisper Small endpoint on port `8001` for rollback.
+
+CI uses portable JavaScript file discovery and a narrow exclusion for one historical synthetic test credential finding.
+No database migration or new private environment value is required. Preserve the existing transcription credential and endpoint during deployment.
+Promote `dev` through separate PRs and merge commits into `main` and `rpi` after their destination checks pass.
+Publish both ARM64 images through the tagged workflow. Confirm both service health checks and the active Pi manifest before reporting deployment.
+Real Telegram voice-note delivery, natural language mixing, and reboot recovery remain open acceptance checks.
+
 ## Release 1.4.4
 
 Package version 1.4.4 uses tag `rpi-v1.4.4` from the promoted `rpi` tip.
