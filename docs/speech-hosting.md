@@ -9,6 +9,11 @@ The assistant sends its optional bearer key from `AGENT_KOKORO_KEY`.
 The main `compose.yaml` starts only Theos.
 This guide describes optional deployments, not bundled services.
 
+For the owned, authenticated MLX service, follow [native MLX transcription](../transcription/README.md).
+It runs Large v3 Turbo on port `8002` and keeps the existing CPU service on `8001` for rollback.
+This service has its own dependency lock, login installer, startup inference check, and private bearer credential.
+The third-party native server below remains an alternative example.
+
 Upstream instructions were checked on 2026-10-04.
 The operator confirmed that Speaches listed the downloaded Whisper Small model on the Mac mini.
 Mac mini transcription, Kokoro inference, and the approved voice audition have live checks.
