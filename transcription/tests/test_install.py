@@ -16,7 +16,7 @@ def test_install_retries_registration_and_preserves_private_configuration(tmp_pa
     model = runtime / "models/turbo"
     model.mkdir(parents=True)
     (model / "weights.safetensors").touch()
-    key = "test-existing-key-0123456789abcdef"
+    key = "fixture" * 6
     key_file = tmp_path / "speech.env"
     key_file.write_text("SPEECH_API_KEY=" + key)
     monkeypatch.setattr(installer.sys, "platform", "darwin")

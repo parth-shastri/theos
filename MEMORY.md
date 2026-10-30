@@ -27,6 +27,10 @@ Eight local checks cover authentication, input bounds, worker serialization, fil
 Lint, formatting, dependency locks, whitespace checks, and the standalone package build passed.
 These checks establish service integration, not accuracy for the operator's voice. A real Telegram voice-note check remains open.
 
+PR 128 CI flagged a synthetic installer-test credential. Replace it with a repeated fixture string.
+Ignore only that historical finding's exact commit, path, rule, and line fingerprint. Keep normal secret scanning enabled.
+The hosted runner lacks ripgrep. Use `find` with null-delimited paths for JavaScript syntax checks and fail on pipeline errors.
+
 ## Release 1.4.4 preparation, 2026-10-29
 
 The operator requested the latest connector changes on `main` and the Raspberry Pi.
