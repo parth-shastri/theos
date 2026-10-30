@@ -1,0 +1,26 @@
+name: MLX transcription service
+on:
+  pull_request:
+    paths: ['transcription/**', '.github/workflows/transcription.yml']
+  push:
+    branches: [dev, main, rpi]
+    paths: ['transcription/**', '.github/workflows/transcription.yml']
+permissions:
+  contents: read
+jobs:
+  transcription:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.26'
+          python-version: '3.12'
+          enable-cache: true
+      - run: uv sync --project transcription --locked
+      - run: uv run --project transcription --no-sync ruff check transcription
+      - run: uv run --project transcription --no-sync ruff format --check transcription
+      - run: cd transcription && uv run --no-sync pytest -q

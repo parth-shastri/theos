@@ -43,7 +43,8 @@ jobs:
           node-version: '24.18.0'
       - name: Check every owned browser JavaScript file
         run: |
-          rg --files web/src web/scripts -g '*.js' -g '*.mjs' | while IFS= read -r file; do
+          set -o pipefail
+          find web/src web/scripts -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | while IFS= read -r -d '' file; do
             node --check "$file"
           done
       - name: Install workflow and secret scanners
