@@ -44,7 +44,15 @@ test("turn feedback stays in the conversation through tools and final text", asy
   const emit = (event) =>
     page.evaluate((value) => window.turnFixture.emit(value), event);
   await page.locator("#message").fill("Synthetic activity check");
-  await page.locator("#send").click();
+  const send = page.locator("#send");
+  await expect(send).toHaveCSS("background-color", "rgb(41, 189, 134)");
+  await expect(send).toHaveCSS("color", "rgb(11, 31, 22)");
+  await send.hover();
+  await expect(send).toHaveCSS("background-color", "rgb(34, 169, 118)");
+  await send.click();
+  const bubble = page.locator(".message.user .body").last();
+  await expect(bubble).toHaveCSS("background-color", "rgb(41, 189, 134)");
+  await expect(bubble).toHaveCSS("color", "rgb(11, 31, 22)");
   const indicator = page.locator(
     "#messages .turn-activity, #messages .thinking.is-thinking",
   );
@@ -55,9 +63,12 @@ test("turn feedback stays in the conversation through tools and final text", asy
     "animation-name",
     "thinking-pulse",
   );
-  await expect(indicator.locator(".thinking-orb")).toHaveCSS(
-    "animation-name",
-    "orb-breathe",
+  const orb = indicator.locator(".thinking-orb");
+  await expect(orb).toHaveCSS("animation-name", "none");
+  await expect(orb).toHaveCSS("box-shadow", "none");
+  await expect(orb).toHaveCSS(
+    "background-image",
+    /radial-gradient.*rgb\(212, 233, 107\).*rgb\(41, 189, 134\)/,
   );
   for (const event of [
     { type: "reasoning", text: "Check the source." },
@@ -98,17 +109,14 @@ test("turn feedback stays in the conversation through tools and final text", asy
     "animation-name",
     "none",
   );
-  await expect(indicator.locator(".thinking-orb")).toHaveCSS(
-    "animation-name",
-    "none",
-  );
+  await expect(orb).toHaveCSS("animation-name", "none");
   await page
     .locator("#chat-view")
     .screenshot({ path: info.outputPath("ongoing-turn.png") });
   await emit({ type: "done", status: "completed" });
   await expect(indicator).toHaveCount(0);
   await page.evaluate(() => window.turnFixture.close());
-  await expect(page.locator("#send")).toBeEnabled();
+  await expect(send).toBeEnabled();
   await expect(page.locator("#status")).toBeEmpty();
   await expect(page.locator("#messages")).toContainText("Answer text");
 });
