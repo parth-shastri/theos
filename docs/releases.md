@@ -15,6 +15,16 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.5.0
+
+Package version 1.5.0 uses tag `rpi-v1.5.0` from the promoted `rpi` tip.
+The browser shows one thinking orb when the user sends a message.
+Reasoning summaries and expandable tool rows appear in order in one timeline.
+At completion, the timeline collapses under `Thought for …`. Its duration includes tool execution and persists across reloads.
+
+Both themes use the orb green for user messages and primary buttons. Dark mode uses a deeper background.
+The release uses the existing history format and private configuration.
+
 ## Release 1.4.5
 
 Package version 1.4.5 uses tag `rpi-v1.4.5` from the promoted `rpi` tip.
