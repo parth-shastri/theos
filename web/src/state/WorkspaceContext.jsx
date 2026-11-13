@@ -208,7 +208,7 @@ export function WorkspaceProvider({ agentName, children }) {
     await refreshConnections();
     navigate("chat-view");
   };
-  const signIn = async (credentials) => {
+  const signIn = async (credentials, passwordAction) => {
     setSigningIn(true);
     setLoginError("");
     try {
@@ -218,7 +218,9 @@ export function WorkspaceProvider({ agentName, children }) {
           : "/api/auth/login",
         { method: "POST", body: credentials },
       );
-      await login();
+      if (passwordAction) {
+        setOnboarding({ passwordAction, status: "Access token verified." });
+      } else await login();
     } catch (error) {
       if (error.name !== "AbortError") setLoginError(error.message);
     } finally {

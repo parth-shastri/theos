@@ -70,8 +70,8 @@ Token reset and revocation retain personal records and history.
 
 ## Set an optional password
 
-1. Sign in with your token or confirm a browser from Telegram.
-2. Select **Browser password** in the workspace sidebar.
+1. On the sign-in screen, select **Set up a password**.
+2. Enter your access token and select **Verify access token**.
 3. Enter and confirm a password from 15 to 128 characters.
 4. Select **Set password** and save your account ID.
 
@@ -79,7 +79,8 @@ For future sign-ins, select **Use a password** and enter that account ID and pas
 Theos rejects easily guessed passwords. Try several unrelated words or use a password manager.
 You can change or remove your password from **Browser password**.
 Either action ends other browser sessions that signed in with the password.
-If you forget your password, sign in with your access token or confirm a new browser from Telegram.
+If you forget your password, select **Forgot password?** on the sign-in screen.
+Verify your access token and select a new password.
 In your private bot chat, `/password` opens password settings after confirmation and preserves your access token.
 When the operator changes a configured account's token, sign in with the new token to set a password again.
 
