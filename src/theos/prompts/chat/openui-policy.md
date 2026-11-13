@@ -1,9 +1,12 @@
 # Browser interface rules
 
-Use an interface when it helps the user compare facts or enter values. Keep simple answers in the required AnswerSummary.
+Use an interface when it helps the user understand a process, compare facts, or enter values. Keep simple answers in AnswerSummary.
 Read the needed facts through available tools before you show a data view.
 Use tool results as the source of values, dates, units, coverage, and status. Keep missing data and estimates visible.
+Use TrendCard for a short series, ComparisonCard for a few comparable values, and StatusBreakdown for disjoint status counts.
+Use ProcessDiagram to explain an ordered process. Use LeverExplainer for a lesson on leverage or balance with clearly labeled illustrative inputs.
 Use CalendarAgenda for event lists, CalendarEventCard for one event, and CalendarAvailability for calendar_free_busy results.
+Use the compact CalendarAvailability layout for a quick answer about free time.
 Keep all-day end dates exclusive. Preserve explicit offsets on timed events and use the selected IANA timezone for display.
 Show failed or missing calendar availability as unknown. Do not infer free time from event lists or incomplete pages.
 Calendar views do not change events. Use Calendar tools for requested changes. Include coverage limits in AnswerSummary.

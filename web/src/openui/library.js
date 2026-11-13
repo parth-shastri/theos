@@ -25,11 +25,20 @@ import {
 import { SourceLogo, SourcePreview } from "./source-media.js";
 import { DataChart, Donut, MetricTile, Progress, Table } from "./visuals.js";
 import { Agenda, Availability, EventCard } from "./calendar.js";
+import {
+  cardIcons,
+  TrendCard as Trend,
+  ComparisonCard as Comparison,
+  StatusBreakdown as Breakdown,
+  ProcessDiagram as Process,
+  LeverExplainer as Lever,
+} from "./rich-cards.js";
 
-export const OPENUI_LIBRARY_VERSION = "theos-openui-3";
+export const OPENUI_LIBRARY_VERSION = "theos-openui-4";
 export const OPENUI_COMPATIBLE_VERSIONS = new Set([
   "theos-openui-1",
   "theos-openui-2",
+  "theos-openui-3",
   OPENUI_LIBRARY_VERSION,
 ]);
 
@@ -616,6 +625,101 @@ const DataTable = defineComponent({
   component: ({ props }) => h(Table, props),
 });
 
+const visualCardProps = {
+  title: z.string().min(1).max(120),
+  labels: z.array(z.string().min(1).max(80)),
+  unit: z.string().max(24).optional(),
+  icon: z.enum(cardIcons).optional(),
+  context: z.string().max(80).optional(),
+};
+const TrendCard = defineComponent({
+  name: "TrendCard",
+  description:
+    "A compact headline value and mini bar chart for one chronological series of 2 to 8 observations in one unit. The last observation is shown first. Label periods in order and use null for a missing observation.",
+  props: z.object({
+    title: visualCardProps.title,
+    labels: visualCardProps.labels.min(2).max(8),
+    values: z.array(z.number().nullable()).min(2).max(8),
+    unit: visualCardProps.unit,
+    icon: visualCardProps.icon,
+    context: visualCardProps.context,
+  }),
+  component: ({ props }) => h(Trend, props),
+});
+const ComparisonCard = defineComponent({
+  name: "ComparisonCard",
+  description:
+    "A compact set of labeled horizontal bars for 2 to 6 non-negative values in one unit. Use null for missing values. Prefer this to a full BarChart for a small category comparison.",
+  props: z.object({
+    title: visualCardProps.title,
+    labels: visualCardProps.labels.min(2).max(6),
+    values: z.array(z.number().nonnegative().nullable()).min(2).max(6),
+    unit: visualCardProps.unit,
+    icon: visualCardProps.icon,
+    context: visualCardProps.context,
+  }),
+  component: ({ props }) => h(Comparison, props),
+});
+const StatusGroup = defineComponent({
+  name: "StatusGroup",
+  description:
+    "One labeled category of a verified count. Use the tone that fits its meaning. Detail can name the items or explain what needs attention.",
+  props: z.object({
+    label: z.string().min(1).max(80),
+    count: z.number().int().nonnegative(),
+    tone: z.enum(["neutral", "positive", "warning", "blocked"]),
+    detail: z.string().max(350).optional(),
+    icon: visualCardProps.icon,
+  }),
+  component: () => null,
+});
+const StatusBreakdown = defineComponent({
+  name: "StatusBreakdown",
+  description:
+    "A compact donut and selectable status list for mutually exclusive counts, such as a pull request queue. The first status is selected initially.",
+  props: z.object({
+    title: visualCardProps.title,
+    groups: z.array(StatusGroup.ref).min(1).max(5),
+    unit: visualCardProps.unit,
+    icon: visualCardProps.icon,
+    context: visualCardProps.context,
+  }),
+  component: ({ props }) => h(Breakdown, props),
+});
+const ProcessStep = defineComponent({
+  name: "ProcessStep",
+  description:
+    "One stage of an ordered process. Give it a short label, a plain explanation, and an optional term and meaningful icon.",
+  props: z.object({
+    label: z.string().min(1).max(48),
+    description: z.string().min(1).max(350),
+    caption: z.string().max(48).optional(),
+    icon: visualCardProps.icon,
+  }),
+  component: () => null,
+});
+const ProcessDiagram = defineComponent({
+  name: "ProcessDiagram",
+  description:
+    "A connected sequence of 2 to 5 stages. Select a stage to read its explanation.",
+  props: z.object({
+    title: visualCardProps.title,
+    steps: z.array(ProcessStep.ref).min(2).max(5),
+  }),
+  component: ({ props }) => h(Process, props),
+});
+const LeverExplainer = defineComponent({
+  name: "LeverExplainer",
+  description:
+    "An interactive lesson for balancing an ideal lever. The user moves the pivot and the browser computes the balancing force from the load in newtons and beam length in centimetres.",
+  props: z.object({
+    title: visualCardProps.title,
+    load_newtons: z.number().min(0.1).max(10000),
+    length_cm: z.number().min(1).max(10000),
+  }),
+  component: ({ props }) => h(Lever, props),
+});
+
 const CalendarEvent = defineComponent({
   name: "CalendarEvent",
   description:
@@ -681,8 +785,29 @@ const CalendarAvailability = defineComponent({
     timezone: z.string().max(100),
     calendars: z.array(CalendarBusyCalendar.ref).max(50),
     coverage: z.string().max(1000).optional(),
+    layout: z.enum(["full", "compact"]).optional(),
   }),
   component: ({ props }) => h(Availability, props),
+});
+
+const CardRow = defineComponent({
+  name: "CardRow",
+  description:
+    "Two related compact cards side by side when space permits. Use the compact layout for CalendarAvailability in a row.",
+  props: z.object({
+    cards: z
+      .array(
+        z.union([
+          TrendCard.ref,
+          ComparisonCard.ref,
+          StatusBreakdown.ref,
+          CalendarAvailability.ref,
+        ]),
+      )
+      .length(2),
+  }),
+  component: ({ props, renderNode }) =>
+    h("div", { className: "openui-card-row" }, renderNode(props.cards)),
 });
 
 const sectionRef = z.union([
@@ -699,6 +824,12 @@ const sectionRef = z.union([
   CalendarAgenda.ref,
   CalendarEventCard.ref,
   CalendarAvailability.ref,
+  TrendCard.ref,
+  ComparisonCard.ref,
+  StatusBreakdown.ref,
+  ProcessDiagram.ref,
+  LeverExplainer.ref,
+  CardRow.ref,
 ]);
 
 const TheosAnswer = defineComponent({
@@ -755,6 +886,14 @@ export const openuiLibrary = createLibrary({
     CalendarInterval,
     CalendarBusyCalendar,
     CalendarAvailability,
+    TrendCard,
+    ComparisonCard,
+    StatusGroup,
+    StatusBreakdown,
+    ProcessStep,
+    ProcessDiagram,
+    LeverExplainer,
+    CardRow,
   ],
   componentGroups: [
     {
@@ -792,6 +931,11 @@ export const openuiLibrary = createLibrary({
         "DonutChart",
         "ProgressCard",
         "DataTable",
+        "TrendCard",
+        "ComparisonCard",
+        "StatusGroup",
+        "StatusBreakdown",
+        "CardRow",
       ],
       notes: [
         "Use MetricGrid for health or activity snapshots. Preserve the source's units, dates, and missing-data notes.",
@@ -800,6 +944,18 @@ export const openuiLibrary = createLibrary({
         "Null means missing data, not zero. Do not fabricate dates, samples, deltas, targets, or history to make a chart.",
         "Use ProgressCard only when the user or a completed tool supplies the goal. Do not prescribe health targets.",
         "Prefer one useful chart with a few metric cards over repeating the same facts in many sections.",
+        "Use TrendCard for a short, evenly spaced series with a useful latest value. Use ComparisonCard for a short list of comparable quantities.",
+        "Match each label to one value. Put the time range or source scope in context when useful.",
+        "Use StatusBreakdown when counts describe one set and each item belongs to exactly one status. Explain partial lists and avoid counting overlapping statuses.",
+        "Use CardRow to group two related compact cards. Use the compact calendar layout if the row contains CalendarAvailability.",
+      ],
+    },
+    {
+      name: "Learning",
+      components: ["ProcessStep", "ProcessDiagram", "LeverExplainer"],
+      notes: [
+        "Use ProcessDiagram when the order or relationship between stages helps explain how something works. Give each stage one brief explanation.",
+        "Use LeverExplainer only to explain leverage, torque, or balance. State when its inputs are illustrative. Do not use it for a real load or safety assessment.",
       ],
     },
     {
@@ -819,6 +975,7 @@ export const openuiLibrary = createLibrary({
         "CalendarBusyCalendar uses each calendar's busy intervals. An error or missing result requires busy=null and an error label. Keep all requested calendars represented. Empty successful busy arrays mean no busy time within the queried range.",
         "Rendering a calendar component does not create, edit, delete, invite, or book anything. Use the existing Calendar tools for user-requested changes and report success only after completion.",
         "State queried dates, filters, partial pages, unavailable calendars, and other coverage limits in AnswerSummary and the optional coverage field.",
+        "Use the optional compact layout for a quick availability answer. It computes the longest confirmed free block from the same intervals.",
       ],
     },
     {
@@ -848,6 +1005,33 @@ export const openuiPromptOptions = {
   ],
   examples: [
     [
+      "root = TheosAnswer(summary, [cards])",
+      'summary = AnswerSummary("Friday had the most steps in the five recorded weekdays. The morning walks took the most time.")',
+      "cards = CardRow([steps, walks])",
+      'steps = TrendCard("Daily steps", ["Mon", "Tue", "Wed", "Thu", "Fri"], [5940, 7200, null, 7580, 8420], "steps", "activity", "This week")',
+      'walks = ComparisonCard("Walking time", ["Morning", "Lunch", "Evening"], [85, 25, 40], "min", "timer", "This week")',
+    ].join("\n"),
+    [
+      "root = TheosAnswer(summary, [diagram])",
+      'summary = AnswerSummary("A browser finds the server, requests the page, and then displays it.")',
+      'diagram = ProcessDiagram("How a web page loads", [find, connect, draw])',
+      'find = ProcessStep("Find address", "DNS looks up the server address for the domain.", "DNS", "globe")',
+      'connect = ProcessStep("Connect", "The browser opens a secure connection and requests the page.", "HTTPS", "lock")',
+      'draw = ProcessStep("Draw the page", "The browser lays out and paints the page.", "HTML + CSS", "window")',
+    ].join("\n"),
+    [
+      "root = TheosAnswer(summary, [queue])",
+      'summary = AnswerSummary("The reviewed pull requests include one blocked item and three waiting for review.")',
+      'queue = StatusBreakdown("Pull request queue", [blocked, ready], "open", "branch", "Current results")',
+      'blocked = StatusGroup("Blocked", 1, "blocked", "PR #148 is waiting on the browser tests.", "alert")',
+      'ready = StatusGroup("Ready for review", 3, "positive", "PRs #146, #149, and #151 need a first review.", "check")',
+    ].join("\n"),
+    [
+      "root = TheosAnswer(summary, [lever])",
+      'summary = AnswerSummary("Moving the pivot toward the load reduces the push needed to balance it. This example uses a 120 N load and a 120 cm beam.")',
+      'lever = LeverExplainer("How a lever multiplies force", 120, 120)',
+    ].join("\n"),
+    [
       "root = TheosAnswer(summary, [agenda, detail, availability])",
       'summary = AnswerSummary("One event was returned for 29 October. Availability covers only the checked Work calendar from 09:00 to 12:00 Asia/Kolkata.")',
       'event = CalendarEvent("Project review", "2026-10-29T10:00:00+05:30", "2026-10-29T11:00:00+05:30", "Work", "Meeting room")',
@@ -855,7 +1039,7 @@ export const openuiPromptOptions = {
       'detail = CalendarEventCard(event, "Asia/Kolkata")',
       'busy = CalendarInterval("2026-10-29T10:00:00+05:30", "2026-10-29T11:00:00+05:30")',
       'work = CalendarBusyCalendar("Work", [busy])',
-      'availability = CalendarAvailability("Time to meet", "2026-10-29T09:00:00+05:30", "2026-10-29T12:00:00+05:30", "Asia/Kolkata", [work])',
+      'availability = CalendarAvailability("Time to meet", "2026-10-29T09:00:00+05:30", "2026-10-29T12:00:00+05:30", "Asia/Kolkata", [work], "Work calendar only", "compact")',
     ].join("\n"),
     [
       "root = TheosAnswer(summary, [overview, comparison])",

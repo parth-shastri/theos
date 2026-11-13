@@ -19,7 +19,7 @@ function Heading({ title, subtitle, trailing }) {
       : null,
   ]);
 }
-function ExactValues({ title, columns, rows }) {
+export function ExactValues({ title, columns, rows }) {
   return h("details", { className: "openui-exact-values" }, [
     h("summary", { key: "toggle" }, "View exact values"),
     h(Table, { key: "table", title, columns, rows, embedded: true }),
@@ -468,6 +468,58 @@ export function DataChart({
     }),
   ]);
 }
+export function DonutRing({
+  total,
+  values,
+  selected,
+  colors = chartColors,
+  centerValue,
+  centerLabel,
+  description,
+}) {
+  let offset = 0;
+  const segments = values.map((value, i) => {
+    const share = total ? (value / total) * 100 : 0,
+      start = offset;
+    offset += share;
+    return h("circle", {
+      cx: 70,
+      cy: 70,
+      r: 54,
+      pathLength: 100,
+      fill: "none",
+      stroke: colors[i % colors.length],
+      strokeWidth: 14,
+      strokeDasharray: `${Math.max(0, share - 0.8)} ${100 - Math.max(0, share - 0.8)}`,
+      strokeDashoffset: -start,
+      transform: "rotate(-90 70 70)",
+      opacity: selected === null || selected === i ? 1 : 0.25,
+      key: i,
+    });
+  });
+  return h(
+    "div",
+    { className: "openui-donut-ring", role: "img", "aria-label": description },
+    [
+      h("svg", { viewBox: "0 0 140 140", "aria-hidden": true, key: "svg" }, [
+        h("circle", {
+          cx: 70,
+          cy: 70,
+          r: 54,
+          fill: "none",
+          strokeWidth: 14,
+          className: "openui-ring-track",
+          key: "track",
+        }),
+        ...segments,
+      ]),
+      h("div", { className: "openui-donut-total", key: "total" }, [
+        h("strong", { key: "value" }, exactNumber(centerValue)),
+        h("span", { key: "label" }, centerLabel),
+      ]),
+    ],
+  );
+}
 export function Donut({ title, labels = [], values = [], unit = "", caption }) {
   const [selected, setSelected] = useState(null);
   if (
@@ -484,68 +536,18 @@ export function Donut({ title, labels = [], values = [], unit = "", caption }) {
       "A composition chart needs matching labels and non-negative values.",
     );
   const total = values.reduce((a, b) => a + b, 0);
-  let offset = 0;
-  const segments = values.map((value, i) => {
-    const share = total ? (value / total) * 100 : 0,
-      start = offset;
-    offset += share;
-    return h("circle", {
-      cx: 70,
-      cy: 70,
-      r: 54,
-      pathLength: 100,
-      fill: "none",
-      stroke: chartColors[i % chartColors.length],
-      strokeWidth: 14,
-      strokeDasharray: `${Math.max(0, share - 0.8)} ${100 - Math.max(0, share - 0.8)}`,
-      strokeDashoffset: -start,
-      transform: "rotate(-90 70 70)",
-      opacity: selected === null || selected === i ? 1 : 0.25,
-      key: i,
-    });
-  });
   return h("figure", { className: "openui-visual openui-donut" }, [
     h(Heading, { key: "heading", title, subtitle: caption, trailing: unit }),
     h("div", { className: "openui-donut-layout", key: "body" }, [
-      h(
-        "div",
-        {
-          className: "openui-donut-ring",
-          key: "ring",
-          role: "img",
-          "aria-label": title + ": " + exactNumber(total) + " " + unit,
-        },
-        [
-          h(
-            "svg",
-            { viewBox: "0 0 140 140", "aria-hidden": true, key: "svg" },
-            [
-              h("circle", {
-                cx: 70,
-                cy: 70,
-                r: 54,
-                fill: "none",
-                strokeWidth: 14,
-                className: "openui-ring-track",
-                key: "track",
-              }),
-              ...segments,
-            ],
-          ),
-          h("div", { className: "openui-donut-total", key: "total" }, [
-            h(
-              "strong",
-              { key: "value" },
-              exactNumber(selected === null ? total : values[selected]),
-            ),
-            h(
-              "span",
-              { key: "label" },
-              selected === null ? "Total " + unit : labels[selected],
-            ),
-          ]),
-        ],
-      ),
+      h(DonutRing, {
+        key: "ring",
+        total,
+        values,
+        selected,
+        centerValue: selected === null ? total : values[selected],
+        centerLabel: selected === null ? "Total " + unit : labels[selected],
+        description: title + ": " + exactNumber(total) + " " + unit,
+      }),
       h(
         "div",
         { className: "openui-donut-legend", key: "legend" },

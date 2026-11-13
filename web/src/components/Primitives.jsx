@@ -8,31 +8,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { iconPaths, providerIcons } from "../state/config";
+import { providerIcons } from "../state/config";
+import { Icon } from "./Icon.js";
 import { createGlass } from "../runtime/glass";
 import { createScope } from "../runtime/scope";
 
-export function Icon({ name, className }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-      fill={name === "stop" ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={
-        className || (name === "loading" ? "voice-spinner" : undefined)
-      }
-    >
-      {iconPaths[name].map((d) => (
-        <path d={d} key={d} />
-      ))}
-    </svg>
-  );
-}
+export { Icon };
 export function ConnectionIcon({ id }) {
   if (providerIcons[id])
     return (
