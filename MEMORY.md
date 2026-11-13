@@ -9,6 +9,7 @@ Promote `dev` to `main` and `rpi` through separate merge-commit PRs.
 Publish `rpi-v1.5.0` from the promoted `rpi` tip.
 The release requires no database migration or private configuration change.
 Verify the tagged workflow, both service health checks, and the active Pi manifest.
+Use Ubuntu 24.04 for the Linux 386 container check. Ubuntu 26.04 returned ENOSYS during `socketpair()` at startup.
 
 ## Browser turn activity, 2026-11-13
 
