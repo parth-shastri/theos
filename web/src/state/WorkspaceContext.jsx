@@ -208,14 +208,16 @@ export function WorkspaceProvider({ agentName, children }) {
     await refreshConnections();
     navigate("chat-view");
   };
-  const signIn = async (token) => {
+  const signIn = async (credentials) => {
     setSigningIn(true);
     setLoginError("");
     try {
-      await json("/api/auth/login", {
-        method: "POST",
-        body: { token: token.trim() },
-      });
+      await json(
+        "account" in credentials
+          ? "/api/auth/password/login"
+          : "/api/auth/login",
+        { method: "POST", body: credentials },
+      );
       await login();
     } catch (error) {
       if (error.name !== "AbortError") setLoginError(error.message);
@@ -223,6 +225,7 @@ export function WorkspaceProvider({ agentName, children }) {
       setSigningIn(false);
     }
   };
+  const clearLoginError = () => setLoginError("");
   const signOut = () =>
     perform(async () => {
       await json("/api/auth/logout", { method: "POST" });
@@ -518,6 +521,7 @@ export function WorkspaceProvider({ agentName, children }) {
         });
         sessionStorage.removeItem("theos-pending-signin");
         setOnboarding({
+          account: access.id,
           token: access.token,
           status: "Telegram confirmed this browser.",
         });
@@ -677,6 +681,7 @@ export function WorkspaceProvider({ agentName, children }) {
         patchSettings,
         runCommand,
         loginError,
+        clearLoginError,
         signingIn,
         signIn,
         signOut,
