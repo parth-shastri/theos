@@ -95,12 +95,12 @@ const SummaryCard = defineComponent({
 const EvidenceItem = defineComponent({
   name: "EvidenceItem",
   description:
-    "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Copy image_url and logo_url from tool results. Never invent image URLs.",
+    "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Pass null as source_id when none was returned. Copy image_url and logo_url from tool results. Never invent image URLs.",
   props: z.object({
     title: z.string(),
     url: z.string(),
     snippet: z.string(),
-    source_id: z.string().optional(),
+    source_id: z.union([z.string(), z.boolean()]).optional(),
     excerpt: z.boolean().optional(),
     image_url: z.string().max(4096).optional(),
     image_alt: z.string().max(300).optional(),
@@ -109,7 +109,11 @@ const EvidenceItem = defineComponent({
   component: ({ props }) => {
     const source = sourcePresentation(props.url);
     const snippet = excerptText(props.snippet);
-    const reference = referenceLabel(props.source_id, source?.href);
+    const reference = referenceLabel(
+      typeof props.source_id === "string" ? props.source_id : null,
+      source?.href,
+    );
+    const excerpt = props.excerpt ?? props.source_id === true;
     const heading = [
       h(SourceLogo, {
         key: "mark",
@@ -175,7 +179,7 @@ const EvidenceItem = defineComponent({
           )
         : null,
       h("div", { className: "openui-evidence-meta", key: "meta" }, [
-        props.excerpt
+        excerpt
           ? h(
               "span",
               { className: "openui-source-badge", key: "excerpt" },
@@ -976,7 +980,7 @@ export const openuiLibrary = createLibrary({
       components: ["EvidenceList", "EvidenceItem"],
       notes: [
         "Preserve the exact tool query in EvidenceList.query. The renderer cleans operator syntax for display and keeps the original in Search details. Label returned snippets as excerpts.",
-        "Include a source_id only when a tool returned a real source ID. Do not use a URL as source_id. Ordinary search results may not have saved source IDs.",
+        "Copy a source ID only when a tool returns one. To set excerpt without a source ID, use EvidenceItem(title, url, snippet, null, true).",
       ],
     },
     {
@@ -1082,6 +1086,12 @@ export const openuiPromptOptions = {
       "root = TheosAnswer(summary, [chart])",
       'summary = AnswerSummary("Morning ridership rose from 130 to 168 across the reported weekdays. Wednesday is missing.")',
       'chart = TrendCard("Morning ridership", ["Mon", "Tue", "Wed", "Thu", "Fri"], [130, 144, null, 157, 168], "riders", null, "Weekday mornings")',
+    ].join("\n"),
+    [
+      "root = TheosAnswer(summary, [sources])",
+      'summary = AnswerSummary("The supplied source explains how the archive groups its records.")',
+      'sources = EvidenceList("Archive source", "archive records", [source])',
+      'source = EvidenceItem("Archive guide", "https://example.org/archive", "Records are grouped by year.", null, true)',
     ].join("\n"),
     [
       "root = TheosAnswer(summary, [diagram])",

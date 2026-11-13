@@ -28,9 +28,9 @@ Use StatusNotice only for information, warnings, or errors. Never use it to clai
 
 ### Evidence
 EvidenceList(title: string, query?: string, items: EvidenceItem[]) — A collection of rich source cards. Keep the exact tool query in query; the renderer displays readable search terms and source filters.
-EvidenceItem(title: string, url: string, snippet: string, source_id?: string, excerpt?: boolean, image_url?: string, image_alt?: string, logo_url?: string) — One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Copy image_url and logo_url from tool results. Never invent image URLs.
+EvidenceItem(title: string, url: string, snippet: string, source_id?: string | boolean, excerpt?: boolean, image_url?: string, image_alt?: string, logo_url?: string) — One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Pass null as source_id when none was returned. Copy image_url and logo_url from tool results. Never invent image URLs.
 Preserve the exact tool query in EvidenceList.query. The renderer cleans operator syntax for display and keeps the original in Search details. Label returned snippets as excerpts.
-Include a source_id only when a tool returned a real source ID. Do not use a URL as source_id. Ordinary search results may not have saved source IDs.
+Copy a source ID only when a tool returns one. To set excerpt without a source ID, use EvidenceItem(title, url, snippet, null, true).
 
 ### Visual data
 MetricGrid(title: string, items: Metric[], subtitle?: string) — A visual overview of health, activity, nutrition, or other key facts. Use metrics with different units here, not on one chart axis.
@@ -112,6 +112,11 @@ root = TheosAnswer(AnswerSummary("A decagon has ten sides."))
 root = TheosAnswer(summary, [chart])
 summary = AnswerSummary("Morning ridership rose from 130 to 168 across the reported weekdays. Wednesday is missing.")
 chart = TrendCard("Morning ridership", ["Mon", "Tue", "Wed", "Thu", "Fri"], [130, 144, null, 157, 168], "riders", null, "Weekday mornings")
+
+root = TheosAnswer(summary, [sources])
+summary = AnswerSummary("The supplied source explains how the archive groups its records.")
+sources = EvidenceList("Archive source", "archive records", [source])
+source = EvidenceItem("Archive guide", "https://example.org/archive", "Records are grouped by year.", null, true)
 
 root = TheosAnswer(summary, [diagram])
 summary = AnswerSummary("A seed sends a root down to take up water and a shoot up toward light.")

@@ -315,7 +315,10 @@
           "type": "string"
         },
         "source_id": {
-          "type": "string"
+          "type": [
+            "string",
+            "boolean"
+          ]
         },
         "excerpt": {
           "type": "boolean"
@@ -339,7 +342,7 @@
         "snippet"
       ],
       "additionalProperties": false,
-      "description": "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Copy image_url and logo_url from tool results. Never invent image URLs."
+      "description": "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Pass null as source_id when none was returned. Copy image_url and logo_url from tool results. Never invent image URLs."
     },
     "StatusNotice": {
       "type": "object",

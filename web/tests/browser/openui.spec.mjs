@@ -7,6 +7,7 @@ async function fixture(
   version = "theos-openui-2",
   history = [],
   approvals = [],
+  expected = ".theos-openui-answer",
 ) {
   await page.goto("/");
   await page.locator("#token").fill(token);
@@ -69,7 +70,7 @@ async function fixture(
     },
   );
   await page.reload();
-  await expect(page.locator(".theos-openui-answer")).toBeVisible();
+  await expect(page.locator(expected)).toBeVisible();
   return { state: () => state, summary: () => summary, saves: () => saves };
 }
 
@@ -955,4 +956,103 @@ test("general explainers follow branches and compare cases across topics", async
   await expect(page.locator(".openui-relationship-card")).toBeVisible();
   await expect(page.locator(".openui-fallback")).toHaveCount(0);
   expect(turns).toEqual([]);
+});
+
+test("legacy evidence arguments render without losing references or excerpt labels", async ({
+  page,
+}) => {
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [evidence])",
+      'summary = AnswerSummary("Two sources are available.")',
+      'evidence = EvidenceList("Sources", "reference", [first, second])',
+      'first = EvidenceItem("First", "https://example.com/one", "A checked source.", true)',
+      'second = EvidenceItem("Second", "https://example.com/two", "Another checked source.", "ref-2", false)',
+    ].join("\n"),
+    "theos-openui-3",
+  );
+  const items = page.locator(".openui-evidence-item");
+  await expect(items).toHaveCount(2);
+  await expect(
+    items.first().getByText("Excerpt", { exact: true }),
+  ).toBeVisible();
+  await expect(items.first()).not.toContainText("Reference: true");
+  await expect(items.last()).toContainText("Reference: ref-2");
+  await expect(page.locator(".openui-fallback")).toHaveCount(0);
+});
+
+test("malformed sections leave the summary readable and never activate a draft", async ({
+  page,
+}) => {
+  const issueRequests = [];
+  const actionRequests = [];
+  await page.route("**/api/openui/issues", async (route) => {
+    issueRequests.push(route.request().postDataJSON());
+    await route.fulfill({ json: { recorded: true } });
+  });
+  await page.route("**/openui-actions", async (route) => {
+    actionRequests.push(route.request().postDataJSON());
+    await route.fulfill({
+      contentType: "text/event-stream",
+      body: 'data: {"type":"done"}\n\n',
+    });
+  });
+  const saved = await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [draft, missing])",
+      'summary = AnswerSummary("Saved summary with <b>literal text</b>.")',
+      'draft = ScheduleReminderForm("Drink water", "2030-01-15", "10:30", "Asia/Kolkata", "none", [])',
+    ].join("\n"),
+    "theos-openui-5",
+    [],
+    [],
+    ".openui-fallback",
+  );
+  const fallback = page.locator(".openui-fallback");
+  await expect(fallback.locator(".openui-answer-summary")).toHaveText(
+    "Saved summary with <b>literal text</b>.",
+  );
+  await expect(fallback.locator("b")).toHaveCount(0);
+  await expect(fallback).toContainText(
+    "The interactive details could not be displayed.",
+  );
+  await expect(
+    page.getByRole("button", { name: "Schedule reminder", exact: true }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() => saved.summary())
+    .toBe("Saved summary with <b>literal text</b>.");
+  await expect.poll(() => issueRequests[0]?.codes).toEqual(["unresolved"]);
+  expect(actionRequests).toEqual([]);
+  await page.reload();
+  await expect(fallback.locator(".openui-answer-summary")).toBeVisible();
+  await fallback.getByRole("button", { name: "Explain in text" }).click();
+  await expect
+    .poll(() => actionRequests.map((item) => item.type))
+    .toEqual(["explain_in_text"]);
+});
+
+test("unavailable or truncated OpenUI never exposes source", async ({
+  page,
+}) => {
+  await fixture(
+    page,
+    'root = TheosAnswer(AnswerSummary("An unfinished fragment',
+    "theos-openui-999",
+    [],
+    [],
+    ".openui-fallback",
+  );
+  const fallback = page.locator(".openui-fallback");
+  await expect(fallback).toContainText(
+    "This interactive answer could not be displayed.",
+  );
+  await expect(page.locator("#messages")).not.toContainText(
+    "An unfinished fragment",
+  );
+  await expect(
+    fallback.getByRole("button", { name: "Explain in text" }),
+  ).toBeVisible();
 });

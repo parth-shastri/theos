@@ -1,5 +1,14 @@
 # Feature and acceptance checklist
 
+## OpenUI reliability, 2026-11-13
+
+A read-only check of six recent Pi answers found two that failed the deployed version 3 parser.
+Both put a boolean excerpt flag in the optional source ID field. Both contained a complete summary.
+All six saved answers parse against the updated development schema.
+Browser regressions cover legacy evidence, malformed and truncated answers, saved summaries, and disabled form actions.
+The recovery test selects an older answer and confirms that the recovery turn exposes no tools.
+The structured log test confirms that OpenUI issue codes are retained without answer content.
+
 ## General OpenUI answers, 2026-11-13
 
 The library selects visuals by the structure of the answer. It uses text when the question is simple or chart data is missing.

@@ -1914,6 +1914,10 @@ main {
   margin: 0;
   color: var(--text-soft);
 }
+.openui-fallback .openui-answer-summary {
+  flex-basis: 100%;
+  color: var(--text);
+}
 .openui-pending {
   display: flex;
   align-items: center;

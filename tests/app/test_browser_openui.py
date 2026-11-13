@@ -1,11 +1,14 @@
 """OpenUI display metadata and actions retain runtime and owner boundaries."""
 
+import json
+import logging
 from contextlib import asynccontextmanager
 
 import pytest
 
 from harness import AssistantMessage, ToolCall, message_to_dict
 from harness.testing import FakeModel
+from theos.operations.logging import SafeFormatter
 from theos.storage.messages import display_metadata, update_display_metadata
 from theos.transports.browser.openui import reminder_submission
 
@@ -99,6 +102,10 @@ async def test_saved_drafts_reject_other_owners_unknown_messages_and_unsupported
 
 async def test_text_recovery_uses_saved_information_without_exposing_tools(runtime):
     session = saved_answer(runtime)
+    history = runtime.db.load_history("alice", session["id"])
+    runtime.db.save_history(
+        "alice", session["id"], [*history, AssistantMessage("A newer unrelated answer.")]
+    )
     model = FakeModel([AssistantMessage("A fact from this conversation.")])
 
     @asynccontextmanager
@@ -115,6 +122,8 @@ async def test_text_recovery_uses_saved_information_without_exposing_tools(runti
         assert response.status_code == 200
         assert '"status": "completed"' in response.text
         assert model.requests and all(not request.tools for request in model.requests)
+        selected = model.requests[0].messages[-1].content
+        assert json.loads(selected.split("Selected answer: ", 1)[1]) == SOURCE
         answer = runtime.db.load_history("alice", session["id"])[-1]
         assert answer.text == "A fact from this conversation."
         assert "format" not in display_metadata(answer)
@@ -136,3 +145,27 @@ def test_reminder_form_rejects_ambiguous_and_nonexistent_local_times(runtime, da
                 "reminder_timezone": "America/New_York",
             },
         )
+
+
+async def test_openui_issue_logs_only_validated_metadata(runtime, caplog):
+    payload = {
+        "library_version": "theos-openui-5",
+        "codes": ["type-mismatch", "unresolved"],
+        "unresolved_count": 1,
+        "orphaned_count": 0,
+        "component_count": 4,
+        "private_source": "Never log the model program.",
+    }
+    async with browser(runtime) as client:
+        await client.post("/api/auth/login", json={"token": "a" * 32})
+        with caplog.at_level(logging.WARNING, logger="theos"):
+            assert (await client.post("/api/openui/issues", json=payload)).status_code == 200
+        record = next(record for record in caplog.records if record.msg == "openui_render_issue")
+        data = json.loads(SafeFormatter().format(record))
+        assert data["event"] == "openui_render_issue"
+        assert data["openui"] == {
+            key: value for key, value in payload.items() if key != "private_source"
+        }
+        assert (
+            await client.post("/api/openui/issues", json={**payload, "codes": ["arbitrary text"]})
+        ).status_code == 422
