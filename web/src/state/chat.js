@@ -11,8 +11,8 @@ export const initialChat = {
   status: "",
   statusClass: "",
   busy: false,
-  responding: false,
   notice: "",
+  activityId: null,
   active: null,
   output: null,
   lastAnswer: null,
@@ -27,6 +27,33 @@ function append(state, entry) {
   state.entries.push({ ...entry, id });
   return id;
 }
+
+function finishActivity(state, now, durationMs) {
+  if (!state.activityId) return;
+  const index = state.entries.findIndex(
+    (entry) => entry.id === state.activityId,
+  );
+  const activity = state.entries[index];
+  const elapsed = Number.isFinite(durationMs)
+    ? durationMs
+    : now - activity.started;
+  state.entries[index] = {
+    ...activity,
+    running: false,
+    durationMs: Math.max(0, elapsed),
+  };
+  for (let i = index + 1; i < state.entries.length; i++) {
+    const row = state.entries[i];
+    if (row.kind === "compaction" && row.active)
+      state.entries[i] = {
+        ...row,
+        active: false,
+        text: "Context preparation stopped. Your conversation is saved.",
+      };
+  }
+  state.activityId = null;
+}
+
 function assistant(state, now) {
   if (!state.active)
     state.active = append(state, {
@@ -34,7 +61,6 @@ function assistant(state, now) {
       role: "assistant",
       text: "",
       reasoning: "",
-      thinking: true,
       streaming: true,
       started: now,
       display: { created_at: now / 1000 },
@@ -48,17 +74,20 @@ function assistant(state, now) {
   state.entries[index] = entry;
   return entry;
 }
-function tool(state, call, status, content = null, argumentsValue = null) {
+function tool(state, call, status, content = null) {
   const callId = call.call_id ?? call.id;
-  const index = state.entries.findIndex(
-    (entry) => entry.kind === "tool" && callId && entry.callId === callId,
-  );
+  const declared = status === "queued" || status === "unresolved";
+  const index = declared
+    ? -1
+    : state.entries.findLastIndex(
+        (entry) => entry.kind === "tool" && callId && entry.callId === callId,
+      );
   if (index >= 0) {
     const existing = { ...state.entries[index] };
     state.entries[index] = existing;
     existing.status = status;
     if (content !== null) existing.content = content;
-    if (existing.arguments == null) existing.arguments = argumentsValue;
+    if (existing.arguments == null) existing.arguments = call.arguments ?? null;
   } else
     append(state, {
       kind: "tool",
@@ -66,12 +95,11 @@ function tool(state, call, status, content = null, argumentsValue = null) {
       name: call.name,
       status,
       content,
-      arguments: argumentsValue,
+      arguments: call.arguments ?? null,
     });
 }
 function finishMessage(entry, event = {}, now) {
   entry.streaming = false;
-  entry.thinking = false;
   entry.display = {
     ...entry.display,
     duration_ms: now - entry.started,
@@ -127,7 +155,6 @@ function event(state, value, now) {
     const entry = assistant(state, now);
     entry.started = now;
     entry.display = { ...entry.display, ...value.display };
-    entry.thinking = true;
   }
   if (value.type === "assistant_format") {
     state.output = value;
@@ -142,13 +169,16 @@ function event(state, value, now) {
   if (value.type === "reasoning") {
     const entry = assistant(state, now);
     entry.reasoning += value.text;
-    entry.thinking = true;
   }
   if (value.type === "answer_replace") {
     if (!state.active && state.lastAnswer) state.active = state.lastAnswer;
-    state.entries = state.entries.filter(
-      (entry) => !state.answers.includes(entry.id) || entry.id === state.active,
-    );
+    state.entries = state.entries.flatMap((entry) => {
+      if (!state.answers.includes(entry.id) || entry.id === state.active)
+        return [entry];
+      return entry.reasoning
+        ? [{ ...entry, text: "", presentationHidden: true }]
+        : [];
+    });
     state.answers = [];
   }
   if (["assistant_complete", "answer_replace"].includes(value.type)) {
@@ -165,33 +195,38 @@ function event(state, value, now) {
         state.answers.push(entry.id);
       }
     }
+    for (const call of value.tool_calls || []) tool(state, call, "queued");
     state.active = null;
     state.output = null;
   }
   if (value.type === "tool") {
-    tool(
-      state,
-      value,
-      value.status,
-      value.content ?? null,
-      value.arguments ?? null,
-    );
+    tool(state, value, value.status, value.content ?? null);
   }
   if (value.type === "file") append(state, { kind: "file", ...value });
-  if (value.type === "approvals") state.approvals = value.items;
+  if (value.type === "approvals") {
+    state.approvals = value.items;
+    const pending = new Set(value.items.map((item) => item.call_id));
+    state.entries = state.entries.map((entry) =>
+      entry.kind === "tool" && pending.has(entry.callId)
+        ? { ...entry, status: "waiting_for_approval" }
+        : entry,
+    );
+  }
   if (value.type === "error") {
-    state.responding = false;
+    finishActivity(state, now);
     state.status = value.message;
     state.statusClass = "error";
   }
-  if (value.type === "done") state.responding = false;
+  if (value.type === "done") finishActivity(state, now, value.duration_ms);
 }
 export function historyEntries(session) {
   const state = { ...initialChat, entries: [], sequence: 0 };
-  const calls = new Map();
+  const pending = new Set(session.approvals.map((item) => item.call_id));
   for (const message of session.history) {
-    if (message.display?.superseded) continue;
-    if (message.type === "user")
+    const activity = message.display?.turn_activity;
+    if (activity && message.type !== "user")
+      append(state, { kind: "activity", durationMs: activity.duration_ms });
+    if (message.type === "user") {
       append(state, {
         kind: "message",
         role: "user",
@@ -199,15 +234,17 @@ export function historyEntries(session) {
         images: message.images,
         display: message.display,
       });
+      if (activity)
+        append(state, { kind: "activity", durationMs: activity.duration_ms });
+    }
     if (message.type === "assistant") {
-      if (
-        message.reasoning ||
-        (message.text && !message.display?.openui_hidden)
-      )
+      const hidden =
+        message.display?.openui_hidden || message.display?.superseded;
+      if (message.reasoning || (message.text && !hidden))
         append(state, {
           kind: "message",
           role: "assistant",
-          text: message.display?.openui_hidden ? "" : message.text || "",
+          text: hidden ? "" : message.text || "",
           reasoning: message.reasoning || "",
           display: message.display,
           usage: message.usage,
@@ -216,38 +253,72 @@ export function historyEntries(session) {
           openuiMessageId: message.display?.openui_message_id || null,
           openuiState: message.display?.openui_state || {},
           openuiSummary: message.display?.openui_summary || "",
-          presentationHidden: Boolean(message.display?.openui_hidden),
+          presentationHidden: Boolean(hidden),
         });
-      for (const call of message.tool_calls || []) calls.set(call.id, call);
+      for (const call of message.tool_calls || [])
+        tool(state, call, "unresolved");
     }
     if (message.type === "tool_result") {
-      tool(
-        state,
-        message,
-        message.status,
-        message.content,
-        calls.get(message.call_id)?.arguments ?? null,
-      );
-      calls.delete(message.call_id);
+      tool(state, message, message.status, message.content);
       if (message.status === "completed") {
         try {
           const result = JSON.parse(message.content);
-          if (result.file_id) append(state, { kind: "file", ...result });
+          if (result?.file_id) append(state, { kind: "file", ...result });
         } catch {}
       }
     }
   }
-  const pending = new Set(session.approvals.map((item) => item.call_id));
-  for (const call of calls.values())
-    tool(
-      state,
-      call,
-      pending.has(call.id) ? "waiting_for_approval" : "unresolved",
-      null,
-      call.arguments,
-    );
+  state.entries = state.entries.map((entry) =>
+    entry.kind === "tool" &&
+    entry.status === "unresolved" &&
+    pending.has(entry.callId)
+      ? { ...entry, status: "waiting_for_approval" }
+      : entry,
+  );
   return state;
 }
+
+export function conversationEntries(entries) {
+  const transcript = [];
+  let activity;
+  // The marker comes from Send during streaming and from saved history after reload.
+  // Older conversations can group their available activity between user messages.
+  for (const entry of entries) {
+    if (entry.kind === "activity") {
+      activity = { ...entry, rows: [] };
+      transcript.push(activity);
+      continue;
+    }
+    if (entry.role === "user" && !entry.display?.workspace_inspection)
+      activity = null;
+    if (
+      entry.reasoning ||
+      entry.kind === "tool" ||
+      entry.kind === "compaction"
+    ) {
+      if (!activity) {
+        activity = { id: "activity-" + entry.id, kind: "activity", rows: [] };
+        transcript.push(activity);
+      }
+      activity.rows.push(entry);
+    }
+    if (
+      entry.kind === "file" ||
+      (entry.kind === "message" &&
+        (entry.role !== "assistant" ||
+          (entry.text && !entry.presentationHidden)))
+    )
+      transcript.push(entry);
+  }
+  return transcript.filter(
+    (entry) =>
+      entry.kind !== "activity" ||
+      entry.running ||
+      Number.isFinite(entry.durationMs) ||
+      entry.rows.length,
+  );
+}
+
 export function chatReducer(previous, action) {
   const now = action.now ?? 0;
   if (action.type === "LOAD")
@@ -282,8 +353,12 @@ export function chatReducer(previous, action) {
     });
   if (action.type === "START") {
     state.turn++;
+    state.activityId = append(state, {
+      kind: "activity",
+      running: true,
+      started: now,
+    });
     state.busy = true;
-    state.responding = true;
     state.notice = "";
     state.active = null;
     state.output = null;
@@ -296,18 +371,11 @@ export function chatReducer(previous, action) {
   if (action.type === "EVENTS")
     for (const value of action.events) event(state, value, now);
   if (action.type === "FINISH") {
+    finishActivity(state, now);
     state.entries = state.entries.map((previous) => {
-      if (
-        !previous.streaming &&
-        !(previous.kind === "compaction" && previous.active)
-      )
-        return previous;
+      if (!previous.streaming) return previous;
       const entry = { ...previous };
-      if (entry.streaming) finishMessage(entry, {}, now);
-      if (entry.kind === "compaction" && entry.active) {
-        entry.active = false;
-        entry.text = "Context preparation stopped. Your conversation is saved.";
-      }
+      finishMessage(entry, {}, now);
       return entry;
     });
     state.entries = state.entries.filter(
@@ -318,7 +386,6 @@ export function chatReducer(previous, action) {
         entry.reasoning,
     );
     state.busy = false;
-    state.responding = false;
     state.active = null;
     state.output = null;
     if (state.statusClass !== "error") state.statusClass = "";

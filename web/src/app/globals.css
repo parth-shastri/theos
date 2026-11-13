@@ -21,9 +21,11 @@
   --text-muted: #737e8c;
   --message-meta: #637080;
   --chart-output: #a06a2b;
-  --accent: #33654e;
-  --accent-hover: #27503e;
-  --accent-soft: #e7f0ea;
+  --primary: #29bd86;
+  --primary-hover: #22a976;
+  --on-primary: #0b1f16;
+  --accent: #3d7057;
+  --accent-soft: #eaf4ed;
   --success: #188457;
   --success-soft: #e8f6f0;
   --warning: #a66708;
@@ -44,6 +46,7 @@
   --overlay-highlight: rgb(255 255 255 / 24%);
   --overlay-shadow: 0 24px 64px rgb(22 45 32 / 14%);
   --scrim: rgb(17 34 26 / 6%);
+  --ambient-accent: #a9c7b4;
   --ambient-bottom: 26%;
   --ambient-mid: 9%;
   --ambient-top: 3%;
@@ -57,7 +60,7 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #0e1116;
+  --canvas: #080b0f;
   --surface: #161a21;
   --surface-subtle: #1b2028;
   --surface-raised: #20262f;
@@ -69,7 +72,6 @@
   --message-meta: #8792a0;
   --chart-output: #d6ae6b;
   --accent: #6ec49a;
-  --accent-hover: #8bd4b1;
   --accent-soft: #1a3a2c;
   --success: #5bc394;
   --success-soft: #163428;
@@ -91,6 +93,7 @@
   --overlay-highlight: rgb(255 255 255 / 8%);
   --overlay-shadow: 0 24px 64px rgb(0 0 0 / 32%);
   --scrim: rgb(0 0 0 / 12%);
+  --ambient-accent: var(--accent);
   --ambient-bottom: 12%;
   --ambient-mid: 5%;
   --ambient-top: 2%;
@@ -131,14 +134,15 @@ body {
     linear-gradient(
       to top,
       transparent,
-      color-mix(in srgb, var(--accent) var(--ambient-bottom), transparent)
+      color-mix(in srgb, var(--ambient-accent) var(--ambient-bottom), transparent)
         min(64px, 18%),
-      color-mix(in srgb, var(--accent) var(--ambient-mid), transparent) 26%,
+      color-mix(in srgb, var(--ambient-accent) var(--ambient-mid), transparent)
+        26%,
       transparent 62%
     ),
     radial-gradient(
       ellipse at 96% 0%,
-      color-mix(in srgb, var(--accent) var(--ambient-top), transparent),
+      color-mix(in srgb, var(--ambient-accent) var(--ambient-top), transparent),
       transparent 46%
     ),
     var(--canvas);
@@ -270,20 +274,17 @@ button:disabled {
 .primary {
   min-height: 42px;
   padding: 0 16px;
-  border-color: var(--accent);
-  color: #fff;
-  background: var(--accent);
+  border-color: var(--primary);
+  color: var(--on-primary);
+  background: var(--primary);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 16%),
-    0 3px 8px color-mix(in srgb, var(--accent) 14%, transparent);
+    0 3px 8px color-mix(in srgb, var(--primary) 14%, transparent);
 }
 .primary:hover:not(:disabled) {
-  border-color: var(--accent-hover);
-  background: var(--accent-hover);
-  color: #fff;
-}
-:root[data-theme="dark"] .primary:not(:disabled) {
-  color: #0b1f16;
+  border-color: var(--primary-hover);
+  background: var(--primary-hover);
+  color: var(--on-primary);
 }
 button.icon-button {
   width: 36px;
@@ -2117,17 +2118,12 @@ button.copy-code {
 .message.user .body {
   width: fit-content;
   padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--border));
+  border: 1px solid var(--primary);
   border-radius: 18px 18px 18px 5px;
-  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
-  color: var(--text);
+  background: var(--primary);
+  color: var(--on-primary);
 }
-:root:not([data-theme="dark"]) .message.user .body {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-:root:not([data-theme="dark"]) .message.user .body a {
+.message.user .body a {
   color: inherit;
 }
 .message:has(.body:empty) {
@@ -2888,41 +2884,19 @@ button.speech-button.is-playing {
     transform: rotate(360deg);
   }
 }
-/* Adapt the mini-theos companion orb to the browser's green theme. */
-.thinking-orb {
-  --glow-a: #29bd86;
-  --glow-b: #d4e96b;
-  border-radius: 50%;
-}
 .thinking-orb {
   display: block;
   flex: 0 0 16px;
   width: 16px;
   height: 16px;
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.is-thinking .thinking-orb {
-  border: 0;
+  border-radius: 50%;
   background: radial-gradient(
     circle at 35% 25%,
     #fff 0,
-    var(--glow-b) 20%,
-    var(--glow-a) 56%,
-    color-mix(in srgb, var(--glow-a) 55%, transparent) 75%
+    #d4e96b 20%,
+    var(--primary) 56%,
+    color-mix(in srgb, var(--primary) 55%, transparent) 75%
   );
-  box-shadow:
-    0 0 6px var(--glow-a),
-    0 0 16px var(--glow-b),
-    0 0 30px color-mix(in srgb, var(--glow-a) 55%, transparent);
-  animation: orb-breathe 2.2s ease-in-out infinite;
-}
-.turn-activity {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0;
-  color: var(--text-soft);
 }
 .turn-activity .thinking-label {
   animation: thinking-pulse 1.6s ease-in-out infinite;
@@ -2930,17 +2904,6 @@ button.speech-button.is-playing {
 @keyframes thinking-pulse {
   50% {
     opacity: 0.45;
-  }
-}
-@keyframes orb-breathe {
-  0%,
-  100% {
-    transform: scale(0.9);
-    filter: brightness(0.88);
-  }
-  50% {
-    transform: scale(1.12);
-    filter: brightness(1.3);
   }
 }
 @media (pointer: coarse) {
@@ -3876,8 +3839,6 @@ summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.thinking,
-.tool-activity,
 .tool-card {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -3885,64 +3846,92 @@ summary:focus-visible {
   margin: 12px 0;
   overflow-wrap: anywhere;
 }
-.thinking {
-  white-space: normal;
-  border: 0;
-  background: transparent;
+.turn-activity {
+  margin: 4px 0 12px;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
 }
-.message.reasoning-only {
-  padding: 0;
-  margin: 0;
-}
-.reasoning-only .thinking {
-  margin: 4px 0;
-}
-.thinking > summary {
+.turn-activity > summary,
+.turn-activity .thinking-status,
+.tool-action {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 40px;
-  padding: 8px 2px;
+  gap: 8px;
+}
+.turn-activity > summary,
+.tool-action,
+.turn-activity > .thinking-status {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 0;
   list-style: none;
 }
-.thinking > summary::-webkit-details-marker {
+.turn-activity > summary::-webkit-details-marker,
+.tool-activity > summary::-webkit-details-marker {
   display: none;
 }
-.thinking > summary::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  margin-left: 4px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
+.turn-activity.is-thinking > summary {
+  cursor: default;
 }
-.thinking[open] > summary::after {
-  transform: rotate(45deg);
+.turn-activity svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+.turn-activity .activity-chevron {
+  transform: rotate(90deg);
+}
+.turn-activity details[open] > summary > .activity-chevron,
+.turn-activity[open] > summary > .activity-chevron {
+  transform: rotate(180deg);
+}
+.turn-activity-rows {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0 0 0 24px;
 }
 .thinking-body {
-  white-space: normal;
-  margin-left: 10px;
-  padding: 2px 12px 12px 20px;
-  border-left: 1px solid var(--border);
+  padding: 4px 0;
+}
+.thinking-body > :first-child {
+  margin-top: 0;
+}
+.thinking-body > :last-child {
+  margin-bottom: 0;
+}
+.tool-action > span {
+  color: var(--text);
+}
+.tool-outcome {
   color: var(--text-soft);
+}
+.tool-activity-details {
+  border-left: 1px solid var(--border);
+  margin: 0 0 6px 7px;
+  padding: 2px 0 2px 15px;
   font-size: 12px;
 }
-.tool-activity {
-  font-size: 12px;
-}
-.tool-card p,
-.tool-card > strong,
-.tool-activity > strong {
-  margin: 12px;
-}
-.tool-card > strong,
-.tool-activity > strong {
+.tool-activity-details > strong {
   display: block;
 }
-.tool-card pre,
-.tool-activity pre {
+.tool-activity-details pre {
+  margin: 2px 0 8px;
+}
+.tool-card p,
+.tool-card > strong {
   margin: 12px;
+}
+.tool-card > strong {
+  display: block;
+}
+.tool-card pre {
+  margin: 12px;
+}
+.tool-card pre,
+.tool-activity-details pre {
   white-space: pre-wrap;
   max-height: 280px;
   overflow: auto;
@@ -4426,7 +4415,8 @@ tr:last-child td {
   select {
     font-size: 16px;
   }
-  .thinking > summary,
+  .turn-activity > summary,
+  .turn-activity > .thinking-status,
   .tool-activity > summary,
   .tool-card > summary {
     min-height: 44px;

@@ -197,7 +197,8 @@ jobs:
       max-parallel: 7
       matrix:
         architecture: ${{ fromJSON(needs.quality.outputs.architectures || '["arm64"]') }}
-    runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    # The Ubuntu 26.04 runner returns ENOSYS from socketpair in the 386 container.
+    runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || matrix.architecture == '386' && 'ubuntu-24.04' || 'ubuntu-latest' }}
     env:
       TEST_PLATFORM: ${{ fromJSON('{"amd64":"linux/amd64","arm64":"linux/arm64","386":"linux/386","armv7":"linux/arm/v7","ppc64le":"linux/ppc64le","s390x":"linux/s390x","riscv64":"linux/riscv64"}')[matrix.architecture] }}
     timeout-minutes: 60
