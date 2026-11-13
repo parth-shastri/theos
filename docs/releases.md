@@ -15,6 +15,15 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.5.1
+
+Package version 1.5.1 uses tag `rpi-v1.5.1` from the promoted `rpi` tip.
+OpenUI adds compact cards, relationship diagrams, and scenario explorers. Saved versions 1 through 4 still render.
+If interactive details fail validation, the browser keeps the readable summary.
+Users can set an optional browser password and reset it from the sign-in screen.
+An existing access token or private Telegram confirmation verifies access before setup or reset.
+Migration 017 adds password storage and preserves existing browser sessions and invitations.
+
 ## Release 1.5.0
 
 Package version 1.5.0 uses tag `rpi-v1.5.0` from the promoted `rpi` tip.

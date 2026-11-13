@@ -2,6 +2,14 @@
 
 Updated: 2026-11-13.
 
+## Release 1.5.1 preparation, 2026-11-13
+
+The operator requested a patch release for the OpenUI and browser password changes in PRs 138 through 142.
+Promote `dev` to `main` and `rpi` through separate merge-commit PRs.
+Publish `rpi-v1.5.1` from the promoted `rpi` tip.
+Migration 017 adds browser password storage. The release workflow applies it to the candidate data volume.
+Verify the tagged workflow, both service health checks, and the active Pi manifest.
+
 ## OpenUI reliability, 2026-11-13
 
 Keep the readable summary if an interactive section fails. Keep form actions behind full validation.
