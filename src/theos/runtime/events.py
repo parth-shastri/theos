@@ -116,6 +116,16 @@ def publish_event(runtime, turn, event, status):
                     "reasoning": event.message.reasoning,
                     "usage": event.message.usage,
                     "requested_tools": [call.name for call in event.message.tool_calls],
+                    **(
+                        {
+                            "tool_calls": [
+                                {"id": call.id, "name": call.name, "arguments": call.arguments}
+                                for call in event.message.tool_calls
+                            ]
+                        }
+                        if turn.browser_ui and event.message.tool_calls
+                        else {}
+                    ),
                     "display": display_metadata(event.message),
                 }
             )

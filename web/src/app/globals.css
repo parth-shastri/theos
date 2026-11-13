@@ -2890,11 +2890,6 @@ button.speech-button.is-playing {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.is-thinking .thinking-orb {
-  border: 0;
   background: radial-gradient(
     circle at 35% 25%,
     #fff 0,
@@ -2902,13 +2897,6 @@ button.speech-button.is-playing {
     var(--primary) 56%,
     color-mix(in srgb, var(--primary) 55%, transparent) 75%
   );
-}
-.turn-activity {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0;
-  color: var(--text-soft);
 }
 .turn-activity .thinking-label {
   animation: thinking-pulse 1.6s ease-in-out infinite;
@@ -3851,8 +3839,6 @@ summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.thinking,
-.tool-activity,
 .tool-card {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -3860,64 +3846,92 @@ summary:focus-visible {
   margin: 12px 0;
   overflow-wrap: anywhere;
 }
-.thinking {
-  white-space: normal;
-  border: 0;
-  background: transparent;
+.turn-activity {
+  margin: 4px 0 12px;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
 }
-.message.reasoning-only {
-  padding: 0;
-  margin: 0;
-}
-.reasoning-only .thinking {
-  margin: 4px 0;
-}
-.thinking > summary {
+.turn-activity > summary,
+.turn-activity .thinking-status,
+.tool-action {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 40px;
-  padding: 8px 2px;
+  gap: 8px;
+}
+.turn-activity > summary,
+.tool-action,
+.turn-activity > .thinking-status {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 0;
   list-style: none;
 }
-.thinking > summary::-webkit-details-marker {
+.turn-activity > summary::-webkit-details-marker,
+.tool-activity > summary::-webkit-details-marker {
   display: none;
 }
-.thinking > summary::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  margin-left: 4px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
+.turn-activity.is-thinking > summary {
+  cursor: default;
 }
-.thinking[open] > summary::after {
-  transform: rotate(45deg);
+.turn-activity svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+.turn-activity .activity-chevron {
+  transform: rotate(90deg);
+}
+.turn-activity details[open] > summary > .activity-chevron,
+.turn-activity[open] > summary > .activity-chevron {
+  transform: rotate(180deg);
+}
+.turn-activity-rows {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0 0 0 24px;
 }
 .thinking-body {
-  white-space: normal;
-  margin-left: 10px;
-  padding: 2px 12px 12px 20px;
-  border-left: 1px solid var(--border);
+  padding: 4px 0;
+}
+.thinking-body > :first-child {
+  margin-top: 0;
+}
+.thinking-body > :last-child {
+  margin-bottom: 0;
+}
+.tool-action > span {
+  color: var(--text);
+}
+.tool-outcome {
   color: var(--text-soft);
+}
+.tool-activity-details {
+  border-left: 1px solid var(--border);
+  margin: 0 0 6px 7px;
+  padding: 2px 0 2px 15px;
   font-size: 12px;
 }
-.tool-activity {
-  font-size: 12px;
-}
-.tool-card p,
-.tool-card > strong,
-.tool-activity > strong {
-  margin: 12px;
-}
-.tool-card > strong,
-.tool-activity > strong {
+.tool-activity-details > strong {
   display: block;
 }
-.tool-card pre,
-.tool-activity pre {
+.tool-activity-details pre {
+  margin: 2px 0 8px;
+}
+.tool-card p,
+.tool-card > strong {
   margin: 12px;
+}
+.tool-card > strong {
+  display: block;
+}
+.tool-card pre {
+  margin: 12px;
+}
+.tool-card pre,
+.tool-activity-details pre {
   white-space: pre-wrap;
   max-height: 280px;
   overflow: auto;
@@ -4401,7 +4415,8 @@ tr:last-child td {
   select {
     font-size: 16px;
   }
-  .thinking > summary,
+  .turn-activity > summary,
+  .turn-activity > .thinking-status,
   .tool-activity > summary,
   .tool-card > summary {
     min-height: 44px;

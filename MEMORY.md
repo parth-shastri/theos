@@ -1,6 +1,15 @@
 # Theos project memory
 
-Updated: 2026-11-12.
+Updated: 2026-11-13.
+
+## Browser turn activity, 2026-11-13
+
+Show one Thinking row with the static orb as soon as the user sends a message.
+Add reasoning summaries and compact tool actions to the same timeline in order.
+Each tool row opens its own inputs and result. Approval controls stay in the conversation.
+Collapse the timeline when the turn ends. Use the full runtime duration, including tool time.
+Save the duration with the turn boundary in the existing history JSON.
+Older conversations group available activity by user message and show Thought when full timing is unavailable.
 
 ## Release 1.4.5 preparation, 2026-10-30
 
@@ -152,7 +161,7 @@ Docker Desktop still requires a macOS login. A future login or disk-encryption c
 | Browser model controls | Keep the current model selector. OpenRouter exposes the six requested aliases plus the existing default. Preserve explicit operator allowlists. Save supported generation parameters in SQLite migration 006. Model-specific cost rates can override shared rates |
 | Browser settings and command panels | Move model and reasoning into Settings, opened from the desktop header or mobile sidebar with generation and voice controls. Save changes together and discard canceled drafts. Use a sidebar icon beside the logo to toggle conversations. Show interactive help and usage dialogs. Keep usage access through `/usage`, without a sidebar Usage button. Keep generation controls in Settings, without `/generation`. Offer supported options for argument commands. List only `/reasoning`, with `/thinking` retained as a compatibility alias |
 | Browser commands and voice | Slash command help and keyboard suggestions. Record microphone audio for editable transcription. Optional TTS reply playback through the existing configured voice services |
-| Browser identity and thinking | Copy the mini-theos logo into owned browser assets. Keep the active thinking orb static and retain its green and lime colors. Pulse the thinking label when motion preferences permit |
+| Browser identity and thinking | Copy the mini-theos logo into owned browser assets. Show one static green and lime orb at the start of active turn activity. Pulse the thinking label when motion preferences permit. Collapse reasoning and tool rows into one elapsed-time disclosure when the turn ends |
 | Browser voice controls | Use accessible microphone, recording stop, and speaker icons. Keep TTS playback in one play/stop button, cache audio for replay, and stop it on conversation changes. Use the theme accent during recording. Smooth microphone RMS volume into the composer glow and three animated waves along the bottom edge. Modulate wave height and opacity with speech volume. Stop the waves and clear both meters on stop, cancellation, errors, or page exit. Reduced motion keeps static recording feedback |
 | Browser glass edges and modes | Keep moving edge highlights fine and localized. Use a 0.75px highlight mask with soft permanent borders, without stacked bright rims. Keep 4px between dropdown option rows and draw keyboard focus inside each row to separate it from the current selection. Model and reasoning use bounded glass popovers with native values and a native-menu fallback. Open the message-mode listbox upward with a short spring animation. Show conversation and search icons beside Normal and Deep research. Preserve keyboard navigation and one-message mode scope |
 | Browser Markdown and composer | Render streamed and saved thinking and replies with pinned, locally served Marked 18.1.0 and DOMPurify 3.4.16. Show raw HTML as text, block unsafe links, and show remote images as links. Preserve raw Markdown for token estimates. Copy code without toolbar labels and send rendered plain text to TTS. Start the composer at one line and grow it to 140px. Inset native dropdown chevrons by 14px |
