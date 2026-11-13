@@ -2,6 +2,14 @@
 
 Updated: 2026-11-13.
 
+## Release 1.5.0 preparation, 2026-11-13
+
+The operator requested a feature release for the browser theme and turn activity.
+Promote `dev` to `main` and `rpi` through separate merge-commit PRs.
+Publish `rpi-v1.5.0` from the promoted `rpi` tip.
+The release requires no database migration or private configuration change.
+Verify the tagged workflow, both service health checks, and the active Pi manifest.
+
 ## Browser turn activity, 2026-11-13
 
 Show one Thinking row with the static orb as soon as the user sends a message.
