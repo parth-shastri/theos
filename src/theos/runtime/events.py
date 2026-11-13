@@ -123,7 +123,7 @@ def publish_event(runtime, turn, event, status):
                                 for call in event.message.tool_calls
                             ]
                         }
-                        if turn.browser_ui and event.message.tool_calls
+                        if event.message.tool_calls and getattr(turn, "browser_ui", False)
                         else {}
                     ),
                     "display": display_metadata(event.message),
