@@ -723,3 +723,138 @@ test("search thumbnails and logos match the source cards and collapse failed med
   await expect(page.locator(".openui-evidence-item")).toHaveCount(3);
   expect(errors).toEqual([]);
 });
+
+test("rich cards render from OpenUI and update locally", async ({
+  page,
+}, testInfo) => {
+  const errors = [];
+  const turns = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/(turn|openui-actions)$/.test(request.url())
+    )
+      turns.push(request.url());
+  });
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [top, work, lesson, lever, partial])",
+      'summary = AnswerSummary("Sample activity, availability, and work. The lever uses an illustrative load.")',
+      "top = CardRow([steps, availability])",
+      'steps = TrendCard("Daily steps", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], [5940, 7200, null, 7580, 0, 8000, 8420], "steps", "activity", "This week")',
+      'busy = CalendarInterval("2026-11-13T10:00:00+05:30", "2026-11-13T12:00:00+05:30")',
+      'workCalendar = CalendarBusyCalendar("Work", [busy])',
+      'personal = CalendarBusyCalendar("Personal", null, "Access unavailable")',
+      'availability = CalendarAvailability("Calendar openings", "2026-11-13T09:00:00+05:30", "2026-11-13T15:30:00+05:30", "Asia/Kolkata", [workCalendar], "Work calendar only", "compact")',
+      'partial = CalendarAvailability("Partial availability", "2026-11-13T09:00:00+05:30", "2026-11-13T15:30:00+05:30", "Asia/Kolkata", [workCalendar, personal], "", "compact")',
+      "work = CardRow([queue, focus])",
+      'queue = StatusBreakdown("Pull request queue", [blocked, ready, changes], "open", "branch", "GitHub")',
+      'blocked = StatusGroup("Blocked", 1, "blocked", "PR #148 is waiting on the browser tests.", "alert")',
+      'ready = StatusGroup("Ready for review", 3, "positive", "PRs #146, #149, and #151 need a first review.", "check")',
+      'changes = StatusGroup("Changes requested", 2, "warning", "PRs #142 and #145 need updates.", "chat")',
+      'focus = ComparisonCard("Focus time by project", ["Theos", "Research", "Writing"], [220, 140, 60], "min", "timer", "This week")',
+      'lesson = ProcessDiagram("How a web page loads", [address, connect, draw])',
+      'address = ProcessStep("Find address", "DNS finds the server address.", "DNS", "globe")',
+      'connect = ProcessStep("Connect", "The browser opens a secure connection.", "HTTPS", "lock")',
+      'draw = ProcessStep("Draw the page", "The browser lays out and paints the page.", "HTML + CSS", "window")',
+      'lever = LeverExplainer("How a lever multiplies force", 120, 120)',
+    ].join("\n"),
+    "theos-openui-4",
+  );
+
+  const trend = page.locator(".openui-trend-card");
+  await expect(trend.locator(".openui-card-stat")).toContainText("8,420");
+  await expect(trend.locator(".openui-card-note")).toContainText(
+    "+420 vs. Sat",
+  );
+  const firstBar = trend.locator(".openui-mini-bar").first();
+  const latestBar = trend.locator(".openui-mini-bar").last();
+  const firstHeight = (await firstBar.boundingBox()).height;
+  const latestHeight = (await latestBar.boundingBox()).height;
+  expect(latestHeight).toBeGreaterThan(40);
+  expect(firstHeight / latestHeight).toBeCloseTo(5940 / 8420, 1);
+  await trend.getByRole("button", { name: "Wed, No data" }).press("Enter");
+  await expect(trend.locator(".openui-card-stat")).toHaveText("No data");
+  await trend.getByRole("button", { name: "Fri, 0 steps" }).click();
+  await expect(trend.locator(".openui-card-stat")).toHaveText("0steps");
+  await trend.getByText("View exact values", { exact: true }).click();
+  await expect(trend.getByRole("row", { name: "Wed No data" })).toBeVisible();
+  await trend.getByText("View exact values", { exact: true }).click();
+
+  const compact = page.locator(".openui-calendar-compact").first();
+  await expect(compact.locator(".openui-card-stat")).toContainText(
+    "3 hr 30 min",
+  );
+  await expect(
+    compact.locator(".openui-calendar-segment.is-longest"),
+  ).toHaveAttribute("aria-pressed", "true");
+  await compact.getByRole("button", { name: /^Busy:/ }).click();
+  await expect(compact.locator(".openui-calendar-inspection")).toContainText(
+    "10:00 - 12:00",
+  );
+
+  const partial = page.locator(".openui-calendar-compact").last();
+  await expect(partial).toContainText("Availability incomplete");
+  await expect(partial).toContainText("Access unavailable");
+  await expect(
+    partial.locator(".openui-calendar-segment.is-longest"),
+  ).toHaveCount(0);
+
+  const queue = page.locator(".openui-status-breakdown");
+  await expect(queue.locator(".openui-donut-total")).toContainText("6");
+  await queue.getByRole("button", { name: "Ready for review 3" }).click();
+  await expect(queue.locator(".openui-card-detail")).toContainText("PRs #146");
+  await expect(
+    queue.getByRole("button", { name: "Blocked 1" }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".openui-comparison-card")).toContainText(
+    "220 min",
+  );
+
+  const diagram = page.locator(".openui-process-card");
+  await diagram.getByRole("button", { name: "Connect HTTPS" }).press("Enter");
+  await expect(diagram.locator(".openui-card-detail")).toContainText(
+    "opens a secure connection",
+  );
+
+  const lever = page.locator(".openui-lever-card");
+  const pivot = lever.getByRole("slider", { name: "Move the pivot" });
+  await expect(lever.locator(".openui-card-stat strong")).toHaveText("60 N");
+  await pivot.press("Home");
+  await expect(lever.locator(".openui-card-stat strong")).toHaveText("40 N");
+  await pivot.press("End");
+  await expect(lever.locator(".openui-card-stat strong")).toHaveText("360 N");
+  await expect(lever.getByRole("img")).toHaveAccessibleName(
+    /360 N push 30 cm right/,
+  );
+  expect(
+    await page.evaluate(() =>
+      [...document.querySelectorAll(".openui-rich-card")].every(
+        (card) => card.scrollWidth <= card.clientWidth + 1,
+      ),
+    ),
+  ).toBe(true);
+
+  for (const [locator, name] of [
+    [page.locator(".openui-card-row").first(), "rich-activity-calendar"],
+    [page.locator(".openui-card-row").last(), "rich-work"],
+    [diagram, "process-diagram"],
+    [lever, "lever-explainer"],
+  ]) {
+    await locator.evaluate((element) => {
+      const pane = document.getElementById("messages");
+      pane.scrollTop +=
+        element.getBoundingClientRect().top -
+        pane.getBoundingClientRect().top -
+        70;
+    });
+    await locator.screenshot({ path: testInfo.outputPath(name + ".png") });
+  }
+  await page.reload();
+  await expect(page.locator(".openui-lever-card")).toBeVisible();
+  await expect(page.locator(".openui-fallback")).toHaveCount(0);
+  expect(errors).toEqual([]);
+  expect(turns).toEqual([]);
+});

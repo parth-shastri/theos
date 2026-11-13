@@ -2,6 +2,14 @@
 
 Updated: 2026-11-13.
 
+## Rich OpenUI cards, 2026-11-13
+
+Keep OpenUI Lang and the Theos theme for browser answers.
+Version 4 adds compact trend, comparison, and status cards. It adds a responsive card row, a process diagram, and an ideal lever lesson.
+The compact calendar layout uses the existing availability calculation. Show the longest free block only when every requested calendar read succeeds.
+Use checked values for data cards. Keep missing samples distinct from zero. Label example inputs in lessons.
+Card interactions run in the browser. Keep saved OpenUI versions 1 through 3 renderable.
+
 ## Release 1.5.0 preparation, 2026-11-13
 
 The operator requested a feature release for the browser theme and turn activity.

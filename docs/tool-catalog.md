@@ -148,6 +148,11 @@ Availability comes from `calendar_free_busy`. Failed reads stay unknown. All-day
 Calendar event reads include source-provided meeting links and video conference entry points. The browser rejects unsafe link protocols and embedded credentials.
 The renderer treats raw HTML as text and removes unsafe links from generated markup.
 
+Library version 4 adds `TrendCard`, `ComparisonCard`, `StatusBreakdown`, `CardRow`, `ProcessDiagram`, and `LeverExplainer`.
+The compact `CalendarAvailability` layout shows the longest confirmed free block within the checked range.
+`web/src/openui/rich-cards.js` uses React, native range inputs, SVG, and the existing icon set.
+Chart selection and lesson controls run in the browser. These cards add no dependency or model tool.
+
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.
 `transports/browser/activity.py` aggregates usage and tool-start records for bounded UTC periods.
 Personal queries use the authenticated owner. Administrator queries cover the workspace.

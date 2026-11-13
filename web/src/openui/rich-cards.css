@@ -1,0 +1,516 @@
+.openui-card-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.openui-rich-card {
+  --openui-card-blue: light-dark(#496c9b, #9ec3f5);
+  --card-accent: var(--accent);
+  min-width: 0;
+  padding: clamp(13px, 2.4vw, 20px);
+  border: 1px solid var(--border);
+  border-radius: 19px;
+  background:
+    linear-gradient(
+      150deg,
+      color-mix(in srgb, var(--card-accent) 6%, transparent),
+      transparent 56%
+    ),
+    color-mix(in srgb, var(--surface) 74%, var(--canvas));
+  box-shadow: var(--shadow-sm);
+  overflow-wrap: anywhere;
+  container-type: inline-size;
+}
+
+.openui-comparison-card,
+.openui-calendar-compact {
+  --card-accent: var(--openui-card-blue);
+}
+.openui-process-card,
+.openui-lever-card {
+  --card-accent: var(--chart-output);
+}
+
+.openui-card-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 9px;
+  margin-bottom: 12px;
+}
+.openui-card-heading h3 {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+}
+.openui-card-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card-accent) 15%, transparent);
+  color: var(--card-accent);
+}
+.openui-card-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.openui-card-context {
+  margin-inline-start: auto;
+  color: var(--text-soft);
+  font-size: 11px;
+}
+.openui-card-stat {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 7px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.openui-card-stat strong {
+  color: var(--text);
+  font-size: clamp(24px, 4.3vw, 36px);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.055em;
+}
+.openui-card-stat span,
+.openui-card-note {
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.openui-card-note {
+  margin: 5px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.openui-card-note strong {
+  color: var(--card-accent);
+  font-weight: 600;
+}
+.openui-card-detail {
+  margin: 10px 0 0;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card-accent) 10%, transparent);
+  color: var(--text);
+  font-size: 12px;
+}
+.openui-card-detail strong {
+  font-weight: 600;
+}
+
+.openui-mini-series {
+  display: grid;
+  grid-template-columns: repeat(var(--sample-count), minmax(0, 1fr));
+  gap: clamp(2px, 1cqi, 8px);
+  margin-top: 11px;
+}
+.openui-mini-series button {
+  display: grid;
+  grid-template-rows: 47px auto;
+  justify-items: center;
+  align-content: start;
+  min-width: 0;
+  gap: 3px;
+  padding: 0 2px 2px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 400;
+}
+.openui-mini-series button:hover,
+.openui-mini-series button[aria-pressed="true"] {
+  background: transparent;
+  color: var(--accent);
+}
+.openui-mini-series button[aria-pressed="true"] {
+  font-weight: 700;
+}
+.openui-mini-plot {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+}
+.openui-mini-plot::before {
+  position: absolute;
+  inset: clamp(0px, var(--zero-line), calc(100% - 1px)) 0 auto;
+  height: 1px;
+  background: var(--border);
+  content: "";
+}
+.openui-mini-bar,
+.openui-mini-missing {
+  position: absolute;
+  inset: clamp(0px, var(--bar-top), calc(100% - 2px)) 0 auto;
+  width: min(100%, 34px);
+  height: max(2px, var(--bar-size));
+  margin-inline: auto;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 53%, var(--surface));
+}
+.openui-mini-series button[aria-pressed="true"] .openui-mini-bar,
+.openui-mini-series button:hover .openui-mini-bar {
+  background: var(--accent);
+}
+.openui-rich-card button:focus-visible,
+.openui-rich-card summary:focus-visible,
+.openui-rich-card input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.openui-mini-missing {
+  border: 1px dashed var(--text-soft);
+  background: transparent;
+}
+.openui-mini-label {
+  max-width: 100%;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.openui-trend-card .openui-exact-values {
+  margin-top: 9px;
+}
+
+.openui-comparison-rows {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.openui-comparison-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+.openui-comparison-label strong {
+  flex-shrink: 0;
+  max-width: 55%;
+  font-weight: 600;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.openui-comparison-track {
+  height: 7px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--border) 58%, transparent);
+}
+.openui-comparison-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--card-accent);
+}
+.openui-comparison-axis,
+.openui-lever-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  margin-top: 4px;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.openui-rich-card .openui-status-layout {
+  grid-template-columns: minmax(62px, 0.65fr) minmax(0, 1.35fr);
+  gap: 8px;
+}
+.openui-status-layout .openui-donut-ring {
+  width: min(100%, 130px);
+  justify-self: center;
+}
+.openui-status-layout .openui-donut-total > span {
+  color: var(--text-soft);
+  font-size: 11px;
+}
+.openui-status-options {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.openui-status-options button {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) auto;
+  gap: 5px;
+  align-items: center;
+  min-height: 40px;
+  padding: 5px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 12px;
+  text-align: start;
+}
+.openui-status-options button:hover:not(:disabled),
+.openui-status-options button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--category-color) 49%, var(--border));
+  background: color-mix(in srgb, var(--category-color) 12%, var(--surface));
+}
+.openui-status-options svg {
+  width: 14px;
+  height: 14px;
+  color: var(--category-color);
+}
+.openui-status-options strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.openui-process-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 19px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.openui-process-flow li {
+  --stage: var(--openui-card-blue);
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.openui-process-flow li:nth-child(even) {
+  --stage: var(--chart-output);
+}
+.openui-process-flow li:last-child {
+  --stage: var(--accent);
+}
+.openui-process-flow li:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  inset: 50% auto auto calc(100% + 3px);
+  transform: translateY(-50%);
+  color: var(--text-soft);
+}
+.openui-process-flow button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 65px;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--border) 19%, var(--surface));
+  box-shadow: none;
+  color: var(--text);
+  text-align: center;
+  font-size: 12px;
+}
+.openui-process-flow button:hover:not(:disabled),
+.openui-process-flow button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--stage) 62%, var(--border));
+  background: color-mix(in srgb, var(--stage) 13%, var(--surface));
+}
+.openui-process-flow svg {
+  width: 18px;
+  height: 18px;
+  color: var(--stage);
+}
+.openui-process-flow span {
+  color: var(--text-soft);
+  font-size: 11px;
+}
+.openui-process-flow strong {
+  font-weight: 600;
+}
+.openui-process-flow:has(li:nth-child(4)) button {
+  padding-inline: 3px;
+}
+
+.openui-lever-layout {
+  display: grid;
+  grid-template-columns: minmax(125px, 1fr) minmax(0, 1.75fr);
+  align-items: center;
+  gap: 12px;
+}
+.openui-lever-controls label {
+  display: block;
+  margin-top: 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.openui-lever-controls input {
+  display: block;
+  width: 100%;
+  min-height: 31px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.openui-lever-board {
+  position: relative;
+  min-width: 0;
+  height: 138px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background:
+    radial-gradient(circle, var(--border-strong) 0.7px, transparent 0.9px) 0 0 /
+      12px 12px,
+    color-mix(in srgb, var(--surface-subtle) 80%, var(--canvas));
+}
+.openui-lever-beam {
+  position: absolute;
+  inset: auto min(18%, 40px) 46px;
+  height: 4px;
+  border-radius: 3px;
+  background: var(--text);
+}
+.openui-lever-force,
+.openui-lever-pivot {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  transform: translateX(-50%);
+  color: var(--force);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.openui-lever-force {
+  bottom: 8px;
+}
+.openui-lever-force::after {
+  content: "";
+  width: 8px;
+  height: var(--arrow);
+  margin-top: 2px;
+  background: currentColor;
+  clip-path: polygon(
+    39% 0,
+    61% 0,
+    61% calc(100% - 5px),
+    100% calc(100% - 5px),
+    50% 100%,
+    0 calc(100% - 5px),
+    39% calc(100% - 5px)
+  );
+}
+.openui-lever-force.is-load {
+  left: 0;
+  --force: var(--openui-card-blue);
+  --arrow: var(--load-arrow);
+}
+.openui-lever-force.is-push {
+  left: 100%;
+  --force: var(--chart-output);
+  --arrow: var(--push-arrow);
+}
+.openui-lever-pivot {
+  --force: var(--accent);
+  top: 100%;
+  left: var(--pivot);
+}
+.openui-lever-pivot::before {
+  width: 0;
+  height: 0;
+  border-inline: 10px solid transparent;
+  border-bottom: 16px solid currentColor;
+  content: "";
+}
+.openui-lever-arms {
+  position: absolute;
+  top: 32px;
+  inset-inline: 0;
+  display: grid;
+  grid-template-columns: var(--pivot) minmax(0, 1fr);
+  gap: 3px;
+  color: var(--text);
+  text-align: center;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.openui-lever-arms span {
+  min-width: 0;
+  border-top: 1px solid var(--openui-card-blue);
+  overflow-wrap: anywhere;
+}
+.openui-lever-arms span:last-child {
+  border-color: var(--chart-output);
+}
+.openui-lever-card .openui-card-note {
+  margin-top: 8px;
+}
+
+.openui-calendar-compact .openui-card-heading {
+  margin-bottom: 4px;
+}
+.openui-calendar-compact .openui-calendar-range {
+  margin: 4px 0 8px;
+}
+.openui-calendar-compact .openui-calendar-timeline {
+  min-height: 25px;
+  height: auto;
+  gap: 1px;
+  margin: 10px 0 6px;
+}
+.openui-calendar-compact .openui-calendar-segment {
+  min-width: 0;
+  min-height: 25px;
+  border-color: transparent;
+}
+.openui-calendar-compact .openui-calendar-segment.is-busy,
+.openui-calendar-compact .openui-calendar-legend .is-busy::before {
+  background: color-mix(in srgb, var(--openui-card-blue) 67%, var(--surface));
+}
+.openui-calendar-compact .openui-calendar-segment.is-longest,
+.openui-calendar-compact .openui-calendar-legend .is-longest::before {
+  background: var(--accent);
+}
+.openui-calendar-compact .openui-calendar-inspection {
+  min-height: 0;
+  margin: 8px 0 0;
+}
+.openui-calendar-compact .openui-calendar-exact,
+.openui-calendar-compact .openui-calendar-note {
+  margin-top: 8px;
+}
+.openui-calendar-compact .openui-calendar-legend {
+  gap: 4px 10px;
+  color: var(--text-soft);
+}
+
+@container (max-width: 470px) {
+  .openui-process-flow:has(li:nth-child(4)) {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .openui-process-flow:has(li:nth-child(4)) li:not(:last-child)::after {
+    inset: calc(100% - 1px) auto auto 50%;
+    transform: translateX(-50%) rotate(90deg);
+  }
+  .openui-lever-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (pointer: coarse) {
+  .openui-status-options button,
+  .openui-lever-controls input,
+  .openui-calendar-compact .openui-calendar-segment {
+    min-height: 44px;
+  }
+}

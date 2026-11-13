@@ -1,5 +1,13 @@
 # Feature and acceptance checklist
 
+## Rich OpenUI cards, 2026-11-13
+
+Version 4 adds compact trend, comparison, status, and calendar cards. It also adds a process diagram and a lever lesson.
+The browser checks cover sample values, missing data, keyboard selection, incomplete calendar reads, and reloads.
+Moving the lever pivot updates the diagram and force in the browser. Selecting a chart value, status, or diagram step starts no turn.
+The existing checks render saved versions 1 through 3. The generated prompt check parses each example against the library schema.
+Browser checks use a fake model and disposable storage. Live model selection of the new cards and production deployment remain open.
+
 ## Native MLX transcription, 2026-10-30
 
 The M4 Mac mini runs the authenticated MLX service under its native login agent.
