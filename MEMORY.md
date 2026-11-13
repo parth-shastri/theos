@@ -4,6 +4,8 @@ Updated: 2026-11-13.
 
 ## Optional browser password, 2026-11-13
 
+The sign-in screen offers password setup and reset before the workspace opens.
+Verify with an existing access token or use the private Telegram `/password` flow.
 An account can set, change, or remove a browser sign-in password from its signed-in browser.
 The private Telegram `/password` command opens browser setup after the existing code confirmation.
 This setup link preserves any personal access token. Telegram chat access continues to use the verified sender.

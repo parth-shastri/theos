@@ -1,17 +1,18 @@
 import { useEffect, useId, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
 
-export default function PasswordSettings({ account }) {
+export default function PasswordSettings({ action }) {
   const { json } = useWorkspace();
   const id = useId();
-  const [enabled, setEnabled] = useState(null);
+  const [settings, setSettings] = useState(null);
+  const enabled = settings?.enabled;
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
     json("/api/auth/password", { signal: controller.signal })
-      .then((result) => setEnabled(result.enabled))
+      .then(setSettings)
       .catch((error) => {
         if (error.name !== "AbortError")
           setFeedback({ error: true, text: error.message });
@@ -25,7 +26,7 @@ export default function PasswordSettings({ account }) {
     setFeedback(null);
     try {
       const result = await json("/api/auth/password", { method, body });
-      setEnabled(result.enabled);
+      setSettings(result);
       setFeedback({
         text: result.enabled ? "Password saved." : "Password removed.",
       });
@@ -43,7 +44,7 @@ export default function PasswordSettings({ account }) {
       method="post"
       onSubmit={(event) => {
         event.preventDefault();
-        if (busy || enabled === null) return;
+        if (busy || !settings) return;
         const form = event.currentTarget;
         const data = new FormData(form);
         form.reset();
@@ -59,7 +60,7 @@ export default function PasswordSettings({ account }) {
         id={id + "-account"}
         name="username"
         autoComplete="username"
-        value={account}
+        value={settings?.account || ""}
         readOnly
       />
       <label htmlFor={id + "-password"}>New password</label>
@@ -70,7 +71,7 @@ export default function PasswordSettings({ account }) {
         autoComplete="new-password"
         aria-describedby={id + "-rules"}
         required
-        disabled={busy || enabled === null}
+        disabled={busy || !settings}
       />
       <small id={id + "-rules"}>
         Use 15 to 128 characters. A few unrelated words can make a strong
@@ -83,17 +84,17 @@ export default function PasswordSettings({ account }) {
         type="password"
         autoComplete="new-password"
         required
-        disabled={busy || enabled === null}
+        disabled={busy || !settings}
       />
       <div className="password-actions">
-        <button
-          className="primary"
-          type="submit"
-          disabled={busy || enabled === null}
-        >
-          {enabled ? "Change password" : "Set password"}
+        <button className="primary" type="submit" disabled={busy || !settings}>
+          {action === "reset"
+            ? "Reset password"
+            : enabled
+              ? "Change password"
+              : "Set password"}
         </button>
-        {enabled && (
+        {enabled && !action && (
           <button
             type="button"
             disabled={busy}

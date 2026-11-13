@@ -36,7 +36,7 @@ function PasswordDialog() {
               <Icon name="cancel" />
             </button>
           </div>
-          <PasswordSettings account={me.id} />
+          <PasswordSettings />
         </>
       )}
     </Dialog>

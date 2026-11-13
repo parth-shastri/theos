@@ -4251,6 +4251,28 @@ tr:last-child td {
   font-size: 10px;
   color: var(--text-muted);
 }
+.login-card .login-telegram-help {
+  margin: 16px 0 0;
+}
+.login-password-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 8px;
+}
+.login-password-actions button {
+  width: auto;
+  min-height: 38px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .signin-code {
   display: block;
   padding: 16px;

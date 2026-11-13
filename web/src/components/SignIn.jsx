@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
 import { Icon } from "./Primitives";
 import PasswordSettings from "./PasswordSettings";
+
+const passwordTitles = {
+  setup: "Set up a password",
+  reset: "Reset your password",
+};
+
 export default function SignIn() {
   const {
     agentName,
@@ -18,15 +24,34 @@ export default function SignIn() {
   const [token, setToken] = useState(""),
     [copy, setCopy] = useState("Copy access token"),
     [showToken, setShowToken] = useState(false);
-  const [passwordMode, setPasswordMode] = useState(false);
+  const [mode, setMode] = useState("token");
   const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [showPasswordSettings, setShowPasswordSettings] = useState(false);
   const accessToken = useRef(null);
-  const ready = Boolean(onboarding?.account);
+  const loginTitle = useRef(null);
+  const setupTitle = useRef(null);
+  const focusLoginTitle = useRef(false);
+  const passwordMode = mode === "password";
+  const passwordAction = passwordTitles[mode] ? mode : null;
+  const ready = Boolean(onboarding?.account || onboarding?.passwordAction);
+  const changeMode = (nextMode) => {
+    focusLoginTitle.current = mode !== nextMode;
+    setMode(nextMode);
+    setToken("");
+    setPassword("");
+    clearLoginError();
+  };
   useEffect(() => {
     if (!ready) setShowPasswordSettings(false);
   }, [ready]);
+  useEffect(() => {
+    if (focusLoginTitle.current) loginTitle.current?.focus();
+    focusLoginTitle.current = false;
+  }, [mode]);
+  useEffect(() => {
+    if (onboarding?.passwordAction) setupTitle.current?.focus();
+  }, [onboarding?.passwordAction]);
   return (
     <div id="login" className="login-wrap" hidden={!!me}>
       <form
@@ -41,15 +66,21 @@ export default function SignIn() {
             : { token: token.trim() };
           setToken("");
           setPassword("");
-          await signIn(credentials);
+          await signIn(credentials, passwordAction);
         }}
       >
         <img src={brand} data-brand="" width="48" height="48" alt="" />
-        <h1 id="agent-name">{agentName}</h1>
-        <p>
-          Your personal assistant for conversations, saved information, and
-          everyday tasks.
-        </p>
+        <h1 id="agent-name" ref={loginTitle} tabIndex={-1}>
+          {passwordTitles[mode] || agentName}
+        </h1>
+        {passwordAction ? (
+          <p>Verify your account with your access token to continue.</p>
+        ) : (
+          <p>
+            Your personal assistant for conversations, saved information, and
+            everyday tasks.
+          </p>
+        )}
         {passwordMode ? (
           <>
             <label htmlFor="login-account">Account ID</label>
@@ -89,26 +120,56 @@ export default function SignIn() {
           </>
         )}
         <button className="primary" type="submit" disabled={signingIn}>
-          Open workspace <Icon name="arrowUpRight" className="link-arrow" />
+          {passwordAction ? "Verify access token" : "Open workspace"}{" "}
+          <Icon name="arrowUpRight" className="link-arrow" />
         </button>
         <p id="login-error" className="error" role="alert">
           {loginError}
         </p>
-        <button
-          type="button"
-          className="soft-button"
-          disabled={signingIn}
-          onClick={() => {
-            setPasswordMode(!passwordMode);
-            setToken("");
-            setPassword("");
-            clearLoginError();
-          }}
-        >
-          {passwordMode ? "Use an access token" : "Use a password"}
-        </button>
-        {passwordMode && (
-          <small>Telegram users can send /web for a new sign-in link.</small>
+        {passwordAction ? (
+          <>
+            <p className="login-telegram-help">
+              You can also send <code>/password</code> to your private Telegram
+              bot and approve the matching browser code.
+            </p>
+            <button
+              type="button"
+              className="soft-button"
+              disabled={signingIn}
+              onClick={() =>
+                changeMode(passwordAction === "reset" ? "password" : "token")
+              }
+            >
+              Back to sign-in
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="soft-button"
+              disabled={signingIn}
+              onClick={() => changeMode(passwordMode ? "token" : "password")}
+            >
+              {passwordMode ? "Use an access token" : "Use a password"}
+            </button>
+            <div className="login-password-actions">
+              <button
+                type="button"
+                disabled={signingIn}
+                onClick={() => changeMode("setup")}
+              >
+                Set up a password
+              </button>
+              <button
+                type="button"
+                disabled={signingIn}
+                onClick={() => changeMode("reset")}
+              >
+                Forgot password?
+              </button>
+            </div>
+          </>
         )}
       </form>
       <section
@@ -118,15 +179,16 @@ export default function SignIn() {
         hidden={!onboarding}
       >
         <img src={brand} data-brand="" width="48" height="48" alt="" />
-        <span className="eyebrow">Your Theos account</span>
-        <h1 id="web-signin-title">
+        {!onboarding?.passwordAction && (
+          <span className="eyebrow">Your Theos account</span>
+        )}
+        <h1 id="web-signin-title" ref={setupTitle} tabIndex={-1}>
           {ready
-            ? onboarding.token
-              ? "Your account is ready"
-              : "Browser password"
+            ? passwordTitles[onboarding.passwordAction] ||
+              (onboarding.token ? "Your account is ready" : "Browser password")
             : "Confirm in Telegram"}
         </h1>
-        <p id="web-signin-instructions">
+        <p id="web-signin-instructions" hidden={!!onboarding?.passwordAction}>
           {ready
             ? onboarding.token
               ? "Save your access token or set an optional password for future sign-ins."
@@ -185,8 +247,8 @@ export default function SignIn() {
           <>
             {!onboarding.token || showPasswordSettings ? (
               <PasswordSettings
-                key={onboarding.account}
-                account={onboarding.account}
+                key={onboarding.account || onboarding.passwordAction}
+                action={onboarding.passwordAction}
               />
             ) : (
               <button
@@ -201,7 +263,10 @@ export default function SignIn() {
               className="primary"
               type="button"
               disabled={signingIn}
-              onClick={finishSignin}
+              onClick={() => {
+                if (onboarding.passwordAction) setMode("password");
+                void finishSignin();
+              }}
             >
               Open workspace <Icon name="arrowUpRight" className="link-arrow" />
             </button>

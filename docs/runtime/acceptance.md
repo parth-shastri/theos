@@ -2,6 +2,8 @@
 
 ## Optional browser password, 2026-11-13
 
+The sign-in screen checks cover access-token verification, initial setup, and password reset.
+The browser rejects the old password after a reset and signs in with the replacement.
 Local checks cover password strength, account isolation, token rotation, and rate limits.
 They verify Telegram confirmation, redaction before inbox storage, token preservation, and `/web revoke`.
 Chromium and WebKit checks cover setup, password sign-in, and removal at four widths in both themes.
