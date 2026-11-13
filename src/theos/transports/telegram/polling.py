@@ -146,9 +146,8 @@ class Telegram:
         sensitive_return = "_theos_zepto_return" in message or message.get(
             "_theos_zepto_return_invalid"
         )
-        if sensitive_return and not callback:
-            # The encrypted return value is still sensitive. Remove the visible Telegram
-            # message when possible; the database copy was already redacted above.
+        if (sensitive_return or message.get("_theos_password_argument")) and not callback:
+            # Remove the visible credential message when possible. The inbox copy was redacted.
             try:
                 await self.api(
                     "deleteMessage",

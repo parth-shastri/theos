@@ -1,5 +1,12 @@
 # Feature and acceptance checklist
 
+## Optional browser password, 2026-11-13
+
+Local checks cover password strength, account isolation, token rotation, and rate limits.
+They verify Telegram confirmation, redaction before inbox storage, token preservation, and `/web revoke`.
+Browser checks cover setup, password sign-in, and removal at four viewport widths in both themes.
+Telegram confirmation used a test bot adapter. Live Telegram and deployed browser checks remain open.
+
 ## Rich OpenUI cards, 2026-11-13
 
 Version 4 adds compact trend, comparison, status, and calendar cards. It also adds a process diagram and a lever lesson.

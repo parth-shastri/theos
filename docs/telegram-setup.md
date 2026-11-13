@@ -45,6 +45,12 @@ Keep the access code in the deployment's private `.env` file.
 Changing the code requires users to authorize again, but preserves profiles and enrollment slots.
 The bot removes code arguments before saving inbox updates and attempts to delete the code message from Telegram.
 
+After enrollment, send `/password` in your private bot chat to manage your optional browser password.
+Open the link, approve the matching browser code, and enter the password in the browser.
+This link preserves your personal access token. Telegram chat access still uses your Telegram identity.
+Send `/web revoke` to remove the browser password and revoke browser tokens and sessions.
+See [browser password setup](browser.md#set-an-optional-password).
+
 Groups require an enrolled sender and an allowed chat ID.
 A configured sender allowlist also applies to groups:
 
@@ -146,7 +152,8 @@ The [acceptance checklist](runtime/acceptance.md) distinguishes mock workflows f
 | `/start [access-code]` | Authorize, register, resume incomplete setup, or show the greeting after setup |
 | `/skip` | Accept the saved name or default timezone for the current setup step |
 | `/web` | Open a private browser sign-in link after enrollment |
-| `/web revoke` | Revoke all generated browser tokens and device sessions without deleting personal data |
+| `/password` | Open browser password settings after Telegram confirmation |
+| `/web revoke` | Remove the browser password and revoke all generated browser tokens and device sessions |
 | `/help` | Show the greeting and command summary after setup |
 | `/new`, `/reset` | Reset conversation history and pending approvals |
 | `/resume` | Continue an interrupted turn or a turn that reached its call limit |

@@ -2,6 +2,15 @@
 
 Updated: 2026-11-13.
 
+## Optional browser password, 2026-11-13
+
+An account can set, change, or remove a browser sign-in password from its signed-in browser.
+The private Telegram `/password` command opens browser setup after the existing code confirmation.
+This setup link preserves any personal access token. Telegram chat access continues to use the verified sender.
+Use the existing account ID for password sign-in. Check strength locally and store a salted scrypt hash.
+Limit failed attempts by source and account. Revoke other password sessions when the password changes or is removed.
+Telegram `/web revoke` also removes the password. Configured token rotation invalidates its associated password and sessions.
+
 ## Rich OpenUI cards, 2026-11-13
 
 Keep OpenUI Lang and the Theos theme for browser answers.

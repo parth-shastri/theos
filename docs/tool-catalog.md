@@ -211,6 +211,14 @@ This uses the existing OpenAI SDK and adds no dependency or model tool.
 
 Source: [browser API](../src/theos/transports/browser/app.py), [React workspace state](../web/src/state/WorkspaceContext.jsx), and [message components](../web/src/components/Messages.jsx).
 
+## Browser password authentication
+
+FastAPI accepts passwords only through browser authentication routes.
+`zxcvbn` checks password strength locally. Python `hashlib.scrypt` derives the salted hash.
+AnyIO runs one password check at a time outside the API event loop.
+SQLite migration 017 adds password hashes and browser session metadata.
+Telegram `/password` reuses the existing browser confirmation flow.
+
 ## Browser connections
 
 Native HTML controls and authenticated FastAPI routes expose account consent, setup status, cancellation, and disconnection.
