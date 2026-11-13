@@ -198,17 +198,15 @@ test("text summaries use readable rows and completed thinking has no separate ti
       { type: "assistant", reasoning: "A legacy summary without timing." },
     ],
   );
-  const thought = page.locator(".message.assistant").filter({
-    has: page.getByText("Thought for 2.4 s", { exact: true }),
-  });
-  await expect(thought.locator(".message-footer")).toBeHidden();
-  await expect(thought.locator(".role")).toBeHidden();
-  await expect(thought.locator(".thinking-body")).toBeHidden();
+  const thought = page.locator(".turn-activity");
+  await expect(thought.locator("summary")).toHaveText("Thought");
+  await expect(thought.locator(".message-footer, .role")).toHaveCount(0);
+  await expect(thought.locator(".thinking-body").first()).toBeHidden();
   await thought.locator("summary").click();
-  await expect(thought.locator(".thinking-body")).toContainText(
-    "I checked the saved context",
-  );
-  await expect(page.locator(".thinking-label").last()).toHaveText("Thought");
+  await expect(thought.locator(".thinking-body")).toHaveText([
+    "I checked the saved context before preparing the plan.",
+    "A legacy summary without timing.",
+  ]);
   await expect(page.getByText("Hidden tool-phase presentation")).toHaveCount(0);
   const rows = page.locator(".openui-summary-fact");
   await expect(rows).toHaveCount(2);
@@ -224,9 +222,7 @@ test("text summaries use readable rows and completed thinking has no separate ti
     path: testInfo.outputPath("summary-and-thinking.png"),
   });
   await page.reload();
-  await expect(page.locator(".thinking-label").first()).toHaveText(
-    "Thought for 2.4 s",
-  );
+  await expect(page.locator(".thinking-label").first()).toHaveText("Thought");
   await expect(page.locator(".thinking-body").first()).toBeHidden();
 });
 
@@ -257,7 +253,7 @@ test("streamed thinking becomes a completed thought in the same disclosure", asy
                   requested_tools: ["read_notes"],
                   display: { duration_ms: 2400, created_at: 1793188800 },
                 });
-                send({ type: "done" });
+                send({ type: "done", duration_ms: 8000 });
                 controller.close();
               };
             },
@@ -269,21 +265,21 @@ test("streamed thinking becomes a completed thought in the same disclosure", asy
   });
   await page.locator("#message").fill("Check the context.");
   await page.locator("#send").click();
-  const thought = page.locator(".thinking");
+  const thought = page.locator(".turn-activity");
   await expect(thought.locator("summary")).toHaveText("Thinking…");
-  await expect(page.locator(".turn-activity")).toHaveCount(0);
-  await thought.locator("summary").click();
+  await expect(thought.locator(".thinking-body")).toBeVisible();
   const disclosure = await thought.elementHandle();
   await page.evaluate(() => window.finishThinking());
-  await expect(thought.locator("summary")).toHaveText("Thought for 2.4 s");
+  await expect(thought.locator("summary")).toHaveText("Thought for 8 s");
   expect(await disclosure.evaluate((element) => element.isConnected)).toBe(
     true,
   );
-  await expect(thought).toHaveAttribute("open", "");
+  await expect(thought.locator(".thinking-body")).toBeHidden();
+  await thought.locator("summary").click();
   await expect(thought.locator(".thinking-body")).toHaveText(
     "Check the context first.",
   );
-  await expect(thought.locator("..").locator(".message-footer")).toBeHidden();
+  await expect(thought.locator(".message-footer")).toHaveCount(0);
   await expect(page.locator("#send")).toBeEnabled();
 });
 

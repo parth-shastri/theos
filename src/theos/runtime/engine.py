@@ -615,6 +615,12 @@ class Runtime:
             # 5. Save final history and memory before releasing the conversation lock. This
             # also runs after exceptions or cancellation, so restart recovery has a boundary.
             history.extend(turn.inbox.drain())
+            activity = {}
+            if turn.browser_ui or turn.text_recovery:
+                duration_ms = round((time.monotonic() - turn.started_at) * 1000)
+                activity = {"duration_ms": duration_ms}
+                if len(history) > history_offset:
+                    update_display_metadata(history[history_offset], {"turn_activity": activity})
             self.db.save_history(turn.owner, turn.session_id, history, memory.to_dict(), status)
             await self.checkpoints.save(turn.owner, turn.session_id, history, memory, "turn_end")
             if turn.research_id:
@@ -662,7 +668,7 @@ class Runtime:
                         (run["task_id"],),
                     )
             self.active.pop(turn.session_id, None)
-            turn.emit({"type": "done", "status": status, "stats": turn.stats()})
+            turn.emit({"type": "done", "status": status, "stats": turn.stats(), **activity})
 
     async def close(self):
         """Stop new work, cancel active turns, and close owned clients."""

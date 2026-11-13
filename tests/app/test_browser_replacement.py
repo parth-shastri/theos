@@ -61,7 +61,7 @@ assert.ok(rows.every(row => !row.active));
 const interrupted = await run([{type: 'compaction', status: 'started', compaction_id: 'disconnected'}]);
 assert.match(interrupted.error.message, /connection ended/);
 assert.match(interrupted.state.entries.find(row => row.kind === 'compaction').text, /stopped/);
-assert.ok(interrupted.state.entries.every(row => !row.thinking && !row.streaming));
+assert.ok(interrupted.state.entries.every(row => !row.running && !row.streaming));
 const approval = {id: 'approval', call_id: 'call', tool: 'preview_action'};
 let reviewed = reduce(initialChat, {type: 'LOAD', session: {...initialChat, id: 'session', history: [], approvals: [approval]}});
 reviewed = reduce(reviewed, {type: 'START', sessionId: 'session'});
@@ -87,19 +87,19 @@ for (const event of [
   {type: 'assistant_complete', text: 'Answer'},
 ]) {
   active = reduce(active, {type: 'EVENTS', events: [event]});
-  assert.equal(active.responding, true, event.type + ' must not stop the turn indicator');
+  assert.equal(active.entries[0].running, true, event.type + ' must not stop the turn indicator');
   assert.equal(active.status, '', 'Run states must stay outside the composer');
 }
 for (const status of ['completed', 'waiting_for_approval', 'interrupted', 'failed']) {
   const ended = reduce(active, {type: 'EVENTS', events: [{type: 'done', status}]});
-  assert.equal(ended.responding, false);
+  assert.equal(ended.entries[0].running, false);
   assert.equal(ended.status, '');
 }
 const failed = reduce(active, {type: 'EVENTS', events: [{type: 'error', message: 'Connection failed'}]});
-assert.equal(failed.responding, false);
+assert.equal(failed.entries[0].running, false);
 assert.equal(failed.status, 'Connection failed');
 assert.equal(reduce(failed, {type: 'FINISH'}).statusClass, 'error');
-assert.equal(reduce(active, {type: 'FINISH'}).responding, false);
+assert.equal(reduce(active, {type: 'FINISH'}).entries[0].running, false);
 
 """
     result = subprocess.run(
