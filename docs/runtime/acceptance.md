@@ -1,5 +1,13 @@
 # Feature and acceptance checklist
 
+## General OpenUI answers, 2026-11-13
+
+The library selects visuals by the structure of the answer. It uses text when the question is simple or chart data is missing.
+Version 5 adds selectable relationships and calculated scenarios. Compact comparisons show negative and positive values around zero.
+The configured Luna model passed 14 synthetic questions outside the prompt examples.
+The checks covered chart selection, missing values, branching explanations, scenario arithmetic, and plain text.
+Mobile WebKit checked keyboard navigation, local interaction, and reloads. Production deployment remains open.
+
 ## Rich OpenUI cards, 2026-11-13
 
 Version 4 adds compact trend, comparison, status, and calendar cards. It also adds a process diagram and a lever lesson.

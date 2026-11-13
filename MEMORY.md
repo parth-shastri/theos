@@ -2,6 +2,14 @@
 
 Updated: 2026-11-13.
 
+## General OpenUI answers, 2026-11-13
+
+Choose visuals by what the reader needs to understand. Use text for direct facts and when chart data is unavailable.
+Version 5 adds reusable relationship diagrams and scenario explorers. A relationship can branch or cycle.
+A scenario displays a supplied result and its assumptions. The browser switches cases locally.
+Compact comparisons use a shared zero baseline for positive and negative values.
+Use a safe built-in icon when the model supplies an unknown name. Preserve saved versions 1 through 4.
+
 ## Rich OpenUI cards, 2026-11-13
 
 Keep OpenUI Lang and the Theos theme for browser answers.

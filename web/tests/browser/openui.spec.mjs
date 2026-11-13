@@ -25,6 +25,19 @@ async function fixture(
   const saved = await page.request.get(`/api/sessions/${session.id}`);
   expect(saved.ok()).toBe(true);
   const snapshot = await saved.json();
+  await page.route("**/api/sessions", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    if (!response.ok()) return route.fulfill({ response });
+    const sessions = await response.json();
+    const owned = sessions.find((item) => item.id === session.id);
+    await route.fulfill({
+      response,
+      json: owned
+        ? [owned, ...sessions.filter((item) => item !== owned)]
+        : sessions,
+    });
+  });
   await page.route(`**/api/sessions/${session.id}`, async (route) => {
     const data = { ...snapshot };
     data.approvals = approvals;
@@ -856,5 +869,90 @@ test("rich cards render from OpenUI and update locally", async ({
   await expect(page.locator(".openui-lever-card")).toBeVisible();
   await expect(page.locator(".openui-fallback")).toHaveCount(0);
   expect(errors).toEqual([]);
+  expect(turns).toEqual([]);
+});
+
+test("general explainers follow branches and compare cases across topics", async ({
+  page,
+}) => {
+  const turns = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/(turn|openui-actions)$/.test(request.url())
+    )
+      turns.push(request.url());
+  });
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [network, cases, changes])",
+      'summary = AnswerSummary("A thermostat starts or stops heating. The example garden uses different amounts of water on different schedules.")',
+      'network = RelationshipDiagram("Thermostat decisions", [sense, heat, stop], [cold, warm, feedback, invalid])',
+      'sense = ProcessStep("Read the room", "Compare room temperature with the set point.", "Sensor", "thermostat")',
+      'heat = ProcessStep("Heat on", "The heater runs when the room is too cold.")',
+      'stop = ProcessStep("Heat off", "Heating stops when the room is warm enough.")',
+      'cold = RelationshipLink(0, 1, "Below target")',
+      'warm = RelationshipLink(0, 2, "At target")',
+      'feedback = RelationshipLink(1, 0, "Check again")',
+      'invalid = RelationshipLink(0, 5, "Unavailable node")',
+      'cases = ScenarioExplorer("Garden water use", "Weekly water", [few, more], "L", "Illustration at 10 litres per session.")',
+      'few = Scenario("Twice a week", 20, "Two sessions use 20 litres.")',
+      'more = Scenario("Four times a week", 40, "Four sessions use 40 litres.")',
+      'changes = ComparisonCard("Temperature change", ["Room A", "Room B", "Room C"], [-3, 2, null], "°C")',
+    ].join("\n"),
+    "theos-openui-5",
+  );
+
+  const graph = page.locator(".openui-relationship-card");
+  await expect(
+    graph
+      .getByRole("list", { name: "Outgoing connections" })
+      .getByRole("listitem"),
+  ).toHaveCount(2);
+  await expect(
+    graph.getByRole("list", { name: "Incoming connections" }),
+  ).toContainText("Check again");
+  await expect(graph).not.toContainText("Unavailable node");
+  await graph
+    .getByRole("button", { name: "To Heat off · At target" })
+    .press("Enter");
+  await expect(
+    graph.getByRole("button", { name: "Heat off", exact: true }),
+  ).toBeFocused();
+  await expect(graph.locator(".openui-card-detail")).toContainText(
+    "Heating stops",
+  );
+  await expect(
+    graph.getByRole("button", { name: "From Read the room · At target" }),
+  ).toBeVisible();
+
+  const scenario = page.locator(".openui-scenario-card");
+  await expect(scenario.locator(".openui-card-stat")).toContainText("20");
+  await scenario.getByRole("button", { name: "Four times a week" }).click();
+  await expect(scenario.locator(".openui-card-stat")).toContainText("40");
+  await expect(scenario).toContainText(
+    "Illustration at 10 litres per session.",
+  );
+
+  const comparison = page.locator(".openui-comparison-card");
+  await expect(comparison).toContainText("No data");
+  const negative = await comparison
+    .locator(".openui-comparison-track .is-negative")
+    .boundingBox();
+  const positive = await comparison
+    .locator(".openui-comparison-track span")
+    .last()
+    .boundingBox();
+  expect(negative.x + negative.width).toBeCloseTo(positive.x, 0);
+  expect(negative.width / positive.width).toBeCloseTo(3 / 2, 1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.reload();
+  await expect(page.locator(".openui-relationship-card")).toBeVisible();
+  await expect(page.locator(".openui-fallback")).toHaveCount(0);
   expect(turns).toEqual([]);
 });
