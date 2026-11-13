@@ -2,6 +2,13 @@
 
 Updated: 2026-11-13.
 
+## OpenUI reliability, 2026-11-13
+
+Keep the readable summary if an interactive section fails. Keep form actions behind full validation.
+Treat a boolean in the optional EvidenceItem source ID position as an excerpt flag. Preserve valid source IDs and explicit flags.
+Bind text recovery to the selected saved answer. Keep tools disabled for recovery.
+Record bounded OpenUI error codes and counts in structured logs. Exclude answer content.
+
 ## Optional browser password, 2026-11-13
 
 An account can set, change, or remove a browser sign-in password from its signed-in browser.

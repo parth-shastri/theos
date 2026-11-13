@@ -107,6 +107,10 @@ class OpenUIIssueInput(BaseModel):
             "runtime-error",
             "render-error",
             "library-version-mismatch",
+            "incomplete",
+            "unresolved",
+            "orphaned",
+            "missing-summary",
             "other",
         ]
     ] = Field(default_factory=list, max_length=16)
@@ -435,9 +439,9 @@ def create_app(settings=None, runtime=None):
         owner=Depends(identity),
     ):
         browser_session(request, owner, session_id)
-        validate_source(current(request), owner, session_id, body.message_id)
+        source = validate_source(current(request), owner, session_id, body.message_id)
         text, browser_ui, text_recovery, display_text = action_message(
-            current(request), owner, body
+            current(request), owner, body, source
         )
         turn = current(request).start(
             owner,
@@ -475,12 +479,8 @@ def create_app(settings=None, runtime=None):
     @app.post("/api/openui/issues")
     async def openui_issue(body: OpenUIIssueInput, owner=Depends(identity)):
         logging.getLogger("theos").warning(
-            "openui_render_issue version=%s codes=%s components=%d unresolved=%d orphaned=%d",
-            body.library_version,
-            ",".join(body.codes) or "unknown",
-            body.component_count,
-            body.unresolved_count,
-            body.orphaned_count,
+            "openui_render_issue",
+            extra={"openui_issue": body.model_dump()},
         )
         return {"recorded": True}
 
