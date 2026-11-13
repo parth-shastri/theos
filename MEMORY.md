@@ -9,6 +9,15 @@ Treat a boolean in the optional EvidenceItem source ID position as an excerpt fl
 Bind text recovery to the selected saved answer. Keep tools disabled for recovery.
 Record bounded OpenUI error codes and counts in structured logs. Exclude answer content.
 
+## Optional browser password, 2026-11-13
+
+An account can set, change, or remove a browser sign-in password from its signed-in browser.
+The private Telegram `/password` command opens browser setup after the existing code confirmation.
+This setup link preserves any personal access token. Telegram chat access continues to use the verified sender.
+Use the existing account ID for password sign-in. Check strength locally and store a salted scrypt hash.
+Limit failed attempts by source and account. Revoke other password sessions when the password changes or is removed.
+Telegram `/web revoke` also removes the password. Configured token rotation invalidates its associated password and sessions.
+
 ## General OpenUI answers, 2026-11-13
 
 Choose visuals by what the reader needs to understand. Use text for direct facts and when chart data is unavailable.

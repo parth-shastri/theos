@@ -59,14 +59,29 @@ Local HTTP development uses the unprefixed cookie name.
 You can reload the browser during confirmation or return to an active device session without entering the token.
 On another device, enter your saved token or send `/web` in Telegram for a new confirmation link.
 A new confirmed Telegram sign-in replaces your previous saved token. Other active device sessions remain valid.
-Send `/web revoke` in your private bot chat to revoke all generated tokens and device sessions.
-Sign-out ends the current browser session. It retains your saved token and other device sessions.
+Send `/web revoke` in your private bot chat to revoke generated tokens and device sessions and remove your password.
+Sign-out ends the current browser session. It retains your saved credentials and other device sessions.
 
 The browser uses your existing `telegram:<id>` owner, preferred name, personal records, and combined usage.
 Browser conversations and Telegram conversations remain separate threads.
 The application does not merge a configured browser account with Telegram by name.
 The administrator account remains separate from new Telegram users.
 Token reset and revocation retain personal records and history.
+
+## Set an optional password
+
+1. Sign in with your token or confirm a browser from Telegram.
+2. Select **Browser password** in the workspace sidebar.
+3. Enter and confirm a password from 15 to 128 characters.
+4. Select **Set password** and save your account ID.
+
+For future sign-ins, select **Use a password** and enter that account ID and password.
+Theos rejects easily guessed passwords. Try several unrelated words or use a password manager.
+You can change or remove your password from **Browser password**.
+Either action ends other browser sessions that signed in with the password.
+If you forget your password, sign in with your access token or confirm a new browser from Telegram.
+In your private bot chat, `/password` opens password settings after confirmation and preserves your access token.
+When the operator changes a configured account's token, sign in with the new token to set a password again.
 
 ## Open a conversation
 
@@ -88,11 +103,12 @@ Reasoning choices follow the selected model. **Cancel** discards changes to both
 
 Manual sign-in submits the token once to `/api/auth/login` and receives a protected session cookie.
 The frontend clears the token field after successful sign-in and removes previously saved tab tokens.
-Both sign-in methods keep session credentials outside JavaScript storage and URLs.
+All sign-in methods keep session credentials outside JavaScript storage and URLs.
 The API stores session fingerprints, checks expiry on each request, and revokes the current session at logout.
 Changing a configured account token also invalidates sessions created from that token.
 Origin checks and the custom request header protect browser mutations against CSRF.
-The API limits failed token sign-ins to twenty per upstream network address in fifteen minutes.
+The API limits failed sign-ins to twenty per upstream network address in fifteen minutes.
+Password sign-in also limits failed attempts per account ID over the same period.
 It returns the same error for invalid and expired tokens.
 A configured trusted ingress can supply validated client addresses for separate limits.
 See [frontend service settings](base-infra/environment-variables.md#nextjs-service-settings).

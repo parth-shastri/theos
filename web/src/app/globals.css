@@ -4272,6 +4272,41 @@ tr:last-child td {
   display: block;
   margin: 12px 0;
 }
+.password-settings {
+  display: grid;
+  gap: 8px;
+}
+.login-card .password-settings {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.password-settings p,
+.login-card .password-settings p {
+  margin: 0;
+  font-size: 13px;
+}
+.password-settings label,
+.login-card .password-settings label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.password-settings input {
+  min-height: 42px;
+}
+.password-settings small {
+  color: var(--text-muted);
+}
+.password-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.login-card .password-actions button {
+  margin-top: 0;
+}
 .sidebar-collapsed {
   grid-template-columns: 0 minmax(0, 1fr);
 }

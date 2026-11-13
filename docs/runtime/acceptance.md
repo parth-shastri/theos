@@ -9,6 +9,14 @@ Browser regressions cover legacy evidence, malformed and truncated answers, save
 The recovery test selects an older answer and confirms that the recovery turn exposes no tools.
 The structured log test confirms that OpenUI issue codes are retained without answer content.
 
+## Optional browser password, 2026-11-13
+
+Local checks cover password strength, account isolation, token rotation, and rate limits.
+They verify Telegram confirmation, redaction before inbox storage, token preservation, and `/web revoke`.
+Chromium and WebKit checks cover setup, password sign-in, and removal at four widths in both themes.
+Migration 017 preserves existing session and invitation records from schema 16.
+Telegram confirmation used a test bot adapter. Live Telegram and deployed browser checks remain open.
+
 ## General OpenUI answers, 2026-11-13
 
 The library selects visuals by the structure of the answer. It uses text when the question is simple or chart data is missing.
