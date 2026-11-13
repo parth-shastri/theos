@@ -187,11 +187,12 @@ export function ComparisonCard({
   context,
 }) {
   const data = chartData(labels, [{ name: title, values }]);
-  const high = data ? Math.max(0, ...values.filter(Number.isFinite)) : 0;
+  const scale = data && chartScale(data);
   const show =
-    data &&
-    values.some((v) => v !== null) &&
-    values.every((v) => v === null || v >= 0);
+    scale && Number.isFinite(scale.span) && values.some((v) => v !== null);
+  const position = (value) => ((value - scale.low) / scale.span) * 100;
+  const last =
+    show && values.some((v) => v !== 0 && v !== null) ? scale.high : 0;
   return h(
     "section",
     { className: "openui-visual openui-rich-card openui-comparison-card" },
@@ -226,12 +227,17 @@ export function ComparisonCard({
                       className: "openui-comparison-track",
                       key: "bar",
                       "aria-hidden": true,
+                      style: { "--comparison-zero": position(0) + "%" },
                     },
                     values[i] === null
                       ? null
                       : h("span", {
+                          className: values[i] < 0 ? "is-negative" : undefined,
                           style: {
-                            width: high ? (values[i] / high) * 100 + "%" : "0%",
+                            insetInlineStart:
+                              position(Math.min(values[i], 0)) + "%",
+                            width:
+                              (Math.abs(values[i]) / scale.span) * 100 + "%",
                           },
                         }),
                   ),
@@ -246,11 +252,11 @@ export function ComparisonCard({
                 "aria-hidden": true,
               },
               [
-                h("span", { key: "zero" }, "0"),
+                h("span", { key: "min" }, compactNumber(scale.low)),
                 h(
                   "span",
                   { key: "max" },
-                  [compactNumber(high), unit].filter(Boolean).join(" "),
+                  [compactNumber(last), unit].filter(Boolean).join(" "),
                 ),
               ],
             ),
