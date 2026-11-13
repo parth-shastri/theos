@@ -209,15 +209,27 @@
   font-variant-numeric: tabular-nums;
 }
 .openui-comparison-track {
+  position: relative;
   height: 7px;
   border-radius: 5px;
   background: color-mix(in srgb, var(--border) 58%, transparent);
 }
 .openui-comparison-track span {
-  display: block;
-  height: 100%;
+  position: absolute;
+  inset-block: 0;
   border-radius: inherit;
   background: var(--card-accent);
+}
+.openui-comparison-track::after {
+  content: "";
+  position: absolute;
+  inset-block: -1px;
+  inset-inline-start: clamp(0px, var(--comparison-zero), calc(100% - 1px));
+  width: 1px;
+  background: var(--text-muted);
+}
+.openui-comparison-track .is-negative {
+  background: var(--chart-output);
 }
 .openui-comparison-axis,
 .openui-lever-ends {
@@ -511,6 +523,80 @@
   .openui-status-options button,
   .openui-lever-controls input,
   .openui-calendar-compact .openui-calendar-segment {
+    min-height: 44px;
+  }
+}
+
+.openui-relationship-card {
+  --card-accent: var(--openui-card-blue);
+}
+.openui-scenario-card {
+  --card-accent: var(--chart-output);
+}
+.openui-explainer-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.openui-explainer-choices button,
+.openui-relationship-list button {
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 9px;
+  border-radius: 9px;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.openui-explainer-choices button[aria-pressed="true"] {
+  border-color: var(--card-accent);
+  background: color-mix(in srgb, var(--card-accent) 14%, var(--surface));
+}
+.openui-explainer-choices svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--card-accent);
+}
+.openui-relationship-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 16px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.openui-relationship-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.openui-relationship-list li > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.openui-relationship-list button {
+  justify-self: start;
+}
+.openui-relationship-arrow {
+  flex: none;
+  color: var(--card-accent);
+  font-size: 17px;
+}
+.openui-scenario-result {
+  margin-top: 10px;
+  padding: 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card-accent) 10%, transparent);
+}
+@media (pointer: coarse) {
+  .openui-explainer-choices button,
+  .openui-relationship-list button {
     min-height: 44px;
   }
 }

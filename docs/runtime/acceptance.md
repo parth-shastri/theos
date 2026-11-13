@@ -4,8 +4,17 @@
 
 Local checks cover password strength, account isolation, token rotation, and rate limits.
 They verify Telegram confirmation, redaction before inbox storage, token preservation, and `/web revoke`.
-Browser checks cover setup, password sign-in, and removal at four viewport widths in both themes.
+Chromium and WebKit checks cover setup, password sign-in, and removal at four widths in both themes.
+Migration 017 preserves existing session and invitation records from schema 16.
 Telegram confirmation used a test bot adapter. Live Telegram and deployed browser checks remain open.
+
+## General OpenUI answers, 2026-11-13
+
+The library selects visuals by the structure of the answer. It uses text when the question is simple or chart data is missing.
+Version 5 adds selectable relationships and calculated scenarios. Compact comparisons show negative and positive values around zero.
+The configured Luna model passed 14 synthetic questions outside the prompt examples.
+The checks covered chart selection, missing values, branching explanations, scenario arithmetic, and plain text.
+Mobile WebKit checked keyboard navigation, local interaction, and reloads. Production deployment remains open.
 
 ## Rich OpenUI cards, 2026-11-13
 

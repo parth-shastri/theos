@@ -86,6 +86,18 @@
     "ProcessDiagram": {
       "$ref": "#/$defs/ProcessDiagram"
     },
+    "RelationshipLink": {
+      "$ref": "#/$defs/RelationshipLink"
+    },
+    "RelationshipDiagram": {
+      "$ref": "#/$defs/RelationshipDiagram"
+    },
+    "Scenario": {
+      "$ref": "#/$defs/Scenario"
+    },
+    "ScenarioExplorer": {
+      "$ref": "#/$defs/ScenarioExplorer"
+    },
     "LeverExplainer": {
       "$ref": "#/$defs/LeverExplainer"
     },
@@ -122,6 +134,10 @@
     "StatusBreakdown",
     "ProcessStep",
     "ProcessDiagram",
+    "RelationshipLink",
+    "RelationshipDiagram",
+    "Scenario",
+    "ScenarioExplorer",
     "LeverExplainer",
     "CardRow"
   ],
@@ -188,6 +204,12 @@
               },
               {
                 "$ref": "#/$defs/ProcessDiagram"
+              },
+              {
+                "$ref": "#/$defs/RelationshipDiagram"
+              },
+              {
+                "$ref": "#/$defs/ScenarioExplorer"
               },
               {
                 "$ref": "#/$defs/LeverExplainer"
@@ -885,27 +907,7 @@
         },
         "icon": {
           "type": "string",
-          "enum": [
-            "activity",
-            "timer",
-            "calendar",
-            "branch",
-            "wallet",
-            "weather",
-            "skills",
-            "globe",
-            "lock",
-            "window",
-            "scale",
-            "connection",
-            "storage",
-            "sandbox",
-            "check",
-            "alert",
-            "chat",
-            "users",
-            "search"
-          ]
+          "maxLength": 80
         },
         "context": {
           "type": "string",
@@ -943,14 +945,9 @@
           "maxItems": 6,
           "type": "array",
           "items": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
+            "type": [
+              "number",
+              "null"
             ]
           }
         },
@@ -960,27 +957,7 @@
         },
         "icon": {
           "type": "string",
-          "enum": [
-            "activity",
-            "timer",
-            "calendar",
-            "branch",
-            "wallet",
-            "weather",
-            "skills",
-            "globe",
-            "lock",
-            "window",
-            "scale",
-            "connection",
-            "storage",
-            "sandbox",
-            "check",
-            "alert",
-            "chat",
-            "users",
-            "search"
-          ]
+          "maxLength": 80
         },
         "context": {
           "type": "string",
@@ -993,7 +970,7 @@
         "values"
       ],
       "additionalProperties": false,
-      "description": "A compact set of labeled horizontal bars for 2 to 6 non-negative values in one unit. Use null for missing values. Prefer this to a full BarChart for a small category comparison."
+      "description": "A compact set of labeled horizontal bars for 2 to 6 comparable values in one unit. Use null for missing values. Prefer this to a full BarChart for a small category comparison."
     },
     "StatusBreakdown": {
       "type": "object",
@@ -1017,27 +994,7 @@
         },
         "icon": {
           "type": "string",
-          "enum": [
-            "activity",
-            "timer",
-            "calendar",
-            "branch",
-            "wallet",
-            "weather",
-            "skills",
-            "globe",
-            "lock",
-            "window",
-            "scale",
-            "connection",
-            "storage",
-            "sandbox",
-            "check",
-            "alert",
-            "chat",
-            "users",
-            "search"
-          ]
+          "maxLength": 80
         },
         "context": {
           "type": "string",
@@ -1079,27 +1036,7 @@
         },
         "icon": {
           "type": "string",
-          "enum": [
-            "activity",
-            "timer",
-            "calendar",
-            "branch",
-            "wallet",
-            "weather",
-            "skills",
-            "globe",
-            "lock",
-            "window",
-            "scale",
-            "connection",
-            "storage",
-            "sandbox",
-            "check",
-            "alert",
-            "chat",
-            "users",
-            "search"
-          ]
+          "maxLength": 80
         }
       },
       "required": [
@@ -1153,27 +1090,7 @@
         },
         "icon": {
           "type": "string",
-          "enum": [
-            "activity",
-            "timer",
-            "calendar",
-            "branch",
-            "wallet",
-            "weather",
-            "skills",
-            "globe",
-            "lock",
-            "window",
-            "scale",
-            "connection",
-            "storage",
-            "sandbox",
-            "check",
-            "alert",
-            "chat",
-            "users",
-            "search"
-          ]
+          "maxLength": 80
         }
       },
       "required": [
@@ -1182,6 +1099,133 @@
       ],
       "additionalProperties": false,
       "description": "One stage of an ordered process. Give it a short label, a plain explanation, and an optional term and meaningful icon."
+    },
+    "RelationshipDiagram": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "nodes": {
+          "minItems": 2,
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessStep"
+          }
+        },
+        "links": {
+          "minItems": 1,
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RelationshipLink"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "nodes",
+        "links"
+      ],
+      "additionalProperties": false,
+      "description": "An explorable graph for branches, causes, dependencies, or cycles. The first node opens initially. Reuse ProcessStep for each node. Link only relationships you can explain."
+    },
+    "RelationshipLink": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "to": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "label"
+      ],
+      "additionalProperties": false,
+      "description": "A directed connection between two different nodes. Use zero-based positions in the nodes array. The label describes the direction from source to target."
+    },
+    "ScenarioExplorer": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "result_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65
+        },
+        "scenarios": {
+          "minItems": 2,
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Scenario"
+          }
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "assumptions": {
+          "type": "string",
+          "maxLength": 260
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "title",
+        "result_label",
+        "scenarios"
+      ],
+      "additionalProperties": false,
+      "description": "Explore 2 to 5 discrete cases for the same measure. Each case supplies its result and explanation. State shared assumptions and whether the cases are illustrative or estimates."
+    },
+    "Scenario": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65
+        },
+        "result": {
+          "type": "number"
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280
+        }
+      },
+      "required": [
+        "label",
+        "result",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "description": "One named scenario with a calculated or supplied numeric result and a short explanation of its inputs or calculation."
     },
     "LeverExplainer": {
       "type": "object",

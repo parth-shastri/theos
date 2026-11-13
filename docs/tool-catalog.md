@@ -153,6 +153,10 @@ The compact `CalendarAvailability` layout shows the longest confirmed free block
 `web/src/openui/rich-cards.js` uses React, native range inputs, SVG, and the existing icon set.
 Chart selection and lesson controls run in the browser. These cards add no dependency or model tool.
 
+Library version 5 adds `RelationshipDiagram` for labeled connections and `ScenarioExplorer` for calculated cases.
+`web/src/openui/explainers.js` uses React state and native buttons for selection.
+The browser accepts only built-in icons. An unknown icon uses a default.
+
 Native SVG, ResizeObserver, and HTML data tables supply responsive dashboard charts.
 `transports/browser/activity.py` aggregates usage and tool-start records for bounded UTC periods.
 Personal queries use the authenticated owner. Administrator queries cover the workspace.
