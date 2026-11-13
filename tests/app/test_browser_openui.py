@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 
-from harness import AssistantMessage, message_to_dict
+from harness import AssistantMessage, ToolCall, message_to_dict
 from harness.testing import FakeModel
 from theos.storage.messages import display_metadata, update_display_metadata
 from theos.transports.browser.openui import reminder_submission
@@ -47,6 +47,32 @@ async def test_browser_format_is_saved_without_changing_generic_message_serializ
     events = await collect(runtime.start("alice", session["id"], "Use the terminal."))
     assert not any(event["type"] == "assistant_format" for event in events)
     assert "format" not in display_metadata(runtime.db.load_history("alice", session["id"])[-1])
+
+
+async def test_browser_turn_saves_the_same_elapsed_time_it_streams(runtime, scripted_models):
+    session = runtime.db.create_session("alice", "test-model", "default")
+    session_id = session["id"]
+    scripted_models.responses.append(
+        [
+            AssistantMessage(
+                reasoning="Read preferences first.",
+                tool_calls=[ToolCall("preferences", "get_preferences", {})],
+            ),
+            AssistantMessage(SOURCE, reasoning="Use the saved preferences."),
+        ]
+    )
+    events = await collect(runtime.start("alice", session_id, "Show a fact.", browser_ui=True))
+    done = events[-1]
+    assert done["status"] == "completed"
+    assert done["duration_ms"] >= 0
+    calls = next(event["tool_calls"] for event in events if event.get("tool_calls"))
+    assert calls == [{"id": "preferences", "name": "get_preferences", "arguments": {}}]
+    messages = runtime.db.load_history("alice", session_id)
+    assert display_metadata(messages[0])["turn_activity"] == {"duration_ms": done["duration_ms"]}
+    assert messages[1].reasoning == "Read preferences first."
+    assert messages[2].call_id == "preferences"
+    assert messages[2].status == "completed"
+    assert messages[3].reasoning == "Use the saved preferences."
 
 
 async def test_saved_drafts_reject_other_owners_unknown_messages_and_unsupported_fields(runtime):

@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
+import { conversationEntries } from "../state/chat";
 import Markdown, { markdownText } from "./Markdown";
 import OpenUIAnswer from "./OpenUIAnswer";
 import { Icon } from "./Primitives";
@@ -280,47 +281,19 @@ const ChatMessage = memo(function ChatMessage({
   speech,
   autoPlay,
 }) {
-  const reasoningOnly =
-    entry.role === "assistant" &&
-    !!entry.reasoning &&
-    (!entry.text || entry.presentationHidden);
-  const thoughtDuration = entry.display?.duration_ms;
   return (
     <article
       className={
-        "message " +
-        (entry.role === "workspace" ? "system" : entry.role) +
-        (reasoningOnly ? " reasoning-only" : "")
+        "message " + (entry.role === "workspace" ? "system" : entry.role)
       }
     >
-      <div className="role" hidden={reasoningOnly}>
+      <div className="role">
         {entry.role === "assistant"
           ? agentName
           : entry.role === "workspace"
             ? "Workspace"
             : "You"}
       </div>
-      {entry.reasoning && (
-        <details
-          className={"thinking" + (entry.streaming ? " is-thinking" : "")}
-        >
-          <summary>
-            <span className="thinking-orb" aria-hidden="true" />
-            <span className="thinking-label">
-              {entry.streaming
-                ? "Thinking…"
-                : Number.isFinite(thoughtDuration)
-                  ? `Thought for ${Math.max(0, thoughtDuration / 1000).toFixed(1)} s`
-                  : "Thought"}
-            </span>
-          </summary>
-          <Markdown
-            className="thinking-body"
-            source={entry.reasoning || ""}
-            hidden={!entry.reasoning}
-          />
-        </details>
-      )}
       {entry.role === "assistant" ? (
         entry.format === "openui-lang" ? (
           <OpenUIAnswer
@@ -355,7 +328,7 @@ const ChatMessage = memo(function ChatMessage({
             ))}
         </div>
       )}
-      <div className="message-footer" hidden={reasoningOnly}>
+      <div className="message-footer">
         {speech &&
           entry.role === "assistant" &&
           entry.format !== "openui-lang" &&
@@ -408,8 +381,149 @@ function FileDownload({ entry }) {
     </>
   );
 }
+
+const toolLabels = new Map([
+  ["calendar_list_events", ["Read calendar events", "Reading calendar events"]],
+  ["calendar_get_event", ["Read calendar event", "Reading calendar event"]],
+  [
+    "calendar_free_busy",
+    ["Checked calendar availability", "Checking calendar availability"],
+  ],
+  ["web_search", ["Searched the web", "Searching the web"]],
+  ["run_command", ["Ran command", "Running command"]],
+  ["execute_code", ["Ran Python code", "Running Python code"]],
+]);
+
+function ToolActivity({ entry, running }) {
+  const { name, status } = entry;
+  const started = ["running", "started"].includes(status);
+  const active = running && started;
+  const label = name.replace(/[_-]+/g, " ");
+  const [finished, inProgress] = toolLabels.get(name) || [
+    `Ran ${label}`,
+    `Running ${label}`,
+  ];
+  const action = active
+    ? inProgress
+    : status === "completed"
+      ? finished
+      : label[0]?.toUpperCase() + label.slice(1);
+  const unfinished = started || status === "queued" || status === "approved";
+  const outcome =
+    !active && status !== "completed"
+      ? !running && unfinished
+        ? "unresolved"
+        : status.replaceAll("_", " ")
+      : "";
+  const icon = name.startsWith("calendar_")
+    ? "calendar"
+    : name.includes("search")
+      ? "search"
+      : ["run_command", "execute_code", "browser"].includes(name)
+        ? "sandbox"
+        : "settings";
+  const hasDetails = entry.arguments !== null || entry.content !== null;
+  const row = (
+    <>
+      <Icon name={icon} />
+      <span>
+        {action}
+        {outcome && <span className="tool-outcome"> · {outcome}</span>}
+      </span>
+    </>
+  );
+  if (!hasDetails) return <div className="tool-action">{row}</div>;
+  return (
+    <details className="tool-activity">
+      <summary className="tool-action">
+        {row}
+        <Icon name="chevron" className="activity-chevron" />
+      </summary>
+      <div className="tool-activity-details">
+        {entry.arguments !== null && (
+          <>
+            <strong>Inputs</strong>
+            <pre className="tool-inputs">
+              {JSON.stringify(entry.arguments, null, 2)}
+            </pre>
+          </>
+        )}
+        {entry.content !== null && (
+          <>
+            <strong>Result</strong>
+            <pre className="tool-result">{entry.content}</pre>
+          </>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function TurnActivity({ entry }) {
+  const { rows, durationMs, running } = entry;
+  const [expanded, setExpanded] = useState(false);
+  const seconds = Math.round(durationMs / 100) / 10;
+  const duration =
+    seconds < 60
+      ? `${seconds} s`
+      : `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
+  const label = Number.isFinite(seconds)
+    ? `Thought for ${duration}`
+    : "Thought";
+  if (!running && !rows.length)
+    return (
+      <div className="turn-activity">
+        <span className="thinking-status thinking-label">{label}</span>
+      </div>
+    );
+  return (
+    <details
+      className={"turn-activity" + (running ? " is-thinking" : "")}
+      open={running || expanded}
+      onToggle={(event) => {
+        if (!running) setExpanded(event.currentTarget.open);
+      }}
+    >
+      <summary
+        tabIndex={running ? -1 : undefined}
+        onClick={(event) => {
+          if (running) event.preventDefault();
+        }}
+      >
+        {running ? (
+          <span className="thinking-status" role="status">
+            <span className="thinking-orb" aria-hidden="true" />
+            <span className="thinking-label">Thinking…</span>
+          </span>
+        ) : (
+          <>
+            <Icon name="chevron" className="activity-chevron" />
+            <span className="thinking-label">{label}</span>
+          </>
+        )}
+      </summary>
+      {rows.length > 0 && (
+        <ol className="turn-activity-rows" aria-label="Turn activity">
+          {rows.map((row) => (
+            <li key={row.id}>
+              {row.kind === "tool" ? (
+                <ToolActivity entry={row} running={running} />
+              ) : row.kind === "compaction" ? (
+                <span role="status">{row.text}</span>
+              ) : (
+                <Markdown className="thinking-body" source={row.reasoning} />
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
+  );
+}
+
 export function MessageList({ scrollRef, onScroll }) {
   const { chat, agentName, me, brand, editDraft, autoPlay } = useWorkspace();
+  const entries = conversationEntries(chat.entries);
   return (
     <SpeechProvider>
       <div
@@ -421,7 +535,7 @@ export function MessageList({ scrollRef, onScroll }) {
         ref={scrollRef}
         onScroll={onScroll}
       >
-        {!chat.entries.length && (
+        {!entries.length && (
           <div className="empty">
             <img className="mark" src={brand} alt="" data-brand="" />
             <span className="eyebrow">A little space to think</span>
@@ -452,7 +566,7 @@ export function MessageList({ scrollRef, onScroll }) {
             </div>
           </div>
         )}
-        {chat.entries.map((entry) =>
+        {entries.map((entry) =>
           entry.kind === "message" ? (
             <ChatMessage
               key={chat.revision + "-" + entry.id}
@@ -466,52 +580,12 @@ export function MessageList({ scrollRef, onScroll }) {
                   : null
               }
             />
-          ) : entry.kind === "tool" ? (
-            <details
-              className="tool-activity"
-              data-call-id={entry.callId}
-              key={chat.revision + "-" + entry.id}
-            >
-              <summary>
-                {entry.name + " · " + entry.status.replaceAll("_", " ")}
-              </summary>
-              {entry.arguments !== null && (
-                <>
-                  <strong>Inputs</strong>
-                  <pre className="tool-inputs">
-                    {JSON.stringify(entry.arguments, null, 2)}
-                  </pre>
-                </>
-              )}
-              {entry.content !== null && (
-                <>
-                  <strong>Result</strong>
-                  <pre className="tool-result">{entry.content}</pre>
-                </>
-              )}
-            </details>
           ) : entry.kind === "file" ? (
             <FileDownload entry={entry} key={chat.revision + "-" + entry.id} />
           ) : (
-            <div
-              className={
-                "context-activity" + (entry.active ? " is-organizing" : "")
-              }
-              role="status"
-              aria-live="polite"
-              key={chat.revision + "-" + entry.id}
-            >
-              {entry.text}
-            </div>
+            <TurnActivity entry={entry} key={chat.revision + "-" + entry.id} />
           ),
         )}
-        {chat.responding &&
-          !chat.entries.some((entry) => entry.streaming && entry.reasoning) && (
-            <div className="turn-activity is-thinking" role="status">
-              <span className="thinking-orb" aria-hidden="true" />
-              <span className="thinking-label">Thinking…</span>
-            </div>
-          )}
         {chat.notice && (
           <p className="context-activity" role="status">
             {chat.notice}

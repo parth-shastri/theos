@@ -15,7 +15,7 @@ test("saved theme paints before React loads under the production CSP", async ({
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   await expect(page.locator("body")).toHaveCSS(
     "background-color",
-    theme === "dark" ? "rgb(14, 17, 22)" : "rgb(243, 245, 247)",
+    theme === "dark" ? "rgb(8, 11, 15)" : "rgb(243, 245, 247)",
   );
   const nonce = await page
     .locator('script[src="/static/theme.js"]')

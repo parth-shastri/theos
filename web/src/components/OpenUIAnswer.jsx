@@ -367,8 +367,7 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
       </OpenUIAnswerContext.Provider>
       {streaming && (
         <div className="openui-pending" aria-live="polite">
-          <span className="thinking-orb" aria-hidden="true" />
-          <span>Preparing an interactive answer…</span>
+          Preparing an interactive answer…
         </div>
       )}
       {!streaming && summary && renderSpeech?.(summary)}
