@@ -7,6 +7,7 @@ async function fixture(
   version = "theos-openui-2",
   history = [],
   approvals = [],
+  expected = ".theos-openui-answer",
 ) {
   await page.goto("/");
   await page.locator("#token").fill(token);
@@ -25,6 +26,19 @@ async function fixture(
   const saved = await page.request.get(`/api/sessions/${session.id}`);
   expect(saved.ok()).toBe(true);
   const snapshot = await saved.json();
+  await page.route("**/api/sessions", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    if (!response.ok()) return route.fulfill({ response });
+    const sessions = await response.json();
+    const owned = sessions.find((item) => item.id === session.id);
+    await route.fulfill({
+      response,
+      json: owned
+        ? [owned, ...sessions.filter((item) => item !== owned)]
+        : sessions,
+    });
+  });
   await page.route(`**/api/sessions/${session.id}`, async (route) => {
     const data = { ...snapshot };
     data.approvals = approvals;
@@ -56,7 +70,7 @@ async function fixture(
     },
   );
   await page.reload();
-  await expect(page.locator(".theos-openui-answer")).toBeVisible();
+  await expect(page.locator(expected)).toBeVisible();
   return { state: () => state, summary: () => summary, saves: () => saves };
 }
 
@@ -722,4 +736,323 @@ test("search thumbnails and logos match the source cards and collapse failed med
   await page.reload();
   await expect(page.locator(".openui-evidence-item")).toHaveCount(3);
   expect(errors).toEqual([]);
+});
+
+test("rich cards render from OpenUI and update locally", async ({
+  page,
+}, testInfo) => {
+  const errors = [];
+  const turns = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/(turn|openui-actions)$/.test(request.url())
+    )
+      turns.push(request.url());
+  });
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [top, work, lesson, lever, partial])",
+      'summary = AnswerSummary("Sample activity, availability, and work. The lever uses an illustrative load.")',
+      "top = CardRow([steps, availability])",
+      'steps = TrendCard("Daily steps", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], [5940, 7200, null, 7580, 0, 8000, 8420], "steps", "activity", "This week")',
+      'busy = CalendarInterval("2026-11-13T10:00:00+05:30", "2026-11-13T12:00:00+05:30")',
+      'workCalendar = CalendarBusyCalendar("Work", [busy])',
+      'personal = CalendarBusyCalendar("Personal", null, "Access unavailable")',
+      'availability = CalendarAvailability("Calendar openings", "2026-11-13T09:00:00+05:30", "2026-11-13T15:30:00+05:30", "Asia/Kolkata", [workCalendar], "Work calendar only", "compact")',
+      'partial = CalendarAvailability("Partial availability", "2026-11-13T09:00:00+05:30", "2026-11-13T15:30:00+05:30", "Asia/Kolkata", [workCalendar, personal], "", "compact")',
+      "work = CardRow([queue, focus])",
+      'queue = StatusBreakdown("Pull request queue", [blocked, ready, changes], "open", "branch", "GitHub")',
+      'blocked = StatusGroup("Blocked", 1, "blocked", "PR #148 is waiting on the browser tests.", "alert")',
+      'ready = StatusGroup("Ready for review", 3, "positive", "PRs #146, #149, and #151 need a first review.", "check")',
+      'changes = StatusGroup("Changes requested", 2, "warning", "PRs #142 and #145 need updates.", "chat")',
+      'focus = ComparisonCard("Focus time by project", ["Theos", "Research", "Writing"], [220, 140, 60], "min", "timer", "This week")',
+      'lesson = ProcessDiagram("How a web page loads", [address, connect, draw])',
+      'address = ProcessStep("Find address", "DNS finds the server address.", "DNS", "globe")',
+      'connect = ProcessStep("Connect", "The browser opens a secure connection.", "HTTPS", "lock")',
+      'draw = ProcessStep("Draw the page", "The browser lays out and paints the page.", "HTML + CSS", "window")',
+      'lever = LeverExplainer("How a lever multiplies force", 120, 120)',
+    ].join("\n"),
+    "theos-openui-4",
+  );
+
+  const trend = page.locator(".openui-trend-card");
+  await expect(trend.locator(".openui-card-stat")).toContainText("8,420");
+  await expect(trend.locator(".openui-card-note")).toContainText(
+    "+420 vs. Sat",
+  );
+  const firstBar = trend.locator(".openui-mini-bar").first();
+  const latestBar = trend.locator(".openui-mini-bar").last();
+  const firstHeight = (await firstBar.boundingBox()).height;
+  const latestHeight = (await latestBar.boundingBox()).height;
+  expect(latestHeight).toBeGreaterThan(40);
+  expect(firstHeight / latestHeight).toBeCloseTo(5940 / 8420, 1);
+  await trend.getByRole("button", { name: "Wed, No data" }).press("Enter");
+  await expect(trend.locator(".openui-card-stat")).toHaveText("No data");
+  await trend.getByRole("button", { name: "Fri, 0 steps" }).click();
+  await expect(trend.locator(".openui-card-stat")).toHaveText("0steps");
+  await trend.getByText("View exact values", { exact: true }).click();
+  await expect(trend.getByRole("row", { name: "Wed No data" })).toBeVisible();
+  await trend.getByText("View exact values", { exact: true }).click();
+
+  const compact = page.locator(".openui-calendar-compact").first();
+  await expect(compact.locator(".openui-card-stat")).toContainText(
+    "3 hr 30 min",
+  );
+  await expect(
+    compact.locator(".openui-calendar-segment.is-longest"),
+  ).toHaveAttribute("aria-pressed", "true");
+  await compact.getByRole("button", { name: /^Busy:/ }).click();
+  await expect(compact.locator(".openui-calendar-inspection")).toContainText(
+    "10:00 - 12:00",
+  );
+
+  const partial = page.locator(".openui-calendar-compact").last();
+  await expect(partial).toContainText("Availability incomplete");
+  await expect(partial).toContainText("Access unavailable");
+  await expect(
+    partial.locator(".openui-calendar-segment.is-longest"),
+  ).toHaveCount(0);
+
+  const queue = page.locator(".openui-status-breakdown");
+  await expect(queue.locator(".openui-donut-total")).toContainText("6");
+  await queue.getByRole("button", { name: "Ready for review 3" }).click();
+  await expect(queue.locator(".openui-card-detail")).toContainText("PRs #146");
+  await expect(
+    queue.getByRole("button", { name: "Blocked 1" }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".openui-comparison-card")).toContainText(
+    "220 min",
+  );
+
+  const diagram = page.locator(".openui-process-card");
+  await diagram.getByRole("button", { name: "Connect HTTPS" }).press("Enter");
+  await expect(diagram.locator(".openui-card-detail")).toContainText(
+    "opens a secure connection",
+  );
+
+  const lever = page.locator(".openui-lever-card");
+  const pivot = lever.getByRole("slider", { name: "Move the pivot" });
+  await expect(lever.locator(".openui-card-stat strong")).toHaveText("60 N");
+  await pivot.press("Home");
+  await expect(lever.locator(".openui-card-stat strong")).toHaveText("40 N");
+  await pivot.press("End");
+  await expect(lever.locator(".openui-card-stat strong")).toHaveText("360 N");
+  await expect(lever.getByRole("img")).toHaveAccessibleName(
+    /360 N push 30 cm right/,
+  );
+  expect(
+    await page.evaluate(() =>
+      [...document.querySelectorAll(".openui-rich-card")].every(
+        (card) => card.scrollWidth <= card.clientWidth + 1,
+      ),
+    ),
+  ).toBe(true);
+
+  for (const [locator, name] of [
+    [page.locator(".openui-card-row").first(), "rich-activity-calendar"],
+    [page.locator(".openui-card-row").last(), "rich-work"],
+    [diagram, "process-diagram"],
+    [lever, "lever-explainer"],
+  ]) {
+    await locator.evaluate((element) => {
+      const pane = document.getElementById("messages");
+      pane.scrollTop +=
+        element.getBoundingClientRect().top -
+        pane.getBoundingClientRect().top -
+        70;
+    });
+    await locator.screenshot({ path: testInfo.outputPath(name + ".png") });
+  }
+  await page.reload();
+  await expect(page.locator(".openui-lever-card")).toBeVisible();
+  await expect(page.locator(".openui-fallback")).toHaveCount(0);
+  expect(errors).toEqual([]);
+  expect(turns).toEqual([]);
+});
+
+test("general explainers follow branches and compare cases across topics", async ({
+  page,
+}) => {
+  const turns = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/(turn|openui-actions)$/.test(request.url())
+    )
+      turns.push(request.url());
+  });
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [network, cases, changes])",
+      'summary = AnswerSummary("A thermostat starts or stops heating. The example garden uses different amounts of water on different schedules.")',
+      'network = RelationshipDiagram("Thermostat decisions", [sense, heat, stop], [cold, warm, feedback, invalid])',
+      'sense = ProcessStep("Read the room", "Compare room temperature with the set point.", "Sensor", "thermostat")',
+      'heat = ProcessStep("Heat on", "The heater runs when the room is too cold.")',
+      'stop = ProcessStep("Heat off", "Heating stops when the room is warm enough.")',
+      'cold = RelationshipLink(0, 1, "Below target")',
+      'warm = RelationshipLink(0, 2, "At target")',
+      'feedback = RelationshipLink(1, 0, "Check again")',
+      'invalid = RelationshipLink(0, 5, "Unavailable node")',
+      'cases = ScenarioExplorer("Garden water use", "Weekly water", [few, more], "L", "Illustration at 10 litres per session.")',
+      'few = Scenario("Twice a week", 20, "Two sessions use 20 litres.")',
+      'more = Scenario("Four times a week", 40, "Four sessions use 40 litres.")',
+      'changes = ComparisonCard("Temperature change", ["Room A", "Room B", "Room C"], [-3, 2, null], "°C")',
+    ].join("\n"),
+    "theos-openui-5",
+  );
+
+  const graph = page.locator(".openui-relationship-card");
+  await expect(
+    graph
+      .getByRole("list", { name: "Outgoing connections" })
+      .getByRole("listitem"),
+  ).toHaveCount(2);
+  await expect(
+    graph.getByRole("list", { name: "Incoming connections" }),
+  ).toContainText("Check again");
+  await expect(graph).not.toContainText("Unavailable node");
+  await graph
+    .getByRole("button", { name: "To Heat off · At target" })
+    .press("Enter");
+  await expect(
+    graph.getByRole("button", { name: "Heat off", exact: true }),
+  ).toBeFocused();
+  await expect(graph.locator(".openui-card-detail")).toContainText(
+    "Heating stops",
+  );
+  await expect(
+    graph.getByRole("button", { name: "From Read the room · At target" }),
+  ).toBeVisible();
+
+  const scenario = page.locator(".openui-scenario-card");
+  await expect(scenario.locator(".openui-card-stat")).toContainText("20");
+  await scenario.getByRole("button", { name: "Four times a week" }).click();
+  await expect(scenario.locator(".openui-card-stat")).toContainText("40");
+  await expect(scenario).toContainText(
+    "Illustration at 10 litres per session.",
+  );
+
+  const comparison = page.locator(".openui-comparison-card");
+  await expect(comparison).toContainText("No data");
+  const negative = await comparison
+    .locator(".openui-comparison-track .is-negative")
+    .boundingBox();
+  const positive = await comparison
+    .locator(".openui-comparison-track span")
+    .last()
+    .boundingBox();
+  expect(negative.x + negative.width).toBeCloseTo(positive.x, 0);
+  expect(negative.width / positive.width).toBeCloseTo(3 / 2, 1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.reload();
+  await expect(page.locator(".openui-relationship-card")).toBeVisible();
+  await expect(page.locator(".openui-fallback")).toHaveCount(0);
+  expect(turns).toEqual([]);
+});
+
+test("legacy evidence arguments render without losing references or excerpt labels", async ({
+  page,
+}) => {
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [evidence])",
+      'summary = AnswerSummary("Two sources are available.")',
+      'evidence = EvidenceList("Sources", "reference", [first, second])',
+      'first = EvidenceItem("First", "https://example.com/one", "A checked source.", true)',
+      'second = EvidenceItem("Second", "https://example.com/two", "Another checked source.", "ref-2", false)',
+    ].join("\n"),
+    "theos-openui-3",
+  );
+  const items = page.locator(".openui-evidence-item");
+  await expect(items).toHaveCount(2);
+  await expect(
+    items.first().getByText("Excerpt", { exact: true }),
+  ).toBeVisible();
+  await expect(items.first()).not.toContainText("Reference: true");
+  await expect(items.last()).toContainText("Reference: ref-2");
+  await expect(page.locator(".openui-fallback")).toHaveCount(0);
+});
+
+test("malformed sections leave the summary readable and never activate a draft", async ({
+  page,
+}) => {
+  const issueRequests = [];
+  const actionRequests = [];
+  await page.route("**/api/openui/issues", async (route) => {
+    issueRequests.push(route.request().postDataJSON());
+    await route.fulfill({ json: { recorded: true } });
+  });
+  await page.route("**/openui-actions", async (route) => {
+    actionRequests.push(route.request().postDataJSON());
+    await route.fulfill({
+      contentType: "text/event-stream",
+      body: 'data: {"type":"done"}\n\n',
+    });
+  });
+  const saved = await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [draft, missing])",
+      'summary = AnswerSummary("Saved summary with <b>literal text</b>.")',
+      'draft = ScheduleReminderForm("Drink water", "2030-01-15", "10:30", "Asia/Kolkata", "none", [])',
+    ].join("\n"),
+    "theos-openui-5",
+    [],
+    [],
+    ".openui-fallback",
+  );
+  const fallback = page.locator(".openui-fallback");
+  await expect(fallback.locator(".openui-answer-summary")).toHaveText(
+    "Saved summary with <b>literal text</b>.",
+  );
+  await expect(fallback.locator("b")).toHaveCount(0);
+  await expect(fallback).toContainText(
+    "The interactive details could not be displayed.",
+  );
+  await expect(
+    page.getByRole("button", { name: "Schedule reminder", exact: true }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() => saved.summary())
+    .toBe("Saved summary with <b>literal text</b>.");
+  await expect.poll(() => issueRequests[0]?.codes).toEqual(["unresolved"]);
+  expect(actionRequests).toEqual([]);
+  await page.reload();
+  await expect(fallback.locator(".openui-answer-summary")).toBeVisible();
+  await fallback.getByRole("button", { name: "Explain in text" }).click();
+  await expect
+    .poll(() => actionRequests.map((item) => item.type))
+    .toEqual(["explain_in_text"]);
+});
+
+test("unavailable or truncated OpenUI never exposes source", async ({
+  page,
+}) => {
+  await fixture(
+    page,
+    'root = TheosAnswer(AnswerSummary("An unfinished fragment',
+    "theos-openui-999",
+    [],
+    [],
+    ".openui-fallback",
+  );
+  const fallback = page.locator(".openui-fallback");
+  await expect(fallback).toContainText(
+    "This interactive answer could not be displayed.",
+  );
+  await expect(page.locator("#messages")).not.toContainText(
+    "An unfinished fragment",
+  );
+  await expect(
+    fallback.getByRole("button", { name: "Explain in text" }),
+  ).toBeVisible();
 });

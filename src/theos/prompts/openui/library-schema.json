@@ -67,6 +67,42 @@
     },
     "CalendarAvailability": {
       "$ref": "#/$defs/CalendarAvailability"
+    },
+    "TrendCard": {
+      "$ref": "#/$defs/TrendCard"
+    },
+    "ComparisonCard": {
+      "$ref": "#/$defs/ComparisonCard"
+    },
+    "StatusGroup": {
+      "$ref": "#/$defs/StatusGroup"
+    },
+    "StatusBreakdown": {
+      "$ref": "#/$defs/StatusBreakdown"
+    },
+    "ProcessStep": {
+      "$ref": "#/$defs/ProcessStep"
+    },
+    "ProcessDiagram": {
+      "$ref": "#/$defs/ProcessDiagram"
+    },
+    "RelationshipLink": {
+      "$ref": "#/$defs/RelationshipLink"
+    },
+    "RelationshipDiagram": {
+      "$ref": "#/$defs/RelationshipDiagram"
+    },
+    "Scenario": {
+      "$ref": "#/$defs/Scenario"
+    },
+    "ScenarioExplorer": {
+      "$ref": "#/$defs/ScenarioExplorer"
+    },
+    "LeverExplainer": {
+      "$ref": "#/$defs/LeverExplainer"
+    },
+    "CardRow": {
+      "$ref": "#/$defs/CardRow"
     }
   },
   "required": [
@@ -91,7 +127,19 @@
     "CalendarEventCard",
     "CalendarInterval",
     "CalendarBusyCalendar",
-    "CalendarAvailability"
+    "CalendarAvailability",
+    "TrendCard",
+    "ComparisonCard",
+    "StatusGroup",
+    "StatusBreakdown",
+    "ProcessStep",
+    "ProcessDiagram",
+    "RelationshipLink",
+    "RelationshipDiagram",
+    "Scenario",
+    "ScenarioExplorer",
+    "LeverExplainer",
+    "CardRow"
   ],
   "additionalProperties": false,
   "$defs": {
@@ -144,6 +192,30 @@
               },
               {
                 "$ref": "#/$defs/CalendarAvailability"
+              },
+              {
+                "$ref": "#/$defs/TrendCard"
+              },
+              {
+                "$ref": "#/$defs/ComparisonCard"
+              },
+              {
+                "$ref": "#/$defs/StatusBreakdown"
+              },
+              {
+                "$ref": "#/$defs/ProcessDiagram"
+              },
+              {
+                "$ref": "#/$defs/RelationshipDiagram"
+              },
+              {
+                "$ref": "#/$defs/ScenarioExplorer"
+              },
+              {
+                "$ref": "#/$defs/LeverExplainer"
+              },
+              {
+                "$ref": "#/$defs/CardRow"
               }
             ]
           }
@@ -243,7 +315,10 @@
           "type": "string"
         },
         "source_id": {
-          "type": "string"
+          "type": [
+            "string",
+            "boolean"
+          ]
         },
         "excerpt": {
           "type": "boolean"
@@ -267,7 +342,7 @@
         "snippet"
       ],
       "additionalProperties": false,
-      "description": "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Copy image_url and logo_url from tool results. Never invent image URLs."
+      "description": "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Pass null as source_id when none was returned. Copy image_url and logo_url from tool results. Never invent image URLs."
     },
     "StatusNotice": {
       "type": "object",
@@ -730,6 +805,13 @@
         "coverage": {
           "type": "string",
           "maxLength": 1000
+        },
+        "layout": {
+          "type": "string",
+          "enum": [
+            "full",
+            "compact"
+          ]
         }
       },
       "required": [
@@ -792,6 +874,419 @@
       ],
       "additionalProperties": false,
       "description": "One busy interval from calendar_free_busy, using ISO date-times with explicit offsets."
+    },
+    "TrendCard": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "labels": {
+          "minItems": 2,
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "values": {
+          "minItems": 2,
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "context": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "title",
+        "labels",
+        "values"
+      ],
+      "additionalProperties": false,
+      "description": "A compact headline value and mini bar chart for one chronological series of 2 to 8 observations in one unit. The last observation is shown first. Label periods in order and use null for a missing observation."
+    },
+    "ComparisonCard": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "labels": {
+          "minItems": 2,
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "values": {
+          "minItems": 2,
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "context": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "title",
+        "labels",
+        "values"
+      ],
+      "additionalProperties": false,
+      "description": "A compact set of labeled horizontal bars for 2 to 6 comparable values in one unit. Use null for missing values. Prefer this to a full BarChart for a small category comparison."
+    },
+    "StatusBreakdown": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "groups": {
+          "minItems": 1,
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatusGroup"
+          }
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "context": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "title",
+        "groups"
+      ],
+      "additionalProperties": false,
+      "description": "A compact donut and selectable status list for mutually exclusive counts, such as a pull request queue. The first status is selected initially."
+    },
+    "StatusGroup": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tone": {
+          "type": "string",
+          "enum": [
+            "neutral",
+            "positive",
+            "warning",
+            "blocked"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 350
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "label",
+        "count",
+        "tone"
+      ],
+      "additionalProperties": false,
+      "description": "One labeled category of a verified count. Use the tone that fits its meaning. Detail can name the items or explain what needs attention."
+    },
+    "ProcessDiagram": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "steps": {
+          "minItems": 2,
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessStep"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "steps"
+      ],
+      "additionalProperties": false,
+      "description": "A connected sequence of 2 to 5 stages. Select a stage to read its explanation."
+    },
+    "ProcessStep": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350
+        },
+        "caption": {
+          "type": "string",
+          "maxLength": 48
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "label",
+        "description"
+      ],
+      "additionalProperties": false,
+      "description": "One stage of an ordered process. Give it a short label, a plain explanation, and an optional term and meaningful icon."
+    },
+    "RelationshipDiagram": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "nodes": {
+          "minItems": 2,
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessStep"
+          }
+        },
+        "links": {
+          "minItems": 1,
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RelationshipLink"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "nodes",
+        "links"
+      ],
+      "additionalProperties": false,
+      "description": "An explorable graph for branches, causes, dependencies, or cycles. The first node opens initially. Reuse ProcessStep for each node. Link only relationships you can explain."
+    },
+    "RelationshipLink": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "to": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "label"
+      ],
+      "additionalProperties": false,
+      "description": "A directed connection between two different nodes. Use zero-based positions in the nodes array. The label describes the direction from source to target."
+    },
+    "ScenarioExplorer": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "result_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65
+        },
+        "scenarios": {
+          "minItems": 2,
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Scenario"
+          }
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "assumptions": {
+          "type": "string",
+          "maxLength": 260
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "title",
+        "result_label",
+        "scenarios"
+      ],
+      "additionalProperties": false,
+      "description": "Explore 2 to 5 discrete cases for the same measure. Each case supplies its result and explanation. State shared assumptions and whether the cases are illustrative or estimates."
+    },
+    "Scenario": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65
+        },
+        "result": {
+          "type": "number"
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280
+        }
+      },
+      "required": [
+        "label",
+        "result",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "description": "One named scenario with a calculated or supplied numeric result and a short explanation of its inputs or calculation."
+    },
+    "LeverExplainer": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "load_newtons": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 10000
+        },
+        "length_cm": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10000
+        }
+      },
+      "required": [
+        "title",
+        "load_newtons",
+        "length_cm"
+      ],
+      "additionalProperties": false,
+      "description": "An interactive lesson for balancing an ideal lever. The user moves the pivot and the browser computes the balancing force from the load in newtons and beam length in centimetres."
+    },
+    "CardRow": {
+      "type": "object",
+      "properties": {
+        "cards": {
+          "minItems": 2,
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TrendCard"
+              },
+              {
+                "$ref": "#/$defs/ComparisonCard"
+              },
+              {
+                "$ref": "#/$defs/StatusBreakdown"
+              },
+              {
+                "$ref": "#/$defs/CalendarAvailability"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "cards"
+      ],
+      "additionalProperties": false,
+      "description": "Two related compact cards side by side when space permits. Use the compact layout for CalendarAvailability in a row."
     }
   }
 }

@@ -157,6 +157,16 @@ export default function Sidebar() {
           >
             Admin dashboard <Icon name="arrowUpRight" className="link-arrow" />
           </button>
+          <button
+            id="account-password-button"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="account-password-dialog"
+            disabled={busy}
+            onClick={() => openDialog("password")}
+          >
+            Browser password
+          </button>
           <div className="account-row">
             <span id="identity" title={me?.id}>
               {me?.display_name || me?.id}

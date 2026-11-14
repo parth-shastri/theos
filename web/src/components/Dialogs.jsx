@@ -11,6 +11,37 @@ import { formatCost } from "../state/chat";
 import { commands, generationFields } from "../state/config";
 import { Dialog, Icon, SelectPicker } from "./Primitives";
 import Markdown from "./Markdown";
+import PasswordSettings from "./PasswordSettings";
+
+function PasswordDialog() {
+  const { me, dialog, closeDialog } = useWorkspace();
+  const open = dialog?.kind === "password" && !!me;
+  return (
+    <Dialog
+      id="account-password-dialog"
+      aria-labelledby="account-password-title"
+      open={open}
+      onClose={closeDialog}
+    >
+      {open && (
+        <>
+          <div className="dialog-heading">
+            <h2 id="account-password-title">Browser password</h2>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Close password settings"
+              onClick={closeDialog}
+            >
+              <Icon name="cancel" />
+            </button>
+          </div>
+          <PasswordSettings />
+        </>
+      )}
+    </Dialog>
+  );
+}
 
 function SettingsDialog() {
   const { me, chat, dialog, closeDialog, mobile, patchSettings, status } =
@@ -588,6 +619,7 @@ export default function Dialogs() {
   return (
     <>
       <SettingsDialog />
+      <PasswordDialog />
       <ResearchDialog />
       <UsageDialog />
       <HelpDialog />

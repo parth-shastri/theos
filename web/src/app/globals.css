@@ -1914,6 +1914,10 @@ main {
   margin: 0;
   color: var(--text-soft);
 }
+.openui-fallback .openui-answer-summary {
+  flex-basis: 100%;
+  color: var(--text);
+}
 .openui-pending {
   display: flex;
   align-items: center;
@@ -4251,6 +4255,28 @@ tr:last-child td {
   font-size: 10px;
   color: var(--text-muted);
 }
+.login-card .login-telegram-help {
+  margin: 16px 0 0;
+}
+.login-password-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 8px;
+}
+.login-password-actions button {
+  width: auto;
+  min-height: 38px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .signin-code {
   display: block;
   padding: 16px;
@@ -4267,6 +4293,41 @@ tr:last-child td {
 #web-token-save small {
   display: block;
   margin: 12px 0;
+}
+.password-settings {
+  display: grid;
+  gap: 8px;
+}
+.login-card .password-settings {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.password-settings p,
+.login-card .password-settings p {
+  margin: 0;
+  font-size: 13px;
+}
+.password-settings label,
+.login-card .password-settings label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.password-settings input {
+  min-height: 42px;
+}
+.password-settings small {
+  color: var(--text-muted);
+}
+.password-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.login-card .password-actions button {
+  margin-top: 0;
 }
 .sidebar-collapsed {
   grid-template-columns: 0 minmax(0, 1fr);

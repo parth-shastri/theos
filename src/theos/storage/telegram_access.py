@@ -40,6 +40,15 @@ def prepare_update(settings, update):
     """Replace /start credentials with a verified fingerprint before inbox storage."""
     result = deepcopy(update)
     message = result.get("message", {})
+    for field, entities in (("text", "entities"), ("caption", "caption_entities")):
+        parts = message.get(field, "").split(maxsplit=1)
+        if len(parts) == 2 and parts[0].split("@")[0] == "/password":
+            message[field] = parts[0]
+            message.pop(entities, None)
+            message["_theos_password_argument"] = True
+    if message.get("_theos_password_argument"):
+        message.pop("reply_to_message", None)
+        message.pop("quote", None)
     text = message.get("text", "").strip()
     command, _, argument = text.partition(" ")
     if command.split("@")[0] != "/start" or not argument:
