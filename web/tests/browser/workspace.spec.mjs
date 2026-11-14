@@ -13,10 +13,12 @@ async function signIn(page) {
 }
 
 async function navigate(page, id) {
-  if (page.viewportSize().width <= 700) {
+  const mobile = page.viewportSize().width <= 700;
+  if (mobile) {
     await page.locator("#toggle-sidebar").click();
     await expect(page.locator("#sidebar")).toBeVisible();
   }
+  if (id !== "new-session") await page.locator("#account-button").click();
   await page.locator(`#${id}`).click();
 }
 
@@ -225,12 +227,7 @@ test("composer, glass pickers, workspace panels, and mobile navigation", async (
   await page.locator("#mode-trigger").click();
   await expect(page.locator("#mode-menu")).toBeVisible();
   await page.keyboard.press("Escape");
-  await navigate(
-    page,
-    page.viewportSize().width <= 700
-      ? "sidebar-settings-button"
-      : "generation-button",
-  );
+  await navigate(page, "generation-button");
   await expect(page.locator("#generation-dialog")).toBeVisible();
   await page.locator("#model-trigger").click();
   await expect(page.locator("#model-menu")).toBeVisible();

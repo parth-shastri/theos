@@ -112,6 +112,7 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
 `transports/browser/github_events.py` receives signed GitHub webhooks and manages private notification settings.
 `services/github/events.py` selects attention events. `notifications.py` owns routing, access checks, queue retention, and delivery status.
+The browser inbox uses `transports/browser/notifications.py` to count, dismiss, and restore alerts for the signed-in owner.
 The Next.js webhook route forwards exact bytes without browser credentials. The scheduler runs the independent GitHub worker.
 `services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
 It reports configuration status without exposing credentials.

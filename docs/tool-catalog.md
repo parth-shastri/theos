@@ -106,6 +106,7 @@ Its OpenUI renderer uses `@openuidev/react-lang` 1.0.1 and Zod 4.6.7. `web/src/o
 The `server-only` 0.0.1 marker prevents private proxy code from entering a client component.
 FastAPI runs as a separate API service. Native HTML details controls retain the existing tools view.
 React components define the page structure. Browser modules retain streaming, charts, menus, voice, and glass effects.
+Focus uses the existing React controls, theme tokens, and SVG icon set. The notification inbox uses SQLite and the authenticated browser API.
 Browser chat turns use the generated OpenUI prompt and library. `TheosAnswer` requires a visible `AnswerSummary`; optional components show summary facts, evidence, status notes, and a reminder draft. The renderer never displays raw OpenUI source. It enables actions only after a complete parse with no errors, unresolved references, or orphaned statements. Invalid output retains a complete summary when available. The user can request a text explanation of the selected answer without replaying tools.
 The reminder form submits only after a user action. The server validates the fields and sends them to the existing `schedule_reminder` tool through the normal runtime and approval policy. OpenUI adds no model tool and performs no write during rendering.
 The mounted controller releases requests, event listeners, observers, timers, and audio resources on unmount.
@@ -181,7 +182,7 @@ Voice activity takes priority over idle prompts. The composer keeps accessible s
 CSS backdrop filters and translucent theme tokens supply frosted surfaces with solid fallbacks.
 The visual treatment follows [Apple's Liquid Glass guidance](https://developer.apple.com/videos/play/wwdc2025/219/) for quiet content and floating navigation surfaces.
 The owned `glass.js` module separates the optical layer from text and controls.
-The top navigation, usage panels, account cards, and workspace services share this material.
+The composer, dialogs, and workspace services use this material.
 Dynamic panel refreshes release detached optical filters and observers.
 Desktop mouse movement controls the hover tint. Touch input retains press feedback.
 Canvas creates a cached rounded-edge displacement map when a pane changes size.

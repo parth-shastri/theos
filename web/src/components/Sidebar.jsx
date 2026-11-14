@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
 import { formatCost } from "../state/chat";
-import { Glass, Icon } from "./Primitives";
-import { ConversationActions } from "./Conversation";
+import { Icon } from "./Primitives";
+
 export default function Sidebar() {
   const {
     agentName,
@@ -10,8 +10,8 @@ export default function Sidebar() {
     theme,
     toggleTheme,
     mobile,
-    sidebarOpen,
-    setSidebarOpen,
+    workspacePanel,
+    setWorkspacePanel,
     me,
     sessions,
     chat,
@@ -24,159 +24,280 @@ export default function Sidebar() {
     openDialog,
     signOut,
   } = useWorkspace();
-  const sidebar = useRef(null);
-  const close = () => {
-    setSidebarOpen(false);
-    document.getElementById("toggle-sidebar")?.focus();
+  const overlay = useRef(null);
+  const historyOpen = workspacePanel === "history";
+  const accountOpen = workspacePanel === "account";
+  const open = historyOpen || accountOpen;
+  const identity = me.display_name?.trim() || me.id;
+  const themeLabel =
+    "Switch to " + (theme === "dark" ? "light" : "dark") + " mode";
+  const triggerId =
+    accountOpen && !mobile ? "account-button" : "toggle-sidebar";
+  const dismiss = () => {
+    setWorkspacePanel(null);
+    requestAnimationFrame(() => document.getElementById(triggerId)?.focus());
   };
+
   useEffect(() => {
-    if (!mobile || !sidebarOpen) return;
-    const keyboard = (event) => {
-      if (event.key === "Escape") close();
-      if (event.key !== "Tab") return;
+    if (!open) return;
+    const panel = overlay.current;
+    const trigger = document.getElementById(triggerId);
+    panel.querySelector("section:not([hidden]) button")?.focus();
+
+    const keydown = (event) => {
+      if (event.defaultPrevented || document.querySelector("dialog[open]"))
+        return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        dismiss();
+      }
+      if (event.key !== "Tab" || !mobile) return;
       const controls = [
-        document.getElementById("toggle-sidebar"),
-        ...sidebar.current.querySelectorAll(
-          "button:not(:disabled):not([hidden])",
-        ),
-      ].filter((control) => control?.getClientRects().length);
-      const first = controls[0],
-        last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
+        ...panel.querySelectorAll("button:not(:disabled)"),
+      ].filter((button) => button.getClientRects().length);
+      const boundary = event.shiftKey ? controls[0] : controls.at(-1);
+      if (document.activeElement === boundary) {
         event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
+        (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
       }
     };
-    document.addEventListener("keydown", keyboard);
-    return () => document.removeEventListener("keydown", keyboard);
-  }, [mobile, sidebarOpen]);
-  const label = "Switch to " + (theme === "dark" ? "light" : "dark") + " mode";
+    const outside = (event) => {
+      if (
+        !mobile &&
+        !panel.contains(event.target) &&
+        !trigger?.contains(event.target)
+      )
+        setWorkspacePanel((current) =>
+          current === workspacePanel ? null : current,
+        );
+    };
+    document.addEventListener("keydown", keydown);
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("keydown", keydown);
+      document.removeEventListener("pointerdown", outside);
+    };
+  }, [workspacePanel, mobile]);
+
+  const start = () => perform(newSession);
+
   return (
     <>
-      <button
-        id="sidebar-backdrop"
-        className="sidebar-backdrop"
-        type="button"
-        tabIndex={-1}
-        aria-label="Close conversation sidebar"
-        hidden={!(mobile && sidebarOpen)}
-        onClick={close}
-      />
-      <Glass
-        as="aside"
-        id="sidebar"
-        aria-label="Workspace navigation"
-        inert={!sidebarOpen}
-        ref={sidebar}
-      >
-        <div className="sidebar-brand">
-          <img src={brand} data-brand="" className="brand-mark" alt="" />
-          <span>{agentName}</span>
+      {!mobile && (
+        <div className="focus-rail" aria-label="Workspace navigation">
+          <img
+            src={brand}
+            data-brand=""
+            className="brand-mark"
+            alt={agentName}
+          />
           <button
-            id="sidebar-theme-toggle"
-            className="icon-button"
+            id="new-session"
             type="button"
-            aria-label={label}
-            title={label}
-            onClick={toggleTheme}
+            className="primary icon-button focus-button"
+            aria-label="New conversation"
+            title="New conversation"
+            disabled={busy}
+            onClick={start}
           >
-            <Icon name={theme === "dark" ? "sun" : "moon"} />
+            <Icon name="compose" />
           </button>
-        </div>
-        <button
-          id="new-session"
-          className="primary new-session"
-          disabled={busy}
-          onClick={() => perform(newSession)}
-        >
-          ＋ New conversation
-        </button>
-        <div id="mobile-conversation-controls" className="mobile-only">
-          {mobile && <ConversationActions />}
-        </div>
-        <div className="rail-title">Conversations</div>
-        <nav id="sessions" aria-label="Conversations">
-          {sessions.map((session) => (
-            <button
-              className={session.id === chat.id ? "active" : ""}
-              title={session.title}
-              disabled={busy}
-              aria-current={session.id === chat.id ? "page" : undefined}
-              key={session.id}
-              onClick={() => perform(() => openSession(session.id))}
-            >
-              {session.title}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div id="user-cost" className="cost-label">
-            {me ? "Your total cost: " + formatCost(usage) : ""}
-          </div>
           <button
-            id="sidebar-settings-button"
-            className="mobile-only"
+            id="toggle-sidebar"
             type="button"
-            aria-haspopup="dialog"
-            aria-controls="generation-dialog"
-            disabled={busy}
-            onClick={() => openDialog("settings")}
+            className="icon-button focus-button"
+            aria-label="Toggle conversation sidebar"
+            title="Conversations"
+            aria-expanded={historyOpen}
+            aria-controls="sidebar"
+            onClick={() => setWorkspacePanel(historyOpen ? null : "history")}
           >
-            <Icon name="settings" />
-            Settings
+            <Icon name="sidebar" />
           </button>
           <button
-            id="connections-button"
-            disabled={busy}
-            onClick={() => navigate("connections-view")}
-          >
-            Connections <Icon name="arrowUpRight" className="link-arrow" />
-          </button>
-          <button
-            id="tools-button"
-            disabled={busy}
-            onClick={() => navigate("tools-view")}
-          >
-            Tools <Icon name="arrowUpRight" className="link-arrow" />
-          </button>
-          <button
-            id="activity-button"
-            disabled={busy}
-            onClick={() => navigate("dashboard")}
-          >
-            Activity & usage <Icon name="arrowUpRight" className="link-arrow" />
-          </button>
-          <button
-            id="dashboard-button"
-            hidden={!me?.admin}
-            disabled={busy}
-            onClick={() => navigate("dashboard-admin")}
-          >
-            Admin dashboard <Icon name="arrowUpRight" className="link-arrow" />
-          </button>
-          <button
-            id="account-password-button"
+            id="account-button"
             type="button"
-            aria-haspopup="dialog"
-            aria-controls="account-password-dialog"
-            disabled={busy}
-            onClick={() => openDialog("password")}
+            className="icon-button focus-button"
+            aria-label={`Account for ${identity}`}
+            title={identity}
+            aria-expanded={accountOpen}
+            aria-controls="account-menu"
+            onClick={() => setWorkspacePanel(accountOpen ? null : "account")}
           >
-            Browser password
-          </button>
-          <div className="account-row">
-            <span id="identity" title={me?.id}>
-              {me?.display_name || me?.id}
+            <span className="account-initial" aria-hidden="true">
+              {Array.from(identity)[0]?.toLocaleUpperCase()}
             </span>
-            <button id="sign-out" onClick={signOut}>
+          </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="sidebar-backdrop"
+        tabIndex={-1}
+        aria-label="Close workspace navigation"
+        hidden={!(mobile && open)}
+        onClick={dismiss}
+      />
+      <div
+        className={"focus-drawer" + (accountOpen ? " account-drawer" : "")}
+        ref={overlay}
+        hidden={!open}
+        role={mobile ? "dialog" : undefined}
+        aria-modal={mobile ? true : undefined}
+        aria-label={historyOpen ? "Recent conversations" : "Workspace account"}
+      >
+        <section
+          id="sidebar"
+          aria-label="Recent conversations"
+          hidden={!historyOpen}
+        >
+          <div className="focus-drawer-heading">
+            <h2>Recent conversations</h2>
+            <button
+              type="button"
+              className="icon-button focus-button"
+              aria-label="Close recent conversations"
+              onClick={dismiss}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+          {mobile && (
+            <button
+              id="new-session"
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={start}
+            >
+              <Icon name="compose" /> New conversation
+            </button>
+          )}
+          <nav id="sessions" aria-label="Conversations">
+            {sessions.map((session) => (
+              <button
+                className={session.id === chat.id ? "active" : ""}
+                title={session.title}
+                disabled={busy}
+                aria-current={session.id === chat.id ? "page" : undefined}
+                key={session.id}
+                onClick={() => {
+                  dismiss();
+                  perform(() => openSession(session.id));
+                }}
+              >
+                {session.title}
+              </button>
+            ))}
+          </nav>
+          {mobile && (
+            <button
+              id="account-button"
+              type="button"
+              className="account-drawer-entry"
+              aria-controls="account-menu"
+              onClick={() => setWorkspacePanel("account")}
+            >
+              <span className="account-initial" aria-hidden="true">
+                {Array.from(identity)[0]?.toLocaleUpperCase()}
+              </span>
+              <span>{identity}</span>
+            </button>
+          )}
+        </section>
+
+        <section
+          id="account-menu"
+          aria-label="Workspace account"
+          hidden={!accountOpen}
+        >
+          <div className="focus-drawer-heading">
+            <h2 id="identity" title={me.id}>
+              {identity}
+            </h2>
+            <button
+              type="button"
+              className="icon-button focus-button"
+              aria-label="Close account"
+              onClick={dismiss}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+          <p id="user-cost" className="cost-label">
+            {"Your total cost: " + formatCost(usage)}
+          </p>
+          <div className="account-actions">
+            <button
+              id="generation-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="generation-dialog"
+              disabled={busy}
+              onClick={() => {
+                dismiss();
+                openDialog("settings");
+              }}
+            >
+              Settings
+            </button>
+            <button
+              id="connections-button"
+              type="button"
+              disabled={busy}
+              onClick={() => navigate("connections-view")}
+            >
+              Connections
+            </button>
+            <button
+              id="tools-button"
+              type="button"
+              disabled={busy}
+              onClick={() => navigate("tools-view")}
+            >
+              Tools
+            </button>
+            <button
+              id="activity-button"
+              type="button"
+              disabled={busy}
+              onClick={() => navigate("dashboard")}
+            >
+              Activity &amp; usage
+            </button>
+            {me.admin && (
+              <button
+                id="dashboard-button"
+                type="button"
+                disabled={busy}
+                onClick={() => navigate("dashboard-admin")}
+              >
+                Admin dashboard
+              </button>
+            )}
+            <button
+              id="account-password-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="account-password-dialog"
+              onClick={() => {
+                dismiss();
+                openDialog("password");
+              }}
+              disabled={busy}
+            >
+              Browser password
+            </button>
+            <button id="theme-toggle" type="button" onClick={toggleTheme}>
+              {themeLabel}
+            </button>
+            <button id="sign-out" type="button" onClick={signOut}>
               Sign out
             </button>
           </div>
-        </div>
-      </Glass>
+        </section>
+      </div>
     </>
   );
 }
