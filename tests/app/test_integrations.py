@@ -294,7 +294,8 @@ async def test_uncertain_notification_delivery_is_not_repeated(runtime):
         "telegram:123", "fake", "default", "telegram-private", "123:0"
     )
     runtime.db.execute(
-        "INSERT INTO notifications VALUES ('n','telegram:123',?,'hello',0,0)", (session["id"],)
+        "INSERT INTO notifications(id,owner,session,text,created,delivered) VALUES ('n','telegram:123',?,'hello',0,0)",
+        (session["id"],),
     )
     count = 0
 

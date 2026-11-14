@@ -1,5 +1,14 @@
 # Feature and acceptance checklist
 
+## Browser Focus layout, 2026-11-14
+
+The full local Python suite passed 1,205 tests. Three live tests were excluded by the test configuration.
+The frontend build and 28 unit tests passed.
+The Chromium suite passed 264 tests across four widths and both themes. It skipped 16 desktop cases for mobile keyboard behavior.
+The browser kept the draft when notifications opened and closed. It grouped workflow alerts and retained links to individual runs.
+A browser check against a disposable API and SQLite database verified dismissal, Undo, and persistence after reload.
+Owner isolation and delivery state passed API checks. Production deployment remains open.
+
 ## OpenUI reliability, 2026-11-13
 
 A read-only check of six recent Pi answers found two that failed the deployed version 3 parser.

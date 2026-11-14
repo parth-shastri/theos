@@ -306,7 +306,7 @@ async def test_terminal_tui_polls_background_notices_after_startup(terminal):
     from rich.console import Console
 
     terminal.db.execute(
-        "INSERT INTO notifications VALUES (?,?,?,?,?,0)",
+        "INSERT INTO notifications(id,owner,session,text,created,delivered) VALUES (?,?,?,?,?,0)",
         ("reminder", terminal.owner, "local", "Drink water", time.time()),
     )
     app = TheosTui(terminal, session_id="local", title="Theos")

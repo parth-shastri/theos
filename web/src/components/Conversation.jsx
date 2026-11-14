@@ -7,33 +7,38 @@ import { Approvals, MessageList } from "./Messages";
 import Composer from "./Composer";
 
 export function ConversationActions() {
-  const { busy, view, openDialog, resume, reset, perform } = useWorkspace();
+  const {
+    busy,
+    chat,
+    view,
+    workspacePanel,
+    openDialog,
+    resume,
+    reset,
+    perform,
+  } = useWorkspace();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
     const click = (event) => {
       if (!ref.current?.contains(event.target)) setOpen(false);
     };
-    const key = (event) => {
-      if (event.key === "Escape" && open) {
-        setOpen(false);
-        ref.current.querySelector("summary").focus();
-      }
-    };
     document.addEventListener("click", click);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("click", click);
-      document.removeEventListener("keydown", key);
-    };
+    return () => document.removeEventListener("click", click);
   }, [open]);
-  useEffect(() => setOpen(false), [busy, view]);
+  useEffect(() => setOpen(false), [busy, view, workspacePanel]);
   return (
     <details
       id="conversation-actions"
       className="conversation-actions"
       open={open}
       ref={ref}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !open) return;
+        event.preventDefault();
+        setOpen(false);
+        ref.current.querySelector("summary").focus();
+      }}
     >
       <summary
         aria-label="Conversation actions"
@@ -48,7 +53,6 @@ export function ConversationActions() {
           <circle cx="12" cy="12" r="1.75" />
           <circle cx="19" cy="12" r="1.75" />
         </svg>
-        <span className="conversation-actions-label">Conversation actions</span>
       </summary>
       <Glass
         className="conversation-menu"
@@ -56,6 +60,9 @@ export function ConversationActions() {
           if (event.target.closest("button")) setOpen(false);
         }}
       >
+        <p id="conversation-cost" className="cost-label">
+          {chat.id ? "Conversation cost: " + formatCost(chat.usage) : ""}
+        </p>
         <button
           id="research-button"
           type="button"
@@ -88,7 +95,7 @@ export function ConversationActions() {
   );
 }
 export default function Conversation() {
-  const { chat, mobile, view, notifications } = useWorkspace();
+  const { chat, view } = useWorkspace();
   const messages = useRef(null),
     wrap = useRef(null),
     chatView = useRef(null);
@@ -112,14 +119,10 @@ export default function Conversation() {
     const observer = new ResizeObserver(() => {
       const height = wrap.current?.getBoundingClientRect().height;
       if (!height) return;
-      chatView.current.style.setProperty(
-        "--composer-space",
-        Math.ceil(height) + "px",
-      );
       const composer = wrap.current.querySelector("#composer");
       const space =
         composer.getBoundingClientRect().top -
-        chatView.current.closest("main").getBoundingClientRect().top -
+        chatView.current.getBoundingClientRect().top -
         12;
       composer.style.setProperty(
         "--composer-menu-space",
@@ -134,62 +137,26 @@ export default function Conversation() {
     };
   }, []);
   return (
-    <>
-      <div
-        className="workspace-toolbar"
-        id="conversation-toolbar"
-        hidden={view !== "chat-view"}
-      >
-        <div>
-          <span className="eyebrow">Conversation</span>
-          <h2 id="session-title">{chat.title}</h2>
-          <span id="conversation-cost" className="cost-label">
-            {chat.id ? "Conversation cost: " + formatCost(chat.usage) : ""}
-          </span>
-        </div>
-        {!mobile && <ConversationActions />}
+    <section
+      id="chat-view"
+      className="chat-view"
+      hidden={view !== "chat-view"}
+      ref={chatView}
+      aria-labelledby="session-title"
+    >
+      <MessageList
+        scrollRef={messages}
+        onScroll={() => {
+          const element = messages.current;
+          follow.current =
+            element.scrollHeight - element.scrollTop - element.clientHeight <
+            80;
+        }}
+      />
+      <div className="composer-wrap" ref={wrap}>
+        <Approvals />
+        <Composer />
       </div>
-      <section
-        id="chat-view"
-        className="chat-view"
-        hidden={view !== "chat-view"}
-        ref={chatView}
-      >
-        <div id="notifications" aria-live="polite">
-          {notifications.map((notification, index) => (
-            <p key={notification.id || index}>
-              {notification.source === "github" ? "GitHub: " : "Reminder: "}
-              {notification.url ? (
-                <a
-                  href={notification.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {notification.text}
-                </a>
-              ) : (
-                notification.text
-              )}
-            </p>
-          ))}
-        </div>
-        <MessageList
-          scrollRef={messages}
-          onScroll={() => {
-            const element = messages.current;
-            follow.current =
-              element.scrollHeight - element.scrollTop - element.clientHeight <
-              80;
-          }}
-        />
-        <div className="composer-wrap" ref={wrap}>
-          <Approvals />
-          <Composer />
-          <small className="footnote">
-            Review external actions before you approve them.
-          </small>
-        </div>
-      </section>
-    </>
+    </section>
   );
 }
