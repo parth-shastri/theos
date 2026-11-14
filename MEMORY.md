@@ -2,6 +2,48 @@
 
 Updated: 2026-11-13.
 
+## Release 1.5.1 preparation, 2026-11-13
+
+The operator requested a patch release for the OpenUI and browser password changes in PRs 138 through 142.
+Promote `dev` to `main` and `rpi` through separate merge-commit PRs.
+Publish `rpi-v1.5.1` from the promoted `rpi` tip.
+Migration 017 adds browser password storage. The release workflow applies it to the candidate data volume.
+Verify the tagged workflow, both service health checks, and the active Pi manifest.
+
+## OpenUI reliability, 2026-11-13
+
+Keep the readable summary if an interactive section fails. Keep form actions behind full validation.
+Treat a boolean in the optional EvidenceItem source ID position as an excerpt flag. Preserve valid source IDs and explicit flags.
+Bind text recovery to the selected saved answer. Keep tools disabled for recovery.
+Record bounded OpenUI error codes and counts in structured logs. Exclude answer content.
+
+## Optional browser password, 2026-11-13
+
+The sign-in screen offers password setup and reset before the workspace opens.
+Verify with an existing access token or use the private Telegram `/password` flow.
+An account can set, change, or remove a browser sign-in password from its signed-in browser.
+The private Telegram `/password` command opens browser setup after the existing code confirmation.
+This setup link preserves any personal access token. Telegram chat access continues to use the verified sender.
+Use the existing account ID for password sign-in. Check strength locally and store a salted scrypt hash.
+Limit failed attempts by source and account. Revoke other password sessions when the password changes or is removed.
+Telegram `/web revoke` also removes the password. Configured token rotation invalidates its associated password and sessions.
+
+## General OpenUI answers, 2026-11-13
+
+Choose visuals by what the reader needs to understand. Use text for direct facts and when chart data is unavailable.
+Version 5 adds reusable relationship diagrams and scenario explorers. A relationship can branch or cycle.
+A scenario displays a supplied result and its assumptions. The browser switches cases locally.
+Compact comparisons use a shared zero baseline for positive and negative values.
+Use a safe built-in icon when the model supplies an unknown name. Preserve saved versions 1 through 4.
+
+## Rich OpenUI cards, 2026-11-13
+
+Keep OpenUI Lang and the Theos theme for browser answers.
+Version 4 adds compact trend, comparison, and status cards. It adds a responsive card row, a process diagram, and an ideal lever lesson.
+The compact calendar layout uses the existing availability calculation. Show the longest free block only when every requested calendar read succeeds.
+Use checked values for data cards. Keep missing samples distinct from zero. Label example inputs in lessons.
+Card interactions run in the browser. Keep saved OpenUI versions 1 through 3 renderable.
+
 ## Release 1.5.0 preparation, 2026-11-13
 
 The operator requested a feature release for the browser theme and turn activity.

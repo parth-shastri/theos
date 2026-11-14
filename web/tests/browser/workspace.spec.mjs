@@ -36,6 +36,107 @@ test.beforeEach(async ({ page }, info) => {
   await page.goto("/");
 });
 
+test("an optional browser password can be set, used, and removed", async ({
+  page,
+}) => {
+  const passphrase = "  orchard compass sailboat moonlight  ";
+  await signIn(page);
+  await navigate(page, "account-password-button");
+  const dialog = page.getByRole("dialog", { name: "Browser password" });
+  const password = dialog.getByLabel("New password");
+  const confirmation = dialog.getByLabel("Confirm password");
+  const save = dialog.getByRole("button", { name: "Set password" });
+  await expect(save).toBeEnabled();
+  const account = await dialog.getByLabel("Account ID").inputValue();
+  await password.fill("passwordpassword");
+  await confirmation.fill("passwordpassword");
+  await save.click();
+  await expect(dialog.getByRole("alert")).toHaveText(/harder-to-guess/);
+  await expect(password).toBeEmpty();
+  await password.fill(passphrase);
+  await confirmation.fill(passphrase);
+  await save.click();
+  await expect(dialog.getByRole("status")).toHaveText("Password saved.");
+  await noOverflow(page);
+  await dialog.getByRole("button", { name: "Close password settings" }).click();
+  await navigate(page, "sign-out");
+  const form = page.locator("#login-form");
+  await form.getByRole("button", { name: "Use a password" }).click();
+  await form.getByLabel("Account ID").fill(account);
+  await form.getByLabel("Password", { exact: true }).fill(passphrase);
+  await noOverflow(page);
+  await form.getByRole("button", { name: "Open workspace" }).click();
+  await expect(page.locator("#workspace")).toBeVisible();
+  await navigate(page, "account-password-button");
+  await dialog.getByRole("button", { name: "Remove password" }).click();
+  await expect(dialog.getByRole("status")).toHaveText("Password removed.");
+  await dialog.getByRole("button", { name: "Close password settings" }).click();
+  await navigate(page, "sign-out");
+  await form.getByRole("button", { name: "Use an access token" }).click();
+  await signIn(page);
+});
+
+test("login screen offers verified password setup and recovery", async ({
+  page,
+}) => {
+  const original = "garnet ledger zephyr orchestra";
+  const replacement = "cobalt telescope meadow tapestry";
+  const login = page.locator("#login-form");
+  const setup = page.locator("#web-signin");
+  await login.getByRole("button", { name: "Set up a password" }).click();
+  await expect(
+    login.getByRole("heading", { name: "Set up a password" }),
+  ).toBeFocused();
+  await expect(login.getByText("/password", { exact: true })).toBeVisible();
+  await login.getByLabel("Access token").fill("invalid");
+  await login.getByRole("button", { name: "Verify access token" }).click();
+  await expect(login.getByRole("alert")).toContainText("invalid or expired");
+  await expect(setup.getByLabel("New password")).toBeHidden();
+
+  async function verifyToken() {
+    await login.getByLabel("Access token").fill(token);
+    await login.getByRole("button", { name: "Verify access token" }).click();
+    await expect(setup.getByLabel("New password")).toBeEnabled();
+    await expect(page.locator("#workspace")).toBeHidden();
+  }
+  async function savePassword(password, action) {
+    await setup.getByLabel("New password").fill(password);
+    await setup.getByLabel("Confirm password").fill(password);
+    await setup.getByRole("button", { name: action }).click();
+    await expect(setup.getByText("Password saved.")).toBeVisible();
+    await noOverflow(page);
+    await setup.getByRole("button", { name: "Open workspace" }).click();
+    await expect(page.locator("#workspace")).toBeVisible();
+    await navigate(page, "sign-out");
+  }
+
+  await verifyToken();
+  const account = await setup.getByLabel("Account ID").inputValue();
+  expect(account).toBeTruthy();
+  await savePassword(original, "Set password");
+
+  await login.getByRole("button", { name: "Forgot password?" }).click();
+  await expect(
+    login.getByRole("heading", { name: "Reset your password" }),
+  ).toBeFocused();
+  await verifyToken();
+  await savePassword(replacement, "Reset password");
+
+  await login.getByLabel("Account ID").fill(account);
+  await login.getByLabel("Password", { exact: true }).fill(original);
+  await login.getByRole("button", { name: "Open workspace" }).click();
+  await expect(login.getByRole("alert")).toHaveText(
+    "The account ID or password is incorrect.",
+  );
+  await login.getByLabel("Password", { exact: true }).fill(replacement);
+  await login.getByRole("button", { name: "Open workspace" }).click();
+  await expect(page.locator("#workspace")).toBeVisible();
+  await navigate(page, "account-password-button");
+  const dialog = page.getByRole("dialog", { name: "Browser password" });
+  await dialog.getByRole("button", { name: "Remove password" }).click();
+  await expect(dialog.getByText("Password removed.")).toBeVisible();
+});
+
 test("cookie sign-in, reload, CSRF rejection, streaming, and revocation", async ({
   page,
   context,

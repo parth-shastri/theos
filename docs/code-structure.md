@@ -39,6 +39,7 @@ All source paths below start at `src/theos`.
 | Browser API | Authenticate owners and serve activity, administrator aggregates, uploads, streamed replies, OpenUI actions, and saved interface state | `transports/browser/app.py`, `transports/browser/openui.py`, `transports/browser/activity.py` |
 | Next.js frontend | Render React workspace components and validated OpenUI answers, reduce streamed events, and forward private API requests | Repository root `web/src/app/`, `web/src/components/`, `web/src/openui/`, `web/src/state/`, `web/src/hooks/`, `web/src/server/` |
 | Browser enrollment | Confirm Telegram-owned browser sign-in, issue hashed credentials, and revoke generated access | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py` |
+| Browser password | Check strength, store salted hashes, and bind password sign-in to the existing owner | `storage/browser_passwords.py`, `transports/browser/auth.py` |
 | Terminal | Run `theos` as a deployed workspace client or standalone runtime, with a generic renderer | `transports/terminal/cli.py`, `remote.py`, `routes.py`, `wire.py`, `session.py`, `app.py`, `screens.py` |
 | Operations | Redact logs, export OTel spans, and make consistent backups | `operations/logging.py`, `operations/tracing.py`, `backup.py` |
 

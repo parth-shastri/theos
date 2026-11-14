@@ -1,5 +1,40 @@
 # Feature and acceptance checklist
 
+## OpenUI reliability, 2026-11-13
+
+A read-only check of six recent Pi answers found two that failed the deployed version 3 parser.
+Both put a boolean excerpt flag in the optional source ID field. Both contained a complete summary.
+All six saved answers parse against the updated development schema.
+Browser regressions cover legacy evidence, malformed and truncated answers, saved summaries, and disabled form actions.
+The recovery test selects an older answer and confirms that the recovery turn exposes no tools.
+The structured log test confirms that OpenUI issue codes are retained without answer content.
+
+## Optional browser password, 2026-11-13
+
+The sign-in screen checks cover access-token verification, initial setup, and password reset.
+The browser rejects the old password after a reset and signs in with the replacement.
+Local checks cover password strength, account isolation, token rotation, and rate limits.
+They verify Telegram confirmation, redaction before inbox storage, token preservation, and `/web revoke`.
+Chromium and WebKit checks cover setup, password sign-in, and removal at four widths in both themes.
+Migration 017 preserves existing session and invitation records from schema 16.
+Telegram confirmation used a test bot adapter. Live Telegram and deployed browser checks remain open.
+
+## General OpenUI answers, 2026-11-13
+
+The library selects visuals by the structure of the answer. It uses text when the question is simple or chart data is missing.
+Version 5 adds selectable relationships and calculated scenarios. Compact comparisons show negative and positive values around zero.
+The configured Luna model passed 14 synthetic questions outside the prompt examples.
+The checks covered chart selection, missing values, branching explanations, scenario arithmetic, and plain text.
+Mobile WebKit checked keyboard navigation, local interaction, and reloads. Production deployment remains open.
+
+## Rich OpenUI cards, 2026-11-13
+
+Version 4 adds compact trend, comparison, status, and calendar cards. It also adds a process diagram and a lever lesson.
+The browser checks cover sample values, missing data, keyboard selection, incomplete calendar reads, and reloads.
+Moving the lever pivot updates the diagram and force in the browser. Selecting a chart value, status, or diagram step starts no turn.
+The existing checks render saved versions 1 through 3. The generated prompt check parses each example against the library schema.
+Browser checks use a fake model and disposable storage. Live model selection of the new cards and production deployment remain open.
+
 ## Native MLX transcription, 2026-10-30
 
 The M4 Mac mini runs the authenticated MLX service under its native login agent.
