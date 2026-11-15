@@ -2,6 +2,15 @@
 
 Updated: 2026-11-15.
 
+## Browser UI libraries, 2026-11-15
+
+Use Tailwind CSS with the existing theme tokens for new shared controls. Keep Tailwind Preflight off.
+Use the local shadcn/ui Button and Radix-based Select for shared actions and choices.
+Use one icon set, Lucide React, through the shared Icon component. Keep provider logos as assets.
+Use Motion for state-driven animation. Keep simple CSS transitions and the existing glass optics.
+Keep the native dialog for its viewport and top-layer behavior. Put a Select portal inside an open native dialog.
+Do not add Radix Themes, Material Symbols, or Heroicons unless a specific UI need warrants them.
+
 ## OpenUI visual choice and table layout, 2026-11-15
 
 The operator wants the model to choose charts, cards, diagrams, or tables based on the question and evidence.

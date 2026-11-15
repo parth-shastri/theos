@@ -1,3 +1,29 @@
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-background: var(--canvas);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--on-primary);
+  --color-secondary: var(--surface-subtle);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-subtle);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--accent-soft);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+}
+
 @font-face {
   font-family: "Space Grotesk";
   font-style: normal;
@@ -2426,111 +2452,46 @@ button.sidebar-toggle {
   margin: 20px 0;
 }
 .settings-select-trigger {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) 16px;
-  align-items: center;
   width: 100%;
   min-height: 46px;
-  padding: 10px 12px;
-  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   color: var(--text);
-  font-size: 14px;
-  font-weight: 500;
+  background: var(--surface);
   text-align: left;
 }
-.settings-select-value {
+.settings-select-trigger [data-slot="select-value"] {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.settings-select-trigger > svg {
-  width: 19px;
-  height: 19px;
-  color: var(--text-soft);
-}
-.settings-select-trigger .select-chevron {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 220ms var(--ease);
-}
-.settings-select-trigger[aria-expanded="true"] .select-chevron {
-  transform: rotate(180deg);
 }
 .settings-select-menu {
-  --overlay-glass: color-mix(in srgb, var(--surface) 52%, transparent);
+  z-index: 100;
+  width: var(--radix-select-trigger-width);
+  max-height: min(394px, var(--radix-select-content-available-height));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
+  backdrop-filter: blur(24px);
+  box-shadow: var(--overlay-shadow);
+}
+.settings-select-menu[popover] {
   position: fixed;
   inset: auto;
   margin: 0;
   padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--surface-raised);
-  color: var(--text);
-  box-shadow: var(--shadow);
   overflow: hidden;
-  animation: select-drop 260ms var(--ease);
-  transform-origin: center top;
 }
-.settings-select-menu.opens-up {
-  animation: mode-rise 320ms var(--ease);
-  transform-origin: center bottom;
-}
-.settings-select-options {
-  display: grid;
-  gap: 4px;
-  position: relative;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-}
-.settings-select-menu .settings-select-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
+.settings-select-option {
   min-height: 44px;
-  padding: 8px 10px;
-  border: 0;
   border-radius: 11px;
-  gap: 12px;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
 }
-.settings-select-option > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
+.settings-select-option[data-highlighted],
+.settings-select-option[data-state="checked"] {
+  background: var(--accent-soft);
 }
-.settings-select-menu
-  .settings-select-option:is(:hover, :focus-visible, [aria-selected="true"]) {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.settings-select-option > svg {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  color: var(--accent);
-  visibility: hidden;
-}
-.settings-select-option[aria-selected="true"] > svg {
-  visibility: visible;
-}
-@keyframes select-drop {
-  from {
-    transform: translateY(-12px) scale(0.96);
-  }
-  to {
-    transform: none;
-  }
-}
+
 .settings-section {
   margin: 20px 0 0;
   border: 1px solid var(--border);

@@ -511,7 +511,7 @@ test("reminder controls share the glass pickers and retain edits after reload", 
   expect(saved.state().reminder_date).toBe("2030-01-15");
   expect(saved.summary()).toBe("Review this reminder draft before submitting.");
   await page
-    .getByRole("button", { name: "Repeat: Never", exact: true })
+    .getByRole("combobox", { name: "Repeat: Never", exact: true })
     .click();
   await page
     .getByRole("option", { name: "Selected days", exact: true })
@@ -541,7 +541,7 @@ test("reminder controls share the glass pickers and retain edits after reload", 
     "2030-01-16",
   );
   await expect(
-    page.getByRole("button", { name: "Repeat: Selected days", exact: true }),
+    page.getByRole("combobox", { name: "Repeat: Selected days", exact: true }),
   ).toBeVisible();
   await expect(
     page.locator('.openui-weekday-options input[value="MO"]'),
