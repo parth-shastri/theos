@@ -1,5 +1,13 @@
 # Feature and acceptance checklist
 
+## Intelligent UI wording, 2026-11-15
+
+Browser reasoning summaries now use intelligent UI for the presentation name.
+The browser also updates that name when it displays saved and streamed summaries.
+The stored reasoning, answer format, and component schema stay unchanged.
+The generated prompt check, 29 frontend unit checks, and seven focused runtime checks passed.
+A live model check remains open.
+
 ## Browser Focus layout, 2026-11-14
 
 The full local Python suite passed 1,205 tests. Three live tests were excluded by the test configuration.

@@ -1,11 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { reasoningForDisplay } from "../src/components/reasoning-language.js";
 import {
   chatReducer,
   conversationEntries,
   historyEntries,
   initialChat,
 } from "../src/state/chat.js";
+
+test("thought summaries use intelligent UI wording without changing saved text", () => {
+  const saved =
+    "I can show this with OpenUI Lang. The OpenUI card uses two values.";
+  assert.equal(
+    reasoningForDisplay(saved),
+    "I can show this with intelligent UI. The intelligent UI card uses two values.",
+  );
+  assert.equal(saved.includes("OpenUI"), true);
+  assert.equal(reasoningForDisplay("OpenUI-language"), "OpenUI-language");
+});
 
 test("thinking and tool calls keep their order and identity for the whole turn", () => {
   const started = chatReducer(initialChat, { type: "START", now: 1000 });

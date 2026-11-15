@@ -2,6 +2,13 @@
 
 Updated: 2026-11-15.
 
+## Intelligent UI wording, 2026-11-15
+
+Call the browser answer presentation intelligent UI in user-visible reasoning summaries.
+Keep the internal renderer name and syntax out of those summaries unless the user asks about implementation.
+Display saved and streamed browser reasoning with the same wording.
+Keep the internal format and saved answer compatibility unchanged.
+
 ## Focus sidebar and menus, 2026-11-15
 
 Start with the conversation sidebar closed. Dock it beside chat on desktop and open it as a drawer on mobile.
