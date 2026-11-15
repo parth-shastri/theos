@@ -22,6 +22,7 @@ Keep the internal format and saved answer compatibility unchanged.
 Start with the conversation sidebar closed. Dock it beside chat on desktop and open it as a drawer on mobile.
 Keep the desktop sidebar open when the user selects a conversation. Close the mobile drawer after selection.
 Put the theme toggle in the sidebar. Use the shared liquid glass surface for the sidebar and account menu.
+Use a stronger glass tint and primary text for conversation cost in the actions menu.
 
 ## Browser Focus layout, 2026-11-14
 
