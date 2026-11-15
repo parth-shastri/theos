@@ -106,9 +106,21 @@
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+.focus-header .conversation-menu {
+  width: 248px;
+}
+.focus-header .conversation-menu.glass-surface > .glass-optics {
+  background-color: var(--glass-strong);
+}
 #conversation-cost {
   margin: 0;
   padding: 7px 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .focus-rail {
