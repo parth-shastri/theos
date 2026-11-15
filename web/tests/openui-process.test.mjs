@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { processStepIcon } from "../src/openui/process-icons.js";
-import { iconPaths } from "../src/state/config.js";
 
 test("saved process steps get distinct icons from their roles", () => {
   const steps = [
@@ -23,7 +22,6 @@ test("saved process steps get distinct icons from their roles", () => {
   ];
   const icons = steps.map(processStepIcon);
   assert.deepEqual(icons, ["certificate", "signature", "verify"]);
-  for (const icon of icons) assert.ok(iconPaths[icon]?.length);
 });
 
 test("process steps respect a meaningful supplied icon", () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
 import { Icon } from "./Primitives";
+import { Button } from "./ui/button";
 import PasswordSettings from "./PasswordSettings";
 
 const passwordTitles = {
@@ -119,10 +120,10 @@ export default function SignIn() {
             />
           </>
         )}
-        <button className="primary" type="submit" disabled={signingIn}>
+        <Button className="primary" type="submit" disabled={signingIn}>
           {passwordAction ? "Verify access token" : "Open workspace"}{" "}
           <Icon name="arrowUpRight" className="link-arrow" />
-        </button>
+        </Button>
         <p id="login-error" className="error" role="alert">
           {loginError}
         </p>
@@ -258,7 +259,7 @@ export default function SignIn() {
                 Set an optional password
               </button>
             )}
-            <button
+            <Button
               id="finish-web-signin"
               className="primary"
               type="button"
@@ -269,7 +270,7 @@ export default function SignIn() {
               }}
             >
               Open workspace <Icon name="arrowUpRight" className="link-arrow" />
-            </button>
+            </Button>
           </>
         )}
         <button

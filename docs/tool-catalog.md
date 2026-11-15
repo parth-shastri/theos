@@ -128,9 +128,17 @@ Message footers use provider output-token usage, streaming estimates, and elapse
 The application saves UTC timestamps and durations in history JSON through `storage/messages.py`.
 Native browser timers and Intl formatters supply live updates and local timestamps.
 
-Next.js bundles [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16 into locally served chunks.
+Next.js bundles [Marked](https://marked.js.org/) 18.1.0 and [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.18 into locally served chunks.
 The npm lockfile records package integrity. The [vendor manifest](browser-vendor-provenance.json) retains dependency sources and earlier asset hashes.
 Prettier 3.6.2 and Playwright 1.64.1 are development dependencies. They add no model tools.
+
+The browser uses Tailwind CSS 4.3.5 through `@tailwindcss/postcss` 4.3.5 and PostCSS 8.5.33 for new shared controls.
+The Tailwind import omits Preflight so existing layouts keep their browser defaults.
+The [shadcn/ui](https://ui.shadcn.com/docs/installation/next) CLI 4.23.0 generated local Button and Select components.
+They use Radix Select 2.4.1, Radix Slot 1.5.0, and class-variance-authority 0.7.1.
+Their class helper uses clsx 2.1.1 and tailwind-merge 3.7.0.
+Lucide React 0.575.0 supplies browser control icons. Motion 14.14.0 animates the notification undo message.
+Existing theme tokens, glass optics, and native dialogs remain in the browser UI.
 
 The shared viewport hook uses native `VisualViewport` events and animation frames to fit the iPhone keyboard area.
 The application frame follows viewport height and vertical offset. Native dialogs use the same bounds in the browser top layer.

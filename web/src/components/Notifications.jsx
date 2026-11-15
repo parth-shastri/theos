@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { useWorkspace } from "../state/WorkspaceContext";
 import { Icon } from "./Primitives";
 
@@ -135,6 +136,7 @@ function groupNotices(items) {
 }
 
 export default function Notifications({ inbox }) {
+  const reduceMotion = useReducedMotion();
   const { workspacePanel, setWorkspacePanel } = useWorkspace();
   const open = workspacePanel === "notifications";
   const closeButton = useRef(null);
@@ -295,7 +297,12 @@ export default function Notifications({ inbox }) {
         )}
       </div>
       {lastBatch && (
-        <div className="notifications-undo">
+        <motion.div
+          className="notifications-undo"
+          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+        >
           <span role="status">
             {lastBatch.single
               ? "Notification dismissed."
@@ -309,7 +316,7 @@ export default function Notifications({ inbox }) {
           >
             Undo
           </button>
-        </div>
+        </motion.div>
       )}
     </section>
   );
