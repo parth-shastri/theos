@@ -420,7 +420,7 @@ export function WorkspaceProvider({ agentName, children }) {
     if (
       streamLock.current ||
       current.current.working ||
-      !current.current.chat.id
+      (kind !== "password" && !current.current.chat.id)
     )
       return;
     if (current.current.mobile) setSidebarOpen(false);

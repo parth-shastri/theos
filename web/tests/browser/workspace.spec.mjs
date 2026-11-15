@@ -38,6 +38,28 @@ test.beforeEach(async ({ page }, info) => {
   await page.goto("/");
 });
 
+test("password settings opens while conversations load", async ({ page }) => {
+  let releaseSessions;
+  const sessionsReady = new Promise((resolve) => {
+    releaseSessions = resolve;
+  });
+  await page.route("**/api/sessions", async (route) => {
+    if (route.request().method() === "GET") await sessionsReady;
+    await route.continue();
+  });
+  try {
+    await page.locator("#token").fill(token);
+    await page.locator("#login-form button[type=submit]").click();
+    await expect(page.locator("#workspace")).toBeVisible();
+    await navigate(page, "account-password-button");
+    await expect(
+      page.getByRole("dialog", { name: "Browser password" }),
+    ).toBeVisible();
+  } finally {
+    releaseSessions();
+  }
+});
+
 test("an optional browser password can be set, used, and removed", async ({
   page,
 }) => {
