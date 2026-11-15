@@ -175,7 +175,6 @@ export function WorkspaceProvider({ agentName, children }) {
       type: "LOAD",
       session: { ...initialChat, history: [], approvals: [] },
     });
-    setMe(identity);
     setLoginError("");
     const available = await listSessions();
     if (available.length) await openSession(available[0].id);
@@ -194,6 +193,7 @@ export function WorkspaceProvider({ agentName, children }) {
         );
       }
     } catch {}
+    setMe(identity);
   }, [
     json,
     listSessions,

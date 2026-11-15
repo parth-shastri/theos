@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }, info) => {
   await page.goto("/");
 });
 
-test("password settings opens while conversations load", async ({ page }) => {
+test("workspace waits for conversations before opening", async ({ page }) => {
   let releaseSessions;
   const sessionsReady = new Promise((resolve) => {
     releaseSessions = resolve;
@@ -50,6 +50,8 @@ test("password settings opens while conversations load", async ({ page }) => {
   try {
     await page.locator("#token").fill(token);
     await page.locator("#login-form button[type=submit]").click();
+    await expect(page.locator("#workspace")).toBeHidden();
+    releaseSessions();
     await expect(page.locator("#workspace")).toBeVisible();
     await navigate(page, "account-password-button");
     await expect(
