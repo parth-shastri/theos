@@ -19,6 +19,7 @@ The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
 Package version 1.5.2 uses tag `rpi-v1.5.2` from the promoted `rpi` tip.
 The browser adds the Focus layout, a notification inbox, clearer process diagrams, and revised answer wording.
+The harness retries a truncated context summary once with the configured output allowance.
 Migration 018 saves browser notification dismissals and adds an owner index.
 The release needs no new private configuration value.
 Promote `dev` through separate merge-commit PRs to `main` and `rpi` after destination CI passes.

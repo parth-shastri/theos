@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import time
 from types import SimpleNamespace
 
 import httpx
@@ -402,8 +401,7 @@ async def test_delegate_deadline_stops_new_tools_but_allows_its_final_response(
     runtime, monkeypatch
 ):
     monkeypatch.setattr(tools, "DELEGATE_SECONDS", 0.15)
-    # Expire the delegate after its first response, independent of CI setup time.
-    clock = [time.monotonic()]
+    clock = [0.0]
     monkeypatch.setattr(tools, "time", SimpleNamespace(monotonic=lambda: clock[0]))
     attempts = []
 
@@ -417,14 +415,13 @@ async def test_delegate_deadline_stops_new_tools_but_allows_its_final_response(
     parent = FakeModel([delegate_call(), AssistantMessage("Park time needs verification.")])
     fast = FakeModel([AssistantMessage("Park opens at 7 AM.")])
 
-    class ExpiringModel(FakeModel):
+    class DeadlineModel(FakeModel):
         async def stream(self, request):
             async for event in super().stream(request):
+                clock[0] = 1.0
                 yield event
-            if request.tools:
-                clock[0] += 1
 
-    slow = ExpiringModel(
+    slow = DeadlineModel(
         [
             AssistantMessage(tool_calls=[ToolCall("late", "read_reference", {})]),
             AssistantMessage("Museum hours remain unverified. FULL HANDOFF END"),
