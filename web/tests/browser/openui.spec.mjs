@@ -606,6 +606,39 @@ test("OpenUI charts expose exact values, keyboard inspection, and missing sample
   expect(errors).toEqual([]);
 });
 
+test("long comparison cells stay readable without overlapping", async ({
+  page,
+}, testInfo) => {
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [table])",
+      'summary = AnswerSummary("Two recorded days have different readings.")',
+      'table = DataTable("What changed", ["Measure", "Change", "Interpretation"], [["Sleep", "5 h 41 min to 6 h 19 min, up 38 min", "Improved, but both nights were short."], ["Activity", "Yesterday: 6,638 steps and 184 active minutes. Today: 1,560 steps and 39 active minutes.", "Today is incomplete. Compare full days before drawing a conclusion from the activity totals."]])',
+    ].join("\n"),
+  );
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflow = await page
+      .locator(".openui-data-table td")
+      .evaluateAll((cells) =>
+        cells.flatMap((cell, index) => {
+          const range = document.createRange();
+          range.selectNodeContents(cell);
+          const text = range.getBoundingClientRect();
+          const box = cell.getBoundingClientRect();
+          return text.right > box.right + 1 || text.bottom > box.bottom + 1
+            ? [index]
+            : [];
+        }),
+      );
+    expect(overflow).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath(`comparison-${width}.png`),
+    });
+  }
+});
+
 test("search evidence cards clean operator syntax and retain exact search details", async ({
   page,
 }) => {

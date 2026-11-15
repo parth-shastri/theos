@@ -11,6 +11,14 @@ Use Motion for state-driven animation. Keep simple CSS transitions and the exist
 Keep the native dialog for its viewport and top-layer behavior. Put a Select portal inside an open native dialog.
 Do not add Radix Themes, Material Symbols, or Heroicons unless a specific UI need warrants them.
 
+## OpenUI visual choice and table layout, 2026-11-15
+
+The operator wants the model to choose charts, cards, diagrams, or tables based on the question and evidence.
+Do not force a fixed answer pattern for mixed units or two-day health comparisons.
+Keep factual limits for charts. Do not invent samples, dates, goals, or history.
+Wrap long table cells so interpretations and activity totals remain readable on narrow screens.
+Release this urgent Pi fix as 1.5.3 from `rpi`, then copy it to `dev` through a separate PR.
+
 ## Release 1.5.2 preparation, 2026-11-15
 
 The operator requested a Pi patch and promotion of the current `dev` changes to `main` and `rpi`.

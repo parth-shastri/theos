@@ -1152,6 +1152,8 @@ main {
 }
 .openui-table-scroll table {
   width: 100%;
+  min-width: max(100%, calc(var(--openui-columns) * 7rem));
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -1159,8 +1161,10 @@ main {
 .openui-table-scroll :is(th, td) {
   padding: 11px 12px;
   text-align: left;
+  vertical-align: top;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .openui-table-scroll th {
   color: var(--text-soft);
