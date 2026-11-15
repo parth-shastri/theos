@@ -151,7 +151,7 @@ The renderer treats raw HTML as text and removes unsafe links from generated mar
 
 Library version 4 adds `TrendCard`, `ComparisonCard`, `StatusBreakdown`, `CardRow`, `ProcessDiagram`, and `LeverExplainer`.
 The compact `CalendarAvailability` layout shows the longest confirmed free block within the checked range.
-`web/src/openui/rich-cards.js` uses React, native range inputs, SVG, and the existing icon set.
+`web/src/openui/rich-cards.js` uses React, native range inputs, and SVG. Process stages use four new local SVG icons and native buttons.
 Chart selection and lesson controls run in the browser. These cards add no dependency or model tool.
 
 Library version 5 adds `RelationshipDiagram` for labeled connections and `ScenarioExplorer` for calculated cases.

@@ -288,11 +288,27 @@
   font-variant-numeric: tabular-nums;
 }
 
-.openui-process-flow {
+.openui-process-heading {
   display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 19px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.openui-process-heading .openui-card-heading {
+  flex: 1;
+  margin: 0;
+}
+.openui-process-count {
+  flex: none;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.openui-process-flow {
+  display: grid;
+  grid-template-columns: repeat(var(--step-count), minmax(0, 1fr));
+  gap: 24px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -300,7 +316,6 @@
 .openui-process-flow li {
   --stage: var(--openui-card-blue);
   position: relative;
-  flex: 1 1 0;
   min-width: 0;
 }
 .openui-process-flow li:nth-child(even) {
@@ -310,48 +325,141 @@
   --stage: var(--accent);
 }
 .openui-process-flow li:not(:last-child)::after {
-  content: "→";
+  content: "›";
   position: absolute;
-  inset: 50% auto auto calc(100% + 3px);
+  z-index: 1;
+  inset: 50% -25px auto auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
   transform: translateY(-50%);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
   color: var(--text-soft);
+  font-size: 22px;
+  line-height: 1;
 }
 .openui-process-flow button {
+  position: relative;
   display: grid;
-  justify-items: center;
-  align-content: center;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-content: start;
+  gap: 10px 12px;
   width: 100%;
   height: 100%;
-  min-height: 65px;
-  gap: 2px;
-  padding: 6px 4px;
+  min-height: 166px;
+  padding: 15px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--border) 19%, var(--surface));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 82%, var(--canvas));
   box-shadow: none;
   color: var(--text);
-  text-align: center;
-  font-size: 12px;
+  text-align: start;
+}
+.openui-process-flow button::after {
+  content: "";
+  position: absolute;
+  inset: auto 15px 0;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
 }
 .openui-process-flow button:hover:not(:disabled),
 .openui-process-flow button[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--stage) 62%, var(--border));
-  background: color-mix(in srgb, var(--stage) 13%, var(--surface));
+  border-color: color-mix(in srgb, var(--stage) 65%, var(--border));
+  background: color-mix(in srgb, var(--stage) 9%, var(--surface));
 }
-.openui-process-flow svg {
-  width: 18px;
-  height: 18px;
+.openui-process-flow button[aria-pressed="true"]::after {
+  background: var(--stage);
+}
+.openui-process-marker {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--stage) 16%, transparent);
   color: var(--stage);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
-.openui-process-flow span {
-  color: var(--text-soft);
-  font-size: 11px;
+.openui-process-marker svg {
+  width: 27px;
+  height: 27px;
 }
-.openui-process-flow strong {
+.openui-process-copy {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+}
+.openui-process-index,
+.openui-process-caption {
+  color: var(--stage);
+  font-size: 10px;
+  line-height: 1.25;
+}
+.openui-process-index {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.openui-process-copy strong {
+  color: var(--text);
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.3;
 }
-.openui-process-flow:has(li:nth-child(4)) button {
-  padding-inline: 3px;
+.openui-process-caption {
+  color: var(--text-soft);
+}
+.openui-process-preview {
+  display: -webkit-box;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.openui-process-inspection {
+  display: grid;
+  grid-template-columns: minmax(78px, auto) minmax(0, 1fr);
+  gap: 3px 15px;
+  margin-top: 15px;
+  padding: 12px 15px;
+  border-left: 2px solid var(--card-accent);
+  border-radius: 0 11px 11px 0;
+  background: color-mix(in srgb, var(--card-accent) 8%, var(--surface));
+}
+.openui-process-inspection-index {
+  grid-row: span 2;
+  color: var(--card-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.openui-process-inspection strong {
+  color: var(--text);
+  font-size: 13px;
+}
+.openui-process-inspection p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.openui-process-flow:has(li:nth-child(4)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.openui-process-flow:has(li:nth-child(4)) li:not(:last-child)::after {
+  inset: auto auto -25px 21px;
+  transform: rotate(90deg);
 }
 
 .openui-lever-layout {
@@ -506,14 +614,27 @@
   color: var(--text-soft);
 }
 
-@container (max-width: 470px) {
-  .openui-process-flow:has(li:nth-child(4)) {
-    flex-direction: column;
-    gap: 16px;
+@container (max-width: 640px) {
+  .openui-process-flow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 17px;
   }
+  .openui-process-flow li:not(:last-child)::after,
   .openui-process-flow:has(li:nth-child(4)) li:not(:last-child)::after {
-    inset: calc(100% - 1px) auto auto 50%;
-    transform: translateX(-50%) rotate(90deg);
+    inset: auto auto -21px 20px;
+    transform: rotate(90deg);
+  }
+  .openui-process-flow button {
+    min-height: 0;
+  }
+  .openui-process-preview {
+    -webkit-line-clamp: 2;
+  }
+  .openui-process-inspection {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .openui-process-inspection-index {
+    grid-row: auto;
   }
   .openui-lever-layout {
     grid-template-columns: minmax(0, 1fr);
