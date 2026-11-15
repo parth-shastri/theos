@@ -407,7 +407,7 @@ class CompactingModel:
     async def _summarize(self, source, *, tier, update=False, turn_prefix=False):
         from harness.model import collect_model_stream
 
-        if not source or self.summary_budget is not None and not self.summary_budget.spend():
+        if not source:
             return ""
         # Select one operation format. Shortening must not also require structured headings.
         #
@@ -433,22 +433,41 @@ class CompactingModel:
         summary_model = self.config.summary_model or self.model
         summary_window = self.config.summary_window or self.window
         output_limit = max(1, int(summary_window * self.config.tail_ratio))
-        for key in ("max_output_tokens", "max_tokens", "max_completion_tokens"):
-            value = options.get(key)
-            if type(value) is int and value > output_limit:
-                options[key] = output_limit
-        request = ModelRequest([SystemMessage(instructions), UserMessage(source)], options=options)
-        async with asyncio.timeout(self.config.summary_timeout):
-            result = await collect_model_stream(summary_model.stream(request))
-        # Account for provider usage even when the response fails completeness checks below.
-        if self.config.on_summary:
-            await self.config.on_summary(result)
-        text = (result.text or "").strip()
-        if result.tool_calls or result.stop_reason in {"length", "max_tokens", "cut_off"}:
-            raise ValueError("The summary was incomplete.")
-        if not text:
-            raise ValueError("The model returned an empty summary.")
-        return text
+        output_keys = ("max_output_tokens", "max_tokens", "max_completion_tokens")
+        configured = [
+            options[key]
+            for key in output_keys
+            if type(options.get(key)) is int and options[key] > 0
+        ]
+        retry_limit = min(configured) if configured else output_limit
+        limits = [output_limit]
+        if retry_limit > output_limit:
+            limits.append(retry_limit)
+        for limit in limits:
+            if self.summary_budget is not None and not self.summary_budget.spend():
+                return ""
+            attempt_options = dict(options)
+            for key in output_keys:
+                value = attempt_options.get(key)
+                if type(value) is int and value > limit:
+                    attempt_options[key] = limit
+            request = ModelRequest(
+                [SystemMessage(instructions), UserMessage(source)], options=attempt_options
+            )
+            async with asyncio.timeout(self.config.summary_timeout):
+                result = await collect_model_stream(summary_model.stream(request))
+            # Each attempt consumes tokens, including a truncated response.
+            if self.config.on_summary:
+                await self.config.on_summary(result)
+            if result.tool_calls:
+                raise ValueError("The summary was incomplete.")
+            if result.stop_reason in {"length", "max_tokens", "cut_off"}:
+                continue
+            text = (result.text or "").strip()
+            if not text:
+                raise ValueError("The model returned an empty summary.")
+            return text
+        raise ValueError("The summary was incomplete.")
 
     @staticmethod
     def _summary_source(previous, messages, window, trigger_ratio, *, preserve_user=False):

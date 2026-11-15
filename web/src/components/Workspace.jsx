@@ -5,6 +5,7 @@ import VoiceAmbience from "./VoiceAmbience";
 import SignIn from "./SignIn";
 import WorkspaceHeader from "./WorkspaceHeader";
 import Sidebar from "./Sidebar";
+import Notifications, { useNotifications } from "./Notifications";
 import Conversation from "./Conversation";
 import Activity from "./Activity";
 import Connections from "./Connections";
@@ -13,20 +14,33 @@ import Dialogs from "./Dialogs";
 import { useVisualViewport } from "../hooks/useVisualViewport";
 function WorkspaceContents() {
   useVisualViewport();
-  const { me, mobile, sidebarOpen, view, setDesktopPanelHeadingHost } =
-    useWorkspace();
+  const {
+    me,
+    mobile,
+    sidebarOpen,
+    workspacePanel,
+    view,
+    setDesktopPanelHeadingHost,
+  } = useWorkspace();
+  const inbox = useNotifications(me?.id);
+  const drawerOpen = mobile && sidebarOpen;
+  const inboxOpen = workspacePanel === "notifications";
   return (
     <GlassProvider>
       <VoiceAmbience />
       <SignIn />
       <div
         id="workspace"
-        className={"workspace" + (sidebarOpen ? "" : " sidebar-collapsed")}
+        className={
+          "workspace focus-workspace" +
+          (sidebarOpen ? " sidebar-open" : "") +
+          (inboxOpen ? " inbox-open" : "")
+        }
         hidden={!me}
       >
-        <WorkspaceHeader />
-        <Sidebar />
-        <main inert={mobile && sidebarOpen}>
+        <WorkspaceHeader unread={inbox.unread} />
+        {me && <Sidebar />}
+        <main inert={drawerOpen || (mobile && inboxOpen)}>
           <div
             className="panel-toolbar-host"
             ref={setDesktopPanelHeadingHost}
@@ -37,6 +51,7 @@ function WorkspaceContents() {
           <Connections />
           <Tools />
         </main>
+        <Notifications inbox={inbox} />
       </div>
       <Dialogs />
     </GlassProvider>

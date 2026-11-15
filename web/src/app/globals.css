@@ -309,8 +309,7 @@ h2 {
   font-size: 17px;
   margin: 4px 0 0;
 }
-.eyebrow,
-.rail-title {
+.eyebrow {
   font-size: 10px;
   letter-spacing: 0.09em;
   font-weight: 600;
@@ -319,81 +318,14 @@ h2 {
 .workspace {
   height: var(--viewport-height, 100dvh);
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
-  grid-template-rows: var(--header-height) minmax(0, 1fr);
-  max-width: 1920px;
-  margin-inline: auto;
-}
-.app-header {
-  position: relative;
-  grid-column: 1/-1;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  margin: calc(12px + env(safe-area-inset-top, 0px)) 16px 8px;
-  padding: 0 16px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 22px;
-  background: var(--surface);
-  box-shadow: var(--glass-shadow);
-}
-.header-brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
 }
 .brand-mark {
   width: 40px;
   height: 40px;
   border-radius: 10px;
 }
-.sidebar-brand {
-  display: none;
-}
-.mobile-only,
-.mobile-conversation-heading,
-.mobile-panel-header,
-.compact-panel-back-icon,
-.conversation-actions-label {
-  display: none;
-}
-#sidebar-settings-button svg {
-  width: 18px;
-  height: 18px;
-}
 .login-card > img {
   border-radius: 12px;
-}
-.header-brand h1 {
-  font-size: 17px;
-  margin: 0;
-  font-weight: 680;
-}
-.header-brand span {
-  display: block;
-  margin-top: 1px;
-  color: var(--text-muted);
-  font-size: 11px;
-}
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-aside:where(#sidebar) {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: var(--surface);
-  border: 1px solid var(--glass-edge);
-  border-radius: 22px;
-  margin: 8px 0 16px 16px;
-  padding: 16px 12px;
-  overflow-y: auto;
-  box-shadow: var(--glass-shadow);
 }
 select,
 input {
@@ -420,15 +352,6 @@ select {
 :root[data-theme="dark"] select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%238792a0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
-.new-session {
-  flex-shrink: 0;
-  margin: 0 0 16px;
-  border-radius: 14px;
-}
-.rail-title {
-  flex-shrink: 0;
-  padding: 0 10px 10px;
-}
 nav {
   overflow: auto;
   flex: 1;
@@ -454,43 +377,10 @@ nav button.active {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
-.sidebar-bottom {
-  flex-shrink: 0;
-  display: grid;
-  gap: 6px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-.sidebar-bottom > button {
-  justify-content: flex-start;
-  border-color: transparent;
-  background: transparent;
-  padding-inline: 10px;
-  font-weight: 500;
-  min-height: 40px;
-}
-.sidebar-bottom > .cost-label {
-  padding: 0 10px 6px;
-}
-.account-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--text-muted);
-  font-size: 11px;
-  padding: 10px 4px 0 10px;
-}
 #identity {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.account-row button {
-  min-height: 28px;
-  font-size: 11px;
-  background: transparent;
-  border: 0;
-  padding: 0 6px;
 }
 main {
   min-width: 0;
@@ -513,17 +403,11 @@ main {
   flex: 1;
   min-width: 0;
 }
-.workspace-toolbar .header-actions {
-  flex-shrink: 0;
-}
 .workspace-toolbar h2 {
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.workspace-toolbar .header-actions button {
-  font-size: 12px;
 }
 .panel-toolbar-host {
   flex-shrink: 0;
@@ -610,7 +494,6 @@ main {
 }
 .chat-view {
   --chat-gutter: max(28px, calc((100% - 860px) / 2));
-  --composer-space: 130px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -625,7 +508,7 @@ main {
 #messages {
   overflow-y: auto;
   flex: 1;
-  padding: 28px var(--chat-gutter) calc(var(--composer-space) + 20px);
+  padding: 28px var(--chat-gutter) 20px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scroll-behavior: auto;
@@ -2745,23 +2628,6 @@ button.help-command {
   .usage-card .usage-subtitle {
     min-height: 0;
   }
-  .header-brand span {
-    display: none;
-  }
-  .header-brand {
-    gap: 6px;
-  }
-  .app-header {
-    gap: 8px;
-  }
-  #generation-button {
-    width: 44px;
-    height: 44px;
-    padding: 0;
-  }
-  .settings-label {
-    display: none;
-  }
 }
 dialog p,
 dialog small {
@@ -2932,13 +2798,6 @@ button.speech-button.is-playing {
 }
 .send {
   margin-left: 0;
-}
-.footnote {
-  display: block;
-  font-size: 10px;
-  text-align: center;
-  color: var(--text-muted);
-  padding-top: 10px;
 }
 .error {
   color: var(--danger) !important;
@@ -3120,13 +2979,6 @@ button.speech-button.is-playing {
 }
 #attachments:not(:empty) {
   margin: 6px 8px 2px;
-}
-#notifications {
-  max-height: 100px;
-  overflow: auto;
-  padding: 0 24px;
-  background: var(--success-soft);
-  font-size: 12px;
 }
 #dashboard,
 .workspace-panel {
@@ -4329,15 +4181,6 @@ tr:last-child td {
 .login-card .password-actions button {
   margin-top: 0;
 }
-.sidebar-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr);
-}
-.sidebar-collapsed aside:where(#sidebar) {
-  visibility: hidden;
-  overflow: hidden;
-  padding: 0;
-  margin: 0;
-}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -4346,123 +4189,9 @@ tr:last-child td {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
 }
-@media (max-width: 1000px) {
-  .workspace {
-    grid-template-columns: 250px minmax(0, 1fr);
-  }
-  .sidebar-collapsed {
-    grid-template-columns: 0 minmax(0, 1fr);
-  }
-  .workspace-toolbar h2 {
-    max-width: 100%;
-  }
-}
 @media (max-width: 700px) {
-  :root {
-    --header-height: 0px;
-  }
-  .workspace {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-  }
-  aside:where(#sidebar),
-  .sidebar-collapsed aside:where(#sidebar) {
-    position: fixed;
-    top: max(8px, env(safe-area-inset-top, 0px));
-    bottom: max(12px, var(--bottom-safe-area));
-    left: max(8px, env(safe-area-inset-left, 0px));
-    width: min(304px, calc(100% - 32px));
-    z-index: 15;
-    padding: 8px 12px 16px;
-    margin: 0;
-    box-shadow: var(--shadow);
-    transition:
-      transform 300ms var(--ease),
-      opacity 200ms ease,
-      visibility 300ms;
-  }
-  aside:where(#sidebar) {
-    transform: translateX(0);
-    visibility: visible;
-    opacity: 1;
-  }
-  .sidebar-collapsed aside:where(#sidebar) {
-    transform: translateX(calc(-100% - 24px));
-    visibility: hidden;
-    opacity: 0;
-  }
-  #sidebar button {
-    min-height: 44px;
-  }
-  .app-header {
-    display: contents;
-  }
-  .app-header .header-brand {
-    display: contents;
-  }
-  .app-header .header-actions,
-  .app-header .header-brand > :is(.brand-mark, div) {
-    display: none;
-  }
-  #toggle-sidebar {
-    position: fixed;
-    top: calc(16px + env(safe-area-inset-top, 0px));
-    left: max(16px, env(safe-area-inset-left, 0px));
-    z-index: 20;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-  }
   .sidebar-backdrop {
     inset: 0;
-  }
-  .sidebar-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    padding: 0 4px 16px 48px;
-    font-size: 20px;
-    font-weight: 650;
-    letter-spacing: -0.03em;
-  }
-  .sidebar-brand > span {
-    flex: 1;
-    min-width: 0;
-  }
-  .mobile-only {
-    display: block;
-  }
-  button.mobile-only {
-    display: flex;
-  }
-  #mobile-conversation-controls {
-    margin-bottom: 12px;
-  }
-  #mobile-conversation-controls .conversation-actions > summary {
-    display: flex;
-    width: 100%;
-    gap: 10px;
-    padding: 0 10px;
-    font-size: 12px;
-    font-weight: 500;
-  }
-  .conversation-actions-label {
-    display: inline;
-  }
-  #mobile-conversation-controls .conversation-menu {
-    position: static;
-    width: 100%;
-    padding: 4px 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  .app-header .icon-button {
-    width: 44px;
-    height: 44px;
   }
   button.voice-button,
   button.speech-button,
@@ -4509,8 +4238,7 @@ tr:last-child td {
     box-shadow: none;
   }
   #messages {
-    padding: calc(64px + env(safe-area-inset-top, 0px)) var(--chat-gutter)
-      calc(var(--composer-space) + 16px);
+    padding: 12px var(--chat-gutter) 10px;
   }
   .composer-wrap {
     padding: 8px var(--chat-gutter) 12px;
@@ -4518,9 +4246,6 @@ tr:last-child td {
   #status {
     font-size: 10px;
     line-height: 1.4;
-  }
-  #notifications {
-    padding-inline: var(--chat-gutter);
   }
   .approval-fields {
     grid-template-columns: minmax(0, 1fr);
@@ -4580,22 +4305,10 @@ tr:last-child td {
   .help-commands {
     grid-template-columns: minmax(0, 1fr);
   }
-  .footnote {
-    padding-top: 8px;
-    font-size: 9px;
-  }
   #dashboard,
   .workspace-panel {
-    /* Reserve header space inside the scroller so its content can pass behind the frost. */
     margin-top: 0;
-    padding: calc(80px + env(safe-area-inset-top, 0px)) 16px 16px;
-    scroll-padding-top: calc(80px + env(safe-area-inset-top, 0px));
-  }
-  .header-brand span {
-    font-size: 10px;
-  }
-  .header-brand h1 {
-    font-size: 16px;
+    padding: 16px;
   }
 }
 @media (max-width: 700px) and (max-height: 580px) {
@@ -4605,9 +4318,6 @@ tr:last-child td {
   .composer-wrap {
     padding-bottom: 8px;
   }
-  .footnote {
-    display: none;
-  }
   .empty .mark,
   .empty > .eyebrow {
     display: none;
@@ -4616,16 +4326,9 @@ tr:last-child td {
     padding: 8px 0;
   }
 }
-@media (max-width: 700px) {
-  .keyboard-open .footnote {
-    display: none;
-  }
-}
 
 /* Opaque surfaces remain the fallback when backdrop blur is unavailable. */
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .app-header,
-  aside:where(#sidebar),
   #composer,
   .login-card,
   dialog,
@@ -4636,8 +4339,6 @@ tr:last-child td {
     -webkit-backdrop-filter: blur(24px) saturate(145%);
     backdrop-filter: blur(24px) saturate(145%);
   }
-  .app-header,
-  aside:where(#sidebar),
   #composer:not(.is-recording),
   .login-card,
   dialog,
@@ -4649,7 +4350,6 @@ tr:last-child td {
       transparent 45%
     );
   }
-  aside:where(#sidebar),
   dialog,
   .conversation-menu,
   .command-suggestions,
@@ -4667,7 +4367,6 @@ tr:last-child td {
     -webkit-backdrop-filter: blur(20px) saturate(135%);
     backdrop-filter: blur(20px) saturate(135%);
   }
-  aside:where(#sidebar),
   dialog {
     border-color: var(--overlay-edge);
     background-color: var(--overlay-glass);
@@ -4723,7 +4422,7 @@ tr:last-child td {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  :is(aside:where(#sidebar), dialog).glass-surface {
+  dialog.glass-surface {
     padding: 0;
     overflow: hidden;
   }
@@ -4734,13 +4433,6 @@ tr:last-child td {
   }
   dialog > .glass-content {
     max-height: calc(var(--viewport-height, 100dvh) - 42px);
-  }
-  aside:where(#sidebar) > .glass-content {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    height: 100%;
-    padding: 16px 12px;
   }
   .glass-surface > .glass-optics {
     display: block;
@@ -4824,14 +4516,7 @@ tr:last-child td {
       --glass-tint: 10%;
     }
   }
-  .app-header.glass-surface {
-    background: transparent;
-    border-color: var(--overlay-edge);
-    box-shadow: var(--glass-shadow);
-  }
-  .app-header.glass-surface::after,
   dialog.glass-surface[open]::after,
-  .workspace:not(.sidebar-collapsed) aside:where(#sidebar).glass-surface::after,
   .composer-options.glass-surface:not([hidden])::after,
   .settings-select-menu.glass-surface:popover-open::after,
   .liquid-panel.glass-surface::after,
@@ -4849,7 +4534,6 @@ tr:last-child td {
     backdrop-filter: blur(10px) saturate(150%) var(--glass-refraction);
   }
   dialog.glass-surface,
-  aside:where(#sidebar).glass-surface,
   .mode-menu.glass-surface,
   .composer-options.glass-surface,
   .settings-select-menu.glass-surface,
@@ -4866,139 +4550,6 @@ tr:last-child td {
   }
   dialog.glass-surface button:not(.primary):not([role="option"]) {
     background-color: color-mix(in srgb, var(--surface) 35%, transparent);
-  }
-  #mobile-conversation-controls .conversation-menu > .glass-optics,
-  #mobile-conversation-controls .conversation-menu::before,
-  #mobile-conversation-controls .conversation-menu::after {
-    display: none;
-  }
-  #mobile-conversation-controls .conversation-menu {
-    box-shadow: none;
-    border: 0;
-  }
-}
-@media (max-width: 700px) {
-  .app-header.glass-surface > .glass-optics,
-  .app-header.glass-surface::before,
-  .app-header.glass-surface::after {
-    display: none;
-  }
-  aside:where(#sidebar) > .glass-content {
-    padding: 8px 12px 16px;
-  }
-}
-/* Keep navigation ink legible over reflected content. Only glyph styling changes here. */
-:root:not([data-theme="dark"]) #sidebar {
-  --text: #111b15;
-  --text-soft: #17271d;
-  --text-muted: #1c3023;
-  color: var(--text);
-}
-[data-theme="dark"] #sidebar {
-  --text: #f7fbf9;
-  --text-soft: #edf5f0;
-  --text-muted: #e3eee7;
-  color: var(--text);
-}
-#mobile-conversation-controls summary {
-  color: var(--text-soft);
-}
-@media (max-width: 700px) {
-  /* A display:contents header has no backdrop to separate the fixed toggle from messages. */
-  .sidebar-collapsed .app-header {
-    display: flex;
-    position: fixed;
-    top: max(8px, env(safe-area-inset-top, 0px));
-    right: max(8px, env(safe-area-inset-right, 0px));
-    left: max(8px, env(safe-area-inset-left, 0px));
-    height: 60px;
-    margin: 0;
-    padding: 8px;
-    border-radius: 18px;
-  }
-  .sidebar-collapsed .mobile-conversation-heading {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    margin-inline-start: 56px;
-  }
-  #mobile-session-title {
-    overflow: hidden;
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 18px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  #mobile-conversation-cost {
-    line-height: 16px;
-    font-variant-numeric: tabular-nums;
-  }
-  .sidebar-collapsed .app-header.glass-surface > .glass-optics,
-  .sidebar-collapsed .app-header.glass-surface::before,
-  .sidebar-collapsed .app-header.glass-surface::after {
-    display: block;
-  }
-  .sidebar-collapsed .app-header-compact {
-    right: auto;
-    width: 60px;
-    border-radius: 50%;
-  }
-  .mobile-panel-header {
-    display: block;
-    position: fixed;
-    top: max(8px, env(safe-area-inset-top, 0px));
-    right: max(8px, env(safe-area-inset-right, 0px));
-    left: calc(max(8px, env(safe-area-inset-left, 0px)) + 68px);
-    z-index: 20;
-    min-width: 0;
-  }
-  .mobile-panel-header > .panel-heading {
-    position: relative;
-    top: auto;
-    height: 60px;
-    margin: 0;
-    padding: 8px 10px 8px 14px;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 8px;
-    border-radius: 18px;
-    box-shadow: var(--glass-shadow);
-  }
-  .mobile-panel-header .panel-identity,
-  .mobile-panel-header .panel-heading > div {
-    min-width: 0;
-    flex: 1;
-  }
-  .mobile-panel-header :is(.panel-brand, .eyebrow) {
-    display: none;
-  }
-  .mobile-panel-header .panel-heading h1 {
-    min-width: 0;
-    margin: 0;
-    overflow: hidden;
-    font-size: 16px;
-    line-height: 22px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .mobile-panel-header .panel-heading button {
-    flex: 0 0 44px;
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border-radius: 12px;
-  }
-  .mobile-panel-header .panel-heading button span {
-    display: none;
-  }
-  .mobile-panel-header .panel-heading button svg {
-    display: block;
-    width: 18px;
-    height: 18px;
   }
 }
 @media (max-width: 450px) {
@@ -5153,8 +4704,6 @@ tr:last-child td {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .app-header,
-  aside:where(#sidebar),
   #composer,
   .login-card,
   dialog,
@@ -5173,24 +4722,16 @@ tr:last-child td {
   .glass-surface::after {
     display: none;
   }
-  .sidebar-collapsed .app-header.glass-surface > .glass-optics,
-  .sidebar-collapsed .app-header.glass-surface::before,
-  .sidebar-collapsed .app-header.glass-surface::after {
-    display: none;
-  }
   .glass-surface:is(
-    aside:where(#sidebar),
     dialog,
     .composer-options,
     .conversation-menu,
     .settings-select-menu,
     .mode-menu
   ),
-  .app-header.glass-surface,
   .liquid-panel.glass-surface,
   #composer.glass-surface,
   dialog.glass-surface,
-  aside:where(#sidebar).glass-surface,
   .mode-menu.glass-surface {
     background: var(--surface);
   }
@@ -5334,8 +4875,7 @@ tr:last-child td {
   opacity: 0.65;
 }
 
-.github-notification-list a,
-#notifications a {
+.github-notification-list a {
   color: var(--accent);
   text-underline-offset: 3px;
 }

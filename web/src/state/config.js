@@ -157,6 +157,14 @@ export const providerIcons = {
 };
 
 export const iconPaths = {
+  bell: [
+    "M18 8a6 6 0 0 0-12 0c0 5-2 7-3 8h18c-1-1-3-3-3-8M10 20a2 2 0 0 0 4 0",
+  ],
+  close: ["m6 6 12 12M18 6 6 18"],
+  compose: [
+    "M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6",
+    "M10 14l1-4 7-7a2 2 0 0 1 3 3l-7 7-4 1Z",
+  ],
   sidebar: ["M3 4h18v16H3Z", "M9 4v16"],
   settings: ["M4 7h16M4 17h16", "M8 4v6M16 14v6"],
   sun: [
@@ -239,6 +247,10 @@ export const iconPaths = {
     "M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0",
     "M16 8l1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
   ],
+  certificate: ["M5 3h14v13H5Z", "M8 7h8M8 10h5", "m9 16-1 5 4-2 4 2-1-5"],
+  key: ["M16 10a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z", "m13 9-9 9v3h3v-3h3v-3h3"],
+  signature: ["M3 21h18", "M5 17 15 7a2 2 0 0 1 3 3L8 20l-5 1 2-4Z"],
+  verify: ["M12 2 20 6v6c0 5-3 8-8 10-5-2-8-5-8-10V6Z", "m8 12 3 3 5-6"],
   stop: ["M7 7h10v10H7Z"],
   cancel: ["m6 6 12 12", "M6 18 18 6"],
   loading: ["M20 12a8 8 0 1 1-8-8"],
