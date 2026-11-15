@@ -42,7 +42,7 @@ export function Table({ title, columns = [], rows = [], caption, embedded }) {
           "aria-label": title + ". Scroll for more columns.",
           key: "scroll",
         },
-        h("table", {}, [
+        h("table", { style: { "--openui-columns": columns.length } }, [
           h("caption", { className: "sr-only", key: "caption" }, title),
           h(
             "thead",
