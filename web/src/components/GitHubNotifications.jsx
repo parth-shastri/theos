@@ -14,6 +14,7 @@ export default function GitHubNotifications({ settings, busy, action }) {
     });
   }, [settings?.enabled, settings?.telegram]);
   if (!settings) return null;
+  const unreadCount = settings.items?.filter((item) => !item.read).length || 0;
   const update = (enabled, telegram) => {
     const previous = preferences;
     setPreferences({ enabled, telegram });
@@ -79,36 +80,44 @@ export default function GitHubNotifications({ settings, busy, action }) {
         <p className="cost-label">Event notifications need operator setup.</p>
       )}
       {settings.items?.length > 0 && (
-        <ul className="github-notification-list">
-          {settings.items.map((item) => (
-            <li key={item.id} className={item.read ? "is-read" : ""}>
-              <a href={item.url} target="_blank" rel="noopener noreferrer">
-                {item.text}
-              </a>
-              {!item.read && (
-                <button
-                  className="soft-button"
-                  disabled={busy}
-                  onClick={() =>
-                    action(() =>
-                      json(
-                        `/api/connections/github/notifications/${encodeURIComponent(item.id)}/read`,
-                        { method: "POST" },
-                      ),
-                    )
-                  }
-                >
-                  Mark read
-                </button>
-              )}
-              {item.telegram === "uncertain" && (
-                <span className="cost-label">
-                  Telegram delivery needs review.
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <details className="github-notification-inbox">
+          <summary>
+            Recent alerts
+            <span className="cost-label">
+              {unreadCount ? `${unreadCount} unread shown` : "All read"}
+            </span>
+          </summary>
+          <ul className="github-notification-list">
+            {settings.items.map((item) => (
+              <li key={item.id} className={item.read ? "is-read" : ""}>
+                <a href={item.url} target="_blank" rel="noopener noreferrer">
+                  {item.text}
+                </a>
+                {!item.read && (
+                  <button
+                    className="soft-button"
+                    disabled={busy}
+                    onClick={() =>
+                      action(() =>
+                        json(
+                          `/api/connections/github/notifications/${encodeURIComponent(item.id)}/read`,
+                          { method: "POST" },
+                        ),
+                      )
+                    }
+                  >
+                    Mark read
+                  </button>
+                )}
+                {item.telegram === "uncertain" && (
+                  <span className="cost-label">
+                    Telegram delivery needs review.
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   );

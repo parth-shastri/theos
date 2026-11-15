@@ -4852,6 +4852,21 @@ tr:last-child td {
   margin: 0;
   accent-color: var(--accent);
 }
+.github-notification-inbox {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.github-notification-inbox summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.github-notification-inbox summary .cost-label {
+  float: right;
+  margin-left: 12px;
+  font-weight: 400;
+}
 .github-notification-list {
   list-style: none;
   padding: 0;
