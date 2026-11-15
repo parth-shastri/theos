@@ -162,6 +162,7 @@ export function SelectPicker({
         </SelectTrigger>
         <SelectContent
           id={id + "-menu"}
+          aria-label={label}
           container={container}
           position="popper"
           align="start"
