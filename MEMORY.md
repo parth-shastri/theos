@@ -2,6 +2,18 @@
 
 Updated: 2026-11-15.
 
+## Pi context summary recovery, 2026-11-15
+
+The Pi briefing and a later turn in the same conversation failed with `ContextOverflowError`.
+Each failed turn used the 2,500-token summary output cap before the error.
+The conversation retains its full history and last complete summary.
+Retry a truncated summary once with the configured 8,192-token output allowance.
+Count both model calls. Keep incomplete summaries out of the saved checkpoint.
+The private Pi environment temporarily sets the summary tail ratio to 0.08.
+The active API and web services passed health checks, and the SQLite quick check passed.
+Carry the code fix through a topic PR from `dev` before the next Pi release.
+Do not resume the cancelled briefing schedule without a new operator request.
+
 ## Process diagram presentation, 2026-11-15
 
 Show each process stage with a short explanation, a stage number, and a useful icon when the role is clear.
@@ -33,7 +45,6 @@ Show the notification count on the bell. On desktop the inbox sits beside chat. 
 Group GitHub workflow alerts by workflow and repository. Keep a separate link and dismissal for each run.
 Save browser dismissals by owner. Undo restores the last dismissal. Telegram delivery and terminal notifications use their existing state.
 Reuse the existing React controls, CSS, and icon set.
-
 ## Release 1.5.1 preparation, 2026-11-13
 
 The operator requested a patch release for the OpenUI and browser password changes in PRs 138 through 142.

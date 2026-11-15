@@ -68,6 +68,38 @@ async def test_configured_operation_prompts_reach_the_summary_model(mode, kwargs
     assert not request.tools
 
 
+async def test_truncated_summary_retries_with_configured_output_allowance():
+    attempts = []
+
+    async def record(message):
+        attempts.append(message.stop_reason)
+
+    model = FakeModel(
+        [
+            AssistantMessage("Unusable partial summary.", stop_reason="length"),
+            AssistantMessage("Complete summary."),
+        ]
+    )
+    config = CompactionConfig(
+        options={"max_output_tokens": 8192}, on_summary=record, summary_window=100_000
+    )
+    compacting = CompactingModel(model, 100_000, config, ContextMemory(), [], Budget(8))
+
+    assert await compacting._summarize("Evidence.", tier=0) == "Complete summary."
+    assert [request.options["max_output_tokens"] for request in model.requests] == [2500, 8192]
+    assert model.requests[0].messages == model.requests[1].messages
+    assert len(attempts) == 2 and attempts[0] == "length"
+
+
+async def test_truncated_summary_does_not_retry_past_summary_call_budget():
+    model = FakeModel([AssistantMessage("Partial.", stop_reason="length")])
+    config = CompactionConfig(options={"max_output_tokens": 8192}, summary_window=100_000)
+    compacting = CompactingModel(model, 100_000, config, ContextMemory(), [], Budget(1))
+
+    assert await compacting._summarize("Evidence.", tier=0) == ""
+    assert len(model.requests) == 1
+
+
 @pytest.mark.parametrize("prompts", [(), ("Only one",), "abc", ("One", "Two", "")])
 def test_invalid_shortening_prompt_configuration_is_rejected(prompts):
     with pytest.raises(ValueError, match="three nonempty prompts"):
