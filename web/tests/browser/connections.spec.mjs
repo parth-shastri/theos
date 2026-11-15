@@ -339,6 +339,16 @@ test("GitHub event alerts support opt-in and private inbox actions without model
     },
   );
   await page.locator("#refresh-connections").click();
+  const inbox = card.locator(".github-notification-inbox");
+  await expect(inbox).not.toHaveAttribute("open");
+  await expect(inbox.getByText("1 unread shown")).toBeVisible();
+  await expect(
+    card.getByRole("link", { name: /Review requested/ }),
+  ).toBeHidden();
+  await card.screenshot({
+    path: info.outputPath("github-event-notifications-collapsed.png"),
+  });
+  await inbox.locator("summary").click();
   await expect(
     card.getByRole("link", { name: /Review requested/ }),
   ).toHaveAttribute("href", "https://github.com/sample/project/pull/12");
@@ -351,6 +361,7 @@ test("GitHub event alerts support opt-in and private inbox actions without model
   await expect(
     card.getByRole("button", { name: "Mark read", exact: true }),
   ).toHaveCount(0);
+  await expect(inbox.getByText("All read")).toBeVisible();
   await card.getByLabel("Notify me in Theos", { exact: true }).uncheck();
   await expect(
     card.getByLabel("Notify me in Theos", { exact: true }),

@@ -1220,6 +1220,10 @@ Synthetic public ingress checks passed signature validation and deduplication. R
 The implementation passed 1,164 Python tests, 20 frontend tests, and 64 browser cases, with eight final themed alert reruns.
 Stop the two tunnel processes after the requested live testing. No production deployment was changed.
 
+## GitHub Connections inbox layout, 2026-11-15
+
+Keep GitHub notification preferences visible in Connections. Collapse the saved private inbox under Recent alerts by default so its history does not expand the connection card. Show the unread count for the loaded alerts in the disclosure label.
+
 ## General evidence guidance, 2026-10-28
 
 The operator requested removal of mailbox-specific rules from the shared agent prompt.
