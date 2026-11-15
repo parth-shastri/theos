@@ -617,12 +617,15 @@ export function WorkspaceProvider({ agentName, children }) {
       setOnboarding(null);
     });
   const finishSignin = async () => {
+    const account = accountLifetime.current;
     setSigningIn(true);
     try {
       await login();
-      setOnboarding(null);
+      if (account === accountLifetime.current && !account.signal.aborted)
+        setOnboarding(null);
     } catch (error) {
-      setOnboarding((value) => ({ ...value, error: error.message }));
+      if (account === accountLifetime.current && !account.signal.aborted)
+        setOnboarding((value) => ({ ...value, error: error.message }));
     } finally {
       setSigningIn(false);
     }
