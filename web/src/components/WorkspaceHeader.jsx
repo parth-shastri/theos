@@ -8,6 +8,8 @@ export default function WorkspaceHeader({ unread }) {
     chat,
     view,
     mobile,
+    sidebarOpen,
+    setSidebarOpen,
     workspacePanel,
     setWorkspacePanel,
     setPanelHeadingHost,
@@ -16,24 +18,20 @@ export default function WorkspaceHeader({ unread }) {
   const inboxOpen = workspacePanel === "notifications";
 
   return (
-    <header
-      className="focus-header"
-      inert={
-        mobile && (workspacePanel === "history" || workspacePanel === "account")
-      }
-    >
+    <header className="focus-header" inert={mobile && sidebarOpen}>
       {mobile && (
         <button
           id="toggle-sidebar"
           type="button"
           className="icon-button focus-button"
           aria-label="Toggle conversation sidebar"
-          aria-expanded={workspacePanel === "history"}
+          aria-expanded={sidebarOpen}
           aria-controls="sidebar"
           title="Conversations"
-          onClick={() =>
-            setWorkspacePanel(workspacePanel === "history" ? null : "history")
-          }
+          onClick={() => {
+            setWorkspacePanel(null);
+            setSidebarOpen((value) => !value);
+          }}
         >
           <Icon name="sidebar" />
         </button>

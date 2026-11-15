@@ -30,6 +30,7 @@ export function WorkspaceProvider({ agentName, children }) {
   const [connections, setConnections] = useState(null);
   const [theme, setTheme] = useState(null);
   const [mobile, setMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspacePanel, setWorkspacePanel] = useState(null);
   const [panelHeadingHost, setPanelHeadingHost] = useState(null);
   const [desktopPanelHeadingHost, setDesktopPanelHeadingHost] = useState(null);
@@ -45,7 +46,7 @@ export function WorkspaceProvider({ agentName, children }) {
   const streamLock = useRef(false);
   const signinTimer = useRef(null);
   const current = useRef({});
-  current.current = { me, chat, working, dialog, connections };
+  current.current = { me, chat, working, mobile, dialog, connections };
 
   const status = useCallback(
     (text, className = "") => dispatch({ type: "STATUS", text, className }),
@@ -89,6 +90,7 @@ export function WorkspaceProvider({ agentName, children }) {
         accountLifetime.current = new AbortController();
         selectionRequest.current++;
         setMe(null);
+        setSidebarOpen(false);
         setWorkspacePanel(null);
         setDialog(null);
         setSessions([]);
@@ -118,6 +120,7 @@ export function WorkspaceProvider({ agentName, children }) {
   );
   const navigate = useCallback((next) => {
     setView(next);
+    if (current.current.mobile) setSidebarOpen(false);
     setWorkspacePanel(null);
   }, []);
   const editDraft = useCallback(
@@ -235,6 +238,7 @@ export function WorkspaceProvider({ agentName, children }) {
       accountLifetime.current = new AbortController();
       selectionRequest.current++;
       setMe(null);
+      setSidebarOpen(false);
       setWorkspacePanel(null);
       setSessions([]);
       setDialog(null);
@@ -419,6 +423,7 @@ export function WorkspaceProvider({ agentName, children }) {
       !current.current.chat.id
     )
       return;
+    if (current.current.mobile) setSidebarOpen(false);
     setWorkspacePanel(null);
     setDialog({ kind, section, request: ++dialogRequest.current });
   };
@@ -506,6 +511,7 @@ export function WorkspaceProvider({ agentName, children }) {
     const media = matchMedia("(max-width: 700px)");
     const resize = () => {
       setMobile(media.matches);
+      setSidebarOpen(false);
       setWorkspacePanel(null);
     };
     resize();
@@ -642,6 +648,8 @@ export function WorkspaceProvider({ agentName, children }) {
         openDialog,
         closeDialog,
         mobile,
+        sidebarOpen,
+        setSidebarOpen,
         workspacePanel,
         setWorkspacePanel,
         theme: theme ?? "light",

@@ -2,21 +2,30 @@
   --focus-rail-width: 54px;
   --header-height: calc(54px + env(safe-area-inset-top, 0px));
   --inbox-width: clamp(260px, 30vw, 310px);
-  grid-template-columns: var(--focus-rail-width) minmax(0, 1fr);
+  grid-template-columns:
+    var(--focus-rail-width) var(--sidebar-track, 0px)
+    minmax(0, 1fr) var(--inbox-track, 0px);
   grid-template-rows: var(--header-height) minmax(0, 1fr);
   max-width: none;
 }
+.focus-workspace.sidebar-open {
+  --sidebar-track: clamp(196px, 20vw, 240px);
+}
 .focus-workspace.inbox-open {
-  grid-template-columns: var(--focus-rail-width) minmax(0, 1fr) var(
-      --inbox-width
-    );
+  --inbox-track: var(--inbox-width);
+}
+@media (700px < width < 950px) {
+  .focus-workspace.sidebar-open.inbox-open {
+    --sidebar-track: 176px;
+    --inbox-track: 204px;
+  }
 }
 .focus-header,
 .focus-rail {
   background: var(--glass);
 }
 .focus-header {
-  grid-column: 2 / -1;
+  grid-column: 3 / -1;
   grid-row: 1;
   position: relative;
   z-index: 8;
@@ -135,24 +144,42 @@
   font-size: 12px;
   font-weight: 650;
 }
-.focus-drawer {
+.focus-sidebar,
+.focus-account-menu {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 8px;
+}
+.focus-sidebar {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  z-index: 2;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding-bottom: max(8px, var(--bottom-safe-area));
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.focus-sidebar.glass-surface {
+  box-shadow: none;
+}
+.sidebar-actions {
+  display: flex;
+  gap: 2px;
+}
+.focus-account-menu {
   position: absolute;
   z-index: 16;
-  top: var(--header-height);
+  bottom: max(12px, var(--bottom-safe-area));
   left: calc(var(--focus-rail-width) + 6px);
   width: min(280px, calc(100% - 24px));
   max-height: calc(100% - var(--header-height) - 12px);
-  display: flex;
-  flex-direction: column;
-  padding: 8px;
-  border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-sm);
+  animation: surface-enter 180ms var(--ease);
 }
-.account-drawer {
-  top: auto;
-  bottom: max(12px, var(--bottom-safe-area));
+.focus-account-menu.glass-surface > .glass-optics {
+  background-color: var(--glass-strong);
 }
 .focus-drawer-heading {
   display: flex;
@@ -166,15 +193,10 @@
   font-size: 16px;
   font-weight: 650;
 }
-.focus-drawer .focus-drawer-heading {
+:is(.focus-sidebar, .focus-account-menu) .focus-drawer-heading {
   padding-left: 8px;
 }
-.focus-drawer > section {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.focus-drawer nav,
+.focus-sidebar nav,
 .account-actions {
   min-height: 0;
   overflow: auto;
@@ -182,17 +204,17 @@
   scrollbar-width: thin;
 }
 .focus-drawer-heading,
-.focus-drawer #new-session,
+.focus-sidebar #new-session,
 .account-drawer-entry {
   flex-shrink: 0;
 }
-.focus-drawer nav button {
+.focus-sidebar nav button {
   min-height: 36px;
   margin: 2px 0;
   padding: 6px 8px;
   border-radius: 8px;
 }
-.focus-drawer #user-cost {
+.focus-account-menu #user-cost {
   margin: 0;
   padding: 0 8px 6px;
 }
@@ -212,17 +234,17 @@
   text-align: left;
   font-weight: 550;
 }
-.focus-drawer #new-session,
+.focus-sidebar #new-session,
 .account-drawer-entry {
   width: 100%;
   margin-block: 6px;
 }
-.focus-drawer #new-session svg {
+.focus-sidebar #new-session svg {
   width: 16px;
 }
 
 .focus-workspace > main {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 2;
 }
 .focus-workspace:has(.chat-view:not([hidden])) > main {
@@ -290,7 +312,7 @@
 }
 
 .notifications-inbox {
-  grid-column: 3;
+  grid-column: 4;
   grid-row: 2;
   display: flex;
   flex-direction: column;
@@ -379,8 +401,7 @@
 }
 
 @media (max-width: 700px) {
-  .focus-workspace,
-  .focus-workspace.inbox-open {
+  .focus-workspace {
     --focus-rail-width: 0px;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -395,7 +416,7 @@
   }
   .focus-header .focus-button,
   .focus-header .conversation-actions > summary,
-  .focus-drawer button,
+  :is(.focus-sidebar, .focus-account-menu) button,
   .notifications-inbox :is(.focus-button, .notification-action) {
     min-width: 44px;
     min-height: 44px;
@@ -406,12 +427,26 @@
   .focus-workspace .sidebar-backdrop {
     z-index: 14;
   }
-  .focus-drawer {
+  .focus-sidebar,
+  .focus-account-menu {
+    position: absolute;
+    grid-area: auto;
+    z-index: 16;
+    width: min(280px, calc(100% - 24px));
+    padding: 8px;
+    border-width: 1px;
+    border-radius: 12px;
     inset: var(--header-height) auto auto
       max(8px, env(safe-area-inset-left, 0px));
     max-height: calc(
       100% - var(--header-height) - max(12px, var(--bottom-safe-area))
     );
+  }
+  .focus-sidebar.glass-surface {
+    box-shadow: var(--overlay-shadow);
+  }
+  .focus-sidebar.glass-surface > .glass-optics {
+    background-color: var(--glass-strong);
   }
   .focus-workspace > main,
   .notifications-inbox {
