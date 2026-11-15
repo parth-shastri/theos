@@ -1003,10 +1003,10 @@ export const openuiLibrary = createLibrary({
       notes: [
         "Use MetricGrid to show a few important values that can have different units. Preserve the source's units, dates, and missing-data notes.",
         "Use a bar chart for comparable categories, a line chart for a longer evenly spaced series, and a donut only for parts of one total.",
-        "Charts need matching labels and values, with one shared unit. Use a table for irregular timestamps, mixed units, or exact multi-column comparisons.",
+        "Charts need matching labels and values, with one shared unit. Keep measures with different units on separate scales or in separate cards. Choose a table when its rows and columns make the answer clearer; a mix of units alone does not require one.",
         "Null means missing data, not zero. Do not fabricate dates, samples, deltas, targets, or history to make a chart.",
         "Use ProgressCard only when the user or a completed tool supplies the goal. Do not prescribe health targets.",
-        "Prefer one useful chart with a few metric cards over repeating the same facts in many sections.",
+        "Avoid repeating the same facts across visuals and text. Let the evidence and the user's question determine which components and how many sections are useful.",
         "Use TrendCard for a short, evenly spaced series with a useful latest value. Use ComparisonCard for a short list of comparable quantities.",
         "Match each label to one value. Put the time range or source scope in context when useful.",
         "Use StatusBreakdown when counts describe one set and each item belongs to exactly one status. Explain partial lists and avoid counting overlapping statuses.",
