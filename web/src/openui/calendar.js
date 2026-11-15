@@ -1,5 +1,6 @@
 import { createElement as h, useId, useState } from "react";
 import { sourcePresentation } from "./evidence.js";
+import { CardHeader } from "./rich-cards.js";
 import {
   calendarAgenda,
   calendarAvailability,
@@ -214,19 +215,56 @@ export function Availability({
   timezone,
   calendars = [],
   coverage,
+  layout,
 }) {
   const data = calendarAvailability(start, end, timezone, calendars);
-  const [selected, setSelected] = useState(0);
+  const [selected, setSelected] = useState(null);
   const inspectionId = useId();
-  const index = Math.min(selected, (data?.segments.length || 1) - 1);
+  const compact = layout === "compact";
+  const longest = compact
+    ? data?.segments.reduce(
+        (best, segment, i, segments) =>
+          segment.status === "free" &&
+          (best === -1 ||
+            segment.end - segment.start >
+              segments[best].end - segments[best].start)
+            ? i
+            : best,
+        -1,
+      )
+    : -1;
+  const index = Math.min(
+    selected ?? Math.max(0, longest ?? 0),
+    (data?.segments.length || 1) - 1,
+  );
   const active = data?.segments[index];
+  const freeBlock = data?.segments[longest];
+  const availabilityTotal = data?.complete
+    ? `${calendarDuration(data.freeTime)} free across all checked calendars`
+    : "Availability incomplete";
   const describe = (segment) =>
-    `${statusLabel[segment.status]}: ${calendarRange(segment.start, segment.end, timezone)} · ${calendarDuration(segment.end - segment.start)}`;
+    `${segment === freeBlock ? "Longest free block" : statusLabel[segment.status]}: ${calendarRange(segment.start, segment.end, timezone)} · ${calendarDuration(segment.end - segment.start)}`;
   return h(
     "section",
-    { className: "openui-calendar openui-calendar-availability" },
+    {
+      className:
+        "openui-calendar openui-calendar-availability" +
+        (compact ? " openui-rich-card openui-calendar-compact" : ""),
+    },
     [
-      h(Heading, { key: "heading", title, timezone, label: "Availability" }),
+      compact
+        ? h(CardHeader, {
+            key: "heading",
+            title,
+            icon: "calendar",
+            context: timezone,
+          })
+        : h(Heading, {
+            key: "heading",
+            title,
+            timezone,
+            label: "Availability",
+          }),
       !data
         ? h(
             "p",
@@ -239,13 +277,23 @@ export function Availability({
               { className: "openui-calendar-range", key: "range" },
               calendarRange(data.start, data.end, timezone),
             ),
-            h(
-              "strong",
-              { className: "openui-calendar-availability-total", key: "total" },
-              data.complete
-                ? `${calendarDuration(data.freeTime)} free across all checked calendars`
-                : "Availability incomplete",
-            ),
+            freeBlock
+              ? h("p", { className: "openui-card-stat", key: "total" }, [
+                  h(
+                    "strong",
+                    { key: "duration" },
+                    calendarDuration(freeBlock.end - freeBlock.start),
+                  ),
+                  h("span", { key: "label" }, "longest free block"),
+                ])
+              : h(
+                  "strong",
+                  {
+                    className: "openui-calendar-availability-total",
+                    key: "total",
+                  },
+                  availabilityTotal,
+                ),
             !data.complete
               ? h(
                   "p",
@@ -264,7 +312,9 @@ export function Availability({
               data.segments.map((segment, i) =>
                 h("button", {
                   type: "button",
-                  className: "openui-calendar-segment is-" + segment.status,
+                  className:
+                    "openui-calendar-segment is-" +
+                    (segment === freeBlock ? "longest" : segment.status),
                   key: i,
                   style: { flexGrow: segment.end - segment.start },
                   "aria-label": describe(segment),
@@ -298,13 +348,20 @@ export function Availability({
             h(
               "div",
               { className: "openui-calendar-legend", key: "legend" },
-              [...new Set(data.segments.map((segment) => segment.status))].map(
-                (status) =>
-                  h(
-                    "span",
-                    { className: "is-" + status, key: status },
-                    statusLabel[status],
+              [
+                ...new Set(
+                  data.segments.map((segment) =>
+                    segment === freeBlock ? "longest" : segment.status,
                   ),
+                ),
+              ].map((status) =>
+                h(
+                  "span",
+                  { className: "is-" + status, key: status },
+                  status === "longest"
+                    ? "Longest free block"
+                    : statusLabel[status],
+                ),
               ),
             ),
             h(
@@ -317,25 +374,15 @@ export function Availability({
               },
               active ? describe(active) : "No intervals available.",
             ),
-            h(
-              "ul",
-              { className: "openui-calendar-accounts", key: "calendars" },
-              data.calendars.map((calendar, i) =>
-                h("li", { key: i }, [
-                  h("span", { key: "name" }, calendar.name),
-                  h(
-                    "span",
-                    {
-                      className: calendar.available ? "" : "is-unavailable",
-                      key: "status",
-                    },
-                    calendar.available ? "Checked" : calendar.error,
-                  ),
-                ]),
-              ),
-            ),
+            !compact || !data.complete
+              ? calendarAccounts(data.calendars)
+              : null,
             h("details", { className: "openui-calendar-exact", key: "exact" }, [
               h("summary", { key: "toggle" }, "View time intervals"),
+              freeBlock ? h("p", { key: "total" }, availabilityTotal) : null,
+              compact && data.complete
+                ? calendarAccounts(data.calendars)
+                : null,
               h(
                 "ol",
                 { key: "list" },
@@ -353,5 +400,25 @@ export function Availability({
           )
         : null,
     ],
+  );
+}
+
+function calendarAccounts(calendars) {
+  return h(
+    "ul",
+    { className: "openui-calendar-accounts", key: "calendars" },
+    calendars.map((calendar, i) =>
+      h("li", { key: i }, [
+        h("span", { key: "name" }, calendar.name),
+        h(
+          "span",
+          {
+            className: calendar.available ? "" : "is-unavailable",
+            key: "status",
+          },
+          calendar.available ? "Checked" : calendar.error,
+        ),
+      ]),
+    ),
   );
 }

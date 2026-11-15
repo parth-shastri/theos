@@ -115,7 +115,7 @@ class ScheduledTasks:
                     else f"Scheduled task ended with status: {status}. Open the conversation to continue."
                 )
                 self.db.execute(
-                    "INSERT OR IGNORE INTO notifications VALUES (?,?,?,?,?,0)",
+                    "INSERT OR IGNORE INTO notifications(id,owner,session,text,created,delivered) VALUES (?,?,?,?,?,0)",
                     ("task:" + occurrence, turn.owner, turn.session_id, text[:4000], time.time()),
                 )
             self.db.execute(

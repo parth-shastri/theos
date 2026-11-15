@@ -252,7 +252,9 @@ class GitHubNotifications:
             if result and self.current(sub):
                 text, url = result
                 self.db.execute(
-                    "INSERT OR IGNORE INTO github_notifications VALUES (?,?,?,?,?,?,?,?,?,0,?,?)",
+                    "INSERT OR IGNORE INTO github_notifications"
+                    "(id,delivery,owner,github_id,revision,repo_id,text,url,created,read,telegram,due) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,0,?,?)",
                     (
                         uuid4().hex,
                         row["id"],

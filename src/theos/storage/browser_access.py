@@ -28,7 +28,7 @@ def token_owner(settings, db, token):
     return owner or credential_owner(settings, db, token, "token")
 
 
-def issue_session(settings, db, owner, token=None):
+def issue_session(settings, db, owner, token=None, *, password_login=False):
     """Create an opaque device session and bind configured accounts to token rotation."""
     secret = secrets.token_urlsafe(32)
     now = time.time()
@@ -39,14 +39,23 @@ def issue_session(settings, db, owner, token=None):
         (fingerprint(secret), owner, "session", now, now + SESSION_SECONDS),
     )
     db.execute(
-        "INSERT INTO browser_session_metadata VALUES (?,?,?)",
+        "INSERT INTO browser_session_metadata VALUES (?,?,?,?)",
         (
             fingerprint(secret),
             now,
             fingerprint(token) if owner in settings.users and token else None,
+            int(password_login),
         ),
     )
     return secret
+
+
+def replace_session(settings, db, owner, previous, token=None, *, password_login=False):
+    db.execute(
+        "DELETE FROM browser_credentials WHERE token_hash=? AND kind='session'",
+        (fingerprint(previous),),
+    )
+    return issue_session(settings, db, owner, token, password_login=password_login)
 
 
 def check_login_limit(db, source):
@@ -71,7 +80,7 @@ def require_enrolled(settings, db, owner):
         raise PermissionError("Complete /start in Telegram before opening the web UI.")
 
 
-def invite(settings, db, owner):
+def invite(settings, db, owner, *, password_setup=False):
     """Replace unfinished sign-in requests without changing existing credentials."""
     require_enrolled(settings, db, owner)
     secret = secrets.token_urlsafe(32)
@@ -79,9 +88,16 @@ def invite(settings, db, owner):
     with db.transaction():
         db.execute("DELETE FROM browser_signins WHERE expires<=? OR owner=?", (now, owner))
         db.execute(
-            "INSERT INTO browser_signins(id,owner,invite_hash,state,created,expires) "
-            "VALUES (?,?,?,'invited',?,?)",
-            (secrets.token_hex(16), owner, fingerprint(secret), now, now + SIGNIN_SECONDS),
+            "INSERT INTO browser_signins(id,owner,invite_hash,state,created,expires,password_setup) "
+            "VALUES (?,?,?,'invited',?,?,?)",
+            (
+                secrets.token_hex(16),
+                owner,
+                fingerprint(secret),
+                now,
+                now + SIGNIN_SECONDS,
+                int(password_setup),
+            ),
         )
     return secret
 
@@ -125,25 +141,26 @@ def confirm(settings, db, owner, request_id, approved):
     return row["code"]
 
 
-def complete(settings, db, browser):
-    """Consume approval and issue a session plus a replaceable personal token."""
-    token = secrets.token_urlsafe(32)
+def complete(settings, db, browser, *, previous=""):
+    """Consume approval and issue a session, with a token for normal sign-in."""
     now = time.time()
     with db.transaction():
         row = request_for_browser(settings, db, browser)
         if row["state"] != "approved":
             raise ValueError("Confirm this browser in Telegram before continuing.")
         db.execute("UPDATE browser_signins SET state='used' WHERE id=?", (row["id"],))
-        # A new saved token replaces the old one. Existing device sessions remain valid.
-        db.execute(
-            "DELETE FROM browser_credentials WHERE owner=? AND kind='token'", (row["owner"],)
-        )
-        db.execute("DELETE FROM browser_credentials WHERE expires<=?", (now,))
-        db.execute(
-            "INSERT INTO browser_credentials VALUES (?,?,?,?,?)",
-            (fingerprint(token), row["owner"], "token", now, None),
-        )
-        session = issue_session(settings, db, row["owner"])
+        token = None
+        if not row["password_setup"]:
+            # Only a normal sign-in replaces the personal token.
+            token = secrets.token_urlsafe(32)
+            db.execute(
+                "DELETE FROM browser_credentials WHERE owner=? AND kind='token'", (row["owner"],)
+            )
+            db.execute(
+                "INSERT INTO browser_credentials VALUES (?,?,?,?,?)",
+                (fingerprint(token), row["owner"], "token", now, None),
+            )
+        session = replace_session(settings, db, row["owner"], previous)
     return row["owner"], token, session
 
 
@@ -188,7 +205,8 @@ def credential_owner(settings, db, secret, kind):
 
 
 def revoke(db, owner):
-    """End all generated browser access without deleting personal records."""
+    """End generated browser access and remove the owner's browser password."""
     with db.transaction():
         db.execute("DELETE FROM browser_credentials WHERE owner=?", (owner,))
         db.execute("DELETE FROM browser_signins WHERE owner=?", (owner,))
+        db.execute("DELETE FROM browser_passwords WHERE owner=?", (owner,))

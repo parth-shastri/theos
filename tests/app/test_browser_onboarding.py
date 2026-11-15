@@ -68,6 +68,47 @@ def client(runtime, headers=HEADERS):
     )
 
 
+async def test_telegram_password_link_keeps_token_and_revocation_removes_password(runtime, web_bot):
+    invite = await enroll(web_bot)
+    row, pairing = browser_access.begin(runtime.settings, runtime.db, invite)
+    browser_access.confirm(runtime.settings, runtime.db, "telegram:123", row["id"], True)
+    owner, token, _ = browser_access.complete(runtime.settings, runtime.db, pairing)
+    password = "orchid spanner midnight comet"
+    update = telegram_message("/password\n" + password)
+    web_bot.save_updates([update])
+    assert password not in runtime.db.one("SELECT payload FROM telegram_updates")["payload"]
+    await web_bot.handle([update])
+    assert not runtime.db.rows("SELECT * FROM sessions")
+    await message(web_bot, "/password")
+    markup = web_bot.api.call_args.args[1]["reply_markup"]
+    url = markup["inline_keyboard"][0][0]["url"]
+    secret = parse_qs(urlsplit(url).fragment)["onboard"][0]
+    path = "/api/auth/password"
+    async with client(runtime) as browser:
+        assert (
+            await browser.post("/api/onboarding/start", json={"invite": secret})
+        ).status_code == 200
+        row = runtime.db.one("SELECT * FROM browser_signins WHERE owner=?", (owner,))
+        assert row["password_setup"] == 1
+        assert (await browser.post("/api/onboarding/complete")).status_code == 400
+        await confirm(web_bot, row["id"])
+        assert (await browser.post("/api/onboarding/complete")).json() == {
+            "id": owner,
+            "token": None,
+        }
+        assert (
+            await browser.post(path, json={"password": password, "confirmation": password})
+        ).status_code == 200
+        assert browser_access.token_owner(runtime.settings, runtime.db, token) == owner
+        await browser.post("/api/auth/logout")
+        credentials = {"account": owner, "password": password}
+        assert (await browser.post(path + "/login", json=credentials)).status_code == 200
+        await message(web_bot, "/web revoke")
+        assert (await browser.get("/api/me")).status_code == 401
+        assert (await browser.post(path + "/login", json=credentials)).status_code == 401
+        assert browser_access.token_owner(runtime.settings, runtime.db, token) is None
+
+
 async def test_telegram_onboarding_opens_own_ui_and_keeps_seed_admin_separate(runtime, web_bot):
     invite = await enroll(web_bot)
     await enroll(web_bot, 456)

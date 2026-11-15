@@ -4,10 +4,68 @@ Updated: 2026-11-15.
 
 ## Intelligent UI wording, 2026-11-15
 
-Call browser answer presentation intelligent UI in user-visible reasoning summaries.
+Call the browser answer presentation intelligent UI in user-visible reasoning summaries.
 Keep the internal renderer name and syntax out of those summaries unless the user asks about implementation.
 Display saved and streamed browser reasoning with the same wording.
 Keep the internal format and saved answer compatibility unchanged.
+
+## Focus sidebar and menus, 2026-11-15
+
+Start with the conversation sidebar closed. Dock it beside chat on desktop and open it as a drawer on mobile.
+Keep the desktop sidebar open when the user selects a conversation. Close the mobile drawer after selection.
+Put the theme toggle in the sidebar. Use the shared liquid glass surface for the sidebar and account menu.
+
+## Browser Focus layout, 2026-11-14
+
+Use one compact chat header. Keep recent conversations and account controls closed until selected.
+Use the account initial and the existing Theos theme. Show the logo in workspace navigation and use text labels for replies.
+Keep the thinking orb, thought disclosure, and turn activity in the conversation. Keep approvals above the composer.
+Show the notification count on the bell. On desktop the inbox sits beside chat. On mobile it takes the chat area.
+Group GitHub workflow alerts by workflow and repository. Keep a separate link and dismissal for each run.
+Save browser dismissals by owner. Undo restores the last dismissal. Telegram delivery and terminal notifications use their existing state.
+Reuse the existing React controls, CSS, and icon set.
+
+## Release 1.5.1 preparation, 2026-11-13
+
+The operator requested a patch release for the OpenUI and browser password changes in PRs 138 through 142.
+Promote `dev` to `main` and `rpi` through separate merge-commit PRs.
+Publish `rpi-v1.5.1` from the promoted `rpi` tip.
+Migration 017 adds browser password storage. The release workflow applies it to the candidate data volume.
+Verify the tagged workflow, both service health checks, and the active Pi manifest.
+
+## OpenUI reliability, 2026-11-13
+
+Keep the readable summary if an interactive section fails. Keep form actions behind full validation.
+Treat a boolean in the optional EvidenceItem source ID position as an excerpt flag. Preserve valid source IDs and explicit flags.
+Bind text recovery to the selected saved answer. Keep tools disabled for recovery.
+Record bounded OpenUI error codes and counts in structured logs. Exclude answer content.
+
+## Optional browser password, 2026-11-13
+
+The sign-in screen offers password setup and reset before the workspace opens.
+Verify with an existing access token or use the private Telegram `/password` flow.
+An account can set, change, or remove a browser sign-in password from its signed-in browser.
+The private Telegram `/password` command opens browser setup after the existing code confirmation.
+This setup link preserves any personal access token. Telegram chat access continues to use the verified sender.
+Use the existing account ID for password sign-in. Check strength locally and store a salted scrypt hash.
+Limit failed attempts by source and account. Revoke other password sessions when the password changes or is removed.
+Telegram `/web revoke` also removes the password. Configured token rotation invalidates its associated password and sessions.
+
+## General OpenUI answers, 2026-11-13
+
+Choose visuals by what the reader needs to understand. Use text for direct facts and when chart data is unavailable.
+Version 5 adds reusable relationship diagrams and scenario explorers. A relationship can branch or cycle.
+A scenario displays a supplied result and its assumptions. The browser switches cases locally.
+Compact comparisons use a shared zero baseline for positive and negative values.
+Use a safe built-in icon when the model supplies an unknown name. Preserve saved versions 1 through 4.
+
+## Rich OpenUI cards, 2026-11-13
+
+Keep OpenUI Lang and the Theos theme for browser answers.
+Version 4 adds compact trend, comparison, and status cards. It adds a responsive card row, a process diagram, and an ideal lever lesson.
+The compact calendar layout uses the existing availability calculation. Show the longest free block only when every requested calendar read succeeds.
+Use checked values for data cards. Keep missing samples distinct from zero. Label example inputs in lessons.
+Card interactions run in the browser. Keep saved OpenUI versions 1 through 3 renderable.
 
 ## Release 1.5.0 preparation, 2026-11-13
 
@@ -185,7 +243,7 @@ Docker Desktop still requires a macOS login. A future login or disk-encryption c
 | Dashboard charts | Use native SVG and HTML charts for daily model requests, recorded USD cost, input/output tokens by model, and main-agent tool starts. Offer 7, 30, and 90 day UTC ranges. Aggregate complete records across transports behind administrator access. Preserve missing prices, zero-fill inactive dates, and provide hover/tap details and chart data tables |
 | Browser workspace panels | Use the shared glass material for the top navigation, usage cards, account cards, and workspace services. Keep lifetime totals distinct from period charts. Use the glass range picker, exact data disclosures, direct ranking values, and keyboard-selectable days. Preserve price gaps and owner boundaries. Keep the themed logo and a sticky return-to-chat action in both usage views. Desktop panes tint on hover only. Preserve mobile touch feedback. Release optical filters when refreshed panes leave the page |
 | Browser interface case | Use sentence case for interface headings, labels, role names, badges, and command argument hints. Do not apply uppercase text transforms. Preserve user and model text, model identifiers, and standard technical abbreviations |
-| Browser UX and appearance | Align messages and the composer at a shared gutter. On mobile and desktop, start with one frosted input row, a plus button on the left, and microphone and send buttons on the right. Focus or a draft expands the composer into a text row above controls and message mode. The plus menu offers attachments, commands, and conversation settings. Remove the idle readiness note and its space. Show run progress in the conversation. Keep recording feedback and errors in the composer. Grow drafts to 140px, preserve reading position during streams, and fit the visual viewport without changing pinch zoom. Use a sliding mobile drawer with keyboard focus handling, safe-area spacing, and dismissal after navigation. Keep the existing theme-specific logos. Hide the mobile conversation toolbar. In light mode, place the sidebar trigger on a glass navigation strip. Dark mode keeps the standalone trigger. Put the Theos name, theme switch, Settings, and conversation actions in the mobile sidebar. Preserve the desktop header and toolbar. Use fixed 44px composer controls with an 8px gap between microphone and send |
+| Browser UX and appearance | Align messages and the composer at a shared gutter. On mobile and desktop, start with one frosted input row, a plus button on the left, and microphone and send buttons on the right. Focus or a draft expands the composer into a text row above controls and message mode. The plus menu offers attachments, commands, and conversation settings. Remove the idle readiness note and its space. Show run progress in the conversation. Keep recording feedback and errors in the composer. Grow drafts to 140px, preserve reading position during streams, and fit the visual viewport without changing pinch zoom. Use a sliding mobile drawer with keyboard focus handling, safe-area spacing, and dismissal after navigation. Keep the existing theme-specific logos. Use the Focus header and open recent conversations from the navigation button. Put theme and settings in the account menu. Use fixed 44px composer controls with an 8px gap between microphone and send |
 | Browser message statistics | Show estimated output tokens and elapsed time during each model generation. Use final provider usage when available. Save UTC message timestamps and generation duration in application history metadata. Show local dates with the year, as `6 Oct 2026 14:32`. Preserve unknown dates for older messages. Keep display metadata out of provider and generic harness serialization |
 | OpenRouter accounting | Keep its adapter in the application runtime. Retain readable reasoning, replay signed blocks only for the same model, and prefer reported request costs over token-rate estimates |
 | OpenRouter retention | Enforce `provider.zdr=true` in the application adapter for every OpenRouter request, including chat, delegates, compaction, and titles. Preserve other provider preferences. No request can disable ZDR. External Mem0 and voice services keep separate policies |

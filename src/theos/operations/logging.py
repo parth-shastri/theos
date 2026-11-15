@@ -80,6 +80,7 @@ class SafeFormatter(logging.Formatter):
                 "provider_request_failed",
                 "provider_stream_retry",
                 "checkpoint_replication_failed",
+                "openui_render_issue",
             }
             else "application_event",
         }
@@ -90,6 +91,21 @@ class SafeFormatter(logging.Formatter):
                     isinstance(value, str) and len(value) <= 64 and value.isidentifier()
                 ):
                     result[key] = value
+        if record.msg == "openui_render_issue":
+            # The browser endpoint supplies bounded, validated diagnostic fields.
+            issue = getattr(record, "openui_issue", None)
+            if isinstance(issue, dict):
+                result["openui"] = {
+                    key: issue[key]
+                    for key in (
+                        "library_version",
+                        "codes",
+                        "component_count",
+                        "unresolved_count",
+                        "orphaned_count",
+                    )
+                    if key in issue
+                }
         from .provider_diagnostics import clean
 
         result.update(clean(record.__dict__))

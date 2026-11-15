@@ -1659,7 +1659,7 @@ wheels = [
 
 [[package]]
 name = "theos"
-version = "1.5.0"
+version = "1.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
@@ -1685,6 +1685,7 @@ openai = [
 ]
 server = [
     { name = "anthropic" },
+    { name = "anyio" },
     { name = "boto3" },
     { name = "croniter" },
     { name = "cryptography" },
@@ -1702,9 +1703,11 @@ server = [
     { name = "pydantic-settings" },
     { name = "python-multipart" },
     { name = "uvicorn" },
+    { name = "zxcvbn" },
 ]
 terminal = [
     { name = "anthropic" },
+    { name = "anyio" },
     { name = "boto3" },
     { name = "croniter" },
     { name = "cryptography" },
@@ -1724,6 +1727,7 @@ terminal = [
     { name = "rich" },
     { name = "textual" },
     { name = "uvicorn" },
+    { name = "zxcvbn" },
 ]
 
 [package.dev-dependencies]
@@ -1740,6 +1744,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=1.7.0" },
     { name = "anthropic", marker = "extra == 'server'", specifier = ">=1.7.0" },
+    { name = "anyio", marker = "extra == 'server'", specifier = ">=4,<5" },
     { name = "boto3", marker = "extra == 'server'", specifier = ">=1.40,<2" },
     { name = "croniter", marker = "extra == 'server'", specifier = ">=6,<7" },
     { name = "cryptography", marker = "extra == 'server'", specifier = ">=46,<47" },
@@ -1769,6 +1774,7 @@ requires-dist = [
     { name = "textual", marker = "extra == 'terminal'", specifier = ">=0.50.0" },
     { name = "theos", extras = ["server"], marker = "extra == 'terminal'" },
     { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.34,<1" },
+    { name = "zxcvbn", marker = "extra == 'server'", specifier = ">=4.5,<5" },
 ]
 provides-extras = ["server", "openai", "anthropic", "gemini", "terminal", "client"]
 
@@ -1907,4 +1913,13 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/49/b2/b6987faf330f5af5c787a2610124c2e8403d51724f9001ec4fff6311fe7a/websockets-16.1.1-cp314-cp314t-win32.whl", hash = "sha256:8483c2096363120eea8b07c06ae7304d520f686665fffd4811fad423930a65d7", size = 179729, upload-time = "2026-07-17T22:50:53.269Z" },
     { url = "https://files.pythonhosted.org/packages/a2/6e/fbac6ed878dd362fbad7d415fa4f84d38e3e33fed8cde45c64e783acf826/websockets-16.1.1-cp314-cp314t-win_amd64.whl", hash = "sha256:bcce07e23e5769375158f5efdcdafa8d5cd014b93c6683865b840ed65b96f231", size = 180072, upload-time = "2026-07-17T22:50:54.969Z" },
     { url = "https://files.pythonhosted.org/packages/be/4d/2d0d67834092e354d2b0498f014a41249a89556bc406cf86f3e1557bb463/websockets-16.1.1-py3-none-any.whl", hash = "sha256:6abbd3e82c731c8e531714466acd5d87b5e88ac3243465337ba71d68e23ae7e3", size = 173814, upload-time = "2026-07-17T22:51:04.184Z" },
+]
+
+[[package]]
+name = "zxcvbn"
+version = "4.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/40/9366940b1484fd4e9423c8decbbf34a73bf52badb36281e082fe02b57aca/zxcvbn-4.5.0.tar.gz", hash = "sha256:70392c0fff39459d7f55d0211151401e79e76fcc6e2c22b61add62900359c7c1", size = 411249, upload-time = "2025-02-19T19:03:02.699Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/16/7410f8e714a109d43d17f4e27c8eabb351557653a9b570db1bd7dfdfd822/zxcvbn-4.5.0-py2.py3-none-any.whl", hash = "sha256:2b6eed621612ce6d65e6e4c7455b966acee87d0280e257956b1f06ccc66bd5ff", size = 409397, upload-time = "2025-02-19T19:03:00.521Z" },
 ]

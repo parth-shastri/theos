@@ -4,11 +4,13 @@ import hmac
 from ipaddress import ip_address
 from urllib.parse import urlsplit
 
+from anyio import CapacityLimiter, to_thread
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
-from theos.storage import browser_access
+from theos.services.preferences.tools import preferences
+from theos.storage import browser_access, browser_passwords
 from theos.transports.telegram.polling import Telegram
 
 SESSION_COOKIE = "theos-session"
@@ -18,6 +20,50 @@ PAIR_COOKIE = "theos-pairing"
 class TokenSignIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     token: SecretStr
+
+
+class PasswordSignIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    account: str = Field(min_length=1, max_length=256)
+    password: SecretStr
+
+
+class PasswordSetup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    password: SecretStr
+    confirmation: SecretStr
+
+
+async def password_body(request, model):
+    """Return a fixed error when parsing a request that contains a password."""
+    data = bytearray()
+    async for chunk in request.stream():
+        if len(data) + len(chunk) > 8192:
+            raise HTTPException(413, "The password request is too large.")
+        data.extend(chunk)
+    try:
+        return model.model_validate_json(data)
+    except ValidationError:
+        raise HTTPException(422, "Check the password form and try again.") from None
+
+
+def login_source(request, settings):
+    source = request.client.host if request.client else "local"
+    if settings.frontend_secret.get_secret_value() and request.headers.get("X-Theos-Client-IP"):
+        try:
+            source = str(ip_address(request.headers["X-Theos-Client-IP"]))
+        except ValueError:
+            pass
+    return source
+
+
+def require_login_limit(db, *sources):
+    if any(not browser_access.check_login_limit(db, source) for source in sources):
+        raise HTTPException(
+            429,
+            "Too many sign-in attempts. Try again in 15 minutes.",
+            headers={"Retry-After": "900"},
+        )
 
 
 def cookie_name(name, settings):
@@ -76,38 +122,111 @@ def clear_cookie(response, name, settings, path="/"):
 
 def register_auth(app, settings, current):
     """Register cookie sign-in without changing configured operator tokens."""
+    # Bound memory use on the Pi. Hash off the event loop so chat and polling can continue.
+    password_work = CapacityLimiter(1)
+
+    def signed_in(session):
+        response = JSONResponse({"signed_in": True})
+        set_cookie(response, SESSION_COOKIE, session, settings, browser_access.SESSION_SECONDS)
+        clear_cookie(response, PAIR_COOKIE, settings, "/api/onboarding")
+        return response
+
+    def password_account(request):
+        db = current(request).db
+        session = cookie_value(request, SESSION_COOKIE, settings)
+        owner = (
+            browser_access.credential_owner(settings, db, session, "session") if session else None
+        )
+        if not owner:
+            raise HTTPException(401, "Sign in to manage your password.")
+        return db, owner, session
 
     @app.post("/api/auth/login")
     async def login(body: TokenSignIn, request: Request):
         same_origin(request, settings)
         db = current(request).db
-        source = request.client.host if request.client else "local"
-        if settings.frontend_secret.get_secret_value() and request.headers.get("X-Theos-Client-IP"):
-            try:
-                source = str(ip_address(request.headers["X-Theos-Client-IP"]))
-            except ValueError:
-                pass
-        if not browser_access.check_login_limit(db, source):
-            raise HTTPException(
-                429,
-                "Too many sign-in attempts. Try again in 15 minutes.",
-                headers={"Retry-After": "900"},
-            )
+        source = login_source(request, settings)
+        require_login_limit(db, source)
         token = body.token.get_secret_value()
         owner = browser_access.token_owner(settings, db, token) if 32 <= len(token) <= 256 else None
         if not owner:
             browser_access.record_login_failure(db, source)
             raise HTTPException(401, "The access token is invalid or expired.")
         with db.transaction():
-            db.execute(
-                "DELETE FROM browser_credentials WHERE token_hash=? AND kind='session'",
-                (browser_access.fingerprint(cookie_value(request, SESSION_COOKIE, settings)),),
+            session = browser_access.replace_session(
+                settings, db, owner, cookie_value(request, SESSION_COOKIE, settings), token
             )
-            session = browser_access.issue_session(settings, db, owner, token)
-        response = JSONResponse({"signed_in": True})
-        set_cookie(response, SESSION_COOKIE, session, settings, browser_access.SESSION_SECONDS)
-        clear_cookie(response, PAIR_COOKIE, settings, "/api/onboarding")
-        return response
+        return signed_in(session)
+
+    @app.post("/api/auth/password/login")
+    async def password_login(request: Request):
+        same_origin(request, settings)
+        body = await password_body(request, PasswordSignIn)
+        db = current(request).db
+        owner = body.account
+        source = login_source(request, settings)
+        account = "password:" + owner
+        async with password_work:
+            require_login_limit(db, source, account)
+            row = browser_passwords.for_owner(settings, db, owner)
+            valid = await to_thread.run_sync(
+                browser_passwords.verify, body.password.get_secret_value(), row
+            )
+            if not valid or row != browser_passwords.for_owner(settings, db, owner):
+                browser_access.record_login_failure(db, source)
+                browser_access.record_login_failure(db, account)
+                raise HTTPException(401, "The account ID or password is incorrect.")
+            token = settings.users.get(owner)
+            with db.transaction():
+                session = browser_access.replace_session(
+                    settings,
+                    db,
+                    owner,
+                    cookie_value(request, SESSION_COOKIE, settings),
+                    token.get_secret_value() if token is not None else None,
+                    password_login=True,
+                )
+        return signed_in(session)
+
+    @app.get("/api/auth/password")
+    async def password_status(request: Request):
+        frontend_access(request, settings)
+        db, owner, _ = password_account(request)
+        return {"account": owner, "enabled": bool(browser_passwords.for_owner(settings, db, owner))}
+
+    @app.post("/api/auth/password")
+    async def save_password(request: Request):
+        same_origin(request, settings)
+        body = await password_body(request, PasswordSetup)
+        async with password_work:
+            db, owner, session = password_account(request)
+            profile = preferences(db, owner, settings.timezone)
+            salt, digest = await to_thread.run_sync(
+                browser_passwords.create,
+                body.password.get_secret_value(),
+                body.confirmation.get_secret_value(),
+                [
+                    owner,
+                    owner.removeprefix("telegram:"),
+                    settings.name,
+                    profile.get("display_name", ""),
+                ],
+            )
+            password_account(request)
+            with db.transaction():
+                browser_passwords.save(settings, db, owner, salt, digest)
+                browser_passwords.revoke_other_sessions(db, owner, session)
+        return {"account": owner, "enabled": True}
+
+    @app.delete("/api/auth/password")
+    async def remove_password(request: Request):
+        same_origin(request, settings)
+        async with password_work:
+            db, owner, session = password_account(request)
+            with db.transaction():
+                db.execute("DELETE FROM browser_passwords WHERE owner=?", (owner,))
+                browser_passwords.revoke_other_sessions(db, owner, session)
+        return {"account": owner, "enabled": False}
 
     @app.post("/api/onboarding/start")
     async def start(body: SignIn, request: Request):
@@ -119,7 +238,12 @@ def register_auth(app, settings, current):
         try:
             await Telegram(runtime).send(
                 int(row["owner"][9:]),
-                f"A browser wants to open your Theos account. Code: {row['code']}\n"
+                (
+                    "A browser wants to manage your Theos password."
+                    if row["password_setup"]
+                    else "A browser wants to open your Theos account."
+                )
+                + f" Code: {row['code']}\n"
                 "Approve only if this code matches the browser you just opened. Otherwise, select Deny.",
                 markup={
                     "inline_keyboard": [
@@ -169,12 +293,10 @@ def register_auth(app, settings, current):
         same_origin(request, settings)
         db = current(request).db
         owner, token, session = browser_access.complete(
-            settings, db, cookie_value(request, PAIR_COOKIE, settings)
-        )
-        # Replace this browser's old session when switching accounts.
-        db.execute(
-            "DELETE FROM browser_credentials WHERE token_hash=? AND kind='session'",
-            (browser_access.fingerprint(cookie_value(request, SESSION_COOKIE, settings)),),
+            settings,
+            db,
+            cookie_value(request, PAIR_COOKIE, settings),
+            previous=cookie_value(request, SESSION_COOKIE, settings),
         )
         response = JSONResponse({"id": owner, "token": token})
         set_cookie(response, SESSION_COOKIE, session, settings, browser_access.SESSION_SECONDS)

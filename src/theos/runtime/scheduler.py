@@ -37,7 +37,7 @@ class Scheduler:
             occurrence = row["id"] + ":" + str(row["due"])
             with self.db.transaction():
                 self.db.execute(
-                    "INSERT OR IGNORE INTO notifications VALUES (?,?,?,?,?,0)",
+                    "INSERT OR IGNORE INTO notifications(id,owner,session,text,created,delivered) VALUES (?,?,?,?,?,0)",
                     (occurrence, row["owner"], row["session"], row["text"], now),
                 )
                 # Advance from now, rather than sending a backlog after downtime.

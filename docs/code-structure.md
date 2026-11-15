@@ -39,6 +39,7 @@ All source paths below start at `src/theos`.
 | Browser API | Authenticate owners and serve activity, administrator aggregates, uploads, streamed replies, OpenUI actions, and saved interface state | `transports/browser/app.py`, `transports/browser/openui.py`, `transports/browser/activity.py` |
 | Next.js frontend | Render React workspace components and validated OpenUI answers, reduce streamed events, and forward private API requests | Repository root `web/src/app/`, `web/src/components/`, `web/src/openui/`, `web/src/state/`, `web/src/hooks/`, `web/src/server/` |
 | Browser enrollment | Confirm Telegram-owned browser sign-in, issue hashed credentials, and revoke generated access | `storage/browser_access.py`, `transports/browser/auth.py`, `transports/telegram/web_access.py` |
+| Browser password | Check strength, store salted hashes, and bind password sign-in to the existing owner | `storage/browser_passwords.py`, `transports/browser/auth.py` |
 | Terminal | Run `theos` as a deployed workspace client or standalone runtime, with a generic renderer | `transports/terminal/cli.py`, `remote.py`, `routes.py`, `wire.py`, `session.py`, `app.py`, `screens.py` |
 | Operations | Redact logs, export OTel spans, and make consistent backups | `operations/logging.py`, `operations/tracing.py`, `backup.py` |
 
@@ -111,6 +112,7 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
 `transports/browser/github_events.py` receives signed GitHub webhooks and manages private notification settings.
 `services/github/events.py` selects attention events. `notifications.py` owns routing, access checks, queue retention, and delivery status.
+The browser inbox uses `transports/browser/notifications.py` to count, dismiss, and restore alerts for the signed-in owner.
 The Next.js webhook route forwards exact bytes without browser credentials. The scheduler runs the independent GitHub worker.
 `services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
 It reports configuration status without exposing credentials.

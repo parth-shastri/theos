@@ -126,3 +126,76 @@ async def test_trusted_frontend_client_addresses_have_separate_login_limits(runt
         assert (await client.post("/api/auth/login", json={"token": "a" * 32})).status_code == 429
         client.headers["X-Theos-Client-IP"] = "203.0.113.11"
         assert (await client.post("/api/auth/login", json={"token": "a" * 32})).status_code == 200
+
+
+async def test_optional_password_lifecycle_and_cookie_only_management(runtime):
+    path = "/api/auth/password"
+    password = "  orchid spanner midnight comet  "
+    login = {"account": "alice", "password": password}
+    async with browser(runtime) as first, browser(runtime) as second:
+        assert (
+            await first.get(path, headers={"Authorization": "Bearer " + "a" * 32})
+        ).status_code == 401
+        assert (await first.post("/api/auth/login", json={"token": "a" * 32})).status_code == 200
+        assert (await first.get(path)).json() == {"account": "alice", "enabled": False}
+        for value in ("too short", "passwordpassword", "123456789012345"):
+            rejected = await first.post(path, json={"password": value, "confirmation": value})
+            assert rejected.status_code == 400
+            assert value not in rejected.text
+        assert (await first.post(path, json={"password": password})).status_code == 422
+        assert password not in (await first.post(path, content=f'{{"password":"{password}"')).text
+        assert (
+            await first.post(path, json={"password": password, "confirmation": "different"})
+        ).status_code == 400
+        assert (
+            await first.post(
+                path,
+                json={"password": password, "confirmation": password},
+                headers={"Origin": "https://wrong.test"},
+            )
+        ).status_code == 403
+        assert (
+            await first.post(path, json={"password": password, "confirmation": password})
+        ).json()["enabled"]
+        assert password not in repr(runtime.db.rows("SELECT * FROM browser_passwords"))
+        for rejected in ({**login, "account": "bob"}, {**login, "password": password.strip()}):
+            result = await second.post(path + "/login", json=rejected)
+            assert result.status_code == 401
+            assert result.json()["detail"] == "The account ID or password is incorrect."
+        result = await second.post(path + "/login", json=login)
+        assert result.status_code == 200
+        assert "HttpOnly" in result.headers["set-cookie"]
+        assert (await second.get("/api/me")).json()["id"] == "alice"
+        assert (await second.get("/api/dashboard")).status_code == 200
+        replacement = "rainfall lantern compass reef"
+        assert (
+            await first.post(path, json={"password": replacement, "confirmation": replacement})
+        ).status_code == 200
+        assert (await second.get("/api/me")).status_code == 401
+        assert (await second.post(path + "/login", json=login)).status_code == 401
+        assert (
+            await second.post(path + "/login", json={**login, "password": replacement})
+        ).status_code == 200
+        runtime.settings.users["alice"] = SecretStr("c" * 32)
+        assert (await second.get("/api/me")).status_code == 401
+        assert (
+            await second.post(path + "/login", json={**login, "password": replacement})
+        ).status_code == 401
+        assert (await first.post("/api/auth/login", json={"token": "c" * 32})).status_code == 200
+        assert (await first.delete(path)).json() == {"account": "alice", "enabled": False}
+        assert (await first.get("/api/me")).status_code == 200
+
+
+async def test_password_failures_are_limited_by_account_across_addresses(runtime):
+    path = "/api/auth/password/login"
+    runtime.settings.frontend_secret = SecretStr("s" * 32)
+    async with browser(runtime) as client:
+        client.headers["X-Theos-Frontend-Secret"] = "s" * 32
+        body = {"account": "alice", "password": "short"}
+        for address in range(1, 21):
+            client.headers["X-Theos-Client-IP"] = f"203.0.113.{address}"
+            assert (await client.post(path, json=body)).status_code == 401
+        client.headers["X-Theos-Client-IP"] = "203.0.113.21"
+        blocked = await client.post(path, json=body)
+        assert blocked.status_code == 429 and blocked.headers["retry-after"] == "900"
+        assert (await client.post("/api/auth/login", json={"token": "a" * 32})).status_code == 200

@@ -1,4 +1,6 @@
 import "./globals.css";
+import "./focus.css";
+import "../openui/rich-cards.css";
 import { headers } from "next/headers";
 
 export const viewport = {

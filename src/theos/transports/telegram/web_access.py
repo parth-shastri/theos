@@ -3,7 +3,7 @@
 from theos.storage import browser_access
 
 
-async def send_link(bot, owner, chat, topic):
+async def send_link(bot, owner, chat, topic, *, password=False):
     """Send a short-lived fragment link after private onboarding completes."""
     if not bot.settings.web_url:
         await bot.send(
@@ -12,10 +12,15 @@ async def send_link(bot, owner, chat, topic):
         return
     # Create an owner-bound, expiring invitation. The browser must bring it back to Telegram
     # for confirmation before it can issue a browser session.
-    secret = browser_access.invite(bot.settings, bot.db, owner)
+    secret = browser_access.invite(bot.settings, bot.db, owner, password_setup=password)
+    purpose = (
+        "Open Theos to set, change, or remove your optional browser password."
+        if password
+        else "Open your chat UI and personal usage view."
+    )
     await bot.send(
         chat,
-        "Open your chat UI and personal usage view. This link expires in 10 minutes.\n"
+        f"{purpose} This link expires in 10 minutes.\n"
         "Confirm the matching browser code here before signing in.",
         topic,
         {
@@ -51,6 +56,18 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
     # has one stable spelling in both private and group chats.
     command, _, argument = message.get("text", "").strip().partition(" ")
     command = command.split("@")[0]
+    if command == "/password" or message.get("_theos_password_argument"):
+        if channel != "telegram-private":
+            await bot.send(
+                chat, "Manage your browser password from your private Telegram chat.", topic
+            )
+        elif message.get("_theos_password_argument"):
+            await bot.send(
+                chat, "Enter your password in the browser. Send /password for a link.", topic
+            )
+        else:
+            await send_link(bot, owner, chat, topic, password=True)
+        return True
     if command == "/start" and channel == "telegram-private" and bot.settings.web_url:
         # Send browser guidance but return False: the regular /start command may still
         # need to run after this optional web-access side effect.
@@ -66,7 +83,7 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
         browser_access.revoke(bot.db, owner)
         await bot.send(
             chat,
-            "Your web tokens and device sessions are revoked. Send /web for a new sign-in link.",
+            "Your web tokens, password, and device sessions are revoked. Send /web for a new sign-in link.",
             topic,
         )
     elif argument.strip():

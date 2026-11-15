@@ -2,6 +2,7 @@
 
 import { createParser, Renderer } from "@openuidev/react-lang";
 import {
+  Component,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -17,6 +18,29 @@ import {
 } from "../openui/library";
 import { SelectPicker } from "./Primitives";
 import OpenUIDatePicker from "./OpenUIDatePicker";
+
+const ISSUE_CODES = new Set([
+  "unknown-component",
+  "missing-required",
+  "null-required",
+  "type-mismatch",
+  "excess-args",
+  "inline-reserved",
+  "unknown-function",
+  "no-root",
+  "tool-not-found",
+  "tool-error",
+  "mcp-error",
+  "parse-failed",
+  "parse-exception",
+  "runtime-error",
+  "render-error",
+  "library-version-mismatch",
+  "incomplete",
+  "unresolved",
+  "orphaned",
+  "missing-summary",
+]);
 
 const STATE_FIELDS = new Set([
   "reminder_text",
@@ -51,8 +75,20 @@ function parseSummary(result) {
     .slice(0, 16);
   const unresolved = result?.meta?.unresolved || [];
   const orphaned = result?.meta?.orphaned || [];
+  const root = result?.root;
+  const node = root?.props?.summary;
+  const text = node?.props?.text;
+  const summary =
+    root?.typeName === "TheosAnswer" &&
+    node?.typeName === "AnswerSummary" &&
+    !node.partial &&
+    !node.hasDynamicProps &&
+    typeof text === "string"
+      ? text.trim().slice(0, 4000)
+      : "";
   return {
-    root: result?.root?.typeName || null,
+    root: root?.typeName || null,
+    summary,
     incomplete: Boolean(result?.meta?.incomplete),
     errors,
     unresolvedCount: Math.min(unresolved.length, 100),
@@ -123,14 +159,6 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
     reportOpenUIIssue,
     showError,
   } = useWorkspace();
-  const [parsed, setParsed] = useState({
-    root: null,
-    errors: [],
-    incomplete: false,
-    unresolvedCount: 0,
-    orphanedCount: 0,
-    componentCount: 0,
-  });
   const [rendererErrors, setRendererErrors] = useState([]);
   const [summary, setSummary] = useState(entry.openuiSummary || "");
   const [draftState, setDraftState] = useState(entry.openuiState || {});
@@ -141,7 +169,7 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
   const streaming = Boolean(entry.streaming);
   const versionMatches = OPENUI_COMPATIBLE_VERSIONS.has(entry.libraryVersion);
   const parseStatus = useMemo(() => {
-    if (streaming) return parsed;
+    if (streaming) return null;
     try {
       return parseSummary(
         createParser(openuiLibrary.toJSONSchema(), openuiLibrary.root).parse(
@@ -151,6 +179,7 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
     } catch {
       return {
         root: null,
+        summary: "",
         incomplete: true,
         errors: ["parse-exception"],
         unresolvedCount: 0,
@@ -158,26 +187,17 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
         componentCount: 0,
       };
     }
-  }, [streaming, parsed, entry.text]);
-  const accepted = useMemo(
-    () =>
-      !streaming &&
-      versionMatches &&
-      entry.openuiMessageId &&
-      parseStatus.root === "TheosAnswer" &&
-      !parseStatus.incomplete &&
-      parseStatus.errors.length === 0 &&
-      rendererErrors.length === 0 &&
-      parseStatus.unresolvedCount === 0 &&
-      parseStatus.orphanedCount === 0,
-    [
-      streaming,
-      versionMatches,
-      entry.openuiMessageId,
-      parseStatus,
-      rendererErrors.length,
-    ],
-  );
+  }, [streaming, entry.text]);
+  const accepted =
+    !streaming &&
+    versionMatches &&
+    Boolean(entry.openuiMessageId && parseStatus.summary) &&
+    !parseStatus.incomplete &&
+    parseStatus.errors.length === 0 &&
+    rendererErrors.length === 0 &&
+    parseStatus.unresolvedCount === 0 &&
+    parseStatus.orphanedCount === 0;
+  const fallbackSummary = parseStatus?.summary || entry.openuiSummary || "";
   const busy = chat.busy || chat.approvals.length > 0 || actionPending;
 
   // Reset before child effects publish the rendered summary and form defaults.
@@ -196,16 +216,11 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
     [],
   );
 
-  const onParseResult = useCallback((result) => {
-    const next = parseSummary(result);
-    setParsed((current) =>
-      JSON.stringify(current) === JSON.stringify(next) ? current : next,
-    );
-  }, []);
   const onRendererError = useCallback(
     (errors) => {
       if (streaming) return;
       const codes = (errors || [])
+        .filter((error) => error.severity !== "warning")
         .map((error) => error.code)
         .filter((code) => typeof code === "string")
         .slice(0, 16);
@@ -226,14 +241,22 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
   }, []);
 
   useEffect(() => {
-    if (streaming || !accepted || !entry.openuiMessageId || !sessionId) return;
+    if (
+      streaming ||
+      entry.presentationHidden ||
+      !entry.openuiMessageId ||
+      !sessionId
+    )
+      return;
+    const text = accepted ? summary || fallbackSummary : fallbackSummary;
+    if (!accepted && (!text || text === entry.openuiSummary)) return;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       saveOpenUIState(
         sessionId,
         entry.openuiMessageId,
-        draftState,
-        summary,
+        accepted ? draftState : entry.openuiState || {},
+        text,
       ).catch(() => {});
     }, 400);
     return () => {
@@ -243,24 +266,48 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
     streaming,
     accepted,
     entry.openuiMessageId,
+    entry.openuiState,
+    entry.openuiSummary,
+    entry.presentationHidden,
     sessionId,
+    fallbackSummary,
     draftState,
     summary,
     saveOpenUIState,
   ]);
 
   useEffect(() => {
-    if (streaming || reported.current || accepted || !entry.openuiMessageId)
+    if (
+      streaming ||
+      reported.current ||
+      accepted ||
+      entry.presentationHidden ||
+      !entry.openuiMessageId
+    )
       return;
     reported.current = true;
+    const codes = [
+      ...new Set([
+        ...parseStatus.errors,
+        ...rendererErrors,
+        ...(!versionMatches ? ["library-version-mismatch"] : []),
+        ...(parseStatus.incomplete ? ["incomplete"] : []),
+        ...(parseStatus.unresolvedCount ? ["unresolved"] : []),
+        ...(parseStatus.orphanedCount ? ["orphaned"] : []),
+        ...(parseStatus.root === "TheosAnswer" && !parseStatus.summary
+          ? ["missing-summary"]
+          : []),
+      ]),
+    ];
     reportOpenUIIssue({
       library_version: entry.libraryVersion || "unknown",
-      codes:
-        !versionMatches && parseStatus.errors.length === 0
-          ? ["library-version-mismatch"]
-          : [...new Set([...parseStatus.errors, ...rendererErrors])].length
-            ? [...new Set([...parseStatus.errors, ...rendererErrors])]
-            : ["parse-failed"],
+      codes: codes.length
+        ? [
+            ...new Set(
+              codes.map((code) => (ISSUE_CODES.has(code) ? code : "other")),
+            ),
+          ].slice(0, 16)
+        : ["parse-failed"],
       component_count: parseStatus.componentCount,
       unresolved_count: parseStatus.unresolvedCount,
       orphaned_count: parseStatus.orphanedCount,
@@ -270,6 +317,7 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
     accepted,
     entry.openuiMessageId,
     entry.libraryVersion,
+    entry.presentationHidden,
     versionMatches,
     parseStatus,
     rendererErrors,
@@ -336,7 +384,14 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
   if (!streaming && !accepted) {
     return (
       <div className="body openui-fallback">
-        <p>This interactive answer could not be displayed.</p>
+        {fallbackSummary && (
+          <p className="openui-answer-summary">{fallbackSummary}</p>
+        )}
+        <p>
+          {fallbackSummary
+            ? "The interactive details could not be displayed."
+            : "This interactive answer could not be displayed."}
+        </p>
         {entry.openuiMessageId && (
           <button
             className="secondary"
@@ -347,24 +402,31 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
             Explain in text
           </button>
         )}
+        {fallbackSummary && renderSpeech?.(fallbackSummary)}
       </div>
     );
   }
 
   return (
     <div className="body openui-answer-body">
-      <OpenUIAnswerContext.Provider value={context}>
-        <Renderer
-          response={entry.text}
-          library={openuiLibrary}
-          isStreaming={streaming}
-          initialState={entry.openuiState || {}}
-          onAction={action}
-          onStateUpdate={onStateUpdate}
-          onParseResult={onParseResult}
-          onError={onRendererError}
-        />
-      </OpenUIAnswerContext.Provider>
+      {versionMatches && (
+        <OpenUIAnswerContext.Provider value={context}>
+          <OpenUIRenderBoundary
+            key={entry.openuiMessageId}
+            onFailure={() => setRendererErrors(["render-error"])}
+          >
+            <Renderer
+              response={entry.text}
+              library={openuiLibrary}
+              isStreaming={streaming}
+              initialState={entry.openuiState || {}}
+              onAction={action}
+              onStateUpdate={onStateUpdate}
+              onError={onRendererError}
+            />
+          </OpenUIRenderBoundary>
+        </OpenUIAnswerContext.Provider>
+      )}
       {streaming && (
         <div className="openui-pending" aria-live="polite">
           Preparing an interactive answer…
@@ -373,4 +435,20 @@ export default function OpenUIAnswer({ entry, sessionId, renderSpeech }) {
       {!streaming && summary && renderSpeech?.(summary)}
     </div>
   );
+}
+
+class OpenUIRenderBoundary extends Component {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    this.props.onFailure();
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }

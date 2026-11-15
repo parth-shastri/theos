@@ -27,11 +27,11 @@ export function WorkspaceProvider({ agentName, children }) {
   const [working, setWorking] = useState(false);
   const [view, setView] = useState("chat-view");
   const [dialog, setDialog] = useState(null);
-  const [notifications, setNotifications] = useState([]);
   const [connections, setConnections] = useState(null);
   const [theme, setTheme] = useState(null);
   const [mobile, setMobile] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [workspacePanel, setWorkspacePanel] = useState(null);
   const [panelHeadingHost, setPanelHeadingHost] = useState(null);
   const [desktopPanelHeadingHost, setDesktopPanelHeadingHost] = useState(null);
   const [draftRequest, setDraftRequest] = useState(null);
@@ -90,6 +90,8 @@ export function WorkspaceProvider({ agentName, children }) {
         accountLifetime.current = new AbortController();
         selectionRequest.current++;
         setMe(null);
+        setSidebarOpen(false);
+        setWorkspacePanel(null);
         setDialog(null);
         setSessions([]);
         dispatch({
@@ -119,6 +121,7 @@ export function WorkspaceProvider({ agentName, children }) {
   const navigate = useCallback((next) => {
     setView(next);
     if (current.current.mobile) setSidebarOpen(false);
+    setWorkspacePanel(null);
   }, []);
   const editDraft = useCallback(
     (text, suggest = false) => {
@@ -208,21 +211,26 @@ export function WorkspaceProvider({ agentName, children }) {
     await refreshConnections();
     navigate("chat-view");
   };
-  const signIn = async (token) => {
+  const signIn = async (credentials, passwordAction) => {
     setSigningIn(true);
     setLoginError("");
     try {
-      await json("/api/auth/login", {
-        method: "POST",
-        body: { token: token.trim() },
-      });
-      await login();
+      await json(
+        "account" in credentials
+          ? "/api/auth/password/login"
+          : "/api/auth/login",
+        { method: "POST", body: credentials },
+      );
+      if (passwordAction) {
+        setOnboarding({ passwordAction, status: "Access token verified." });
+      } else await login();
     } catch (error) {
       if (error.name !== "AbortError") setLoginError(error.message);
     } finally {
       setSigningIn(false);
     }
   };
+  const clearLoginError = () => setLoginError("");
   const signOut = () =>
     perform(async () => {
       await json("/api/auth/logout", { method: "POST" });
@@ -230,6 +238,8 @@ export function WorkspaceProvider({ agentName, children }) {
       accountLifetime.current = new AbortController();
       selectionRequest.current++;
       setMe(null);
+      setSidebarOpen(false);
+      setWorkspacePanel(null);
       setSessions([]);
       setDialog(null);
       setOnboarding(null);
@@ -414,6 +424,7 @@ export function WorkspaceProvider({ agentName, children }) {
     )
       return;
     if (current.current.mobile) setSidebarOpen(false);
+    setWorkspacePanel(null);
     setDialog({ kind, section, request: ++dialogRequest.current });
   };
   const closeDialog = useCallback(() => {
@@ -500,7 +511,8 @@ export function WorkspaceProvider({ agentName, children }) {
     const media = matchMedia("(max-width: 700px)");
     const resize = () => {
       setMobile(media.matches);
-      setSidebarOpen(!media.matches);
+      setSidebarOpen(false);
+      setWorkspacePanel(null);
     };
     resize();
     media.addEventListener("change", resize);
@@ -518,6 +530,7 @@ export function WorkspaceProvider({ agentName, children }) {
         });
         sessionStorage.removeItem("theos-pending-signin");
         setOnboarding({
+          account: access.id,
           token: access.token,
           status: "Telegram confirmed this browser.",
         });
@@ -590,17 +603,6 @@ export function WorkspaceProvider({ agentName, children }) {
       window.close();
     }
   }, [me, connections]);
-  useEffect(() => {
-    if (!me) return;
-    const timer = setInterval(
-      () =>
-        json("/api/notifications")
-          .then((items) => setNotifications(items.slice(0, 3)))
-          .catch(() => {}),
-      15000,
-    );
-    return () => clearInterval(timer);
-  }, [json, me]);
   const toggleTheme = () =>
     setTheme((value) => {
       const next = value === "dark" ? "light" : "dark";
@@ -648,13 +650,14 @@ export function WorkspaceProvider({ agentName, children }) {
         mobile,
         sidebarOpen,
         setSidebarOpen,
+        workspacePanel,
+        setWorkspacePanel,
         theme: theme ?? "light",
         brand:
           theme === "dark" ? "/static/brand.png" : "/static/brand-light.png",
         toggleTheme,
         draftRequest,
         editDraft,
-        notifications,
         autoPlay,
         api,
         json,
@@ -677,6 +680,7 @@ export function WorkspaceProvider({ agentName, children }) {
         patchSettings,
         runCommand,
         loginError,
+        clearLoginError,
         signingIn,
         signIn,
         signOut,
