@@ -95,3 +95,81 @@ test("the Focus inbox keeps alerts out of the conversation", async ({
   await expect(transcript).toBeVisible();
   await expect(draft).toHaveValue("Keep this draft");
 });
+
+test("the Focus sidebar toggles, switches theme, and opens a glass account menu", async ({
+  page,
+}, info) => {
+  const initialTheme = info.project.use.colorScheme;
+  const nextTheme = initialTheme === "dark" ? "light" : "dark";
+  await page.goto("/");
+  await page.locator("#token").fill(token);
+  await page.locator("#login-form button[type=submit]").click();
+  await expect(page.locator("#conversation-cost")).toContainText(
+    "Conversation cost:",
+  );
+  const mobile = page.viewportSize().width <= 700;
+  const sidebar = page.locator("#sidebar");
+  const toggle = page.locator("#toggle-sidebar");
+  const account = page.locator("#account-menu");
+  const draft = page.locator("#message");
+  const chat = page.getByRole("log", { name: "Conversation" });
+  const original = await chat.boundingBox();
+
+  await expect(sidebar).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await draft.fill("Keep this draft while the sidebar changes");
+  await toggle.click();
+  await expect(sidebar).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(sidebar).toHaveClass(/glass-surface/);
+  await expect(sidebar.locator(":scope > .glass-optics")).toBeVisible();
+
+  if (!mobile) {
+    const expanded = await chat.boundingBox();
+    const docked = await sidebar.boundingBox();
+    expect(expanded.width).toBeLessThan(original.width);
+    expect(expanded.x).toBeGreaterThanOrEqual(docked.x + docked.width - 1);
+    await draft.click();
+    await expect(sidebar).toBeVisible();
+    await page.getByRole("button", { name: /^Notifications/ }).click();
+    await expect(sidebar).toBeVisible();
+    await page.getByRole("button", { name: "Close notifications" }).click();
+    await expect(sidebar).toBeVisible();
+  } else {
+    await expect(page.locator("main")).toHaveAttribute("inert", "");
+    const drawer = await sidebar.boundingBox();
+    expect(drawer.x).toBeGreaterThanOrEqual(0);
+    expect(drawer.width).toBeGreaterThan(200);
+    expect(drawer.x + drawer.width).toBeLessThanOrEqual(
+      page.viewportSize().width,
+    );
+  }
+
+  await sidebar
+    .getByRole("button", { name: `Switch to ${nextTheme} mode` })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", nextTheme);
+  await expect(sidebar).toBeVisible();
+
+  await page.locator("#account-button").click();
+  await expect(account).toBeVisible();
+  await expect(account).toHaveClass(/glass-surface/);
+  await expect(account.locator(":scope > .glass-optics")).toBeVisible();
+  await page.getByRole("button", { name: "Close account" }).click();
+  await expect(account).toBeHidden();
+  await expect(sidebar).toBeVisible();
+  await expect(page.locator("#account-button")).toBeFocused();
+
+  if (mobile)
+    await sidebar
+      .getByRole("button", { name: "Close recent conversations" })
+      .click();
+  else await toggle.click();
+  await expect(sidebar).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(draft).toHaveValue("Keep this draft while the sidebar changes");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", nextTheme);
+  await expect(toggle).toBeVisible();
+  await expect(sidebar).toBeHidden();
+});

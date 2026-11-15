@@ -1,6 +1,12 @@
 # Theos project memory
 
-Updated: 2026-11-14.
+Updated: 2026-11-15.
+
+## Focus sidebar and menus, 2026-11-15
+
+Start with the conversation sidebar closed. Dock it beside chat on desktop and open it as a drawer on mobile.
+Keep the desktop sidebar open when the user selects a conversation. Close the mobile drawer after selection.
+Put the theme toggle in the sidebar. Use the shared liquid glass surface for the sidebar and account menu.
 
 ## Browser Focus layout, 2026-11-14
 
