@@ -828,9 +828,15 @@ test("rich cards render from OpenUI and update locally", async ({
   );
 
   const diagram = page.locator(".openui-process-card");
-  await diagram.getByRole("button", { name: "Connect HTTPS" }).press("Enter");
-  await expect(diagram.locator(".openui-card-detail")).toContainText(
+  await expect(
+    diagram.locator(".openui-process-preview").first(),
+  ).toContainText("DNS finds the server address");
+  await diagram.getByRole("button", { name: /Connect HTTPS/ }).press("Enter");
+  await expect(diagram.locator(".openui-process-inspection")).toContainText(
     "opens a secure connection",
+  );
+  await expect(diagram.locator(".openui-process-inspection-index")).toHaveText(
+    "Step 02 / 03",
   );
 
   const lever = page.locator(".openui-lever-card");

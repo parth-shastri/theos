@@ -1,5 +1,16 @@
 # Feature and acceptance checklist
 
+## Richer process diagrams, 2026-11-15
+
+Each stage now shows its number and a short description in the flow.
+The selected stage shows the full description below the flow.
+Certificate, key, signing, and verification icons use local SVG paths.
+Saved answers with a repeated connection icon can use stage text to select a clearer icon.
+The flow stacks in narrow containers. The saved answer format and schema version stay unchanged.
+The generated prompt check, 31 frontend unit checks, and seven focused runtime checks passed.
+The production frontend build compiled. Static Chromium previews passed visual review at desktop and mobile widths.
+Browser interaction checks and deployment remain open.
+
 ## Intelligent UI wording, 2026-11-15
 
 Browser reasoning summaries now use intelligent UI for the presentation name.

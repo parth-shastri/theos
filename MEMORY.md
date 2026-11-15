@@ -2,6 +2,14 @@
 
 Updated: 2026-11-15.
 
+## Process diagram presentation, 2026-11-15
+
+Show each process stage with a short explanation, a stage number, and a useful icon when the role is clear.
+Use certificate, key, signature, and verification icons for those roles.
+Use stage labels and descriptions to improve generic icons in saved answers.
+Keep the full selected description available and make the flow vertical in narrow containers.
+Keep saved answer formats and stage data unchanged.
+
 ## Intelligent UI wording, 2026-11-15
 
 Call the browser answer presentation intelligent UI in user-visible reasoning summaries.
