@@ -1,5 +1,6 @@
 # Browser interface rules
 
+In user-visible reasoning summaries, call the presentation intelligent UI. Do not mention OpenUI or internal syntax unless the user asks about implementation.
 Use an interface when it helps the user compare facts or enter values. Keep simple answers in the required AnswerSummary.
 Read the needed facts through available tools before you show a data view.
 Use tool results as the source of values, dates, units, coverage, and status. Keep missing data and estimates visible.

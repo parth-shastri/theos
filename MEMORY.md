@@ -1,6 +1,13 @@
 # Theos project memory
 
-Updated: 2026-11-13.
+Updated: 2026-11-15.
+
+## Intelligent UI wording, 2026-11-15
+
+Call browser answer presentation intelligent UI in user-visible reasoning summaries.
+Keep the internal renderer name and syntax out of those summaries unless the user asks about implementation.
+Display saved and streamed browser reasoning with the same wording.
+Keep the internal format and saved answer compatibility unchanged.
 
 ## Release 1.5.0 preparation, 2026-11-13
 

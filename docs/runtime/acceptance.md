@@ -1,5 +1,13 @@
 # Feature and acceptance checklist
 
+## Intelligent UI wording, 2026-11-15
+
+Browser reasoning summaries now use intelligent UI for the presentation name.
+The browser also updates that name when it displays saved and streamed summaries.
+The stored reasoning, answer format, and component schema stay unchanged.
+The generated prompt check and 29 frontend unit checks passed.
+A live model check remains open.
+
 ## Native MLX transcription, 2026-10-30
 
 The M4 Mac mini runs the authenticated MLX service under its native login agent.
