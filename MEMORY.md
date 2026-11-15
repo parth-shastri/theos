@@ -2,6 +2,15 @@
 
 Updated: 2026-11-15.
 
+## Release 1.5.2 preparation, 2026-11-15
+
+The operator requested a Pi patch and promotion of the current `dev` changes to `main` and `rpi`.
+Use separate merge-commit PRs for the two destinations after the release topic PR passes CI.
+Publish `rpi-v1.5.2` from the promoted `rpi` tip.
+Migration 018 adds browser notification dismissal fields and an owner index.
+The release requires no new private configuration value.
+Verify the tagged workflow, both service health checks, and the active Pi manifest.
+
 ## Process diagram presentation, 2026-11-15
 
 Show each process stage with a short explanation, a stage number, and a useful icon when the role is clear.
