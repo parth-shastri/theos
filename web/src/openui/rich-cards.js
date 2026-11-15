@@ -1,5 +1,6 @@
 import { createElement as h, useId, useState } from "react";
 import { Icon } from "../components/Icon.js";
+import { cardIcons, processStepIcon } from "./process-icons.js";
 import {
   chartData,
   chartScale,
@@ -8,27 +9,7 @@ import {
 } from "./chart-data.js";
 import { DonutRing, ExactValues } from "./visuals.js";
 
-export const cardIcons = [
-  "activity",
-  "timer",
-  "calendar",
-  "branch",
-  "wallet",
-  "weather",
-  "skills",
-  "globe",
-  "lock",
-  "window",
-  "scale",
-  "connection",
-  "storage",
-  "sandbox",
-  "check",
-  "alert",
-  "chat",
-  "users",
-  "search",
-];
+export { cardIcons };
 
 export function CardHeader({ title, icon, context }) {
   return h("header", { className: "openui-card-heading" }, [
@@ -381,11 +362,19 @@ export function ProcessDiagram({ title, steps = [] }) {
     .map((node) => node?.props ?? node)
     .filter((step) => step?.label && step?.description);
   const active = Math.min(selection, items.length - 1);
+  const position = (index) => String(index + 1).padStart(2, "0");
   return h(
     "section",
     { className: "openui-visual openui-rich-card openui-process-card" },
     [
-      h(CardHeader, { key: "heading", title, icon: "skills" }),
+      h("div", { className: "openui-process-heading", key: "heading" }, [
+        h(CardHeader, { key: "title", title, icon: "branch" }),
+        h(
+          "span",
+          { className: "openui-process-count", key: "count" },
+          items.length + (items.length === 1 ? " stage" : " stages"),
+        ),
+      ]),
       items.length
         ? [
             h(
@@ -394,6 +383,7 @@ export function ProcessDiagram({ title, steps = [] }) {
                 className: "openui-process-flow",
                 key: "flow",
                 "aria-label": title + " steps",
+                style: { "--step-count": Math.min(items.length, 3) },
               },
               items.map((step, i) =>
                 h(
@@ -408,33 +398,72 @@ export function ProcessDiagram({ title, steps = [] }) {
                       onClick: () => setSelection(i),
                     },
                     [
-                      h(Icon, {
-                        name: cardIcons.includes(step.icon)
-                          ? step.icon
-                          : "connection",
-                        key: "icon",
-                      }),
-                      h("strong", { key: "label" }, step.label),
-                      step.caption
-                        ? h("span", { key: "caption" }, step.caption)
-                        : null,
+                      h(
+                        "span",
+                        { className: "openui-process-marker", key: "marker" },
+                        processStepIcon(step)
+                          ? h(Icon, { name: processStepIcon(step) })
+                          : position(i),
+                      ),
+                      h(
+                        "span",
+                        { className: "openui-process-copy", key: "copy" },
+                        [
+                          h(
+                            "span",
+                            { className: "openui-process-index", key: "index" },
+                            "Step " + position(i),
+                          ),
+                          h("strong", { key: "label" }, step.label),
+                          step.caption
+                            ? h(
+                                "span",
+                                {
+                                  className: "openui-process-caption",
+                                  key: "caption",
+                                },
+                                step.caption,
+                              )
+                            : null,
+                        ],
+                      ),
+                      h(
+                        "span",
+                        {
+                          className: "openui-process-preview",
+                          "aria-hidden": true,
+                          key: "preview",
+                        },
+                        step.description,
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
             h(
-              "p",
+              "div",
               {
-                className: "openui-card-detail",
+                className: "openui-process-inspection",
                 id: detailId,
                 "aria-live": "polite",
                 "aria-atomic": true,
                 key: "detail",
               },
               [
+                h(
+                  "span",
+                  {
+                    className: "openui-process-inspection-index",
+                    key: "index",
+                  },
+                  "Step " +
+                    position(active) +
+                    " / " +
+                    String(items.length).padStart(2, "0"),
+                ),
                 h("strong", { key: "label" }, items[active].label),
-                " · " + items[active].description,
+                h("p", { key: "description" }, items[active].description),
               ],
             ),
           ]

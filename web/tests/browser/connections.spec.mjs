@@ -61,6 +61,7 @@ async function fixture(page, { onboarding = false, name = "Ada" } = {}) {
   if (!onboarding) {
     if (page.viewportSize().width <= 700)
       await page.locator("#toggle-sidebar").click();
+    await page.locator("#account-button").click();
     await page.locator("#connections-button").click();
   }
   await expect(page.locator("#connections-view")).toBeVisible();

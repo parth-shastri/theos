@@ -536,8 +536,10 @@ def create_app(settings=None, runtime=None):
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
 
     from .github_events import register_github_events
+    from .notifications import register_notifications
 
     register_github_events(app, current, identity)
+    register_notifications(app, current, identity)
 
     @app.get("/api/notifications")
     async def notifications(request: Request, owner=Depends(identity)):

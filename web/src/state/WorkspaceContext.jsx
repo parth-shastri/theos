@@ -27,11 +27,11 @@ export function WorkspaceProvider({ agentName, children }) {
   const [working, setWorking] = useState(false);
   const [view, setView] = useState("chat-view");
   const [dialog, setDialog] = useState(null);
-  const [notifications, setNotifications] = useState([]);
   const [connections, setConnections] = useState(null);
   const [theme, setTheme] = useState(null);
   const [mobile, setMobile] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [workspacePanel, setWorkspacePanel] = useState(null);
   const [panelHeadingHost, setPanelHeadingHost] = useState(null);
   const [desktopPanelHeadingHost, setDesktopPanelHeadingHost] = useState(null);
   const [draftRequest, setDraftRequest] = useState(null);
@@ -90,6 +90,8 @@ export function WorkspaceProvider({ agentName, children }) {
         accountLifetime.current = new AbortController();
         selectionRequest.current++;
         setMe(null);
+        setSidebarOpen(false);
+        setWorkspacePanel(null);
         setDialog(null);
         setSessions([]);
         dispatch({
@@ -119,6 +121,7 @@ export function WorkspaceProvider({ agentName, children }) {
   const navigate = useCallback((next) => {
     setView(next);
     if (current.current.mobile) setSidebarOpen(false);
+    setWorkspacePanel(null);
   }, []);
   const editDraft = useCallback(
     (text, suggest = false) => {
@@ -172,7 +175,6 @@ export function WorkspaceProvider({ agentName, children }) {
       type: "LOAD",
       session: { ...initialChat, history: [], approvals: [] },
     });
-    setMe(identity);
     setLoginError("");
     const available = await listSessions();
     if (available.length) await openSession(available[0].id);
@@ -191,6 +193,7 @@ export function WorkspaceProvider({ agentName, children }) {
         );
       }
     } catch {}
+    setMe(identity);
   }, [
     json,
     listSessions,
@@ -235,6 +238,8 @@ export function WorkspaceProvider({ agentName, children }) {
       accountLifetime.current = new AbortController();
       selectionRequest.current++;
       setMe(null);
+      setSidebarOpen(false);
+      setWorkspacePanel(null);
       setSessions([]);
       setDialog(null);
       setOnboarding(null);
@@ -415,10 +420,11 @@ export function WorkspaceProvider({ agentName, children }) {
     if (
       streamLock.current ||
       current.current.working ||
-      !current.current.chat.id
+      (kind !== "password" && !current.current.chat.id)
     )
       return;
     if (current.current.mobile) setSidebarOpen(false);
+    setWorkspacePanel(null);
     setDialog({ kind, section, request: ++dialogRequest.current });
   };
   const closeDialog = useCallback(() => {
@@ -505,7 +511,8 @@ export function WorkspaceProvider({ agentName, children }) {
     const media = matchMedia("(max-width: 700px)");
     const resize = () => {
       setMobile(media.matches);
-      setSidebarOpen(!media.matches);
+      setSidebarOpen(false);
+      setWorkspacePanel(null);
     };
     resize();
     media.addEventListener("change", resize);
@@ -596,17 +603,6 @@ export function WorkspaceProvider({ agentName, children }) {
       window.close();
     }
   }, [me, connections]);
-  useEffect(() => {
-    if (!me) return;
-    const timer = setInterval(
-      () =>
-        json("/api/notifications")
-          .then((items) => setNotifications(items.slice(0, 3)))
-          .catch(() => {}),
-      15000,
-    );
-    return () => clearInterval(timer);
-  }, [json, me]);
   const toggleTheme = () =>
     setTheme((value) => {
       const next = value === "dark" ? "light" : "dark";
@@ -621,12 +617,15 @@ export function WorkspaceProvider({ agentName, children }) {
       setOnboarding(null);
     });
   const finishSignin = async () => {
+    const account = accountLifetime.current;
     setSigningIn(true);
     try {
       await login();
-      setOnboarding(null);
+      if (account === accountLifetime.current && !account.signal.aborted)
+        setOnboarding(null);
     } catch (error) {
-      setOnboarding((value) => ({ ...value, error: error.message }));
+      if (account === accountLifetime.current && !account.signal.aborted)
+        setOnboarding((value) => ({ ...value, error: error.message }));
     } finally {
       setSigningIn(false);
     }
@@ -654,13 +653,14 @@ export function WorkspaceProvider({ agentName, children }) {
         mobile,
         sidebarOpen,
         setSidebarOpen,
+        workspacePanel,
+        setWorkspacePanel,
         theme: theme ?? "light",
         brand:
           theme === "dark" ? "/static/brand.png" : "/static/brand-light.png",
         toggleTheme,
         draftRequest,
         editDraft,
-        notifications,
         autoPlay,
         api,
         json,

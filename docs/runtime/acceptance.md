@@ -1,5 +1,33 @@
 # Feature and acceptance checklist
 
+## Richer process diagrams, 2026-11-15
+
+Each stage now shows its number and a short description in the flow.
+The selected stage shows the full description below the flow.
+Certificate, key, signing, and verification icons use local SVG paths.
+Saved answers with a repeated connection icon can use stage text to select a clearer icon.
+The flow stacks in narrow containers. The saved answer format and schema version stay unchanged.
+The generated prompt check, 31 frontend unit checks, and seven focused runtime checks passed.
+The production frontend build compiled. Static Chromium previews passed visual review at desktop and mobile widths.
+Browser interaction checks and deployment remain open.
+
+## Intelligent UI wording, 2026-11-15
+
+Browser reasoning summaries now use intelligent UI for the presentation name.
+The browser also updates that name when it displays saved and streamed summaries.
+The stored reasoning, answer format, and component schema stay unchanged.
+The generated prompt check, 29 frontend unit checks, and seven focused runtime checks passed.
+A live model check remains open.
+
+## Browser Focus layout, 2026-11-14
+
+The full local Python suite passed 1,205 tests. Three live tests were excluded by the test configuration.
+The frontend build and 28 unit tests passed.
+The Chromium suite passed 264 tests across four widths and both themes. It skipped 16 desktop cases for mobile keyboard behavior.
+The browser kept the draft when notifications opened and closed. It grouped workflow alerts and retained links to individual runs.
+A browser check against a disposable API and SQLite database verified dismissal, Undo, and persistence after reload.
+Owner isolation and delivery state passed API checks. Production deployment remains open.
+
 ## OpenUI reliability, 2026-11-13
 
 A read-only check of six recent Pi answers found two that failed the deployed version 3 parser.

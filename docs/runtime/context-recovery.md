@@ -68,6 +68,8 @@ The full transcript remains unchanged.
 Shortening passes request a paragraph, three sentences, and then one sentence.
 They omit the structured format so the heading requirements cannot conflict with the shorter output.
 Each history, split-turn, or shortening call uses the shared summary allowance and records its own usage.
+If a summary reaches its small output cap, the harness retries it once with the configured output allowance.
+It records usage for both attempts and saves only a complete summary.
 If either part fails, keep the previous view when it still fits. Otherwise, report a context failure.
 
 New checkpoints use memory schema version 5.

@@ -13,10 +13,12 @@ async function signIn(page) {
 }
 
 async function navigate(page, id) {
-  if (page.viewportSize().width <= 700) {
+  const mobile = page.viewportSize().width <= 700;
+  if (mobile) {
     await page.locator("#toggle-sidebar").click();
     await expect(page.locator("#sidebar")).toBeVisible();
   }
+  if (id !== "new-session") await page.locator("#account-button").click();
   await page.locator(`#${id}`).click();
 }
 
@@ -34,6 +36,30 @@ test.beforeEach(async ({ page }, info) => {
     info.project.use.colorScheme,
   );
   await page.goto("/");
+});
+
+test("workspace waits for conversations before opening", async ({ page }) => {
+  let releaseSessions;
+  const sessionsReady = new Promise((resolve) => {
+    releaseSessions = resolve;
+  });
+  await page.route("**/api/sessions", async (route) => {
+    if (route.request().method() === "GET") await sessionsReady;
+    await route.continue();
+  });
+  try {
+    await page.locator("#token").fill(token);
+    await page.locator("#login-form button[type=submit]").click();
+    await expect(page.locator("#workspace")).toBeHidden();
+    releaseSessions();
+    await expect(page.locator("#workspace")).toBeVisible();
+    await navigate(page, "account-password-button");
+    await expect(
+      page.getByRole("dialog", { name: "Browser password" }),
+    ).toBeVisible();
+  } finally {
+    releaseSessions();
+  }
 });
 
 test("an optional browser password can be set, used, and removed", async ({
@@ -225,12 +251,7 @@ test("composer, glass pickers, workspace panels, and mobile navigation", async (
   await page.locator("#mode-trigger").click();
   await expect(page.locator("#mode-menu")).toBeVisible();
   await page.keyboard.press("Escape");
-  await navigate(
-    page,
-    page.viewportSize().width <= 700
-      ? "sidebar-settings-button"
-      : "generation-button",
-  );
+  await navigate(page, "generation-button");
   await expect(page.locator("#generation-dialog")).toBeVisible();
   await page.locator("#model-trigger").click();
   await expect(page.locator("#model-menu")).toBeVisible();

@@ -90,7 +90,8 @@ test("keyboard resize and pan keep the composer and navigation in view", async (
 
   await page.locator("#toggle-sidebar").click();
   await insideViewport(page, "#sidebar", 96, 420);
-  await page.locator("#sidebar-settings-button").click();
+  await page.locator("#account-button").click();
+  await page.locator("#generation-button").click();
   await insideViewport(page, "#generation-dialog", 96, 420);
   await page.locator("#generation-cancel").click();
 

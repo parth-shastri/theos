@@ -14,6 +14,7 @@ import { conversationEntries } from "../state/chat";
 import Markdown, { markdownText } from "./Markdown";
 import OpenUIAnswer from "./OpenUIAnswer";
 import { Icon } from "./Primitives";
+import { reasoningForDisplay } from "./reasoning-language";
 
 const SpeechContext = createContext(null);
 export function SpeechProvider({ children }) {
@@ -511,7 +512,10 @@ function TurnActivity({ entry }) {
               ) : row.kind === "compaction" ? (
                 <span role="status">{row.text}</span>
               ) : (
-                <Markdown className="thinking-body" source={row.reasoning} />
+                <Markdown
+                  className="thinking-body"
+                  source={reasoningForDisplay(row.reasoning)}
+                />
               )}
             </li>
           ))}
