@@ -15,6 +15,17 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.5.2
+
+Package version 1.5.2 uses tag `rpi-v1.5.2` from the promoted `rpi` tip.
+The browser adds the Focus layout, a notification inbox, clearer process diagrams, and revised answer wording.
+The workspace opens after account and conversation loading completes, so sign-in actions do not interrupt account menus.
+The harness retries a truncated context summary once with the configured output allowance.
+Migration 018 saves browser notification dismissals and adds an owner index.
+The release needs no new private configuration value.
+Promote `dev` through separate merge-commit PRs to `main` and `rpi` after destination CI passes.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
 ## Release 1.5.1
 
 Package version 1.5.1 uses tag `rpi-v1.5.1` from the promoted `rpi` tip.

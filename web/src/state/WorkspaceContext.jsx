@@ -175,7 +175,6 @@ export function WorkspaceProvider({ agentName, children }) {
       type: "LOAD",
       session: { ...initialChat, history: [], approvals: [] },
     });
-    setMe(identity);
     setLoginError("");
     const available = await listSessions();
     if (available.length) await openSession(available[0].id);
@@ -194,6 +193,7 @@ export function WorkspaceProvider({ agentName, children }) {
         );
       }
     } catch {}
+    setMe(identity);
   }, [
     json,
     listSessions,
@@ -420,7 +420,7 @@ export function WorkspaceProvider({ agentName, children }) {
     if (
       streamLock.current ||
       current.current.working ||
-      !current.current.chat.id
+      (kind !== "password" && !current.current.chat.id)
     )
       return;
     if (current.current.mobile) setSidebarOpen(false);
@@ -617,12 +617,15 @@ export function WorkspaceProvider({ agentName, children }) {
       setOnboarding(null);
     });
   const finishSignin = async () => {
+    const account = accountLifetime.current;
     setSigningIn(true);
     try {
       await login();
-      setOnboarding(null);
+      if (account === accountLifetime.current && !account.signal.aborted)
+        setOnboarding(null);
     } catch (error) {
-      setOnboarding((value) => ({ ...value, error: error.message }));
+      if (account === accountLifetime.current && !account.signal.aborted)
+        setOnboarding((value) => ({ ...value, error: error.message }));
     } finally {
       setSigningIn(false);
     }
