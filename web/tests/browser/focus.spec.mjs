@@ -26,7 +26,19 @@ test("the Focus inbox keeps alerts out of the conversation", async ({
   let previous = [];
   await page.route("**" + path + "**", async (route) => {
     const request = route.request();
-    if (request.method() === "POST") {
+    if (request.url().includes("/history")) {
+      await route.fulfill({
+        json: {
+          items: [...notices]
+            .sort((left, right) => right.created - left.created)
+            .map((notice) => ({
+              ...notice,
+              unread: items.some((item) => item.id === notice.id) ? 1 : 0,
+            })),
+          next_offset: null,
+        },
+      });
+    } else if (request.method() === "POST") {
       const { notice } = request.postDataJSON();
       previous = items;
       items = notice ? items.filter((item) => item.id !== notice.id) : [];
@@ -52,7 +64,7 @@ test("the Focus inbox keeps alerts out of the conversation", async ({
   );
   const bell = page.getByRole("button", { name: "Notifications, 3 unread" });
   const transcript = page.getByRole("log", { name: "Conversation" });
-  const inbox = page.getByRole("region", { name: "Notifications" });
+  const inbox = page.locator("#notifications-view");
   const draft = page.locator("#message");
   const mobile = page.viewportSize().width <= 700;
 
@@ -63,6 +75,7 @@ test("the Focus inbox keeps alerts out of the conversation", async ({
   await draft.fill("Keep this draft");
   await bell.click();
   await expect(inbox).toBeVisible();
+  await expect(transcript).toBeHidden();
   await expect(
     inbox.getByText("Workflow failed in sample/theos: Theos CI"),
   ).toHaveCount(1);
@@ -70,30 +83,91 @@ test("the Focus inbox keeps alerts out of the conversation", async ({
     "href",
     notices[1].url,
   );
-  if (mobile) await expect(transcript).toBeHidden();
-  else {
-    const chatBox = await transcript.boundingBox();
-    const inboxBox = await inbox.boundingBox();
-    expect(chatBox.x + chatBox.width).toBeLessThanOrEqual(inboxBox.x + 1);
-  }
+  const margins = await page.evaluate(() => {
+    const panel = document
+      .getElementById("notifications-view")
+      .getBoundingClientRect();
+    const content = document
+      .querySelector(".notifications-page-content")
+      .getBoundingClientRect();
+    return [content.left - panel.left, panel.right - content.right];
+  });
+  expect(Math.abs(margins[0] - margins[1])).toBeLessThanOrEqual(2);
+  expect(margins[0]).toBeGreaterThanOrEqual(mobile ? 14 : 20);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: info.outputPath("notifications-page.png") });
 
   await inbox
     .getByRole("button", { name: "Dismiss run #1", exact: true })
     .click();
   await expect(inbox.getByText("2 unread")).toBeVisible();
+  await expect(inbox.getByRole("link", { name: "Run #1" })).toBeVisible();
+  await expect(inbox.locator(".notification-state")).toHaveCount(1);
   await inbox.getByRole("button", { name: "Dismiss all" }).click();
+  await inbox.getByRole("button", { name: "Unread", exact: true }).click();
   await expect(inbox.getByText("You’re all caught up.")).toBeVisible();
   await inbox.getByRole("button", { name: "Undo" }).click();
   await expect(inbox.getByText("2 unread")).toBeVisible();
   await expect(inbox.getByRole("link", { name: "Run #1" })).toBeHidden();
 
-  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Back to chat" }).click();
   await expect(inbox).toBeHidden();
   await expect(
     page.getByRole("button", { name: "Notifications, 2 unread" }),
-  ).toBeFocused();
+  ).toBeVisible();
   await expect(transcript).toBeVisible();
   await expect(draft).toHaveValue("Keep this draft");
+});
+
+test("the notifications page loads older saved alerts", async ({ page }) => {
+  const path = "/api/notifications/browser";
+  await page.route("**" + path + "**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/history")) {
+      const older = url.searchParams.get("offset") === "50";
+      return route.fulfill({
+        json: {
+          items: older
+            ? [
+                {
+                  id: "oldest",
+                  source: "reminder",
+                  text: "Oldest saved alert",
+                  created: 1794500000,
+                  unread: 0,
+                },
+              ]
+            : Array.from({ length: 50 }, (_, index) => ({
+                id: "saved-" + index,
+                source: "reminder",
+                text: "Saved alert " + index,
+                created: 1794630000 - index,
+                unread: 0,
+              })),
+          next_offset: older ? null : 50,
+        },
+      });
+    }
+    return route.fulfill({ json: { items: [], unread: 0 } });
+  });
+  await page.goto("/");
+  await page.locator("#token").fill(token);
+  await page.locator("#login-form button[type=submit]").click();
+  await page
+    .getByRole("button", { name: "Notifications", exact: true })
+    .click();
+  const notifications = page.locator("#notifications-view");
+  await expect(notifications.getByText("Saved alert 0")).toBeVisible();
+  await expect(notifications.getByText("Oldest saved alert")).toHaveCount(0);
+  await notifications.getByRole("button", { name: "Load older" }).click();
+  await expect(notifications.getByText("Oldest saved alert")).toBeVisible();
+  await expect(
+    notifications.getByRole("button", { name: "Load older" }),
+  ).toHaveCount(0);
 });
 
 test("the Focus sidebar toggles, switches theme, and opens a glass account menu", async ({
@@ -133,7 +207,7 @@ test("the Focus sidebar toggles, switches theme, and opens a glass account menu"
     await expect(sidebar).toBeVisible();
     await page.getByRole("button", { name: /^Notifications/ }).click();
     await expect(sidebar).toBeVisible();
-    await page.getByRole("button", { name: "Close notifications" }).click();
+    await page.getByRole("button", { name: "Back to chat" }).click();
     await expect(sidebar).toBeVisible();
   } else {
     await expect(page.locator("main")).toHaveAttribute("inert", "");

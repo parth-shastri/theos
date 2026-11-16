@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
 from pydantic import BaseModel, Field
 
 
@@ -37,10 +37,40 @@ def browser_inbox(db, owner):
     return {"items": rows, "unread": unread}
 
 
+def browser_history(db, owner, offset):
+    rows = db.rows(
+        """
+        WITH history AS (
+            SELECT id, 'reminder' AS source, text, NULL AS url, created,
+                   CASE WHEN browser_dismissal IS NULL THEN 1 ELSE 0 END AS unread
+            FROM notifications WHERE owner=?
+            UNION ALL
+            SELECT id, 'github', text, url, created,
+                   CASE WHEN read=0 AND browser_dismissal IS NULL THEN 1 ELSE 0 END
+            FROM github_notifications WHERE owner=?
+        )
+        SELECT * FROM history ORDER BY created DESC, source, id LIMIT 51 OFFSET ?
+        """,
+        (owner, owner, offset),
+    )
+    return {
+        "items": rows[:50],
+        "next_offset": offset + 50 if len(rows) > 50 else None,
+    }
+
+
 def register_notifications(app, current, identity):
     @app.get("/api/notifications/browser")
     async def inbox(request: Request, owner: Annotated[str, Depends(identity)]):
         return browser_inbox(current(request).db, owner)
+
+    @app.get("/api/notifications/browser/history")
+    async def history(
+        request: Request,
+        owner: Annotated[str, Depends(identity)],
+        offset: int = Query(0, ge=0),
+    ):
+        return browser_history(current(request).db, owner, offset)
 
     @app.post("/api/notifications/browser/dismiss")
     async def dismiss(body: Dismissal, request: Request, owner: Annotated[str, Depends(identity)]):
