@@ -14,17 +14,10 @@ import Dialogs from "./Dialogs";
 import { useVisualViewport } from "../hooks/useVisualViewport";
 function WorkspaceContents() {
   useVisualViewport();
-  const {
-    me,
-    mobile,
-    sidebarOpen,
-    workspacePanel,
-    view,
-    setDesktopPanelHeadingHost,
-  } = useWorkspace();
+  const { me, mobile, sidebarOpen, view, setDesktopPanelHeadingHost } =
+    useWorkspace();
   const inbox = useNotifications(me?.id);
   const drawerOpen = mobile && sidebarOpen;
-  const inboxOpen = workspacePanel === "notifications";
   return (
     <GlassProvider>
       <VoiceAmbience />
@@ -32,15 +25,13 @@ function WorkspaceContents() {
       <div
         id="workspace"
         className={
-          "workspace focus-workspace" +
-          (sidebarOpen ? " sidebar-open" : "") +
-          (inboxOpen ? " inbox-open" : "")
+          "workspace focus-workspace" + (sidebarOpen ? " sidebar-open" : "")
         }
         hidden={!me}
       >
         <WorkspaceHeader unread={inbox.unread} />
         {me && <Sidebar />}
-        <main inert={drawerOpen || (mobile && inboxOpen)}>
+        <main inert={drawerOpen}>
           <div
             className="panel-toolbar-host"
             ref={setDesktopPanelHeadingHost}
@@ -50,8 +41,8 @@ function WorkspaceContents() {
           <Activity />
           <Connections />
           <Tools />
+          <Notifications inbox={inbox} />
         </main>
-        <Notifications inbox={inbox} />
       </div>
       <Dialogs />
     </GlassProvider>

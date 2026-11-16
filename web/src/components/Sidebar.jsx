@@ -281,6 +281,13 @@ export default function Sidebar() {
             Connections
           </button>
           <button
+            id="account-notifications-button"
+            type="button"
+            onClick={() => navigate("notifications-view")}
+          >
+            Notifications
+          </button>
+          <button
             id="tools-button"
             type="button"
             disabled={busy}

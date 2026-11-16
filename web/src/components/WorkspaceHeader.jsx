@@ -10,12 +10,11 @@ export default function WorkspaceHeader({ unread }) {
     mobile,
     sidebarOpen,
     setSidebarOpen,
-    workspacePanel,
+    navigate,
     setWorkspacePanel,
     setPanelHeadingHost,
   } = useWorkspace();
   const inChat = view === "chat-view";
-  const inboxOpen = workspacePanel === "notifications";
 
   return (
     <header className="focus-header" inert={mobile && sidebarOpen}>
@@ -49,12 +48,8 @@ export default function WorkspaceHeader({ unread }) {
               aria-label={
                 unread ? `Notifications, ${unread} unread` : "Notifications"
               }
-              aria-expanded={inboxOpen}
-              aria-controls="notifications-inbox"
               title="Notifications"
-              onClick={() =>
-                setWorkspacePanel(inboxOpen ? null : "notifications")
-              }
+              onClick={() => navigate("notifications-view")}
             >
               <Icon name="bell" />
               {unread > 0 && (
@@ -63,7 +58,7 @@ export default function WorkspaceHeader({ unread }) {
                 </span>
               )}
             </button>
-            {(!mobile || !inboxOpen) && <ConversationActions />}
+            <ConversationActions />
           </div>
         </>
       ) : mobile ? (

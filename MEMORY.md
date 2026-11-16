@@ -1241,6 +1241,10 @@ Stop the two tunnel processes after the requested live testing. No production de
 
 Keep GitHub notification preferences visible in Connections. Collapse the saved private inbox under Recent alerts by default so its history does not expand the connection card. Show the unread count for the loaded alerts in the disclosure label.
 
+## Workspace notifications page, 2026-11-16
+
+The operator requested a separate page for all notifications and removal of the collapsed GitHub alert list from Connections. Keep only delivery preferences and a link to the page in the GitHub card. Use the existing workspace notification feed for unread count and dismissal, and a paginated owner-scoped history feed for saved reminders and GitHub alerts, including read or dismissed records. Center the page content with consistent mobile and desktop margins.
+
 ## General evidence guidance, 2026-10-28
 
 The operator requested removal of mailbox-specific rules from the shared agent prompt.

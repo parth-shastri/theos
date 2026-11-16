@@ -298,7 +298,7 @@ test("browser sign-in keeps private input outside chat and supports clearing the
   expect(cleared).toBe(true);
 });
 
-test("GitHub event alerts support opt-in and private inbox actions without model turns", async ({
+test("GitHub settings link to the separate notifications page without model turns", async ({
   page,
 }, info) => {
   const state = await fixture(page);
@@ -328,43 +328,50 @@ test("GitHub event alerts support opt-in and private inbox actions without model
     id: "notice-one",
     text: "Review requested in sample/project #12: Fix <script>",
     url: "https://github.com/sample/project/pull/12",
+    created: 1794630600,
     read: false,
     telegram: "not_requested",
   });
-  await page.route(
-    "**/api/connections/github/notifications/notice-one/read",
-    async (route) => {
-      account.notifications.items[0].read = true;
-      await route.fulfill({ json: { read: true } });
-    },
+  await page.route("**/api/notifications/browser/history**", (route) =>
+    route.fulfill({
+      json: {
+        items: account.notifications.items.map((item) => ({
+          ...item,
+          source: "github",
+          unread: 1,
+        })),
+        next_offset: null,
+      },
+    }),
+  );
+  await page.route("**/api/notifications/browser", (route) =>
+    route.fulfill({
+      json: {
+        items: account.notifications.items.map((item) => ({
+          ...item,
+          source: "github",
+        })),
+        unread: 1,
+      },
+    }),
   );
   await page.locator("#refresh-connections").click();
-  const inbox = card.locator(".github-notification-inbox");
-  await expect(inbox).not.toHaveAttribute("open");
-  await expect(inbox.getByText("1 unread shown")).toBeVisible();
-  await expect(
-    card.getByRole("link", { name: /Review requested/ }),
-  ).toBeHidden();
+  await expect(card.getByText(/Fix <script>/)).toHaveCount(0);
+  await expect(card.locator(".github-notification-inbox")).toHaveCount(0);
   await card.screenshot({
-    path: info.outputPath("github-event-notifications-collapsed.png"),
+    path: info.outputPath("github-notification-settings.png"),
   });
-  await inbox.locator("summary").click();
-  await expect(
-    card.getByRole("link", { name: /Review requested/ }),
-  ).toHaveAttribute("href", "https://github.com/sample/project/pull/12");
-  await expect(card.getByText(/Fix <script>/)).toBeVisible();
-  await card.scrollIntoViewIfNeeded();
-  await card.screenshot({
-    path: info.outputPath("github-event-notifications.png"),
-  });
-  await card.getByRole("button", { name: "Mark read", exact: true }).click();
-  await expect(
-    card.getByRole("button", { name: "Mark read", exact: true }),
-  ).toHaveCount(0);
-  await expect(inbox.getByText("All read")).toBeVisible();
   await card.getByLabel("Notify me in Theos", { exact: true }).uncheck();
   await expect(
     card.getByLabel("Notify me in Theos", { exact: true }),
   ).not.toBeChecked();
+  await card.getByRole("button", { name: "View all notifications" }).click();
+  await expect(page.locator("#notifications-view")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Review requested/ }),
+  ).toHaveAttribute("href", "https://github.com/sample/project/pull/12");
+  await page.locator("#notifications-view").screenshot({
+    path: info.outputPath("notifications-page-from-github.png"),
+  });
   expect(state.turns).toBe(0);
 });
