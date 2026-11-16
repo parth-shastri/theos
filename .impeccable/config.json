@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "createdAt": "2026-11-16T07:51:00.922Z",
+        "reason": "User confirmed Space Grotesk is the intended app font; MEMORY.md also preserves it in the accepted UI"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "web/src/app/globals.css"
+        ],
+        "createdAt": "2026-11-16T07:51:23.647Z",
+        "reason": "Agent: semantic Markdown blockquote border, not a card accent"
+      }
+    ]
+  }
+}
