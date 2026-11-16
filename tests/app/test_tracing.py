@@ -79,12 +79,16 @@ async def test_turn_models_and_tool_are_siblings(runtime, scripted_models, expor
     assert root.attributes["theos.budget.compaction.used"] == 0
     assert root.attributes["theos.budget.recovery.used"] == 0
     assert root.attributes["gen_ai.conversation.id"] == row["id"]
+    assert root.attributes["langfuse.session.id"] == row["id"]
+    assert root.attributes["langfuse.observation.type"] == "agent"
     children = [s for s in output if s.parent is not None]
     assert len(children) == 3
+    assert all(s.attributes["langfuse.session.id"] == row["id"] for s in children)
     assert all(s.parent.span_id == root.context.span_id for s in children)
     assert all(s.context.trace_id == root.context.trace_id for s in output)
     assert all(root.start_time <= s.start_time <= s.end_time <= root.end_time for s in children)
     model = next(s for s in children if s.attributes.get("gen_ai.usage.input_tokens") == 9)
+    assert model.attributes["langfuse.observation.type"] == "generation"
     assert model.attributes["gen_ai.usage.output_tokens"] == 4
     assert model.attributes["gen_ai.usage.cache_read.input_tokens"] == 2
     serialized = repr([(dict(s.attributes), s.events) for s in output])
@@ -106,6 +110,9 @@ async def test_trace_keeps_the_actual_tool_count_when_content_keeps_only_sixteen
     assert span.attributes["theos.model.tool_call_count"] == 35
     content = json.loads(span.attributes["gen_ai.output.messages"])
     assert len(content[0]["parts"]) == 16
+    assert (
+        span.attributes["langfuse.observation.output"] == span.attributes["gen_ai.output.messages"]
+    )
 
 
 async def test_parallel_delegates_keep_separate_model_and_tool_parents(runtime, exporter):
@@ -222,11 +229,20 @@ async def test_named_delegates_capture_tasks_and_preserve_child_identity(
             for s in children
         )
     tool_span = next(s for s in output if s.name == "execute_tool delegate_tasks")
+    assert tool_span.attributes["langfuse.observation.type"] == "tool"
     assert (
         json.loads(tool_span.attributes["gen_ai.tool.call.arguments"])["tasks"][0]["name"]
         == "Rain analyst"
     )
     assert json.loads(tool_span.attributes["gen_ai.tool.call.result"])[0]["name"] == "Rain analyst"
+    assert (
+        tool_span.attributes["langfuse.observation.input"]
+        == tool_span.attributes["gen_ai.tool.call.arguments"]
+    )
+    assert (
+        tool_span.attributes["langfuse.observation.output"]
+        == tool_span.attributes["gen_ai.tool.call.result"]
+    )
     final = next(
         s
         for s in output
@@ -263,6 +279,8 @@ async def test_content_capture_bounds_wire_fields_and_links_tool_messages(
                 "gen_ai.system_instructions",
                 "gen_ai.tool.call.arguments",
                 "gen_ai.tool.call.result",
+                "langfuse.observation.input",
+                "langfuse.observation.output",
             }
         }
         assert sum(len(v.encode("utf-8")) for v in fields.values()) <= 1024

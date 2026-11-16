@@ -1,5 +1,18 @@
 # Feature and acceptance checklist
 
+## Langfuse local trace viewer, 2026-11-16
+
+The local Mac runs the official Langfuse Compose stack at `v4.80.0`.
+The UI returned HTTP 200, and the web, worker, ClickHouse, PostgreSQL, Redis, and MinIO services started.
+The UI and MinIO ports bind to loopback. Container output uses bounded rotation.
+Theos retains standard OTLP/HTTP protobuf and GenAI attributes, with Langfuse observation types and conversation sessions.
+Content capture stays disabled by default. The fake-model check explicitly enabled it for synthetic messages only.
+Langfuse accepted the local trace. The Observations API returned 23 observations with generation and tool input/output and a session ID.
+The content-free `first_model_call` log records harness time even when OTel is disabled. Per-turn log profiles now record request ingress, runtime phases, model attempts, tool totals, and response queue timing without prompt content.
+Before the per-turn profiles were added, the focused tracing and log-safety suites passed 35 tests.
+Ruff checks and formatting passed after the per-turn profile changes. The focused tracing and log-safety suites remain to be rerun against the final branch.
+The local stack uses persistent Docker volumes. Deployment and validation on the Mac mini remain open.
+
 ## Richer process diagrams, 2026-11-15
 
 Each stage now shows its number and a short description in the flow.

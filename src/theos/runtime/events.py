@@ -1,6 +1,7 @@
 """Translate harness events into UI events and safe, compact SQLite traces."""
 
 import json
+import logging
 import time
 from dataclasses import replace
 
@@ -16,6 +17,8 @@ from theos.storage.messages import display_metadata
 
 from .text import reply_text
 
+logger = logging.getLogger("theos")
+
 
 def publish_event(runtime, turn, event, status):
     """Publish one event and return the latest turn status."""
@@ -23,6 +26,8 @@ def publish_event(runtime, turn, event, status):
     # display updates to be dropped, but turn statistics must still include the work.
     if hasattr(turn, "observe_tool"):
         turn.observe_tool(event)
+    if hasattr(turn, "observe_timing"):
+        turn.observe_timing(event)
     # Apply Theos' shared text rule to every generated stream chunk before it is displayed.
     if isinstance(event, (TextDelta, ReasoningDelta)):
         event = replace(event, text=reply_text(event.text))
@@ -82,6 +87,15 @@ def publish_event(runtime, turn, event, status):
                     )
         return status
     # The remaining branch handles parent-turn events and records their safe summary.
+    if isinstance(event, ModelCalled) and not turn.first_model_call_logged:
+        turn.first_model_call_logged = True
+        logger.info(
+            "first_model_call",
+            extra={
+                "session_id": turn.session_id,
+                "time_to_first_model_call_seconds": max(0, time.monotonic() - turn.started_at),
+            },
+        )
     runtime.tracing.turn_event(event)
     if isinstance(event, ModelCalled):
         if not turn.raw_events:

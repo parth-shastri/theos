@@ -201,6 +201,7 @@ class TerminalSession:
         self.runtime.steer(self.owner, session_id, payload.text, self._attachments(payload))
 
     async def stream(self, prompt: PromptInput | str | None, *, session_id):
+        received_at = time.monotonic()
         self._session(session_id)
         pending = self.pending_interactions(session_id)
         if pending:
@@ -220,6 +221,7 @@ class TerminalSession:
             payload.text if payload else None,
             self._attachments(payload) if payload else (),
             raw_events=True,
+            received_at=received_at,
         )
         adapter = HarnessAdapter()
         try:

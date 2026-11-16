@@ -1,6 +1,20 @@
 # Theos project memory
 
-Updated: 2026-11-15.
+Updated: 2026-11-16.
+
+## Langfuse trace viewing, 2026-11-16
+
+Use Langfuse as the primary chat-oriented viewer while keeping Theos on standard OTLP/HTTP protobuf and the GenAI semantic conventions.
+Map captured model and tool content through Langfuse observation attributes and propagate `langfuse.session.id` to every span.
+Keep trace content capture disabled by default. Keep Theos application logs local and separate from GenAI traces; record the first-model-call harness timing in both the application log and optional turn span.
+Test the pinned Langfuse self-hosted Compose stack on this Mac before deciding whether to deploy it on the Mac mini.
+
+## Service log access and timing profiles, 2026-11-16
+
+Keep service events in Theos' content-free rotating JSON file at `AGENT_DATA_DIR/logs/theos.log`; container stdout remains available separately through Docker Compose.
+Use the admin dashboard or authenticated `GET /api/logs` for a recent-event view, and `tail -F` on the file for live access.
+Log per-turn request acceptance, concurrency wait, setup phases, model/tool timings, recovery, finalization, and time to first model call without recording prompts, tool arguments, or exception prose.
+Keep the log formatter on a fixed event and field allowlist, with bounded file rotation and retention.
 
 ## Browser UI libraries, 2026-11-15
 

@@ -1,0 +1,39 @@
+# Local-only overlay for the official Langfuse Compose deployment.
+# Run with docker-compose.yml as the first Compose file.
+x-bounded-logs: &bounded-logs
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "3"
+
+services:
+  langfuse-web:
+    ports: !override
+      - 127.0.0.1:3000:3000
+    networks:
+      - default
+      - theos-observability
+    logging: *bounded-logs
+  langfuse-worker:
+    logging: *bounded-logs
+  langfuse-ai-gateway:
+    profiles: [ai-gateway]
+    ports: !override []
+    logging: *bounded-logs
+  clickhouse:
+    logging: *bounded-logs
+  minio:
+    ports: !override
+      - 127.0.0.1:9090:9000
+      - 127.0.0.1:9091:9001
+    logging: *bounded-logs
+  redis:
+    logging: *bounded-logs
+  postgres:
+    logging: *bounded-logs
+
+networks:
+  default: {}
+  theos-observability:
+    name: theos-observability
+    external: true

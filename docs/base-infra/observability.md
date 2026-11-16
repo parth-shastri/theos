@@ -25,7 +25,7 @@ Reasoning tokens are part of total output tokens. They are not billed or counted
 
 | Output | Location | Contents |
 | --- | --- | --- |
-| Application events | `AGENT_DATA_DIR/logs/theos.log` | Fixed event names, timestamps, levels, and selected metadata |
+| Application events | `AGENT_DATA_DIR/logs/theos.log` | Fixed event names, timestamps, levels, safe metadata, and per-turn timing profiles |
 | Runtime traces | `traces` table in `theos.sqlite3` | Owner, session, event, tool name, status, and timestamp |
 | OpenTelemetry spans | Configured OTLP endpoint | Turn, model, tool, delegate, and title timing with token counts and status |
 | Model usage | `usage` table in `theos.sqlite3` | Owner, session, model, token counts, and optional cost estimate |
@@ -39,12 +39,18 @@ The server suppresses verbose harness and external client loggers.
 ## Read application events
 
 ```sh
-docker compose exec theos python -c   'from pathlib import Path; print(Path("/data/logs/theos.log").read_text()[-16000:])'
+docker compose exec -T theos tail -n 100 /data/logs/theos.log
+docker compose exec -T theos tail -F /data/logs/theos.log
 ```
+
+The first command reads recent JSON lines; the second follows new events across file rotation. For a native process, read `$AGENT_DATA_DIR/logs/theos.log` (the standalone terminal defaults to `~/.theos/logs/theos.log`). `docker compose logs --tail=100 -f theos` reads container process output, which is separate from these application events. The browser admin token can also call `GET /api/logs` for up to 100 recent events; the **Admin dashboard** displays this feed.
 
 | Event | Meaning |
 | --- | --- |
 | `started` | Application workers entered their lifespan |
+| `first_model_call` | Seconds from turn start until the first model request, including harness waits and preparation |
+| `turn_profile` | One safe timing profile per reserved turn, including failures and cancellations |
+| `response_delivery` | Time from the final event entering the queue until the transport consumer finishes or closes |
 | `turn_incomplete` | A turn reached a limit or raised an exception before its final answer |
 | `delegate_incomplete` | One delegate stopped and returned available findings |
 | `final_answer_unavailable` | The bounded final request failed, so the runtime returned saved findings |
@@ -54,7 +60,9 @@ docker compose exec theos python -c   'from pathlib import Path; print(Path("/da
 | `scheduler_failed` | Scheduled work raised an exception |
 | `trace_export_failed` | Remote trace delivery failed |
 
-The formatter permits `error_type` and `session_id` metadata.
+The formatter retains every fixed Theos event name and permits only known fields. `turn_profile` contains request acceptance, concurrency wait, history restore, input save, model setup, capacity lookup, tool registration, memory retrieval, prompt assembly, harness work, recovery, finalization, and total duration when each stage ran. It also contains model and tool counts, up to 64 individual model timings, model first-event wait, total model time, total tool time, and a bounded per-tool-name summary. `request_accept_seconds` begins at HTTP ingress, Telegram update processing, local terminal input, or scheduled task dispatch and ends when the runtime reserves the turn. `time_to_first_model_call_seconds` begins at reservation and ends when the harness yields its first parent model request. `model_wait_seconds` runs from each model call to its first streamed event or complete response; it includes provider/network wait and is not a separate provider queue measurement. Prompt assembly time excludes the separately reported memory retrieval time. Concurrent model and tool totals can exceed wall-clock time. `response_delivery` measures application-side consumer drain after the runtime queues `done`; it does not prove that a remote browser or Telegram client displayed the result.
+
+The formatter permits `error_type`, `session_id`, and bounded numeric timing fields.
 It does not include exception text or stack traces.
 A generic error type can require a separate service check.
 
@@ -70,7 +78,38 @@ It returns users, recent sessions, usage totals, recent traces, recent jobs, and
 `GET /api/logs` returns up to 100 recent application events.
 There is no separate `/dashboard` page.
 
-## View a trace waterfall
+## View traces in Langfuse
+
+Langfuse is the primary viewer for model and tool traces. Theos exports standard OTLP/HTTP protobuf and adds Langfuse attributes for observation type, captured input/output, and the conversation session.
+The existing `gen_ai.*` attributes remain on the spans, so the same trace data can also go to another OTel backend.
+Content capture stays disabled unless `AGENT_TRACING__CAPTURE_CONTENT=true`. When enabled, bounded messages and tool data are sent to the trace backend.
+
+The local stack uses the official Langfuse Compose repository at `v4.80.0`. It writes its database and object data to Docker volumes, binds the UI and MinIO to loopback, and rotates container output. Run it with:
+
+```sh
+python3 scripts/deploy_langfuse_local.py
+```
+
+The script saves private sign-in details in `.theos/langfuse-local/access.txt` and OTLP headers in `.theos/langfuse-local/theos-headers.json`. Open [Langfuse](http://127.0.0.1:3000) to sign in.
+
+Send a disposable fake-model turn to check trace ingestion without an OpenAI request or production conversation data:
+
+```sh
+uv run --extra server python scripts/check_tracing.py \
+  --endpoint http://127.0.0.1:3000/api/public/otel/v1/traces \
+  --viewer http://127.0.0.1:3000 \
+  --headers-file .theos/langfuse-local/theos-headers.json \
+  --capture-content
+```
+
+The script prints a trace ID and viewer URL. In Langfuse, the model observation shows the synthetic chat messages, and tool observations show their inputs and outputs. Each Theos turn remains its own trace; shared `langfuse.session.id` groups turns in a conversation.
+
+To export from the Theos Compose service, add `compose.langfuse.yaml` to the Theos Compose command and put `LANGFUSE_AUTH_STRING` in its private `.env`. The string is Base64 of `public-key:secret-key`. The Theos service and Langfuse web service join the `theos-observability` network. The overlay keeps content capture off unless explicitly enabled.
+For a native Theos process on the same Mac, use `http://127.0.0.1:3000/api/public/otel/v1/traces` as the endpoint and configure the same secret headers through `AGENT_TRACING__HEADERS`.
+
+Theos application logs remain separate from traces. They stay in the local JSON log under `AGENT_DATA_DIR/logs` with the existing bounded rotation. The `first_model_call` log event and root span attribute `theos.turn.time_to_first_model_call_seconds` both measure harness work from turn start to the first model call, even when OTel tracing is disabled. Langfuse does not ingest OTel logs.
+
+## View a trace waterfall in Jaeger
 
 Use Jaeger v2 for a private waterfall viewer.
 Its single-node Badger storage requires no separate database and retains traces across restarts.

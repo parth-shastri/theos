@@ -69,17 +69,16 @@ Failed evaluations return to diagnosis and another evaluation cycle.
 
 | Framework stage | Current implementation | Remaining framework work |
 | --- | --- | --- |
-| Trace | SQLite events, structured logs, and optional OTel turn spans through OTLP/HTTP | Durable remote replay and session-wide aggregation |
+| Trace | SQLite events, structured logs, and optional per-turn OTel spans through OTLP/HTTP; a Compose overlay can export them to Langfuse | Durable remote replay and evaluation links |
 | Evaluate | Deterministic harness and application acceptance tests | Simulation and model-based scoring |
 | Observe | Health endpoints, usage records, and the private dashboard | Broader production metrics and latency analysis |
 | Diagnose | Operator inspection of logs, traces, jobs, and conversations | Automated feedback into evaluations |
 | Gate | Repository acceptance workflow | Evaluation-based release gates |
 | Release | Manual image build, deployment, and rollback procedures | Automated release feedback across prompts, tools, retrieval, and models |
 
-The diagram includes Langfuse, LangSmith, and custom exporters as design options.
-The application implements a backend-neutral OTLP/HTTP exporter and an optional Jaeger waterfall viewer.
-It does not configure Langfuse or LangSmith integrations.
-A passing mock test does not establish live service success.
+The application keeps a backend-neutral OTLP/HTTP exporter. The local Langfuse Compose overlay adds Langfuse observation types, session IDs, and chat input/output mappings without adding an SDK.
+Jaeger remains an optional waterfall viewer. LangSmith is still a design option and is not configured.
+Local synthetic OTLP ingestion passes; deployment on the Mac mini remains open.
 Read [observability](base-infra/observability.md), [operations](operations.md), and the [acceptance checklist](runtime/acceptance.md) for current behavior.
 
 ## Tool design
@@ -175,7 +174,7 @@ They receive no personal record or account tools.
 | OAuth tokens | Encrypted fields in `theos.sqlite3` | Require the original encryption key |
 | Private custom tables | `tables/` | Separate database per owner |
 | Uploaded and generated files | `files/` and the SQLite catalog | Retained |
-| Application events | `logs/theos.log` | Retained with file rotation |
+| Application events | `logs/theos.log` | Safe structured events and per-turn timing profiles; bounded file rotation |
 | Tool traces and usage | SQLite tables | Retained without automatic pruning |
 | External memory, R2 objects, remote sandboxes | External services | Depend on service policies |
 

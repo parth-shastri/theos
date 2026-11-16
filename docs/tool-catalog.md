@@ -738,14 +738,18 @@ The server uses `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`
 It exports turn, model, tool, delegate, and title spans through OTLP/HTTP protobuf.
 Optional content capture includes messages, tool arguments, results, and named delegate tasks within configurable byte limits.
 The runtime owns its tracer provider and background batch processor.
+When configured, Langfuse receives the same OTLP spans. Langfuse-specific observation attributes map captured input/output into its chat view, and `langfuse.session.id` groups turns from one conversation.
+Content capture remains disabled by default. Langfuse stores traces; it does not collect Theos application logs.
+The content-free `first_model_call` application event records elapsed harness time when the first request starts, whether or not OTel is enabled.
+The local deployment uses the official Langfuse Compose stack at `v4.80.0`, kept outside the application image and repository history.
 The optional `compose.tracing.yaml` runs Jaeger `2.22.0` with seven-day Badger storage in a separate volume.
 Jaeger uses a 512 MiB container limit, a Go memory target, and the Collector memory limiter.
-Jaeger supplies the waterfall viewer. It is an operations dependency, not an assistant tool.
+Jaeger remains an optional waterfall viewer. It is an operations dependency, not an assistant tool.
 The Pi uses host Tailscale `1.102.4` Serve for private HTTPS access to the viewer on port 8443.
 Tailnet grants restrict this port to `group:theos-operators` across IPv4 and IPv6.
 This host dependency does not change the application image or expose the OTLP receiver.
 See [observability](base-infra/observability.md) for setup and trace contents.
-Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
+Source: [tracing](../src/theos/operations/tracing.py), [Langfuse export](../compose.langfuse.yaml), [Langfuse local Compose overlay](../config/langfuse-local.compose.yaml), and [Jaeger configuration](../config/jaeger.yaml).
 The [content serializer](../src/theos/operations/trace_content.py) uses the OTel GenAI role and parts schema without new dependencies.
 Runtime phase spans measure queue waits, history restoration, model capacity, tool registration, memory retrieval, and local checkpoint persistence.
 HTTPX hooks measure each OpenAI-compatible HTTP request through response headers.

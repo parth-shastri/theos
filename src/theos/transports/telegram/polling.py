@@ -131,8 +131,9 @@ class Telegram:
         """Use the Telegram commands workflow."""
         return await commands.command(self, session, command, argument, chat, topic)
 
-    async def handle(self, updates):
+    async def handle(self, updates, *, received_at=None):
         """Route an authenticated update group to a command, approval, or turn."""
+        received_at = time.monotonic() if received_at is None else received_at
         # Redact again at the routing boundary too: callers may supply an update group
         # that did not come through this poller's normal save path.
         updates = [prepare_update(self.settings, update, self.db) for update in updates]
@@ -186,7 +187,10 @@ class Telegram:
                 if not data.startswith(("a:", "d:")):
                     raise ValueError("Unknown approval response.")
                 turn = self.runtime.start(
-                    owner, session["id"], approval=(data[2:], data.startswith("a:"))
+                    owner,
+                    session["id"],
+                    approval=(data[2:], data.startswith("a:")),
+                    received_at=received_at,
                 )
                 await approval_messages.remove_resolved(self, owner, session["id"])
                 await self.api(
@@ -219,18 +223,20 @@ class Telegram:
                 session["id"],
                 "\n".join(t for t in texts if t) or "Please examine the attached files.",
                 files,
+                received_at=received_at,
             )
             await self.render(turn, chat, topic)
 
     async def process(self, updates):
         """Record the outcome of one accepted update group."""
+        received_at = time.monotonic()
         ids = [u["update_id"] for u in updates]
         # Mark the group before awaiting the handler so another poll cannot claim it.
         for update_id in ids:
             self.db.execute("UPDATE telegram_updates SET status='running' WHERE id=?", (update_id,))
         status = "completed"
         try:
-            await self.handle(updates)
+            await self.handle(updates, received_at=received_at)
         except asyncio.CancelledError:
             # Shutdown can interrupt a reply after an external write succeeds.
             # Keep this distinct from a clean failure: repeating the user request may repeat an action.
