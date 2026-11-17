@@ -257,7 +257,7 @@ async def test_telegram_shutdown_and_long_stream(runtime):
     )
     entered = asyncio.Event()
 
-    async def hang(updates):
+    async def hang(updates, *, received_at=None):
         entered.set()
         await asyncio.Future()
 
