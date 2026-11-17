@@ -1178,10 +1178,15 @@ for (const mode of ["dropdown", "journey"]) {
       .locator(".openui-relationship-list li")
       .evaluate((row) => {
         const [arrow, copy] = row.children;
+        const [label, button] = copy.children;
         return (
           Math.abs(
             arrow.getBoundingClientRect().top -
               copy.getBoundingClientRect().top,
+          ) < 1 &&
+          Math.abs(
+            label.getBoundingClientRect().left -
+              button.getBoundingClientRect().left,
           ) < 1
         );
       });

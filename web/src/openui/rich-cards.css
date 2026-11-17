@@ -815,8 +815,12 @@
   min-width: 0;
   gap: 2px;
 }
+.openui-relationship-list .openui-card-context {
+  margin-inline-start: 0;
+}
 .openui-relationship-list button {
   justify-self: start;
+  text-align: start;
 }
 .openui-relationship-arrow {
   flex: none;
