@@ -928,6 +928,7 @@ const AnswerViews = defineComponent({
       ? h(SelectPicker, {
           id,
           label: journey ? "Step" : "View",
+          menuClassName: "openui-view-menu",
           value: String(active),
           options,
           onChange: select,

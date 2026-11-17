@@ -1215,3 +1215,38 @@ for (const mode of ["dropdown", "journey"]) {
     expect(turns).toEqual([]);
   });
 }
+
+test("answer view options wrap unbroken labels inside the dropdown", async ({
+  page,
+}) => {
+  const longLabel = "StationIdentifier".repeat(5) + "NorthTerminal";
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [details])",
+      'summary = AnswerSummary("A route and its transfer station.")',
+      'details = AnswerViews("Planning a trip", [route, transfer])',
+      'route = AnswerView("Route", [stages])',
+      'stages = ProcessDiagram("Transfer route", [first, second])',
+      'first = ProcessStep("Bus", "Ride to the station.")',
+      'second = ProcessStep("Train", "Change to a train at the station.")',
+      `transfer = AnswerView("${longLabel}", [station])`,
+      'station = SummaryCard("Transfer station", [location])',
+      'location = SummaryFact("Location", "North Terminal")',
+    ].join("\n"),
+    "theos-openui-6",
+  );
+
+  await page.getByRole("combobox", { name: "View: Route" }).press("Enter");
+  const option = page.getByRole("option", { name: longLabel, exact: true });
+  await expect(option).toBeVisible();
+  expect(
+    await option.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+  await option.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Transfer station" }),
+  ).toBeVisible();
+});

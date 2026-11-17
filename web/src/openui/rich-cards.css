@@ -41,6 +41,11 @@
   -webkit-line-clamp: unset;
 }
 
+.openui-view-menu [data-slot="select-item"] > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .openui-view-picker label,
 .openui-view-navigation span {
   color: var(--text-soft);
