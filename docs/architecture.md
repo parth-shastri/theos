@@ -69,7 +69,7 @@ Failed evaluations return to diagnosis and another evaluation cycle.
 
 | Framework stage | Current implementation | Remaining framework work |
 | --- | --- | --- |
-| Trace | SQLite events, structured logs, and per-turn OTel spans through OTLP/HTTP to Langfuse; filelog collectors send application logs to OpenObserve | Durable remote replay and evaluation links |
+| Trace | SQLite events and structured logs. Optional OTel spans can reach Langfuse, and filelog collectors can send logs to OpenObserve | Durable remote replay and evaluation links |
 | Evaluate | Deterministic harness and application acceptance tests | Simulation and model-based scoring |
 | Observe | Health endpoints, usage records, and the private dashboard | Broader production metrics and latency analysis |
 | Diagnose | Operator inspection of logs, traces, jobs, and conversations | Automated feedback into evaluations |
@@ -77,10 +77,10 @@ Failed evaluations return to diagnosis and another evaluation cycle.
 | Release | Manual image build, deployment, and rollback procedures | Automated release feedback across prompts, tools, retrieval, and models |
 
 The application keeps a backend-neutral OTLP/HTTP exporter. The Langfuse overlay adds observation types, session IDs, and chat input/output mappings without adding an SDK.
-Langfuse shows GenAI traces. OpenObserve shows service logs and harness timing profiles.
-Both services run on the Mac mini behind private Tailscale Serve routes.
-Pi and local Theos collectors send logs to OpenObserve. Pi traces reach Langfuse.
-LangSmith is not configured.
+When configured, Langfuse shows GenAI traces and OpenObserve shows service logs and harness timing profiles.
+Operators can place the viewers beside Theos or on other reachable hosts.
+Each log collector needs access to its source log file. Theos sends traces to the configured Langfuse endpoint.
+Theos does not ship a LangSmith integration.
 Read [observability](base-infra/observability.md), [operations](operations.md), and the [acceptance checklist](runtime/acceptance.md) for current behavior.
 
 ## Tool design

@@ -65,9 +65,9 @@
     "id": "page-subtitle",
     "x": 55,
     "y": 92,
-    "width": 773.8125,
+    "width": 646.390625,
     "height": 27.5,
-    "text": "Logs and GenAI traces use separate private services on the Mac mini",
+    "text": "Logs and GenAI traces can use one host or several hosts",
     "fontSize": 22,
     "fontFamily": 1,
     "textAlign": "left",
@@ -76,7 +76,7 @@
     "lineHeight": 1.25,
     "strokeColor": "#53657b",
     "containerId": null,
-    "originalText": "Logs and GenAI traces use separate private services on the Mac mini"
+    "originalText": "Logs and GenAI traces can use one host or several hosts"
   },
   {
     "angle": 0,
@@ -133,11 +133,11 @@
     "locked": false,
     "type": "text",
     "id": "theos-runtime-label",
-    "x": 104.1796875,
+    "x": 96.1328125,
     "y": 366.25,
-    "width": 221.640625,
+    "width": 237.734375,
     "height": 62.5,
-    "text": "Theos runtime\nPi + local process",
+    "text": "Theos runtime\nAny supported host",
     "fontSize": 25,
     "fontFamily": 1,
     "textAlign": "center",
@@ -146,7 +146,7 @@
     "lineHeight": 1.25,
     "strokeColor": "#263447",
     "containerId": "theos-runtime",
-    "originalText": "Theos runtime\nPi + local process"
+    "originalText": "Theos runtime\nAny supported host"
   },
   {
     "angle": 0,
@@ -273,11 +273,11 @@
     "locked": false,
     "type": "text",
     "id": "filelog-collectors-label",
-    "x": 865.2109375,
+    "x": 874.7265625,
     "y": 218.75,
-    "width": 259.578125,
+    "width": 240.546875,
     "height": 57.5,
-    "text": "Filelog collectors\nPi + local LaunchAgent",
+    "text": "Filelog collectors\nNear each log source",
     "fontSize": 23,
     "fontFamily": 1,
     "textAlign": "center",
@@ -286,7 +286,7 @@
     "lineHeight": 1.25,
     "strokeColor": "#263447",
     "containerId": "filelog-collectors",
-    "originalText": "Filelog collectors\nPi + local LaunchAgent"
+    "originalText": "Filelog collectors\nNear each log source"
   },
   {
     "angle": 0,
@@ -347,7 +347,7 @@
     "y": 206.25,
     "width": 250.875,
     "height": 82.5,
-    "text": "OpenObserve 1.1.2\nSearchable service logs\nSeven-day retention",
+    "text": "OpenObserve\nSearchable service logs\nSeven-day default",
     "fontSize": 22,
     "fontFamily": 1,
     "textAlign": "center",
@@ -356,7 +356,7 @@
     "lineHeight": 1.25,
     "strokeColor": "#263447",
     "containerId": "openobserve",
-    "originalText": "OpenObserve 1.1.2\nSearchable service logs\nSeven-day retention"
+    "originalText": "OpenObserve\nSearchable service logs\nSeven-day default"
   },
   {
     "angle": 0,
@@ -657,7 +657,7 @@
     "y": 576.25,
     "width": 342.09375,
     "height": 82.5,
-    "text": "Langfuse 4.80.0\nChat-style model + tool traces\nConversation sessions",
+    "text": "Langfuse\nChat-style model + tool traces\nConversation sessions",
     "fontSize": 22,
     "fontFamily": 1,
     "textAlign": "center",
@@ -666,7 +666,7 @@
     "lineHeight": 1.25,
     "strokeColor": "#263447",
     "containerId": "langfuse",
-    "originalText": "Langfuse 4.80.0\nChat-style model + tool traces\nConversation sessions"
+    "originalText": "Langfuse\nChat-style model + tool traces\nConversation sessions"
   },
   {
     "angle": 0,

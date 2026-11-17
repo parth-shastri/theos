@@ -9,7 +9,7 @@ def main():
     scene = Scene("theos-tracing", 1600, 1000)
     scene.title(
         "Theos / observability paths",
-        "Logs and GenAI traces use separate private services on the Mac mini",
+        "Logs and GenAI traces can use one host or several hosts",
     )
 
     scene.node(
@@ -19,7 +19,7 @@ def main():
         330,
         290,
         135,
-        "Theos runtime\nPi + local process",
+        "Theos runtime\nAny supported host",
         PURPLE,
         25,
     )
@@ -42,7 +42,7 @@ def main():
         180,
         310,
         135,
-        "Filelog collectors\nPi + local LaunchAgent",
+        "Filelog collectors\nNear each log source",
         GREEN,
         23,
     )
@@ -53,7 +53,7 @@ def main():
         180,
         320,
         135,
-        "OpenObserve 1.1.2\nSearchable service logs\nSeven-day retention",
+        "OpenObserve\nSearchable service logs\nSeven-day default",
         TEAL,
         22,
     )
@@ -81,7 +81,7 @@ def main():
         550,
         400,
         135,
-        "Langfuse 4.80.0\nChat-style model + tool traces\nConversation sessions",
+        "Langfuse\nChat-style model + tool traces\nConversation sessions",
         TEAL,
         22,
     )

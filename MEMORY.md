@@ -7,7 +7,7 @@ Updated: 2026-11-16.
 Use Langfuse as the primary chat-oriented viewer while keeping Theos on standard OTLP/HTTP protobuf and the GenAI semantic conventions.
 Map captured model and tool content through Langfuse observation attributes and propagate `langfuse.session.id` to every span.
 Keep trace content capture disabled by default. Keep Theos application logs local and separate from GenAI traces; record the first-model-call harness timing in both the application log and optional turn span.
-Test the pinned Langfuse self-hosted Compose stack on this Mac before deciding whether to deploy it on the Mac mini.
+Keep the local Langfuse Compose helper optional for development checks. Other deployments can use any reachable Langfuse service.
 
 ## Service log access and timing profiles, 2026-11-16
 
@@ -16,25 +16,21 @@ Use the admin dashboard or authenticated `GET /api/logs` for a recent-event view
 Log per-turn request acceptance, concurrency wait, setup phases, model/tool timings, recovery, finalization, and time to first model call without recording prompts, tool arguments, or exception prose.
 Keep the log formatter on a fixed event and field allowlist, with bounded file rotation and retention.
 
-## OpenObserve logs and Langfuse on the Mac mini, 2026-11-17
+## Portable observability setup, 2026-11-17
 
 Use Langfuse for GenAI turn traces and OpenObserve for Theos service logs.
 Keep the OTLP trace and JSON log pipelines separate.
-The Mac mini runs Langfuse 4.80.0 on private Serve port 8445 and OpenObserve 1.1.2 on port 8446.
-Keep both services behind Tailscale Serve and do not enable Funnel.
-Store service credentials on the mini under `~/.local/share/theos-observability/` with mode 0600.
-Forward Pi logs from a read-only `theos-service-logs` volume through a persistent OpenTelemetry Collector.
-The Pi collector keeps offsets and its retry queue under the deployment's `observability-next/otel-state/` directory.
-Forward local logs with a native LaunchAgent to the `theos_macbook` stream.
-The local collector watches preview logs and `~/.theos/logs/theos.log`, and starts at the end of each file.
+Keep both viewers optional and let the operator choose one host or several hosts.
+Require each log collector to read its source log file and reach the configured OpenObserve endpoint.
+The supplied Compose collector reads the external `theos-service-logs` volume without write access.
+Keep its file offsets and retry queue in persistent host storage.
+Let operators choose stream names for each log source.
 Keep local files, rotation, and timing fields unchanged while forwarding their copies.
-Keep OpenObserve logs for seven days.
-The Pi exports production traces to the mini Langfuse OTLP/HTTP endpoint.
-New trace content capture stays off by default. Preserve the existing Pi private capture setting until reviewed.
-The Pi Jaeger container, image, and Serve route were removed after the new trace and log paths passed live checks.
-Retain the old Jaeger data volume and archived deployment manifest.
-Do not run local OpenObserve storage while Docker Desktop returns EOF and free disk space remains low.
-Use the mini OpenObserve instance for local Theos logs instead.
+The supplied OpenObserve Compose file defaults to seven-day log retention.
+Keep trace content capture disabled by default.
+Treat the local Langfuse helper and native macOS collector as optional development paths.
+Keep viewer authentication and private network access separate from Theos browser authentication.
+The retired Jaeger configuration remains absent from active deployment files.
 
 ## Browser UI libraries, 2026-11-15
 
@@ -332,9 +328,9 @@ Docker Desktop still requires a macOS login. A future login or disk-encryption c
 | Browser conversation titles | Generate from the first completed exchange with the selected model and refine once after three user messages. Bound title calls, include their usage in costs, preserve custom titles, and retain a fallback on failure. Migration 007 tracks automatic titles |
 | Configuration | Pydantic settings with the `AGENT_` prefix |
 | Deployment | One application worker and scheduler per SQLite database |
-| Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. All spans share the existing conversation ID and a separate turn ID. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata by default. Optional bounded content capture includes model messages, tool arguments/results, and delegate tasks/results. Use OTel GenAI roles, parts, and descriptive agent names inherited by child spans. Retain legacy string delegate tasks. Theos chooses descriptive agent names from task scope without user-supplied names. Delegate substantial independent research when useful, and handle simple or dependent lookups directly. Instruct research delegates to use at most two focused search calls with three results each, then return findings and unverified facts. These search limits are guidance. After delegation, instruct the parent to use findings and caveats, with at most two focused verification searches before answering. Retain call usage accounting and the 90-second tool timeout. Capture limits default to 8,192 UTF-8 JSON bytes per field and 32,768 per span. Exclude reasoning, binary payloads, provider state, and exception payloads. Keep SQLite events and usage. Use Langfuse on the Mac mini for chat-oriented traces |
-| Trace access | The current Langfuse and OpenObserve viewers use private Tailscale Serve routes on the Mac mini at ports 8445 and 8446. No public Funnel route is enabled. Viewer sign-in does not filter records by Theos owner. The former Pi Jaeger route on port 8443 was removed on 2026-11-17 |
-| Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. Keep OpenObserve logs for seven days. Preserve the retired Jaeger data volume on the Pi without mounting it. Monitor mini storage growth separately |
+| Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. All spans share the existing conversation ID and a separate turn ID. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata by default. Optional bounded content capture includes model messages, tool arguments/results, and delegate tasks/results. Use OTel GenAI roles, parts, and descriptive agent names inherited by child spans. Retain legacy string delegate tasks. Theos chooses descriptive agent names from task scope without user-supplied names. Delegate substantial independent research when useful, and handle simple or dependent lookups directly. Instruct research delegates to use at most two focused search calls with three results each, then return findings and unverified facts. These search limits are guidance. After delegation, instruct the parent to use findings and caveats, with at most two focused verification searches before answering. Retain call usage accounting and the 90-second tool timeout. Capture limits default to 8,192 UTF-8 JSON bytes per field and 32,768 per span. Exclude reasoning, binary payloads, provider state, and exception payloads. Keep SQLite events and usage. Langfuse can display these traces on any reachable host |
+| Trace access | Place optional Langfuse and OpenObserve viewers on one host or several hosts. Protect each viewer with its own authentication and private routing. Viewer sign-in does not filter records by Theos owner. Theos browser authentication does not protect either viewer |
+| Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. The supplied OpenObserve Compose file sets seven-day retention. Keep collector offsets and retry queues in persistent storage and monitor storage growth |
 | Turn recovery | Preserve the transcript and uncertain actions. Retry provider context rejection only with a smaller request, without repeating tools. An irreducible request remains a failure, never a fabricated successful answer |
 | Checkpoint latency | Commit SQLite state and fsynced local objects before work proceeds. Use one background R2 worker with bounded batches, connection reuse, storage backoff, and a durable transfer journal. Publish remote recovery pointers only after their snapshots and sources are uploaded. Remote recovery can lag local recovery. Restart replication without repeating assistant tools |
 | Parallel Gmail reads | Mark search, message, thread, draft-list, draft-read, and label-list tools safe for parallel execution. Preserve that declaration and view metadata through journal wrappers. Keep writes and approved sends ordered. Preserve each call ID, completed result, ownership check, and uncertain outcome |
@@ -626,20 +622,6 @@ On 2026-10-11, the operator authorized a fresh beta reset of chats, pending chat
 Keep account setup, connected credentials, enrollment, preferences, files, and usage accounting.
 Preserve the Telegram offset so a restart does not replay old updates.
 This is a one-time reset, not a retention policy for SQLite events.
-
-## Historical: Pi Jaeger access, retired 2026-11-17
-
-On 2026-10-11, the operator requested private Pi Jaeger access through Tailscale Serve.
-The viewer URL is `https://neuralbox-pi.tail61f0ca.ts.net:8443/`.
-Tailscale Serve proxies `http://127.0.0.1:16686` and persists across restarts.
-The tailnet policy restricts Pi TCP 8443 to `group:theos-operators`, currently `parth-shastri@github`.
-The former wildcard grant now excludes the Pi. Separate grants retain other Pi TCP ports, UDP, and ICMP.
-The existing SSH policy and node attributes remain unchanged. This endpoint has no public Funnel configuration.
-Seven saved policy tests cover operator access, nonoperator rejection, both IP families, and other service access.
-Mac HTTPS checks passed with certificate validation. The viewer displayed an existing four-span Pi trace.
-No nonoperator device was available for a live denial check. The saved policy tests validate denial.
-Keep the policy snapshot and runbook together in the same change.
-See [observability](docs/base-infra/observability.md) and [historical policy snapshot](config/tailscale/pi-jaeger.policy.json).
 
 ## Research response fix
 

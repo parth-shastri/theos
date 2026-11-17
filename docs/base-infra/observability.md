@@ -80,23 +80,28 @@ There is no separate `/dashboard` page.
 
 ## View traces in Langfuse
 
-Langfuse is the primary viewer for model and tool traces. Theos exports standard OTLP/HTTP protobuf and adds Langfuse attributes for observation type, captured input/output, and the conversation session.
+Langfuse is an optional viewer for model and tool traces. Theos exports standard OTLP/HTTP protobuf and adds Langfuse observation attributes.
 The existing `gen_ai.*` attributes remain on the spans, so the same trace data can also go to another OTel backend.
 Content capture stays disabled unless `AGENT_TRACING__CAPTURE_CONTENT=true`. When enabled, bounded messages and tool data are sent to the trace backend.
 
-The Mac mini runs Langfuse `v4.80.0` with persistent Docker volumes. The private UI uses Tailscale Serve on port `8445`.
-The local development helper runs a separate stack on this Mac:
+Run Langfuse on the runtime host or another host that Theos can reach.
+Set `AGENT_TRACING__ENDPOINT` to that host's `/api/public/otel/v1/traces` URL.
+Set private authentication headers in `AGENT_TRACING__HEADERS`.
+The optional [Langfuse Compose overlay](../../compose.langfuse.yaml) uses `http://langfuse-web:3000` when both services share the `theos-observability` Docker network.
+Set a reachable private URL instead when the services use separate hosts or networks.
+
+For development or evaluation, the helper starts a loopback Langfuse stack on a Docker host:
 
 ```sh
 python3 scripts/deploy_langfuse_local.py
 ```
 
-The local helper stores credentials under `.theos/langfuse-local/`.
+This helper is not required to run Theos or to use another Langfuse installation.
+It stores local credentials under the ignored `.theos/langfuse-local/` directory.
 Use `--port 3001 --public-url http://localhost:3001` if port 3000 is already in use.
-The Mac mini login details stay in `~/.local/share/theos-observability/.theos/langfuse-local/access.txt`.
-Open [Langfuse](https://parths-mac-mini.tail61f0ca.ts.net:8445) while connected to Tailscale.
+Open the helper's loopback URL or the private URL for your own Langfuse service.
 
-Send a disposable fake-model turn to check trace ingestion without an OpenAI request or production conversation data:
+To check the development stack, send a disposable fake-model turn without a model API request:
 
 ```sh
 uv run --extra server python scripts/check_tracing.py \
@@ -106,10 +111,13 @@ uv run --extra server python scripts/check_tracing.py \
   --capture-content
 ```
 
-The script prints a trace ID and viewer URL. In Langfuse, the model observation shows the synthetic chat messages, and tool observations show their inputs and outputs. Each Theos turn remains its own trace; shared `langfuse.session.id` groups turns in a conversation.
+The script prints a trace ID and viewer URL. The model and tool observations show only synthetic content.
+Each Theos turn remains its own trace. The shared `langfuse.session.id` groups turns in a conversation.
 
-To export from the Theos Compose service, add `compose.langfuse.yaml` to the Theos Compose command and put `LANGFUSE_AUTH_STRING` in its private `.env`. The string is Base64 of `public-key:secret-key`. The Theos service and Langfuse web service join the `theos-observability` network. The overlay keeps content capture off unless explicitly enabled.
-For a native Theos process on the same Mac, use `http://127.0.0.1:3000/api/public/otel/v1/traces` as the endpoint and configure the same secret headers through `AGENT_TRACING__HEADERS`.
+For a shared Docker network, add `compose.langfuse.yaml` to the Theos Compose command.
+Set `LANGFUSE_AUTH_STRING` in its private `.env` to Base64 of the Langfuse `public-key:secret-key` pair.
+The overlay keeps content capture off unless you enable it.
+For other layouts, configure the endpoint and secret headers directly on the Theos process.
 
 Theos application logs remain separate from traces. They stay in the JSON file under `AGENT_DATA_DIR/logs` with bounded rotation.
 The `first_model_call` log event and `theos.turn.time_to_first_model_call_seconds` span attribute measure harness work before the first model request.
@@ -117,27 +125,52 @@ Langfuse does not ingest OpenTelemetry logs.
 
 ## View service logs in OpenObserve
 
-OpenObserve `v1.1.2` runs on the Mac mini. Its private UI uses Tailscale Serve on port `8446`.
-Open [OpenObserve](https://parths-mac-mini.tail61f0ca.ts.net:8446) while connected to Tailscale.
-The login details stay in `~/.local/share/theos-observability/openobserve.env` on the mini.
+OpenObserve is optional. You can run it beside Theos or on another reachable host.
+The supplied [Compose file](../../compose.openobserve.yaml) pins `v1.1.2`, stores data in a persistent volume, and binds the UI to host loopback port `5080`.
+It sets seven-day retention. Edit the Compose setting if your deployment needs another retention period.
+Set `OPENOBSERVE_EMAIL` and `OPENOBSERVE_PASSWORD` in a private Compose environment file before starting the service.
+Run the service from the repository root:
 
-The `theos_pi` stream receives Pi application events. The `theos_macbook` stream receives local Theos events.
-Both streams keep data for seven days. The existing Theos file rotation remains active on each source host.
+```sh
+docker compose --env-file /path/to/observability.env -f compose.openobserve.yaml up -d
+```
 
-The Pi collector reads `/data/logs` from the persistent `theos-service-logs` volume.
-It mounts the volume read-only and forwards JSON events over OTLP/HTTP.
-The host Compose overlay preserves this volume when application release volumes change.
-The collector keeps file offsets and its export queue under the deployment's `observability-next/otel-state` directory.
+Run a log collector on each host that can read a Theos application log.
+The supplied [collector Compose file](../../compose.openobserve-collector.yaml) reads the external `theos-service-logs` volume without write access.
+Mount that volume at `/data/logs` in the Theos container.
+The optional [skills overlay](../../compose.skills.yaml) includes this mount for deployments that also use a shared skills directory.
+Back up existing `/data/logs` files before a new volume hides that directory.
+For other deployments, create the external volume and add this Compose override:
 
-The local LaunchAgent tails the active Theos preview log and `~/.theos/logs/theos.log`.
-It discovers new `theos-focus-preview-*` directories and starts at the end of each file.
-It keeps offsets and a retry queue under the ignored `.theos/openobserve-local/collector` directory.
-Read collector diagnostics with `tail -f .theos/openobserve-local/collector.log`.
-The private token and collector configuration stay in `.theos/openobserve-local/` with mode `0600`.
-Synthetic ingestion and rotation checks passed. Confirm `first_model_call` and `turn_profile` events after the next real local model turn.
+```sh
+docker volume create theos-service-logs
+```
 
-Local Docker Desktop still returns EOF, and free disk space is low. This device runs only the collector.
-OpenObserve stores the local logs on the mini, so a local database does not use this disk.
+```yaml
+services:
+  theos:
+    volumes:
+      - theos-service-logs:/data/logs
+volumes:
+  theos-service-logs:
+    external: true
+```
+
+Set `OPENOBSERVE_OTLP_URL` to an organization endpoint that the collector can reach, such as `https://logs.example.com/api/default`.
+When both services share a Compose network, `http://openobserve:5080/api/default` is an option.
+Set `OPENOBSERVE_AUTH_HEADER` to the full `Basic ...` value for a private OpenObserve ingestion credential.
+Choose `OPENOBSERVE_STREAM` for each log source. The default stream name is `theos`.
+Set `THEOS_OTEL_STATE_DIR` to a persistent host directory owned by UID `10001`.
+The collector stores file offsets and its retry queue there and forwards JSON events over OTLP/HTTP.
+Start the collector after you mount the shared log volume in Theos:
+
+```sh
+docker compose --env-file /path/to/collector.env -f compose.openobserve-collector.yaml up -d
+```
+
+For a native Theos process, point a filelog collector at `$AGENT_DATA_DIR/logs/theos.log` and its rotated files.
+Use the service manager available on that host. A macOS LaunchAgent is one optional choice for local development.
+Theos keeps its rotating log file even when OpenObserve is unavailable.
 
 ## Trace structure in Langfuse
 
@@ -236,17 +269,12 @@ No transient process identifier is exported as `gen_ai.agent.id`.
 The exporter does not write local OTLP/JSON files.
 SQLite events and usage remain available when remote tracing is disabled.
 
-The Langfuse and OpenObserve services use private Tailscale Serve routes on the Mac mini.
-Theos browser tokens do not protect either UI or filter telemetry by owner.
-Operators who can sign in can inspect the records in each service.
-Trace content capture stays disabled by default. The Pi's existing private configuration keeps its current capture setting.
-Do not expose these services through Funnel or a public reverse proxy.
-
-Tailscale Serve on the mini proxies `8445` to Langfuse loopback port `3001`.
-It proxies `8446` to OpenObserve loopback port `5080`.
-The old Pi Serve route on port `8443` has been removed. No tailnet policy changes were made.
-The former Jaeger container and image are gone. Its named data volume remains on the Pi for recovery.
-The retired manifest is archived under `~/theos-deploy/retired-jaeger-20261117T062644Z/`.
+Protect each viewer with its own authentication and private network access.
+Theos browser tokens do not protect either UI or filter records by owner.
+Operators who can sign in can inspect the records available to that viewer.
+Keep trace content capture disabled unless your deployment needs captured messages and tool data.
+Choose a private proxy, tunnel, or network route if operators need access from another host.
+The supplied Compose files bind viewer ports to host loopback by default.
 
 ## Export to another backend
 
@@ -271,8 +299,8 @@ AGENT_TRACING__HEADERS={}
 The endpoint is the complete trace URL, including `/v1/traces` or the backend's equivalent path.
 For authenticated endpoints, set secret headers through `AGENT_TRACING__HEADERS`.
 For example, use `{"Authorization":"Bearer your-token"}` in the private configuration.
-The production Pi now exports traces to the private Langfuse OTLP endpoint on the mini.
-The local development overlay uses the `langfuse-web` service on the shared Docker network.
+Langfuse uses `/api/public/otel/v1/traces` as its OTLP trace endpoint.
+The optional Compose overlay uses the `langfuse-web` service on a shared Docker network.
 
 Sampling defaults to every turn. A lower ratio selects whole traces, preserving their child hierarchy.
 Tracing defaults to disabled and does not replace the process-wide OTel provider.
@@ -315,9 +343,8 @@ The estimate does not represent an invoice or separate cached-token pricing.
 | Application log age | Rotate the current file after seven days. Remove backups with modification times older than seven days | Startup, rotation, and hourly checks when the handler emits events |
 | Container output | 5 MB per file, three files per container | Docker logging driver |
 | Export queue | 2,048 spans, batches of 256 | SDK discards queued spans on overflow rather than growing without a limit |
-| OpenObserve logs | Seven-day retention | OpenObserve compaction; the Pi collector also limits accepted event age to seven days |
+| OpenObserve logs | Seven-day default in supplied Compose file | OpenObserve compaction; the supplied service also limits accepted event age to seven days |
 | Collector offsets and queue | Persistent file storage on each source host | Filelog storage extension and bounded export queue |
-| Retired Jaeger traces | Preserved on the Pi | The old named volume remains unmounted for recovery |
 | SQLite events, usage, and conversation state | Keep existing records | No automatic deletion in this change |
 
 These policies keep logs on disk and bound the queue in memory.
@@ -366,7 +393,7 @@ OpenRouter may accept an HTTP request with 200 and later report 502 inside its s
 Read `theos.provider.http_status` and `theos.provider.status_code` separately.
 A valid generation ID supports a provider-side lookup, but failed generations may have no retained record.
 A 502 alone does not prove overload, disconnection, or timeout.
-The old Pi failure lost its detailed error metadata and cannot establish that distinction.
+The older recorded failure lost its detailed error metadata and cannot establish that distinction.
 
 Transient accepted OpenRouter streams receive at most two additional attempts before any model event.
 Additional attempts start only within the first 30 seconds, so a long failed generation does not start more long waits.

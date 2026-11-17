@@ -1,39 +1,22 @@
 # Feature and acceptance checklist
 
-## Langfuse and OpenObserve deployment, 2026-11-17
+## Optional observability
 
-The Mac mini runs Langfuse `v4.80.0` on private Tailscale Serve port `8445`.
-It runs OpenObserve `v1.1.2` on private Serve port `8446` with seven-day log retention.
-No tailnet policy changes were made. Existing Mem0 routes remain available.
+Theos records rotating JSON application events without an external viewer.
+Optional OTel tracing sends standard OTLP/HTTP protobuf with GenAI attributes to a configured receiver.
+Langfuse observation attributes support chat-oriented model and tool views and conversation sessions.
+Trace content capture stays disabled by default.
 
-A disposable Pi turn exported 23 spans to Langfuse. The Observations API returned all spans.
-The active Pi exporter endpoint returned HTTP 200 after cutover.
-Pi API and web readiness returned HTTP 200 with the existing release images and data volume.
+Use a disposable fake-model turn to validate Langfuse without a model API request.
+Confirm the trace contains generation and tool observations. Enable content capture only for synthetic messages during this check.
+The supplied filelog collector should deliver application events after log rotation and when a new file appears.
+Its Compose configuration keeps offsets and an export queue in persistent host storage.
+The provided OpenObserve Compose file sets seven-day retention by default.
+When validating log collection, confirm `first_model_call` and `turn_profile` after a model turn.
 
-The Pi collector sent a new `started` event to the `theos_pi` stream.
-The local collector sent smoke and rotation events to `theos_macbook`.
-It also discovered a new preview directory and delivered its marker.
-The local collector preserves file offsets and its retry queue under ignored `.theos/openobserve-local/`.
-The Pi collector reads the persistent `theos-service-logs` volume read-only.
-Synthetic local ingestion passed. Confirm real `first_model_call` and `turn_profile` events after the next local model turn.
-
-The Pi Jaeger container and image are absent. The old Serve route on port `8443` is removed.
-The named Jaeger data volume remains intact. The retired manifest is archived on the Pi.
-The Pi kernel did not apply the configured Docker memory cgroup limit to the collector.
-Local Docker Desktop still returns EOF, so the Mac runs a native collector without a local OpenObserve database.
-
-## Langfuse local trace viewer, 2026-11-16
-
-The local Mac runs the official Langfuse Compose stack at `v4.80.0`.
-The UI returned HTTP 200, and the web, worker, ClickHouse, PostgreSQL, Redis, and MinIO services started.
-The UI and MinIO ports bind to loopback. Container output uses bounded rotation.
-Theos retains standard OTLP/HTTP protobuf and GenAI attributes, with Langfuse observation types and conversation sessions.
-Content capture stays disabled by default. The fake-model check explicitly enabled it for synthetic messages only.
-Langfuse accepted the local trace. The Observations API returned 23 observations with generation and tool input/output and a session ID.
-The content-free `first_model_call` log records harness time even when OTel is disabled. Per-turn log profiles now record request ingress, runtime phases, model attempts, tool totals, and response queue timing without prompt content.
-Before the per-turn profiles were added, the focused tracing and log-safety suites passed 35 tests.
-Ruff checks and formatting passed after the per-turn profile changes. The focused tracing and log-safety suites remain to be rerun against the final branch.
-The local stack uses persistent Docker volumes. The Mac mini deployment passed on 2026-11-17.
+The content-free `first_model_call` event records harness time even when OTel is disabled.
+Per-turn profiles record request ingress, runtime phases, model attempts, tool totals, and response queue timing without prompt content.
+Run the focused tracing and log-safety checks when changing these observability paths.
 
 ## Richer process diagrams, 2026-11-15
 
@@ -629,21 +612,6 @@ Telegram authentication and polling checks, public readiness, and the private Ja
 The running container reads all eight shared skills through the read-only `/skills` mount.
 The installed terminal client reports version 0.1.9 and passes startup and dependency checks.
 
-## Historical: Pi Jaeger through Tailscale Serve, retired 2026-11-17
-
-On 2026-10-11, the Pi enabled persistent HTTPS Serve on port 8443 for its loopback Jaeger viewer.
-The endpoint is `https://neuralbox-pi.tail61f0ca.ts.net:8443/`.
-The operator group currently contains `parth-shastri@github`.
-Tailscale accepted seven policy tests before saving the restriction.
-These tests cover operator access, nonoperator denial over IPv4 and IPv6, and other service access.
-The nonoperator sources are synthetic policy-test addresses. No live nonoperator device was available.
-The Mac received HTTP 200 from the viewer with successful certificate validation.
-The Jaeger v3 services API returned `theos`. The viewer displayed the existing four-span Pi trace `ff2e20f09a5c2efd423cddf0c87844a3`.
-Serve status contains only the HTTPS proxy and no Funnel configuration.
-At that time, Jaeger ports 16686 and 4318 still listened on host loopback.
-SSH access and public Theos readiness passed after the policy change.
-Seven-day retention, application data, model instructions, and the deployed application release remain unchanged.
-
 ## Explicit deep research and protected final summaries
 
 PR #42 adds a turn-specific research mode, saved SQLite research records, and the browser Research view.
@@ -773,7 +741,7 @@ The Jaeger viewer had no password or per-user trace isolation. It was retired on
 
 ## Historical trace acceptance before Jaeger retirement
 
-These trace checks used the former Jaeger viewer. The current deployment sends traces to Langfuse.
+These historical trace checks used Jaeger. Theos now supports Langfuse through the same OTLP trace exporter.
 
 The 2026-10-10 tracing update adds optional, content-free OTel spans and OTLP/HTTP protobuf export.
 Twenty-one deterministic checks cover model and tool ownership, parallel delegates, title and compaction calls, errors, cancellation, approvals, sampling, redaction, and shutdown.

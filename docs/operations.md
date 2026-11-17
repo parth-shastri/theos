@@ -42,9 +42,8 @@ Application events use a separate rotating file.
 They do not appear automatically in Docker output.
 Each completed, failed, or cancelled turn writes a `turn_profile` JSON line with the measured runtime phases. A `first_model_call` line marks when the harness first reaches a model request. A `response_delivery` line measures the final event's drain through the transport consumer. The **Admin dashboard** and authenticated `GET /api/logs` show the most recent 100 application events. See [observability](base-infra/observability.md) for field meanings and retention.
 
-OpenObserve receives copies of Pi and local Theos JSON events.
-Open [the private log viewer](https://parths-mac-mini.tail61f0ca.ts.net:8446) while connected to Tailscale.
-Use `theos_pi` for Pi events and `theos_macbook` for this Mac's events.
+If log forwarding is configured, open your OpenObserve viewer and select the stream set in `OPENOBSERVE_STREAM`.
+The application log remains available on the runtime host when remote collection is disabled.
 
 ## Restart or change configuration
 

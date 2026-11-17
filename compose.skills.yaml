@@ -1,4 +1,4 @@
-# Copy into the Pi deployment directory to expose its universal skill directory.
+# Optional overlay for a shared skills directory and persistent application logs.
 services:
   theos:
     volumes:

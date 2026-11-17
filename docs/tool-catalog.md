@@ -738,15 +738,16 @@ The server uses `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`
 It exports turn, model, tool, delegate, and title spans through OTLP/HTTP protobuf.
 Optional content capture includes messages, tool arguments, results, and named delegate tasks within configurable byte limits.
 The runtime owns its tracer provider and background batch processor.
-When configured, Langfuse receives the same OTLP spans. Langfuse-specific observation attributes map captured input/output into its chat view, and `langfuse.session.id` groups turns from one conversation.
-Content capture remains disabled by default. Langfuse stores traces; it does not collect Theos application logs.
+When configured, Langfuse receives the same OTLP spans. Its observation attributes map captured input/output into its chat view.
+The `langfuse.session.id` attribute groups turns from one conversation.
+Content capture remains disabled by default. Langfuse can store traces, while OpenObserve can store application logs.
 The content-free `first_model_call` application event records elapsed harness time when the first request starts, whether or not OTel is enabled.
-Langfuse `v4.80.0` runs on the Mac mini for chat-oriented traces.
-OpenObserve `v1.1.2` stores application logs for seven days.
-The Pi and local Mac use OpenTelemetry Collector Contrib `v0.165.0` to forward JSON logs.
-The Pi collector reads a persistent log volume through a read-only mount.
-The local Mac collector runs as a LaunchAgent and keeps file offsets and its retry queue under `.theos/openobserve-local/`.
-Both viewers use private Tailscale Serve routes on the Mac mini.
+The optional local Langfuse helper pins `v4.80.0` for development and evaluation.
+The supplied OpenObserve Compose file pins `v1.1.2` and seven-day log retention.
+OpenTelemetry Collector Contrib `v0.165.0` can forward JSON logs from any runtime host with access to the log file.
+The supplied Compose collector reads a persistent log volume through a read-only mount.
+The collector keeps file offsets and a retry queue in persistent storage on its host.
+Operators choose where to run these services and how to protect their private viewer URLs.
 These observability services are operations dependencies, not assistant tools.
 See [observability](base-infra/observability.md) for endpoints, streams, and retention.
 Source: [tracing](../src/theos/operations/tracing.py), [Langfuse export](../compose.langfuse.yaml), [Langfuse local Compose overlay](../config/langfuse-local.compose.yaml), [OpenObserve service](../compose.openobserve.yaml), [log collector](../compose.openobserve-collector.yaml), and [collector configuration](../config/openobserve-collector.yaml).
