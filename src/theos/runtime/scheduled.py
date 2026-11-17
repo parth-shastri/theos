@@ -49,6 +49,7 @@ class ScheduledTasks:
             "SELECT * FROM scheduled_tasks WHERE status='pending' AND due<=? ORDER BY due LIMIT 100",
             (now,),
         ):
+            received_at = time.monotonic()
             if len(self.workers) >= self.runtime.settings.max_concurrent_turns:
                 break
             session = self.db.session(row["owner"], row["session"])
@@ -87,6 +88,7 @@ class ScheduledTasks:
                     session["id"],
                     f"Scheduled task: {row['name']}\n{row['prompt']}",
                     scheduled=True,
+                    received_at=received_at,
                 )
             worker = asyncio.create_task(self.deliver(turn, session, occurrence))
             self.workers.add(worker)

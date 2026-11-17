@@ -24,6 +24,18 @@ from .trace_content import bounded_json, message_content
 
 logger = logging.getLogger("theos")
 
+LANGFUSE_CONTENT_ATTRIBUTES = {
+    "gen_ai.input.messages": "langfuse.observation.input",
+    "gen_ai.output.messages": "langfuse.observation.output",
+    "gen_ai.tool.call.arguments": "langfuse.observation.input",
+    "gen_ai.tool.call.result": "langfuse.observation.output",
+}
+LANGFUSE_OBSERVATION_TYPES = {
+    "chat": "generation",
+    "execute_tool": "tool",
+    "invoke_agent": "agent",
+}
+
 
 class SafeExporter:
     """Report export failures without the receiver's response or credentials."""
@@ -107,6 +119,9 @@ class Tracing:
         from opentelemetry.trace import SpanKind
 
         attributes = {**({} if root else self.correlation.get() or {}), **(attributes or {})}
+        operation = attributes.get("gen_ai.operation.name")
+        if observation_type := LANGFUSE_OBSERVATION_TYPES.get(operation):
+            attributes.setdefault("langfuse.observation.type", observation_type)
         with self.tracer.start_as_current_span(
             name,
             context=Context() if root else None,
@@ -123,7 +138,12 @@ class Tracing:
                 token = self.correlation.set(
                     {
                         key: attributes[key]
-                        for key in ("gen_ai.conversation.id", "theos.turn.id", "gen_ai.agent.name")
+                        for key in (
+                            "gen_ai.conversation.id",
+                            "langfuse.session.id",
+                            "theos.turn.id",
+                            "gen_ai.agent.name",
+                        )
                         if key in attributes
                     }
                 )
@@ -150,7 +170,9 @@ class Tracing:
         if span is None or not span.is_recording() or not self.settings.capture_content:
             return
         budget = self.capture_budget.get()
-        limit = min(self.settings.content_max_bytes, budget["remaining"])
+        mapped_key = LANGFUSE_CONTENT_ATTRIBUTES.get(key)
+        copies = 2 if mapped_key else 1
+        limit = min(self.settings.content_max_bytes, budget["remaining"] // copies)
         if limit < 256:
             span.set_attribute("theos.content.truncated", True)
             return
@@ -160,8 +182,10 @@ class Tracing:
             span.set_attribute("theos.content.capture_error", True)
             return
         size = len(encoded.encode("utf-8"))
-        budget["remaining"] -= size
+        budget["remaining"] -= size * copies
         span.set_attribute(key, encoded)
+        if mapped_key:
+            span.set_attribute(mapped_key, encoded)
         span.set_attribute(
             "theos.content.captured_bytes",
             self.settings.span_content_max_bytes - budget["remaining"],
@@ -186,6 +210,7 @@ class Tracing:
                 "gen_ai.operation.name": "invoke_agent",
                 "gen_ai.agent.name": agent_name,
                 "gen_ai.conversation.id": session["id"],
+                "langfuse.session.id": session["id"],
                 "theos.turn.id": uuid4().hex,
                 "theos.transport": session["channel"],
                 "theos.turn.scheduled": scheduled,

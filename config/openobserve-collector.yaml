@@ -1,0 +1,47 @@
+extensions:
+  file_storage:
+    directory: /var/lib/theos-otel
+
+receivers:
+  filelog:
+    include: ["/var/log/theos/theos.log", "/var/log/theos/theos.log.[1-3]"]
+    start_at: beginning
+    storage: file_storage
+    include_file_name: false
+    max_log_size: 64KiB
+    retry_on_failure:
+      enabled: true
+    resource:
+      service.name: theos
+    operators:
+      - type: json_parser
+        on_error: drop
+        timestamp:
+          parse_from: attributes.time
+          layout_type: epoch
+          layout: s.ns
+        severity:
+          parse_from: attributes.level
+      - type: copy
+        from: attributes.event
+        to: body
+        if: 'attributes.event != nil'
+
+exporters:
+  otlphttp/openobserve:
+    endpoint: ${env:OPENOBSERVE_OTLP_URL}
+    headers:
+      Authorization: ${env:OPENOBSERVE_AUTH_HEADER}
+      stream-name: ${env:OPENOBSERVE_STREAM}
+    sending_queue:
+      storage: file_storage
+      queue_size: 256
+    retry_on_failure:
+      max_elapsed_time: 0s
+
+service:
+  extensions: [file_storage]
+  pipelines:
+    logs:
+      receivers: [filelog]
+      exporters: [otlphttp/openobserve]

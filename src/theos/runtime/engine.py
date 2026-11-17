@@ -208,8 +208,10 @@ class Runtime:
         tools_disabled=False,
         text_recovery=False,
         display_text=None,
+        received_at=None,
     ):
         """Reserve one turn before a response stream starts."""
+        request_received_at = time.monotonic() if received_at is None else received_at
         # First establish that this conversation belongs to the caller. Do this before
         # reading attachment IDs or changing the saved approval state.
         session = self.session(owner, session_id)
@@ -253,6 +255,7 @@ class Runtime:
         turn = Turn(
             owner,
             session_id,
+            request_received_at=request_received_at,
             raw_events=raw_events,
             include_delegate_tool_progress=session["channel"].startswith("telegram"),
             browser_ui=browser_ui,
@@ -356,8 +359,20 @@ class Runtime:
 
     async def run(self, turn, session, message, *, scheduled=False):
         """Trace one turn independently of the transport and other active turns."""
-        with self.tracing.turn(session, scheduled, self.settings.name, started_at=turn.started_at):
-            await self._run(turn, session, message, scheduled=scheduled)
+        try:
+            with self.tracing.turn(
+                session, scheduled, self.settings.name, started_at=turn.started_at
+            ):
+                await self._run(turn, session, message, scheduled=scheduled)
+        finally:
+            logger.info(
+                "turn_profile",
+                extra={
+                    "session_id": turn.session_id,
+                    "turn_status": turn.final_status,
+                    "timing_profile": turn.timing_profile(),
+                },
+            )
 
     async def _run(self, turn, session, message, *, scheduled=False):
         # Recovery retains the same conversation lock and application concurrency slot.
@@ -372,12 +387,20 @@ class Runtime:
                     # across different conversations before touching history.
                     await stack.enter_async_context(self.lock(turn.session_id))
                     await stack.enter_async_context(self.semaphore)
+                turn.phase_seconds["queue_wait_seconds"] = max(
+                    0.0, time.monotonic() - turn.started_at
+                )
                 await self._run_reserved(turn, session, message, scheduled=scheduled)
         except asyncio.CancelledError:
+            turn.final_status = "interrupted"
             if self.active.pop(turn.session_id, None) is not None:
                 self.tracing.finish_turn("interrupted")
                 turn.emit({"type": "done", "status": "interrupted", "stats": turn.stats()})
             raise
+        finally:
+            turn.phase_seconds.setdefault(
+                "queue_wait_seconds", max(0.0, time.monotonic() - turn.started_at)
+            )
 
     async def _run_reserved(self, turn, session, message, *, scheduled=False):
         """Run one reserved turn and save its final state."""
@@ -394,7 +417,7 @@ class Runtime:
         failure = None
         # 1. Restore the transcript and prior tool results. In particular, do not repeat a
         # tool call whose outcome became uncertain when a previous process stopped.
-        with self.tracing.span("runtime restore"):
+        with turn.phase("restore_seconds"), self.tracing.span("runtime restore"):
             history = self.recover_history(turn.owner, turn.session_id)
         history_offset = len(history)
         memory = ContextMemory.from_dict(json.loads(session["memory"]))
@@ -418,29 +441,35 @@ class Runtime:
                     )
                 # 3. Save the accepted message before the provider can request a tool. If the
                 # process exits mid-turn, the user's input is still part of the conversation.
-                self.db.save_history(turn.owner, turn.session_id, history, status="running")
+                with turn.phase("input_persist_seconds"):
+                    self.db.save_history(turn.owner, turn.session_id, history, status="running")
                 # Deadlines stop new work through hooks, never a running generation.
                 async with AsyncExitStack() as model_stack:
-                    model = await model_stack.enter_async_context(
-                        self.models(self.settings, session["model"], session["reasoning"])
-                    )
+                    with turn.phase("model_setup_seconds"):
+                        model = await model_stack.enter_async_context(
+                            self.models(self.settings, session["model"], session["reasoning"])
+                        )
                     summary_model = None
                     if (
                         self.settings.compaction_model
                         and self.settings.compaction_model != session["model"]
                     ):
-                        summary_model = await model_stack.enter_async_context(
-                            self.models(
-                                self.settings,
-                                self.settings.compaction_model,
-                                session["reasoning"],
+                        with turn.phase("model_setup_seconds"):
+                            summary_model = await model_stack.enter_async_context(
+                                self.models(
+                                    self.settings,
+                                    self.settings.compaction_model,
+                                    session["reasoning"],
+                                )
                             )
-                        )
                     model = CheckedModel(model, self.settings.provider)
                     if summary_model is not None:
                         summary_model = CheckedModel(summary_model, self.settings.provider)
                     # Provider limits determine how much history and output can fit in a request.
-                    with self.tracing.span("runtime model capacity"):
+                    with (
+                        turn.phase("model_capacity_seconds"),
+                        self.tracing.span("runtime model capacity"),
+                    ):
                         limits = await context.capacity(self, session)
                         summary_session = None
                         summary_limits = limits
@@ -453,87 +482,98 @@ class Runtime:
                             summary_limits = await context.capacity(self, summary_session)
                     # The registry is owner- and channel-specific. It is what lets the same
                     # generic harness loop expose different services to different users.
-                    with self.tracing.span("runtime tool registry"):
+                    with (
+                        turn.phase("tool_registry_seconds"),
+                        self.tracing.span("runtime tool registry"),
+                    ):
                         tools = [] if turn.tools_disabled else await self.tools(session)
-                    user_preferences = preferences(self.db, turn.owner, self.settings.timezone)
-                    query = (
-                        message.content
-                        if message
-                        else next(
-                            (m.content for m in reversed(history) if isinstance(m, UserMessage)),
-                            "",
-                        )
-                    )
-                    with self.tracing.span("runtime memory retrieval"):
-                        retrieved = await self.memory_automation.retrieve(session, query)
-                    # These are Theos' application rules and user context. The harness adds
-                    # its own generic instructions for safe tool execution and call limits.
-                    prompt_time = datetime.now(UTC).isoformat()
-                    recovery_review = bool(
-                        self.db.one(
-                            "SELECT id FROM records WHERE owner=? AND kind='remote_recovery_review' AND id=?",
-                            (turn.owner, turn.session_id),
-                        )
-                    )
-                    from theos.services.skills.context import skill_context
-
-                    skill_instructions, loaded = skill_context(
-                        self.settings,
-                        "\n".join(m.content for m in history if isinstance(m, UserMessage))[
-                            -12000:
-                        ],
-                    )
-                    turn.loaded_skills.update(loaded)
-                    # Resolve capabilities in Python. Templates receive only plain turn data.
-                    instructions = render(
-                        "chat/system.md",
-                        agent_name=self.settings.name,
-                        current_utc=prompt_time,
-                        preferences_json=json.dumps(user_preferences),
-                        recovery_review=recovery_review,
-                        sandbox_enabled=self.settings.sandbox.enabled,
-                        skill_instructions=skill_instructions,
-                        research_enabled=bool(turn.research_id),
-                        allow_delegation=True,
-                        retrieved_memory=retrieved,
-                        telegram=session["channel"].startswith("telegram"),
-                    )
-                    if turn.browser_ui or turn.text_recovery:
-                        from theos.runtime.openui import system_prompt
-
-                        policy = render(
-                            "chat/openui-policy.md"
-                            if turn.browser_ui
-                            else "chat/openui-recovery.md",
-                            timezone=user_preferences.get("timezone", self.settings.timezone),
-                        )
-                        instructions = "\n\n".join(
-                            part.strip()
-                            for part in (
-                                instructions,
-                                policy,
-                                system_prompt() if turn.browser_ui else "",
+                    with turn.phase("prompt_assembly_seconds"):
+                        user_preferences = preferences(self.db, turn.owner, self.settings.timezone)
+                        query = (
+                            message.content
+                            if message
+                            else next(
+                                (
+                                    m.content
+                                    for m in reversed(history)
+                                    if isinstance(m, UserMessage)
+                                ),
+                                "",
                             )
-                            if part.strip()
                         )
-                    # This is the boundary between Theos and the harness: application
-                    # objects are passed in; the harness does not import Theos services.
-                    agent = Agent(
-                        model,
-                        tools,
-                        instructions,
-                        hooks.build_hooks(self, session, limits=limits, deadline=deadline),
-                        context_window=limits.context,
-                        compaction=context.compaction(
-                            self,
-                            session,
-                            limits,
-                            turn.research_id,
-                            summary_model=summary_model,
-                            summary_session=summary_session,
-                            summary_limits=summary_limits,
-                        ),
-                    )
+                        with (
+                            turn.phase("memory_retrieval_seconds"),
+                            self.tracing.span("runtime memory retrieval"),
+                        ):
+                            retrieved = await self.memory_automation.retrieve(session, query)
+                        # These are Theos' application rules and user context. The harness adds
+                        # its own generic instructions for safe tool execution and call limits.
+                        prompt_time = datetime.now(UTC).isoformat()
+                        recovery_review = bool(
+                            self.db.one(
+                                "SELECT id FROM records WHERE owner=? AND kind='remote_recovery_review' AND id=?",
+                                (turn.owner, turn.session_id),
+                            )
+                        )
+                        from theos.services.skills.context import skill_context
+
+                        skill_instructions, loaded = skill_context(
+                            self.settings,
+                            "\n".join(m.content for m in history if isinstance(m, UserMessage))[
+                                -12000:
+                            ],
+                        )
+                        turn.loaded_skills.update(loaded)
+                        # Resolve capabilities in Python. Templates receive only plain turn data.
+                        instructions = render(
+                            "chat/system.md",
+                            agent_name=self.settings.name,
+                            current_utc=prompt_time,
+                            preferences_json=json.dumps(user_preferences),
+                            recovery_review=recovery_review,
+                            sandbox_enabled=self.settings.sandbox.enabled,
+                            skill_instructions=skill_instructions,
+                            research_enabled=bool(turn.research_id),
+                            allow_delegation=True,
+                            retrieved_memory=retrieved,
+                            telegram=session["channel"].startswith("telegram"),
+                        )
+                        if turn.browser_ui or turn.text_recovery:
+                            from theos.runtime.openui import system_prompt
+
+                            policy = render(
+                                "chat/openui-policy.md"
+                                if turn.browser_ui
+                                else "chat/openui-recovery.md",
+                                timezone=user_preferences.get("timezone", self.settings.timezone),
+                            )
+                            instructions = "\n\n".join(
+                                part.strip()
+                                for part in (
+                                    instructions,
+                                    policy,
+                                    system_prompt() if turn.browser_ui else "",
+                                )
+                                if part.strip()
+                            )
+                        # This is the boundary between Theos and the harness: application
+                        # objects are passed in; the harness does not import Theos services.
+                        agent = Agent(
+                            model,
+                            tools,
+                            instructions,
+                            hooks.build_hooks(self, session, limits=limits, deadline=deadline),
+                            context_window=limits.context,
+                            compaction=context.compaction(
+                                self,
+                                session,
+                                limits,
+                                turn.research_id,
+                                summary_model=summary_model,
+                                summary_session=summary_session,
+                                summary_limits=summary_limits,
+                            ),
+                        )
                     # 4. Run the harness. It handles model/tool/model cycles; the hooks
                     # supplied above persist each important boundary in the application DB.
                     events = agent.run_stream(
@@ -543,22 +583,27 @@ class Runtime:
                         memory=memory,
                         inbox=turn.inbox,
                     )
-                    async with aclosing(events):
-                        async for event in events:
-                            if isinstance(event, ContextCompaction):
-                                if event.status == "progress" and event.model_calls:
-                                    self.record_usage(session, event.usage)
-                                elif event.status == "completed":
-                                    await self.checkpoints.save(
-                                        turn.owner, turn.session_id, history, memory, "compaction"
-                                    )
-                                    # Commit the summary boundary before the next provider call.
-                                    self.db.save_history(
-                                        turn.owner, turn.session_id, history, memory.to_dict()
-                                    )
-                            # Persist important data in hooks first; this event path is only
-                            # for progress/UI delivery and may be consumed after a delay.
-                            status = publish_event(self, turn, event, status)
+                    with turn.phase("harness_seconds"):
+                        async with aclosing(events):
+                            async for event in events:
+                                if isinstance(event, ContextCompaction):
+                                    if event.status == "progress" and event.model_calls:
+                                        self.record_usage(session, event.usage)
+                                    elif event.status == "completed":
+                                        await self.checkpoints.save(
+                                            turn.owner,
+                                            turn.session_id,
+                                            history,
+                                            memory,
+                                            "compaction",
+                                        )
+                                        # Commit the summary boundary before the next provider call.
+                                        self.db.save_history(
+                                            turn.owner, turn.session_id, history, memory.to_dict()
+                                        )
+                                # Persist important data in hooks first; this event path is only
+                                # for progress/UI delivery and may be consumed after a delay.
+                                status = publish_event(self, turn, event, status)
                     if turn.provider_failure:
                         raise turn.provider_failure
                     if status == "budget_exhausted":
@@ -595,23 +640,26 @@ class Runtime:
                         "session_id": turn.session_id,
                     },
                 )
-            if reason:
-                status = await recovery.finish(
-                    self,
-                    turn,
-                    session,
-                    history,
-                    memory,
-                    history_offset,
-                    allowances.recovery,
-                    instructions,
-                    reason,
-                    error=failure,
-                )
+            with turn.phase("recovery_seconds"):
+                if reason:
+                    status = await recovery.finish(
+                        self,
+                        turn,
+                        session,
+                        history,
+                        memory,
+                        history_offset,
+                        allowances.recovery,
+                        instructions,
+                        reason,
+                        error=failure,
+                    )
         except asyncio.CancelledError:
             status = "interrupted"
+            turn.final_status = status
             raise
         finally:
+            turn.finalization_started_at = time.monotonic()
             # 5. Save final history and memory before releasing the conversation lock. This
             # also runs after exceptions or cancellation, so restart recovery has a boundary.
             history.extend(turn.inbox.drain())
@@ -654,6 +702,7 @@ class Runtime:
                 )
                 else status
             )
+            turn.final_status = run_status
             self.tracing.finish_turn(run_status, allowances.attributes())
             updated_runs = self.db.execute(
                 "UPDATE scheduled_runs SET status=?, finished=? WHERE session=? "
