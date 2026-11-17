@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 from croniter import croniter
 
+from theos.services.phone_calls import REMINDER_WINDOW
+
 logger = logging.getLogger("theos")
 
 
@@ -23,6 +25,7 @@ class Scheduler:
         self.health_task = None
         self.memory_task = None
         self.github_task = None
+        self.phone_task = None
         from .scheduled import ScheduledTasks
 
         self.scheduled = ScheduledTasks(runtime, telegram)
@@ -36,10 +39,20 @@ class Scheduler:
             # The occurrence ID prevents duplicate inbox items across scheduler restarts.
             occurrence = row["id"] + ":" + str(row["due"])
             with self.db.transaction():
-                self.db.execute(
+                saved = self.db.execute(
                     "INSERT OR IGNORE INTO notifications(id,owner,session,text,created,delivered) VALUES (?,?,?,?,?,0)",
                     (occurrence, row["owner"], row["session"], row["text"], now),
                 )
+                if saved.rowcount and row["delivery"] == "phone":
+                    self.runtime.phone_calls.enqueue(
+                        occurrence,
+                        row["owner"],
+                        row["session"],
+                        "reminder",
+                        row["id"],
+                        row["due"],
+                        row["due"] + REMINDER_WINDOW,
+                    )
                 # Advance from now, rather than sending a backlog after downtime.
                 if row["cron"]:
                     base = datetime.fromtimestamp(now, UTC).astimezone(ZoneInfo(row["timezone"]))
@@ -79,6 +92,8 @@ class Scheduler:
             "UPDATE approvals SET status='expired' WHERE status='pending' AND expires<?",
             (self.last_tick,),
         )
+        if self.phone_task is None or self.phone_task.done():
+            self.phone_task = asyncio.create_task(self.phone_work(self.last_tick))
         # 2. Deliver saved notifications. Keep uncertain sends for review.
         await self.notifications()
         if self.github_task is None or self.github_task.done():
@@ -99,6 +114,13 @@ class Scheduler:
         except Exception:
             logger.warning("github_notifications_failed")
 
+    async def phone_work(self, now):
+        """Keep speech generation and dialing independent of reminder messages."""
+        try:
+            await self.runtime.phone_calls.tick(now)
+        except Exception:
+            logger.warning("phone_call_worker_failed")
+
     async def memory_work(self):
         """Isolate optional consolidation from reminder and scheduled-task delivery."""
         try:
@@ -117,6 +139,9 @@ class Scheduler:
         """Stop background workers before their database and HTTP client close."""
         self.stopping.set()
         await self.scheduled.close()
+        if self.phone_task is not None:
+            self.phone_task.cancel()
+            await asyncio.gather(self.phone_task, return_exceptions=True)
         if self.github_task is not None:
             self.github_task.cancel()
             await asyncio.gather(self.github_task, return_exceptions=True)

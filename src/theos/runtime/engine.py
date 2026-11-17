@@ -122,8 +122,10 @@ class Runtime:
         self.memory_automation = MemoryAutomation(self)
         self.files = Files(settings, db, self.http, speech_renderer=partial(speech.prepare, self))
         from theos.services.files.checkpoints import Checkpoints
+        from theos.services.phone_calls import PhoneCalls
         from theos.services.sandbox.workspace import Workspaces
 
+        self.phone_calls = PhoneCalls(settings, db, self.http, self.files.voice)
         self.checkpoints = Checkpoints(self.files, self.tracing)
         self.checkpoints.start()
         self.workspaces = Workspaces(self)

@@ -1,0 +1,184 @@
+"""Check private admission, deduplication, cleanup, and crash recovery without Telegram."""
+
+import asyncio
+import time
+
+import httpx
+import pytest
+
+from theos_calling.server import MAX_AUDIO, create_app
+from theos_calling.settings import Settings
+
+
+class Caller:
+    def __init__(self):
+        self.started = False
+        self.closed = False
+        self.calls = []
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+        self.error = False
+
+    async def start(self):
+        self.started = True
+
+    async def close(self):
+        self.closed = True
+
+    async def play(self, recipient, path):
+        self.calls.append((recipient, path, path.read_bytes()))
+        assert path.stat().st_mode & 0o777 == 0o600
+        self.entered.set()
+        await self.release.wait()
+        if self.error:
+            raise TimeoutError("unknown outcome")
+
+
+@pytest.fixture
+def settings(tmp_path):
+    return Settings(
+        _env_file=None,
+        api_id=12345,
+        api_hash="a" * 32,
+        key="k" * 32,
+        recipients={123456789},
+        data_dir=tmp_path / "calling",
+    )
+
+
+@pytest.fixture
+def auth():
+    return {"Authorization": "Bearer " + "k" * 32, "Content-Type": "audio/mpeg"}
+
+
+def params():
+    return {"recipient": 123456789, "expires": time.time() + 120}
+
+
+async def test_one_call_and_private_cleanup(settings, auth):
+    caller = Caller()
+    app = create_app(settings, caller=caller)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            response = await c.post(
+                "/v1/calls/reminder:1", headers=auth, params=params(), content=b"mp3"
+            )
+            assert response.status_code == 202
+            assert response.json() == {"id": "reminder:1", "status": "accepted"}
+            await asyncio.wait_for(caller.entered.wait(), 1)
+            duplicate = await c.post(
+                "/v1/calls/reminder:1", headers=auth, params=params(), content=b"mp3"
+            )
+            assert duplicate.status_code == 202
+            assert len(caller.calls) == 1
+            busy = await c.post("/v1/calls/other", headers=auth, params=params(), content=b"mp3")
+            assert busy.status_code == 409
+            changed = await c.post(
+                "/v1/calls/reminder:1", headers=auth, params=params(), content=b"other"
+            )
+            assert changed.status_code == 409
+            caller.release.set()
+            await app.state.task
+            assert (await c.get("/v1/calls/reminder:1", headers=auth)).json()[
+                "status"
+            ] == "completed"
+            assert not caller.calls[0][1].exists()
+            assert not list(settings.data_dir.glob("clip-*.mp3"))
+            repeated = await c.post(
+                "/v1/calls/reminder:1", headers=auth, params=params(), content=b"mp3"
+            )
+            assert repeated.json()["status"] == "completed"
+            assert len(caller.calls) == 1
+    assert caller.closed
+
+
+@pytest.mark.parametrize(
+    "case,status",
+    [
+        ("auth", 401),
+        ("recipient", 403),
+        ("expired", 410),
+        ("future", 410),
+        ("nan", 410),
+        ("type", 415),
+        ("empty", 400),
+        ("oversized", 413),
+        ("id", 422),
+    ],
+)
+async def test_rejected_requests_never_call(settings, auth, case, status):
+    caller = Caller()
+    app = create_app(settings, caller=caller)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            args = {"headers": auth, "params": params(), "content": b"mp3"}
+            url = "/v1/calls/test"
+            if case == "auth":
+                args["headers"] = {"Content-Type": "audio/mpeg"}
+            elif case == "recipient":
+                args["params"]["recipient"] = 2
+            elif case == "expired":
+                args["params"]["expires"] = time.time() - 1
+            elif case == "future":
+                args["params"]["expires"] = time.time() + 1000
+            elif case == "nan":
+                args["params"]["expires"] = "nan"
+            elif case == "type":
+                args["headers"] = {**auth, "Content-Type": "text/plain"}
+            elif case == "empty":
+                args["content"] = b""
+            elif case == "oversized":
+                args["content"] = b"x" * (MAX_AUDIO + 1)
+            elif case == "id":
+                url = "/v1/calls/bad%20id"
+            assert (await c.post(url, **args)).status_code == status
+            assert not caller.calls
+            assert app.state.db.execute("SELECT count(*) FROM calls").fetchone()[0] == 0
+
+
+async def test_restart_preserves_unknown_call_and_removes_orphan_audio(settings, auth):
+    first = Caller()
+    app = create_app(settings, caller=first)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            await c.post("/v1/calls/interrupted", headers=auth, params=params(), content=b"mp3")
+            await asyncio.wait_for(first.entered.wait(), 1)
+    assert not first.calls[0][1].exists()
+    (settings.data_dir / "clip-orphan.mp3").write_bytes(b"old audio")
+    second = Caller()
+    app = create_app(settings, caller=second)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            repeated = await c.post(
+                "/v1/calls/interrupted", headers=auth, params=params(), content=b"mp3"
+            )
+            assert repeated.json()["status"] == "uncertain"
+            assert not second.calls
+            assert not list(settings.data_dir.glob("clip-*.mp3"))
+
+
+async def test_daily_limit_and_provider_failure(settings, auth):
+    settings.daily_limit = 1
+    caller = Caller()
+    caller.error = True
+    caller.release.set()
+    app = create_app(settings, caller=caller)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            await c.post("/v1/calls/failed", headers=auth, params=params(), content=b"mp3")
+            await app.state.task
+            assert (await c.get("/v1/calls/failed", headers=auth)).json()["status"] == "uncertain"
+            assert not list(settings.data_dir.glob("clip-*.mp3"))
+            assert (
+                await c.post("/v1/calls/capped", headers=auth, params=params(), content=b"mp3")
+            ).status_code == 429

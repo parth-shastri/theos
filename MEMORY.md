@@ -1,5 +1,24 @@
 # Theos project memory
 
+Updated: 2026-11-18.
+
+## Telegram calls, 2026-11-18
+
+The operator selected Telegram calls while Twilio reviews the number provisioning restriction.
+Use a dedicated regular Telegram account through MTProto. The existing bot cannot start private calls.
+Keep Telethon, PyTgCalls, NTgCalls, FFmpeg, and account login in a separate private calling gateway.
+Reuse the app's Kokoro voice, speed, and gateway effects. Send literal reminders or generic approval alerts.
+Map private Theos owners to explicit Telegram user IDs. Keep approval decisions in the authenticated application.
+Preserve written delivery. Save one attempt per reminder or approval and never redial uncertain attempts.
+The operator must create the calling account and complete local login before live acceptance.
+
+## Direct phone calls, 2026-11-17
+
+The operator requested carrier calls that use the same voice as the app.
+The optional Twilio adapter uses expiring frontend audio URLs and private deployment credentials.
+The account cannot provision a number until Twilio reviews error 22300. No carrier call has been tested.
+Migration 019 retains reminder delivery choices and one durable call attempt per occurrence or approval.
+
 ## Health imports and speech timeouts, 2026-11-17
 
 Read Google Health pages with the provider's maximum requested page size.
@@ -8,7 +27,6 @@ Retry transient page reads and stop if the provider repeats a page token.
 Allow health summary and speech tools more time than the default tool deadline.
 Allow the speech gateway enough time to complete CPU synthesis before the client times out.
 
-Updated: 2026-11-16.
 
 ## Langfuse trace viewing, 2026-11-16
 

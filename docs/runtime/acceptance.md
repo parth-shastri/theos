@@ -1,5 +1,27 @@
 # Feature and acceptance checklist
 
+## Telegram reminder and approval calls, 2026-11-18
+
+The optional calling gateway uses a dedicated regular Telegram account and the app's existing Kokoro voice.
+Migration 019 retains explicit reminder delivery choices, provider identity, and one durable attempt per reminder or approval.
+Mapped private owners receive generic alerts when approvals remain pending for two minutes.
+Written reminders and authenticated approval decisions retain their existing paths.
+
+The full application suite passed 1,221 checks before the final additional call cases.
+The focused call suite passed 15 checks across Telegram and the optional Twilio adapter.
+It covers owner and group isolation, literal voice settings, delayed approvals, resolution during synthesis, and recovery without redial.
+Additional cases cover cancellation, expiry, provider changes, access revocation, synthesis errors, and the daily limit.
+The gateway passed 15 isolated checks, including local MP3 decoding with its pinned native audio stack and FFmpeg.
+The configured live Kokoro gateway produced a 73,004-byte MP3 that the pinned Telegram audio stack decoded without a call.
+The probe removed its private temporary audio.
+Gateway checks cover authentication, recipient bounds, duplicate IDs, concurrent requests, audio cleanup, and interrupted delivery.
+Python lint, formatting, dependency locks, workflow validation, and both package builds passed.
+
+The operator still needs to create the dedicated account and complete local login.
+No live Telegram call has been placed. Handset ringing, the full spoken reminder, approval alerts, and host restart remain open checks.
+Neither gateway nor application changes have been deployed.
+The optional Twilio path remains unverified while account provisioning is restricted by error 22300.
+
 ## Optional observability
 
 Theos records rotating JSON application events without an external viewer.
