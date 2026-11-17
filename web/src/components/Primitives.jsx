@@ -18,6 +18,7 @@ import {
 } from "./ui/select";
 import { createGlass } from "../runtime/glass";
 import { createScope } from "../runtime/scope";
+import { cn } from "../lib/utils";
 
 export { Icon };
 export function ConnectionIcon({ id }) {
@@ -131,6 +132,7 @@ export function SelectPicker({
   icon,
   disabled,
   describedBy,
+  menuClassName,
 }) {
   const trigger = useRef(null);
   const [open, setOpen] = useState(false);
@@ -167,7 +169,7 @@ export function SelectPicker({
           position="popper"
           align="start"
           sideOffset={8}
-          className="settings-select-menu"
+          className={cn("settings-select-menu", menuClassName)}
         >
           {options.map((option) => (
             <SelectItem
