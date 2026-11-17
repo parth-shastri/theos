@@ -45,11 +45,20 @@ export default function Composer() {
     pendingCaret = useRef(null);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const focusTranscript = useRef(false);
   const voice = useRecorder((text) => {
     const next = appendTranscript(draftRef.current, text);
+    focusTranscript.current = true;
     setDraft(next);
-    message.current.focus();
   });
+  const transcribing = voice.activity === "Transcribing...";
+  const showWaveform = voice.recording || transcribing;
+  useEffect(() => {
+    if (!showWaveform && focusTranscript.current) {
+      focusTranscript.current = false;
+      message.current?.focus();
+    }
+  }, [showWaveform]);
   const placeholder = useComposerPrompt({
     active: !!me,
     draft,
@@ -345,7 +354,7 @@ export default function Composer() {
         : "Microphone recording requires HTTPS or localhost and a supported browser";
   const statusText = voice.activity || chat.status;
   const statusClass = voice.activity
-    ? "voice-status" + (!draft ? " placeholder-status" : "")
+    ? "voice-status" + (!draft && !showWaveform ? " placeholder-status" : "")
     : chat.statusClass;
   const currentMode = messageModes[mode];
   const trackCaret = () =>
@@ -360,7 +369,8 @@ export default function Composer() {
       ref={form}
       className={
         (draft || files.length || mode !== "normal" ? "has-draft" : "") +
-        (voice.recording ? " is-recording" : "")
+        (voice.recording ? " is-recording" : "") +
+        (showWaveform ? " has-voice-waveform" : "")
       }
       onSubmit={submit}
       onBlur={() => {
@@ -575,7 +585,7 @@ export default function Composer() {
             matches.length ? "command-option-" + commandIndex : undefined
           }
           aria-describedby="message-hint"
-          aria-busy={voice.activity === "Transcribing..." ? true : undefined}
+          hidden={showWaveform}
           placeholder={placeholder}
           enterKeyHint={mobile ? "enter" : "send"}
           rows={1}
@@ -607,6 +617,31 @@ export default function Composer() {
             setDismissed(false);
           }}
         />
+        <button
+          id="cancel-recording"
+          className="icon-button voice-button"
+          type="button"
+          aria-label="Cancel recording"
+          title="Cancel recording"
+          hidden={!voice.recording}
+          onClick={() => {
+            voice.cancel();
+            requestAnimationFrame(() =>
+              document.getElementById("microphone")?.focus(),
+            );
+          }}
+        >
+          <Icon name="cancel" />
+        </button>
+        <div
+          className={
+            "composer-waveform" + (transcribing ? " is-transcribing" : "")
+          }
+          hidden={!showWaveform}
+          aria-hidden="true"
+        >
+          <canvas ref={voice.waveform} />
+        </div>
         <div className="composer-actions">
           <button
             id="microphone"
@@ -621,17 +656,6 @@ export default function Composer() {
             onClick={voice.toggle}
           >
             <Icon name={voice.recording ? "stop" : "microphone"} />
-          </button>
-          <button
-            id="cancel-recording"
-            className="icon-button voice-button"
-            type="button"
-            aria-label="Cancel recording"
-            title="Cancel recording"
-            hidden={!voice.recording}
-            onClick={voice.cancel}
-          >
-            <Icon name="cancel" />
           </button>
           <button
             className="primary icon-button send"
