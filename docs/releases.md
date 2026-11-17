@@ -15,7 +15,18 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.5.5
+
+Package version 1.5.5 uses tag `rpi-v1.5.5` from the promoted `rpi` tip.
+The Telegram preflight uses a disposable data volume before backup restoration.
+This keeps the candidate data volume empty when the deployment uses the shared logs mount.
+The release includes the changes prepared for 1.5.4.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
 ## Release 1.5.4
+
+The deployment failed during restore because the preflight created a mount point in the candidate volume.
+The workflow restored 1.5.3. Release 1.5.5 replaces this failed activation.
 
 Package version 1.5.4 uses tag `rpi-v1.5.4` from the promoted `rpi` tip.
 The browser keeps responses with their conversations during navigation and marks unread completions.
