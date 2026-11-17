@@ -9,19 +9,24 @@ import {
   useRef,
   useState,
 } from "react";
-import { chatReducer, initialChat, readEvents } from "./chat";
+import { conversationsReducer, initialConversations, readEvents } from "./chat";
 import { commands } from "./config";
 
 const Context = createContext(null);
 export const useWorkspace = () => useContext(Context);
 
 export function WorkspaceProvider({ agentName, children }) {
-  const [chat, reduce] = useReducer(chatReducer, initialChat);
+  const [{ selected: chat, background, unread }, reduce] = useReducer(
+    conversationsReducer,
+    initialConversations,
+  );
   const dispatch = useCallback(
     (action) => reduce({ ...action, now: Date.now() }),
     [],
   );
   const [me, setMe] = useState(null);
+  const [notificationPermission, setNotificationPermission] = useState(null);
+  const [responseNotifications, setResponseNotifications] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [usage, setUsage] = useState({});
   const [working, setWorking] = useState(false);
@@ -42,14 +47,25 @@ export function WorkspaceProvider({ agentName, children }) {
   const lifetime = useRef(null);
   const accountLifetime = useRef(null);
   const selectionRequest = useRef(0);
+  const sessionsRequest = useRef(0);
   const dialogRequest = useRef(0);
-  const streamLock = useRef(false);
+  const streamLocks = useRef(new Map());
   const signinTimer = useRef(null);
   const current = useRef({});
-  current.current = { me, chat, working, mobile, dialog, connections };
+  current.current = {
+    me,
+    chat,
+    background,
+    view,
+    working,
+    mobile,
+    dialog,
+    connections,
+  };
 
   const status = useCallback(
-    (text, className = "") => dispatch({ type: "STATUS", text, className }),
+    (text, className = "", sessionId) =>
+      dispatch({ type: "STATUS", text, className, sessionId }),
     [],
   );
   const showError = useCallback(
@@ -85,7 +101,12 @@ export function WorkspaceProvider({ agentName, children }) {
       } catch {}
       const error = new Error(detail);
       error.status = response.status;
-      if (response.status === 401 && current.current.me) {
+      if (
+        response.status === 401 &&
+        current.current.me &&
+        account === accountLifetime.current &&
+        !account.signal.aborted
+      ) {
         account.abort();
         accountLifetime.current = new AbortController();
         selectionRequest.current++;
@@ -94,10 +115,8 @@ export function WorkspaceProvider({ agentName, children }) {
         setWorkspacePanel(null);
         setDialog(null);
         setSessions([]);
-        dispatch({
-          type: "LOAD",
-          session: { ...initialChat, history: [], approvals: [] },
-        });
+        streamLocks.current.clear();
+        dispatch({ type: "CLEAR_CONVERSATIONS" });
         setLoginError("Your session expired. Sign in again.");
       }
       throw error;
@@ -119,6 +138,7 @@ export function WorkspaceProvider({ agentName, children }) {
     [showError],
   );
   const navigate = useCallback((next) => {
+    selectionRequest.current++;
     setView(next);
     if (current.current.mobile) setSidebarOpen(false);
     setWorkspacePanel(null);
@@ -131,8 +151,9 @@ export function WorkspaceProvider({ agentName, children }) {
     [navigate],
   );
   const listSessions = useCallback(async () => {
+    const request = ++sessionsRequest.current;
     const result = await json("/api/sessions");
-    setSessions(result);
+    if (request === sessionsRequest.current) setSessions(result);
     return result;
   }, [json]);
   const refreshConnections = useCallback(async () => {
@@ -150,31 +171,44 @@ export function WorkspaceProvider({ agentName, children }) {
   }, []);
   const openSession = useCallback(
     async (id) => {
-      if (streamLock.current) return;
-      const request = ++selectionRequest.current;
       navigate("chat-view");
-      const result = await json("/api/sessions/" + id);
+      const request = selectionRequest.current;
+      const { chat, background } = current.current;
+      if (chat.id === id && (chat.busy || streamLocks.current.has(id))) return;
+      let session = null;
+      if (!background.has(id)) {
+        try {
+          session = await json("/api/sessions/" + id);
+        } catch (error) {
+          if (request === selectionRequest.current) throw error;
+          return;
+        }
+      }
       if (request !== selectionRequest.current) return;
-      dispatch({ type: "LOAD", session: result });
+      dispatch({ type: "SELECT_CONVERSATION", sessionId: id, session });
       setAutoPlay(null);
       await Promise.all([listSessions(), json("/api/usage").then(setUsage)]);
     },
     [json, listSessions, navigate],
   );
   const newSession = useCallback(async () => {
+    const request = ++selectionRequest.current;
     const result = await json("/api/sessions", {
       method: "POST",
       body: { title: "New conversation" },
     });
-    await openSession(result.id);
-    editDraft("");
-  }, [json, openSession, editDraft]);
+    if (request !== selectionRequest.current) {
+      await listSessions();
+      return;
+    }
+    const selection = openSession(result.id);
+    const openRequest = selectionRequest.current;
+    await selection;
+    if (openRequest === selectionRequest.current) editDraft("");
+  }, [json, listSessions, openSession, editDraft]);
   const login = useCallback(async () => {
     const identity = await json("/api/me");
-    dispatch({
-      type: "LOAD",
-      session: { ...initialChat, history: [], approvals: [] },
-    });
+    dispatch({ type: "CLEAR_CONVERSATIONS" });
     setLoginError("");
     const available = await listSessions();
     if (available.length) await openSession(available[0].id);
@@ -243,24 +277,50 @@ export function WorkspaceProvider({ agentName, children }) {
       setSessions([]);
       setDialog(null);
       setOnboarding(null);
-      dispatch({
-        type: "LOAD",
-        session: { ...initialChat, history: [], approvals: [] },
-      });
+      streamLocks.current.clear();
+      dispatch({ type: "CLEAR_CONVERSATIONS" });
     });
 
+  const notifyCompletion = useCallback(
+    (sessionId, accountId) => {
+      if (
+        typeof Notification === "undefined" ||
+        Notification.permission !== "granted" ||
+        localStorage.getItem("theos-response-notifications-" + accountId) ===
+          "off"
+      )
+        return;
+      try {
+        const notification = new Notification("Theos response ready", {
+          tag: "theos-response-" + sessionId,
+          icon: "/static/brand.png",
+        });
+        notification.onclick = () => {
+          notification.close();
+          if (current.current.me?.id !== accountId) return;
+          window.focus();
+          void openSession(sessionId).catch(showError);
+        };
+      } catch {
+        // Some browsers expose Notification but only support service worker delivery.
+      }
+    },
+    [openSession, showError],
+  );
+
   const stream = useCallback(
-    async (path, payload, approval) => {
-      if (streamLock.current) return;
-      streamLock.current = true;
-      const sessionId = current.current.chat.id;
+    async (sessionId, path, payload, { approval, text } = {}) => {
+      if (!sessionId || streamLocks.current.has(sessionId)) return;
+      const accountId = current.current.me?.id;
       const signal = AbortSignal.any([
         lifetime.current.signal,
         accountLifetime.current.signal,
       ]);
+      streamLocks.current.set(sessionId, signal);
+      if (text !== undefined) dispatch({ type: "USER", sessionId, text });
       dispatch({ type: "START", sessionId });
-      let queue = [],
-        frame = null;
+      let queue = [];
+      let frame = null;
       const flush = () => {
         if (frame !== null) cancelAnimationFrame(frame);
         frame = null;
@@ -274,14 +334,28 @@ export function WorkspaceProvider({ agentName, children }) {
       try {
         const response = await api(path, { method: "POST", body: payload });
         responseReceived = true;
-        if (approval)
+        if (approval && !signal.aborted)
           dispatch({ type: "APPROVAL_ACCEPTED", sessionId, ...approval });
         await readEvents(response, (event) => {
-          if (event.type === "done") completed = true;
+          if (signal.aborted) return;
+          if (event.type === "done") {
+            if (
+              !completed &&
+              event.status === "completed" &&
+              (current.current.chat.id !== sessionId ||
+                current.current.view !== "chat-view" ||
+                document.hidden)
+            ) {
+              dispatch({ type: "UNREAD", sessionId });
+              notifyCompletion(sessionId, accountId);
+            }
+            completed = true;
+          }
           queue.push(event);
           if (frame === null) frame = requestAnimationFrame(flush);
         });
         flush();
+        if (signal.aborted) return;
         const session = await json("/api/sessions/" + sessionId);
         dispatch({
           type: "SYNC",
@@ -295,28 +369,35 @@ export function WorkspaceProvider({ agentName, children }) {
         synced = true;
         await Promise.all([listSessions(), json("/api/usage").then(setUsage)]);
         if (
+          !signal.aborted &&
           session.status === "completed" &&
-          sessionStorage.getItem("theos-tts-" + current.current.me?.id) ===
-            "true"
+          current.current.chat.id === sessionId &&
+          current.current.view === "chat-view" &&
+          !document.hidden &&
+          sessionStorage.getItem("theos-tts-" + accountId) === "true"
         )
           setAutoPlay({ sessionId, request: Date.now() });
       } catch (error) {
-        if (responseReceived && !completed && !signal.aborted) {
+        if (signal.aborted || error.name === "AbortError") return;
+        if (responseReceived && !completed) {
           flush();
           try {
             const session = await json("/api/sessions/" + sessionId);
-            dispatch({ type: "LOAD", session });
+            dispatch({ type: "RELOAD", sessionId, session });
             status(
               "The connection ended. The saved conversation is loaded. Review it before trying again.",
+              "",
+              sessionId,
             );
             synced = true;
             await listSessions();
           } catch (reloadError) {
-            if (reloadError.name !== "AbortError") showError(reloadError);
+            if (!signal.aborted && reloadError.name !== "AbortError")
+              status(reloadError.message, "error", sessionId);
           }
           return;
         }
-        throw error;
+        status(error.message, "error", sessionId);
       } finally {
         flush();
         if (!synced && !signal.aborted) {
@@ -329,28 +410,30 @@ export function WorkspaceProvider({ agentName, children }) {
             });
           } catch {}
         }
-        dispatch({ type: "FINISH", sessionId });
-        streamLock.current = false;
+        if (!signal.aborted) dispatch({ type: "FINISH", sessionId });
+        if (streamLocks.current.get(sessionId) === signal)
+          streamLocks.current.delete(sessionId);
       }
     },
-    [api, json, listSessions, status, showError],
+    [api, json, listSessions, notifyCompletion, status],
   );
   const openUIAction = useCallback(
     async (sessionId, payload) => {
-      if (streamLock.current || sessionId !== current.current.chat.id) return;
+      if (sessionId !== current.current.chat.id) return;
       const { visible_text, ...request } = payload;
-      dispatch({
-        type: "USER",
+      const text = (
+        visible_text ||
+        request.label ||
+        "Continue this conversation"
+      ).slice(0, 500);
+      await stream(
         sessionId,
-        text: (
-          visible_text ||
-          request.label ||
-          "Continue this conversation"
-        ).slice(0, 500),
-      });
-      await stream("/api/sessions/" + sessionId + "/openui-actions", request);
+        "/api/sessions/" + sessionId + "/openui-actions",
+        request,
+        { text },
+      );
     },
-    [dispatch, stream],
+    [stream],
   );
   const saveOpenUIState = useCallback(
     async (sessionId, messageId, state, summary) => {
@@ -367,38 +450,42 @@ export function WorkspaceProvider({ agentName, children }) {
     },
     [json],
   );
-  const send = async (text, files, mode) => {
-    if (streamLock.current) return;
-    dispatch({ type: "USER", text });
-    await stream("/api/sessions/" + current.current.chat.id + "/turn", {
-      text,
-      files,
-      mode,
-    });
+  const send = (text, files, mode) => {
+    const { id } = current.current.chat;
+    return stream(
+      id,
+      "/api/sessions/" + id + "/turn",
+      { text, files, mode },
+      { text },
+    );
   };
   const resume = () => {
+    const { id } = current.current.chat;
     navigate("chat-view");
-    return stream("/api/sessions/" + current.current.chat.id + "/resume");
+    return stream(id, "/api/sessions/" + id + "/resume");
   };
   const reset = async () => {
+    const { id } = current.current.chat;
+    if (!id || streamLocks.current.has(id)) return;
     if (
       !window.confirm(
         "Reset this conversation? Saved records and files remain available.",
       )
     )
       return;
-    const id = current.current.chat.id;
+    const request = selectionRequest.current;
     await json("/api/sessions/" + id + "/reset", { method: "POST" });
-    await openSession(id);
+    if (request === selectionRequest.current) await openSession(id);
   };
-  const approve = (item, approved) =>
-    perform(() =>
-      stream(
-        "/api/sessions/" + current.current.chat.id + "/approvals/" + item.id,
-        { approved },
-        { item, approved },
-      ),
+  const approve = (item, approved) => {
+    const { id } = current.current.chat;
+    return stream(
+      id,
+      "/api/sessions/" + id + "/approvals/" + item.id,
+      { approved },
+      { approval: { item, approved } },
     );
+  };
   const patchSettings = async (values) => {
     const id = current.current.chat.id;
     const result = await json("/api/sessions/" + id, {
@@ -414,16 +501,18 @@ export function WorkspaceProvider({ agentName, children }) {
         generation: result.generation,
       },
     });
-    status("Settings saved.");
+    status("Settings saved.", "", id);
   };
   const openDialog = (kind, section = "") => {
+    const { chat, working, mobile } = current.current;
     if (
-      streamLock.current ||
-      current.current.working ||
-      (kind !== "password" && !current.current.chat.id)
+      kind !== "password" &&
+      (!chat.id ||
+        working ||
+        (kind === "settings" && streamLocks.current.has(chat.id)))
     )
       return;
-    if (current.current.mobile) setSidebarOpen(false);
+    if (mobile) setSidebarOpen(false);
     setWorkspacePanel(null);
     setDialog({ kind, section, request: ++dialogRequest.current });
   };
@@ -489,6 +578,8 @@ export function WorkspaceProvider({ agentName, children }) {
         (name === "model" ? "Model" : "Reasoning effort") +
           " saved: " +
           argument,
+        "",
+        currentChat.id,
       );
     } finally {
       setWorking(false);
@@ -603,6 +694,52 @@ export function WorkspaceProvider({ agentName, children }) {
       window.close();
     }
   }, [me, connections]);
+  useEffect(() => {
+    const markRead = () => {
+      if (chat.id && view === "chat-view" && !document.hidden)
+        dispatch({ type: "READ", sessionId: chat.id });
+    };
+    markRead();
+    document.addEventListener("visibilitychange", markRead);
+    return () => document.removeEventListener("visibilitychange", markRead);
+  }, [chat.id, view]);
+
+  useEffect(() => {
+    const refresh = () => {
+      const permission =
+        typeof Notification === "undefined" ? null : Notification.permission;
+      setNotificationPermission(permission);
+      setResponseNotifications(
+        permission === "granted" &&
+          localStorage.getItem("theos-response-notifications-" + me?.id) !==
+            "off",
+      );
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [me?.id]);
+
+  const toggleResponseNotifications = async () => {
+    const accountId = me?.id;
+    const key = "theos-response-notifications-" + accountId;
+    if (!accountId || typeof Notification === "undefined") return;
+    if (responseNotifications) {
+      localStorage.setItem(key, "off");
+      setResponseNotifications(false);
+      return;
+    }
+    const permission =
+      Notification.permission === "default"
+        ? await Notification.requestPermission()
+        : Notification.permission;
+    if (current.current.me?.id !== accountId) return;
+    setNotificationPermission(permission);
+    if (permission === "granted") {
+      localStorage.removeItem(key);
+      setResponseNotifications(true);
+    }
+  };
   const toggleTheme = () =>
     setTheme((value) => {
       const next = value === "dark" ? "light" : "dark";
@@ -641,6 +778,10 @@ export function WorkspaceProvider({ agentName, children }) {
         setDesktopPanelHeadingHost,
         chat,
         sessions,
+        unread,
+        notificationPermission,
+        responseNotifications,
+        toggleResponseNotifications,
         usage,
         working,
         setWorking,

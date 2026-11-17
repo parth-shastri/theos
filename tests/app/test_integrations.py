@@ -109,6 +109,7 @@ async def test_voice_contracts_and_generated_file(runtime):
         assert payload["voice"] == "am_michael(0.7)+bm_george(0.3)"
         assert payload["speed"] == 0.9
         assert request.headers["Authorization"] == "Bearer private-speech-key"
+        assert request.extensions["timeout"]["read"] == 120
         return httpx.Response(200, content=b"ID3audio", headers={"Content-Type": "audio/mpeg"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:

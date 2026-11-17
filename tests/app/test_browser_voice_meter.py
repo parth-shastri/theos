@@ -26,8 +26,12 @@ const scope = {
   cancelAnimationFrame: id => cancelAnimationFrame(id),
 };
 const state = {current: {}};
+const waveform = {current: null};
+const waveformSamples = 192;
+function drawWaveform() {}
 let amplitude = 0.12, contexts = 0, closed = 0, disconnected = 0;
 let nextFrame = 0;
+let timestamp = 0;
 const frames = new Map(), cancelled = [];
 const styles = new Map(['composer', 'voice-ambience'].map(id => [id, new Map()]));
 const $ = id => ({style: {
@@ -53,13 +57,14 @@ const window = {AudioContext: class {
 function frame() {
   const [id, callback] = frames.entries().next().value;
   frames.delete(id);
-  callback();
+  callback(timestamp += 50);
 }
 """
     script += meter
     script += r"""
 (async () => {
   await startMeter({});
+  frame();
   const first = Number(styles.get('composer').get('--voice-level'));
   assert.ok(first > 0 && first < 1);
   assert.equal(styles.get('voice-ambience').get('--voice-level'), String(first));

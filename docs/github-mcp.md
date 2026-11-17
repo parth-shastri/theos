@@ -67,8 +67,8 @@ Team mentions and team review requests are not included. Self-authored issue and
 The existing repository read permissions cover these events. No account, organization, or enterprise permissions are added.
 
 After connecting GitHub, enable **Event notifications → Notify me in Theos** in Connections.
-Alerts appear in the private Connections inbox and the existing conversation notification area.
-Marking an alert read removes it from the conversation notification area.
+Open **Notifications** from the chat bell or account menu to review reminders and GitHub alerts. The page shows unread alerts and saved history, including dismissed items. GitHub delivery preferences remain in Connections.
+Dismiss an alert to remove it from the unread list; the saved record remains in All until it expires.
 For private Telegram alerts, connect GitHub from that Telegram identity and send /github_notifications on.
 Use /github_notifications off to stop them. A browser identity is never matched to a Telegram user by name.
 Existing verified Telegram-owned browser sessions can also enable the Telegram checkbox.

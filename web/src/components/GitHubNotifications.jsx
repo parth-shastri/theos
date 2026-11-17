@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
+import { Icon } from "./Primitives";
 
 export default function GitHubNotifications({ settings, busy, action }) {
-  const { json } = useWorkspace();
+  const { json, navigate } = useWorkspace();
   const [preferences, setPreferences] = useState({
     enabled: settings?.enabled || false,
     telegram: settings?.telegram || false,
@@ -78,38 +79,13 @@ export default function GitHubNotifications({ settings, busy, action }) {
       ) : (
         <p className="cost-label">Event notifications need operator setup.</p>
       )}
-      {settings.items?.length > 0 && (
-        <ul className="github-notification-list">
-          {settings.items.map((item) => (
-            <li key={item.id} className={item.read ? "is-read" : ""}>
-              <a href={item.url} target="_blank" rel="noopener noreferrer">
-                {item.text}
-              </a>
-              {!item.read && (
-                <button
-                  className="soft-button"
-                  disabled={busy}
-                  onClick={() =>
-                    action(() =>
-                      json(
-                        `/api/connections/github/notifications/${encodeURIComponent(item.id)}/read`,
-                        { method: "POST" },
-                      ),
-                    )
-                  }
-                >
-                  Mark read
-                </button>
-              )}
-              {item.telegram === "uncertain" && (
-                <span className="cost-label">
-                  Telegram delivery needs review.
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <button
+        type="button"
+        className="soft-button github-notification-link"
+        onClick={() => navigate("notifications-view")}
+      >
+        <Icon name="bell" /> View all notifications
+      </button>
     </section>
   );
 }

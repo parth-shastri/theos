@@ -50,6 +50,7 @@ class Voice:
         try:
             response = await self.http.post(
                 self.settings.kokoro_url.rstrip("/") + "/audio/speech",
+                timeout=httpx.Timeout(120, connect=10),
                 headers=(
                     {"Authorization": "Bearer " + self.settings.kokoro_key.get_secret_value()}
                     if self.settings.kokoro_key.get_secret_value()

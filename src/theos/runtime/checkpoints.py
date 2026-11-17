@@ -54,7 +54,13 @@ def journal_tool(runtime, original, session):
             ) from error
 
     # A research handoff contains model generation. Do not time out its active response.
-    timeout = None if original.name in {"delegate_tasks", "deep_research"} else 90
+    timeout = (
+        None
+        if original.name in {"delegate_tasks", "deep_research"}
+        else original.timeout_s
+        if original.timeout_s is not None
+        else 90
+    )
     return replace(original, execute=execute, timeout_s=timeout)
 
 

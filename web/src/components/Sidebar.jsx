@@ -16,10 +16,15 @@ export default function Sidebar() {
     setWorkspacePanel,
     me,
     sessions,
+    unread,
+    notificationPermission,
+    responseNotifications,
+    toggleResponseNotifications,
     chat,
     usage,
     busy,
     perform,
+    showError,
     openSession,
     newSession,
     navigate,
@@ -114,7 +119,6 @@ export default function Sidebar() {
             className="primary icon-button focus-button"
             aria-label="New conversation"
             title="New conversation"
-            disabled={busy}
             onClick={start}
           >
             <Icon name="compose" />
@@ -196,7 +200,6 @@ export default function Sidebar() {
             id="new-session"
             type="button"
             className="primary"
-            disabled={busy}
             onClick={start}
           >
             <Icon name="compose" /> New conversation
@@ -207,7 +210,6 @@ export default function Sidebar() {
             <button
               className={session.id === chat.id ? "active" : ""}
               title={session.title}
-              disabled={busy}
               aria-current={session.id === chat.id ? "page" : undefined}
               key={session.id}
               onClick={() => {
@@ -215,7 +217,16 @@ export default function Sidebar() {
                 perform(() => openSession(session.id));
               }}
             >
-              {session.title}
+              <span className="conversation-title">{session.title}</span>
+              {unread.has(session.id) && (
+                <>
+                  <span
+                    className="conversation-unread-dot"
+                    aria-hidden="true"
+                  />
+                  <span className="sr-only">Unread response</span>
+                </>
+              )}
             </button>
           ))}
         </nav>
@@ -275,15 +286,20 @@ export default function Sidebar() {
           <button
             id="connections-button"
             type="button"
-            disabled={busy}
             onClick={() => navigate("connections-view")}
           >
             Connections
           </button>
           <button
+            id="account-notifications-button"
+            type="button"
+            onClick={() => navigate("notifications-view")}
+          >
+            Notifications
+          </button>
+          <button
             id="tools-button"
             type="button"
-            disabled={busy}
             onClick={() => navigate("tools-view")}
           >
             Tools
@@ -291,7 +307,6 @@ export default function Sidebar() {
           <button
             id="activity-button"
             type="button"
-            disabled={busy}
             onClick={() => navigate("dashboard")}
           >
             Activity &amp; usage
@@ -300,7 +315,6 @@ export default function Sidebar() {
             <button
               id="dashboard-button"
               type="button"
-              disabled={busy}
               onClick={() => navigate("dashboard-admin")}
             >
               Admin dashboard
@@ -312,10 +326,32 @@ export default function Sidebar() {
             aria-haspopup="dialog"
             aria-controls="account-password-dialog"
             onClick={() => openDialog("password")}
-            disabled={busy}
           >
             Browser password
           </button>
+          {notificationPermission !== null && (
+            <button
+              id="response-notifications-button"
+              type="button"
+              aria-pressed={responseNotifications}
+              disabled={notificationPermission === "denied"}
+              onClick={() =>
+                void toggleResponseNotifications().catch(showError)
+              }
+            >
+              {notificationPermission === "denied"
+                ? "Response notifications blocked"
+                : "Response notifications"}
+              {notificationPermission !== "denied" && (
+                <span
+                  className="response-notification-state"
+                  aria-hidden="true"
+                >
+                  {responseNotifications ? "On" : "Off"}
+                </span>
+              )}
+            </button>
+          )}
           <button id="sign-out" type="button" onClick={signOut}>
             Sign out
           </button>

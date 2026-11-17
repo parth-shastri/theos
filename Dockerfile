@@ -5,6 +5,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY web/package.json web/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 COPY web/next.config.mjs ./
+COPY web/jsconfig.json web/postcss.config.mjs ./
 COPY web/src ./src
 COPY web/public ./public
 COPY web/scripts ./scripts

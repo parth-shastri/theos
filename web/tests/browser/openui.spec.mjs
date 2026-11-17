@@ -511,7 +511,7 @@ test("reminder controls share the glass pickers and retain edits after reload", 
   expect(saved.state().reminder_date).toBe("2030-01-15");
   expect(saved.summary()).toBe("Review this reminder draft before submitting.");
   await page
-    .getByRole("button", { name: "Repeat: Never", exact: true })
+    .getByRole("combobox", { name: "Repeat: Never", exact: true })
     .click();
   await page
     .getByRole("option", { name: "Selected days", exact: true })
@@ -541,7 +541,7 @@ test("reminder controls share the glass pickers and retain edits after reload", 
     "2030-01-16",
   );
   await expect(
-    page.getByRole("button", { name: "Repeat: Selected days", exact: true }),
+    page.getByRole("combobox", { name: "Repeat: Selected days", exact: true }),
   ).toBeVisible();
   await expect(
     page.locator('.openui-weekday-options input[value="MO"]'),
@@ -1093,5 +1093,160 @@ test("unavailable or truncated OpenUI never exposes source", async ({
   );
   await expect(
     fallback.getByRole("button", { name: "Explain in text" }),
+  ).toBeVisible();
+});
+
+for (const mode of ["dropdown", "journey"]) {
+  test(`integrated answer views support ${mode} navigation`, async ({
+    page,
+  }, testInfo) => {
+    const turns = [];
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        /\/(turn|openui-actions)$/.test(request.url())
+      )
+        turns.push(request.url());
+    });
+    await fixture(
+      page,
+      [
+        "root = TheosAnswer(summary, [details])",
+        'summary = AnswerSummary("The illustration compares a direct trip with a trip that includes a transfer.")',
+        `details = AnswerViews("Planning a trip", [route, duration], "${mode}")`,
+        'route = AnswerView("Route", [stages])',
+        'stages = ProcessDiagram("Transfer route", [first, second])',
+        'first = ProcessStep("Bus", "Ride to the station.")',
+        'second = ProcessStep("Train", "Change to a train at the station.")',
+        'duration = AnswerView("Illustrative travel time with and without a transfer", [times, connections])',
+        'times = ComparisonCard("Illustrative travel times", ["Direct", "With transfer"], [25, 40], "min")',
+        'connections = RelationshipDiagram("Connections at the station", [platform, city], [link])',
+        'platform = ProcessStep("Transfer platform for services to the city center", "Change trains here.")',
+        'city = ProcessStep("City center", "End of the route.")',
+        'link = RelationshipLink(0, 1, "Continue to the destination")',
+      ].join("\n"),
+      "theos-openui-6",
+    );
+
+    const card = page.getByRole("region", { name: "Planning a trip" });
+    const route = card.getByRole("heading", { name: "Transfer route" });
+    const times = card.getByRole("heading", {
+      name: "Illustrative travel times",
+    });
+    const previous = card.getByRole("button", { name: "Previous" });
+    const next = card.getByRole("button", { name: "Next" });
+    await expect(route).toBeVisible();
+    await expect(times).toHaveCount(0);
+    await card.getByRole("button", { name: /Train/ }).press("Enter");
+    await expect(card.locator(".openui-process-inspection")).toContainText(
+      "Change to a train at the station.",
+    );
+    const [firstStep, secondStep] = await card
+      .locator(".openui-process-flow li")
+      .evaluateAll((steps) =>
+        steps.map((step) => step.getBoundingClientRect().toJSON()),
+      );
+    if (Math.abs(firstStep.y - secondStep.y) < 1) {
+      expect(firstStep.height).toBeCloseTo(secondStep.height, 0);
+      expect(secondStep.x).toBeGreaterThan(firstStep.right);
+    } else {
+      expect(firstStep.x).toBeCloseTo(secondStep.x, 0);
+      expect(firstStep.width).toBeCloseTo(secondStep.width, 0);
+      expect(secondStep.y).toBeGreaterThan(firstStep.bottom);
+    }
+    await card.screenshot({ path: testInfo.outputPath("answer-route.png") });
+
+    if (mode === "journey") {
+      await expect(previous).toBeDisabled();
+      await expect(card.getByRole("status")).toHaveText("1 of 2");
+      await next.press("Enter");
+      await expect(next).toBeDisabled();
+      await expect(card.getByRole("status")).toHaveText("2 of 2");
+    } else {
+      await expect(next).toHaveCount(0);
+      await card.getByRole("combobox", { name: "View: Route" }).press("Enter");
+      await page
+        .getByRole("option", { name: /Illustrative travel time/ })
+        .press("Enter");
+    }
+    await expect(route).toHaveCount(0);
+    await expect(times).toBeVisible();
+    const graph = card.locator(".openui-relationship-card");
+    const connection = graph.getByRole("button", { name: /To City center/ });
+    await expect(connection).toBeVisible();
+    const connectionAligns = await graph
+      .locator(".openui-relationship-list li")
+      .evaluate((row) => {
+        const [arrow, copy] = row.children;
+        const [label, button] = copy.children;
+        return (
+          Math.abs(
+            arrow.getBoundingClientRect().top -
+              copy.getBoundingClientRect().top,
+          ) < 1 &&
+          Math.abs(
+            label.getBoundingClientRect().left -
+              button.getBoundingClientRect().left,
+          ) < 1
+        );
+      });
+    expect(connectionAligns).toBe(true);
+    await connection.press("Enter");
+    await expect(graph.locator(".openui-card-detail")).toContainText(
+      "End of the route",
+    );
+    await expect(page.locator(".openui-answer-summary")).toContainText(
+      "includes a transfer",
+    );
+    const overflow = await card.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+    await card.screenshot({
+      path: testInfo.outputPath("answer-travel-time.png"),
+    });
+
+    await card
+      .getByRole("combobox", { name: /Illustrative travel time/ })
+      .press("Enter");
+    await page.getByRole("option", { name: "Route" }).click();
+    await expect(route).toBeVisible();
+    await expect(page.locator(".openui-fallback")).toHaveCount(0);
+    expect(turns).toEqual([]);
+  });
+}
+
+test("answer view options wrap unbroken labels inside the dropdown", async ({
+  page,
+}) => {
+  const longLabel = "StationIdentifier".repeat(5) + "NorthTerminal";
+  await fixture(
+    page,
+    [
+      "root = TheosAnswer(summary, [details])",
+      'summary = AnswerSummary("A route and its transfer station.")',
+      'details = AnswerViews("Planning a trip", [route, transfer])',
+      'route = AnswerView("Route", [stages])',
+      'stages = ProcessDiagram("Transfer route", [first, second])',
+      'first = ProcessStep("Bus", "Ride to the station.")',
+      'second = ProcessStep("Train", "Change to a train at the station.")',
+      `transfer = AnswerView("${longLabel}", [station])`,
+      'station = SummaryCard("Transfer station", [location])',
+      'location = SummaryFact("Location", "North Terminal")',
+    ].join("\n"),
+    "theos-openui-6",
+  );
+
+  await page.getByRole("combobox", { name: "View: Route" }).press("Enter");
+  const option = page.getByRole("option", { name: longLabel, exact: true });
+  await expect(option).toBeVisible();
+  expect(
+    await option.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+  await option.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Transfer station" }),
   ).toBeVisible();
 });

@@ -1,0 +1,18 @@
+# Add this file to compose.yaml to export OTel traces to the Langfuse service.
+# The service joins the private theos-observability Docker network.
+services:
+  theos:
+    environment:
+      AGENT_TRACING__ENABLED: "true"
+      AGENT_TRACING__ENDPOINT: http://langfuse-web:3000/api/public/otel/v1/traces
+      AGENT_TRACING__HEADERS: '{"Authorization":"Basic ${LANGFUSE_AUTH_STRING:?Set LANGFUSE_AUTH_STRING in .env}","x-langfuse-ingestion-version":"4"}'
+      AGENT_TRACING__CAPTURE_CONTENT: ${AGENT_TRACING__CAPTURE_CONTENT:-false}
+    networks:
+      - default
+      - langfuse-observability
+
+networks:
+  default: {}
+  langfuse-observability:
+    name: theos-observability
+    external: true

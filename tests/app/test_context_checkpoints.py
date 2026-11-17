@@ -394,6 +394,23 @@ async def test_wrappers_preserve_execution_metadata_and_save_failed_command_file
     assert saved == [True]
 
 
+def test_journal_preserves_service_tool_timeouts(runtime):
+    session = runtime.db.create_session("alice", "gpt-6-luna", "none")
+    health = next(
+        item for item in runtime.health.tools("alice") if item.name == "get_health_summary"
+    )
+    assert runtime.journal_tool(health, session).timeout_s == 1200
+
+    from theos.services.voice.tools import voice_tools
+
+    speech = next(
+        item
+        for item in voice_tools(runtime.files.voice, "alice")
+        if item.name == "send_text_to_speech"
+    )
+    assert runtime.journal_tool(speech, session).timeout_s == 180
+
+
 async def test_read_only_workspace_tools_do_not_require_a_checkpoint(runtime, monkeypatch):
     row = runtime.db.create_session("alice", "gpt-6-luna", "none")
 

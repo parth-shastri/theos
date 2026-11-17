@@ -2,12 +2,49 @@
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
 
+const waveformSpacing = 6;
+const waveformSamples = 192;
+
+function drawWaveform(canvas, history) {
+  const width = canvas?.clientWidth;
+  if (!width) return;
+  const height = canvas.clientHeight;
+  const density = window.devicePixelRatio || 1;
+  const pixelWidth = Math.round(width * density);
+  const pixelHeight = Math.round(height * density);
+  if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+  if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+  const drawing = canvas.getContext("2d");
+  if (!drawing) return;
+  drawing.setTransform(density, 0, 0, density, 0, 0);
+  drawing.clearRect(0, 0, width, height);
+  drawing.strokeStyle = getComputedStyle(canvas).color;
+  drawing.lineWidth = 2;
+  drawing.lineCap = "round";
+  const count = Math.min(history.length, Math.floor(width / waveformSpacing));
+  const first = history.length - count;
+  drawing.beginPath();
+  for (let index = 0; index < count; index++) {
+    const amplitude = history[first + index];
+    if (amplitude < 0.045) continue;
+    const x = (index + 0.5) * waveformSpacing;
+    const radius = Math.max(1, amplitude * (height / 2 - 3));
+    drawing.moveTo(x, height / 2 - radius);
+    drawing.lineTo(x, height / 2 + radius);
+  }
+  drawing.stroke();
+}
+
 export function useRecorder(appendDraft) {
-  const { me, busy, setWorking, json, showError, status } = useWorkspace();
+  const { me, chat, busy, setWorking, json, showError, status } =
+    useWorkspace();
   const [activity, setActivity] = useState("");
   const [recording, setRecording] = useState(false);
   const [supported, setSupported] = useState(false);
   const state = useRef({ mounted: false });
+  const waveform = useRef(null);
+  const conversation = useRef(chat.id);
+  conversation.current = chat.id;
   const append = useRef(appendDraft);
   append.current = appendDraft;
   const stopMeter = () => {
@@ -25,21 +62,21 @@ export function useRecorder(appendDraft) {
       .getElementById("voice-ambience")
       ?.style.removeProperty("--voice-level");
   };
-  const release = () => {
+  const release = (nextActivity = "") => {
     clearTimeout(state.current.timer);
     stopMeter();
     state.current.stream?.getTracks().forEach((track) => track.stop());
     state.current.stream = null;
     if (state.current.mounted) {
       setRecording(false);
-      setActivity("");
+      setActivity(nextActivity);
     }
   };
   const stop = (cancelled = false) => {
     state.current.cancelled = cancelled;
-    if (state.current.recorder?.state === "recording")
-      state.current.recorder.stop();
-    release();
+    const active = state.current.recorder?.state === "recording";
+    if (active) state.current.recorder.stop();
+    release(active && !cancelled ? "Transcribing..." : "");
   };
   const startMeter = async (stream) => {
     const Context = window.AudioContext || window.webkitAudioContext;
@@ -62,8 +99,10 @@ export function useRecorder(appendDraft) {
       meter.analyser.fftSize = 1024;
       meter.source.connect(meter.analyser);
       const samples = new Float32Array(1024);
+      const history = new Float32Array(waveformSamples);
       let level = 0;
-      const measure = () => {
+      let lastBar = -Infinity;
+      const measure = (now) => {
         if (state.current.meter !== meter) return;
         meter.analyser.getFloatTimeDomainData(samples);
         const rms = Math.sqrt(
@@ -78,9 +117,15 @@ export function useRecorder(appendDraft) {
         document
           .getElementById("voice-ambience")
           ?.style.setProperty("--voice-level", level.toFixed(3));
+        if (now - lastBar >= 48) {
+          history.copyWithin(0, 1);
+          history[history.length - 1] = Math.max(target, level);
+          drawWaveform(waveform.current, history);
+          lastBar = now;
+        }
         meter.frame = requestAnimationFrame(measure);
       };
-      measure();
+      meter.frame = requestAnimationFrame(measure);
     } catch {
       if (state.current.meter === meter) stopMeter();
     }
@@ -92,7 +137,11 @@ export function useRecorder(appendDraft) {
         !!navigator.mediaDevices?.getUserMedia &&
         typeof MediaRecorder !== "undefined",
     );
-    const hide = () => stop(true);
+    const hide = () => {
+      state.current.request?.abort();
+      stop(true);
+      setWorking(false);
+    };
     window.addEventListener("pagehide", hide);
     return () => {
       state.current.mounted = false;
@@ -113,6 +162,14 @@ export function useRecorder(appendDraft) {
       setWorking(false);
     }
   }, [me]);
+  useEffect(() => {
+    if (state.current.sessionId && state.current.sessionId !== chat.id) {
+      state.current.request?.abort();
+      state.current.sessionId = null;
+      stop(true);
+      setWorking(false);
+    }
+  }, [chat.id]);
   const toggle = async () => {
     if (state.current.recorder?.state === "recording") return stop();
     if (busy) return;
@@ -121,11 +178,26 @@ export function useRecorder(appendDraft) {
     setActivity("Opening microphone...");
     const request = new AbortController();
     state.current.request = request;
+    const sessionId = chat.id;
+    state.current.sessionId = sessionId;
+    const finish = () => {
+      if (!state.current.mounted || state.current.request !== request) return;
+      state.current.request = null;
+      state.current.sessionId = null;
+      setActivity("");
+      setWorking(false);
+    };
+    const canvas = waveform.current;
+    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!state.current.mounted || request.signal.aborted) {
+      if (
+        !state.current.mounted ||
+        request.signal.aborted ||
+        conversation.current !== sessionId
+      ) {
         stream.getTracks().forEach((track) => track.stop());
-        if (state.current.mounted) setWorking(false);
+        finish();
         return;
       }
       state.current.stream = stream;
@@ -140,6 +212,7 @@ export function useRecorder(appendDraft) {
       const chunks = [];
       let size = 0;
       recorder.ondataavailable = (event) => {
+        if (state.current.request !== request || request.signal.aborted) return;
         size += event.data.size;
         chunks.push(event.data);
         if (size > me.voice.max_upload_bytes) {
@@ -152,17 +225,22 @@ export function useRecorder(appendDraft) {
         }
       };
       recorder.onerror = () => {
+        if (state.current.request !== request || request.signal.aborted) return;
         stop(true);
         showError(new Error("Microphone recording failed. Try again."));
-        setWorking(false);
+        finish();
       };
       recorder.onstop = async () => {
-        release();
-        if (state.current.cancelled || !state.current.mounted) {
-          if (state.current.mounted) setWorking(false);
+        if (state.current.request !== request) return;
+        const cancelled =
+          state.current.cancelled ||
+          request.signal.aborted ||
+          conversation.current !== sessionId;
+        release(cancelled ? "" : "Transcribing...");
+        if (cancelled || !state.current.mounted) {
+          finish();
           return;
         }
-        setActivity("Transcribing...");
         try {
           const type = recorder.mimeType || "audio/webm";
           const extension = type.includes("mp4")
@@ -186,15 +264,17 @@ export function useRecorder(appendDraft) {
             body: { file_id: file.id },
             signal: request.signal,
           });
-          if (state.current.mounted && !request.signal.aborted)
+          if (
+            state.current.mounted &&
+            !request.signal.aborted &&
+            conversation.current === sessionId
+          )
             append.current(result.text.trim());
         } catch (error) {
-          if (state.current.mounted) showError(error);
+          if (state.current.mounted && state.current.request === request)
+            showError(error);
         } finally {
-          if (state.current.mounted) {
-            setActivity("");
-            setWorking(false);
-          }
+          finish();
         }
       };
       recorder.start(1000);
@@ -203,8 +283,10 @@ export function useRecorder(appendDraft) {
       startMeter(stream).catch(stopMeter);
       state.current.timer = setTimeout(() => stop(), 120000);
     } catch (error) {
+      if (state.current.request !== request) return;
       stop(true);
-      setWorking(false);
+      finish();
+      if (request.signal.aborted) return;
       showError(
         new Error(
           error.name === "NotAllowedError"
@@ -217,6 +299,7 @@ export function useRecorder(appendDraft) {
   return {
     activity,
     recording,
+    waveform,
     supported,
     toggle,
     cancel: () => stop(true),
