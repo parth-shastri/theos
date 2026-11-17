@@ -40,6 +40,16 @@ Treat the local Langfuse helper and native macOS collector as optional developme
 Keep viewer authentication and private network access separate from Theos browser authentication.
 The retired Jaeger configuration remains absent from active deployment files.
 
+## Browser chat navigation and completion, 2026-11-17
+
+Keep browser streams attached to their conversation while the user moves between chats and workspace screens.
+Disable turn actions only in the conversation with a running turn.
+Mark a completed response unread when the user was away from that conversation. Clear the dot when they view it.
+Send browser notifications for these responses when browser permission and the account preference allow them.
+The browser must have the workspace open to receive the completion event.
+Show microphone activity as dots and live bars in the browser composer. Keep the waveform visible while transcription runs.
+Use a static waveform with reduced motion. Return the transcript to the draft for review.
+
 ## Browser UI libraries, 2026-11-15
 
 Use Tailwind CSS with the existing theme tokens for new shared controls. Keep Tailwind Preflight off.

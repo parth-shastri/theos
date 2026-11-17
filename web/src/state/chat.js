@@ -321,11 +321,12 @@ export function conversationEntries(entries) {
 
 export function chatReducer(previous, action) {
   const now = action.now ?? 0;
-  if (action.type === "LOAD")
+  if (action.type === "LOAD" || action.type === "RELOAD")
     return {
       ...initialChat,
       ...historyEntries(action.session),
       revision: previous.revision + 1,
+      busy: action.type === "RELOAD" && previous.busy,
       id: action.session.id,
       title: action.session.title,
       model: action.session.model,
@@ -411,6 +412,44 @@ export function chatReducer(previous, action) {
   }
   return state;
 }
+export const initialConversations = {
+  selected: initialChat,
+  background: new Map(),
+  unread: new Set(),
+};
+
+export function conversationsReducer(state, action) {
+  if (action.type === "CLEAR_CONVERSATIONS") return initialConversations;
+  if (action.type === "SELECT_CONVERSATION") {
+    const background = new Map(state.background);
+    const saved = background.get(action.sessionId);
+    if (state.selected.id !== action.sessionId && state.selected.busy)
+      background.set(state.selected.id, state.selected);
+    background.delete(action.sessionId);
+    const selected = saved
+      ? { ...saved, revision: state.selected.revision + 1 }
+      : action.session
+        ? chatReducer(state.selected, { type: "LOAD", session: action.session })
+        : state.selected;
+    return { ...state, selected, background };
+  }
+  if (action.type === "UNREAD" || action.type === "READ") {
+    const hasUnread = action.type === "UNREAD";
+    if (state.unread.has(action.sessionId) === hasUnread) return state;
+    const unread = new Set(state.unread);
+    if (hasUnread) unread.add(action.sessionId);
+    else unread.delete(action.sessionId);
+    return { ...state, unread };
+  }
+  if (!action.sessionId || action.sessionId === state.selected.id)
+    return { ...state, selected: chatReducer(state.selected, action) };
+  const previous = state.background.get(action.sessionId);
+  if (!previous) return state;
+  const background = new Map(state.background);
+  background.set(action.sessionId, chatReducer(previous, action));
+  return { ...state, background };
+}
+
 export function formatCost(usage = {}) {
   if (!usage.requests) return "$0.00";
   if (usage.cost === null) return "Unavailable";
