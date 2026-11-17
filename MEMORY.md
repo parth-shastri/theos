@@ -1,5 +1,13 @@
 # Theos project memory
 
+## Health imports and speech timeouts, 2026-11-17
+
+Read Google Health pages with the provider's maximum requested page size.
+Normalize each page before reading the next page. Preserve the last complete summary if a read fails.
+Retry transient page reads and stop if the provider repeats a page token.
+Allow health summary and speech tools more time than the default tool deadline.
+Allow the speech gateway enough time to complete CPU synthesis before the client times out.
+
 Updated: 2026-11-16.
 
 ## Langfuse trace viewing, 2026-11-16
