@@ -399,7 +399,7 @@ def test_journal_preserves_service_tool_timeouts(runtime):
     health = next(
         item for item in runtime.health.tools("alice") if item.name == "get_health_summary"
     )
-    assert runtime.journal_tool(health, session).timeout_s == 600
+    assert runtime.journal_tool(health, session).timeout_s == 1200
 
     from theos.services.voice.tools import voice_tools
 

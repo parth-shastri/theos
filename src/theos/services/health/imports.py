@@ -20,16 +20,16 @@ SUMMARY_VERSION = 2
 
 async def _read_page(client, owner, path, params):
     """Retry transient failures on this read without repeating any writes."""
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             return await client.request(owner, "GET", path, params=params)
         except httpx.HTTPStatusError as error:
             if error.response.status_code != 429 and error.response.status_code < 500:
                 raise
-            if attempt == 2:
+            if attempt == 4:
                 raise
         except httpx.TransportError:
-            if attempt == 2:
+            if attempt == 4:
                 raise
         await asyncio.sleep(0.5 * 2**attempt)
 
