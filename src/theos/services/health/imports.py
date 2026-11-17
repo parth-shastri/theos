@@ -1,18 +1,37 @@
 """Paginated Google Health reads and complete daily summaries."""
 
+import asyncio
 import time
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as day_start
+
+import httpx
 
 from theos.services.errors import ServiceError
 from theos.services.health.normalize import (
     DATA_COMPONENTS,
     SAMPLE_DATA_TYPES,
-    normalize_data_points,
+    HealthNormalizer,
 )
 
 DATA_TYPES = tuple(DATA_COMPONENTS)
 SUMMARY_VERSION = 2
+
+
+async def _read_page(client, owner, path, params):
+    """Retry transient failures on this read without repeating any writes."""
+    for attempt in range(3):
+        try:
+            return await client.request(owner, "GET", path, params=params)
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code != 429 and error.response.status_code < 500:
+                raise
+            if attempt == 2:
+                raise
+        except httpx.TransportError:
+            if attempt == 2:
+                raise
+        await asyncio.sleep(0.5 * 2**attempt)
 
 
 async def read_summary(client, owner, start_date=None, end_date=None, *, refresh=False):
@@ -82,34 +101,37 @@ async def import_summary(client, owner, start_date=None, end_date=None, *, save=
         "schema_version": SUMMARY_VERSION,
         "from": start.isoformat(),
         "to": end.isoformat(),
-        "data": {},
     }
+    normalizer = HealthNormalizer()
     # 1. Fetch a bounded set of pages for each data type before replacing the stored summary.
     for kind in DATA_TYPES:
-        points, page = [], None
-        for _ in range(100):
+        page = None
+        seen_pages = set()
+        for _ in range(1000):
             params = {
-                "pageSize": 1000,
+                "pageSize": 10000,
                 "filter": range_filter(
                     kind, start.isoformat(), end.isoformat(), calendar_dates=start_date is not None
                 ),
             }
             if page:
                 params["pageToken"] = page
-            payload = await client.request(
-                owner, "GET", f"users/me/dataTypes/{kind}/dataPoints", params=params
+            payload = await _read_page(
+                client, owner, f"users/me/dataTypes/{kind}/dataPoints", params
             )
-            points.extend(payload.get("dataPoints", []))
+            normalizer.add(kind, payload.get("dataPoints", []))
             page = payload.get("nextPageToken")
             if not page:
                 break
+            if page in seen_pages:
+                raise ServiceError("The health service repeated a page. Try again later.")
+            seen_pages.add(page)
         else:
             raise ServiceError(
                 "The health import exceeded its page limit. Reduce the import range."
             )
-        snapshot["data"][kind] = points
     # 2. Normalize complete input so partial imports cannot overwrite the last usable summary.
-    snapshot["days"] = [day.to_dict() for day in normalize_data_points(snapshot.pop("data"))]
+    snapshot["days"] = [day.to_dict() for day in normalizer.days()]
     if save:
         client.db.put_record(owner, "health", "summary", snapshot)
         client.db.put_record(owner, "health", "last_import", {"at": time.time()})

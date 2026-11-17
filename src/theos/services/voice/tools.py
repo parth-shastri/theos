@@ -6,7 +6,7 @@ from harness import tool
 def voice_tools(voice, owner, session_id=None):
     """Build speech and transcription tools bound to the authenticated owner."""
 
-    @tool
+    @tool(timeout_s=180)
     async def send_text_to_speech(text: str):
         """Write an expressive spoken rendition, generate speech, and deliver the audio file."""
         row = await voice.speech(owner, text, session_id=session_id)

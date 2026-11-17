@@ -92,8 +92,19 @@ def normalize_data_points(
     data_points_by_type: Mapping[str, Sequence[Mapping[str, Any]]],
 ) -> list[HealthDay]:
     """Normalize API data points and omit records with no usable date."""
-    builders: dict[str, _DayBuilder] = defaultdict(_DayBuilder)
+    normalizer = HealthNormalizer()
     for data_type, points in data_points_by_type.items():
+        normalizer.add(data_type, points)
+    return normalizer.days()
+
+
+class HealthNormalizer:
+    """Accumulate daily summaries without retaining provider pages."""
+
+    def __init__(self):
+        self.builders: dict[str, _DayBuilder] = defaultdict(_DayBuilder)
+
+    def add(self, data_type, points):
         for point in points:
             component_name = DATA_COMPONENTS.get(data_type)
             if component_name is None:
@@ -104,10 +115,11 @@ def normalize_data_points(
             day = _date_for_component(component, data_type)
             if day is None:
                 continue
-            builder = builders[day]
+            builder = self.builders[day]
             _apply_component(builder, component, data_type, point)
 
-    return [builders[day].to_day(day) for day in sorted(builders)]
+    def days(self):
+        return [self.builders[day].to_day(day) for day in sorted(self.builders)]
 
 
 def _apply_component(
