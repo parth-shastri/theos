@@ -77,7 +77,9 @@ def test_success_commits_new_volume_and_retains_previous(deployment):
     restore = next(c for c in calls if "/previous:ro" in " ".join(c))
     assert previous["image"] in restore
     assert not deployer.pending_path.exists()
-    assert not any("rm" in c[:3] and "volume" in c[:3] for c in calls)
+    assert ("docker", "volume", "rm", current["volume"] + "-preflight") in calls
+    assert ("docker", "volume", "rm", current["volume"]) not in calls
+    assert ("docker", "volume", "rm", previous["volume"]) not in calls
 
 
 def test_failed_readiness_restores_previous_image_and_untouched_volume(deployment):
@@ -300,6 +302,22 @@ def test_failed_telegram_preflight_never_stops_previous_service(deployment):
     assert not deployer.pending_path.exists()
 
 
+def test_failed_preflight_removes_only_its_disposable_volume(deployment):
+    deployer, calls = deployment
+    release = {"volume": "candidate-volume"}
+
+    def fail_check(release, *args):
+        calls.append((release["volume"], *args))
+        raise DeploymentError("check failed")
+
+    deployer.compose = fail_check
+    with pytest.raises(DeploymentError, match="Telegram connection check failed"):
+        deployer.telegram_ready(release, preflight=True)
+    assert ("docker", "volume", "create", "candidate-volume-preflight") in calls
+    assert ("docker", "volume", "rm", "candidate-volume-preflight") in calls
+    assert ("docker", "volume", "rm", "candidate-volume") not in calls
+
+
 def test_failed_active_telegram_check_rolls_back(deployment):
     deployer, calls = deployment
     previous = previous_release(deployer)
@@ -322,8 +340,11 @@ def test_telegram_checks_use_candidate_environment_and_active_container(deployme
     result = deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
     volume = result["current"]["volume"]
     checker = ("theos", "python", "-m", "theos.operations.telegram_check")
-    preflight = (volume, "run", "--rm", "--no-deps", "-T", *checker)
+    preflight_volume = volume + "-preflight"
+    preflight = (preflight_volume, "run", "--rm", "--no-deps", "-T", *checker)
     active = (volume, "exec", "-T", *checker)
+    assert calls.index(("docker", "volume", "create", preflight_volume)) < calls.index(preflight)
+    assert calls.index(preflight) < calls.index(("docker", "volume", "rm", preflight_volume))
     assert calls.index(preflight) < calls.index(("previous-volume", "stop", "theos"))
     assert calls.index(("healthy", volume)) < calls.index(active)
 

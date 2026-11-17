@@ -1,5 +1,11 @@
 # Theos project memory
 
+## Pi release preflight volumes, 2026-11-18
+
+Run the Telegram preflight with a disposable data volume.
+Compose can create nested mount points in that volume. Keep the candidate volume empty until restoration.
+Remove only the disposable preflight volume after the check.
+
 ## OpenUI answer views, 2026-11-18
 
 Use one AnswerViews card when a complex answer needs distinct visual views.
