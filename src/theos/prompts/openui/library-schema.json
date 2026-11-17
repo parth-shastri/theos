@@ -8,6 +8,12 @@
     "AnswerSummary": {
       "$ref": "#/$defs/AnswerSummary"
     },
+    "AnswerViews": {
+      "$ref": "#/$defs/AnswerViews"
+    },
+    "AnswerView": {
+      "$ref": "#/$defs/AnswerView"
+    },
     "SummaryCard": {
       "$ref": "#/$defs/SummaryCard"
     },
@@ -108,6 +114,8 @@
   "required": [
     "TheosAnswer",
     "AnswerSummary",
+    "AnswerViews",
+    "AnswerView",
     "SummaryCard",
     "SummaryFact",
     "EvidenceList",
@@ -161,12 +169,6 @@
                 "$ref": "#/$defs/EvidenceList"
               },
               {
-                "$ref": "#/$defs/StatusNotice"
-              },
-              {
-                "$ref": "#/$defs/ScheduleReminderForm"
-              },
-              {
                 "$ref": "#/$defs/MetricGrid"
               },
               {
@@ -216,6 +218,15 @@
               },
               {
                 "$ref": "#/$defs/CardRow"
+              },
+              {
+                "$ref": "#/$defs/StatusNotice"
+              },
+              {
+                "$ref": "#/$defs/ScheduleReminderForm"
+              },
+              {
+                "$ref": "#/$defs/AnswerViews"
               }
             ]
           }
@@ -343,80 +354,6 @@
       ],
       "additionalProperties": false,
       "description": "One source card with a safe link, readable domain, excerpt, and optional search-provided image and logo. Pass null as source_id when none was returned. Copy image_url and logo_url from tool results. Never invent image URLs."
-    },
-    "StatusNotice": {
-      "type": "object",
-      "properties": {
-        "tone": {
-          "type": "string",
-          "enum": [
-            "info",
-            "warning",
-            "error"
-          ]
-        },
-        "text": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "tone",
-        "text"
-      ],
-      "additionalProperties": false,
-      "description": "A factual note about a limitation, warning, or failed action."
-    },
-    "ScheduleReminderForm": {
-      "type": "object",
-      "properties": {
-        "text": {
-          "type": "string"
-        },
-        "date": {
-          "type": "string"
-        },
-        "time": {
-          "type": "string"
-        },
-        "timezone": {
-          "type": "string"
-        },
-        "recurrence": {
-          "type": "string",
-          "enum": [
-            "none",
-            "daily",
-            "weekly",
-            "weekdays",
-            "custom"
-          ]
-        },
-        "weekdays": {
-          "maxItems": 7,
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "MO",
-              "TU",
-              "WE",
-              "TH",
-              "FR",
-              "SA",
-              "SU"
-            ]
-          }
-        }
-      },
-      "required": [
-        "text",
-        "date",
-        "time",
-        "recurrence",
-        "weekdays"
-      ],
-      "additionalProperties": false,
-      "description": "A draft reminder form. It does not save until the user selects its submit button."
     },
     "MetricGrid": {
       "type": "object",
@@ -1287,6 +1224,193 @@
       ],
       "additionalProperties": false,
       "description": "Two related compact cards side by side when space permits. Use the compact layout for CalendarAvailability in a row."
+    },
+    "StatusNotice": {
+      "type": "object",
+      "properties": {
+        "tone": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tone",
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "A factual note about a limitation, warning, or failed action."
+    },
+    "ScheduleReminderForm": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "time": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "recurrence": {
+          "type": "string",
+          "enum": [
+            "none",
+            "daily",
+            "weekly",
+            "weekdays",
+            "custom"
+          ]
+        },
+        "weekdays": {
+          "maxItems": 7,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "MO",
+              "TU",
+              "WE",
+              "TH",
+              "FR",
+              "SA",
+              "SU"
+            ]
+          }
+        }
+      },
+      "required": [
+        "text",
+        "date",
+        "time",
+        "recurrence",
+        "weekdays"
+      ],
+      "additionalProperties": false,
+      "description": "A draft reminder form. It does not save until the user selects its submit button."
+    },
+    "AnswerViews": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "views": {
+          "minItems": 2,
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AnswerView"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "dropdown",
+            "journey"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "views"
+      ],
+      "additionalProperties": false,
+      "description": "A single integrated card with a view dropdown. Use journey mode for ordered views with Previous and Next controls."
+    },
+    "AnswerView": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "content": {
+          "minItems": 1,
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SummaryCard"
+              },
+              {
+                "$ref": "#/$defs/EvidenceList"
+              },
+              {
+                "$ref": "#/$defs/MetricGrid"
+              },
+              {
+                "$ref": "#/$defs/BarChart"
+              },
+              {
+                "$ref": "#/$defs/LineChart"
+              },
+              {
+                "$ref": "#/$defs/DonutChart"
+              },
+              {
+                "$ref": "#/$defs/ProgressCard"
+              },
+              {
+                "$ref": "#/$defs/DataTable"
+              },
+              {
+                "$ref": "#/$defs/CalendarAgenda"
+              },
+              {
+                "$ref": "#/$defs/CalendarEventCard"
+              },
+              {
+                "$ref": "#/$defs/CalendarAvailability"
+              },
+              {
+                "$ref": "#/$defs/TrendCard"
+              },
+              {
+                "$ref": "#/$defs/ComparisonCard"
+              },
+              {
+                "$ref": "#/$defs/StatusBreakdown"
+              },
+              {
+                "$ref": "#/$defs/ProcessDiagram"
+              },
+              {
+                "$ref": "#/$defs/RelationshipDiagram"
+              },
+              {
+                "$ref": "#/$defs/ScenarioExplorer"
+              },
+              {
+                "$ref": "#/$defs/LeverExplainer"
+              },
+              {
+                "$ref": "#/$defs/CardRow"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "label",
+        "content"
+      ],
+      "additionalProperties": false,
+      "description": "One named view with one or two related visuals inside AnswerViews."
     }
   }
 }

@@ -1,24 +1,14 @@
 .focus-workspace {
   --focus-rail-width: 54px;
   --header-height: calc(54px + env(safe-area-inset-top, 0px));
-  --inbox-width: clamp(260px, 30vw, 310px);
   grid-template-columns:
     var(--focus-rail-width) var(--sidebar-track, 0px)
-    minmax(0, 1fr) var(--inbox-track, 0px);
+    minmax(0, 1fr);
   grid-template-rows: var(--header-height) minmax(0, 1fr);
   max-width: none;
 }
 .focus-workspace.sidebar-open {
   --sidebar-track: clamp(196px, 20vw, 240px);
-}
-.focus-workspace.inbox-open {
-  --inbox-track: var(--inbox-width);
-}
-@media (700px < width < 950px) {
-  .focus-workspace.sidebar-open.inbox-open {
-    --sidebar-track: 176px;
-    --inbox-track: 204px;
-  }
 }
 .focus-header,
 .focus-rail {
@@ -221,10 +211,27 @@
   flex-shrink: 0;
 }
 .focus-sidebar nav button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-height: 36px;
   margin: 2px 0;
   padding: 6px 8px;
   border-radius: 8px;
+}
+.focus-sidebar .conversation-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conversation-unread-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 .focus-account-menu #user-cost {
   margin: 0;
@@ -245,6 +252,17 @@
   background: transparent;
   text-align: left;
   font-weight: 550;
+}
+#response-notifications-button {
+  justify-content: space-between;
+  gap: 6px;
+}
+.response-notification-state {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+#response-notifications-button[aria-pressed="true"] .response-notification-state {
+  color: var(--accent);
 }
 .focus-sidebar #new-session,
 .account-drawer-entry {
@@ -323,18 +341,20 @@
   max-height: min(440px, calc(var(--viewport-height, 100dvh) * 0.44));
 }
 
-.notifications-inbox {
-  grid-column: 4;
-  grid-row: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-  padding: 12px 14px max(12px, var(--bottom-safe-area));
-  border-left: 1px solid var(--border);
-  background: var(--surface);
+.notifications-page-content {
+  width: min(100%, 780px);
+  margin-inline: auto;
+  padding-bottom: max(16px, var(--bottom-safe-area));
+}
+.notifications-intro {
+  max-width: 65ch;
+  margin: 0 0 24px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.7;
 }
 .notifications-tools,
+.notifications-error,
 .notifications-undo {
   display: flex;
   align-items: center;
@@ -343,21 +363,49 @@
   color: var(--text-soft);
   font-size: 12px;
 }
+.notifications-tools {
+  min-height: 44px;
+  margin-bottom: 16px;
+}
+.notifications-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .notification-action {
-  min-height: 34px;
-  padding-inline: 4px;
+  min-height: 44px;
+  padding-inline: 8px;
   border-color: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--accent);
   font-size: 12px;
 }
+.notification-filters {
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.notification-filters button {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+.notification-filters button[aria-pressed="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+.notifications-error {
+  margin-top: 12px;
+}
 .notification-list {
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  border-top: 1px solid var(--border);
+  min-width: 0;
 }
 .notification-group ul {
   margin: 0;
@@ -370,7 +418,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding-block: 8px;
+  padding-block: 14px;
   overflow-wrap: anywhere;
 }
 .notification-group-heading > div,
@@ -404,12 +452,25 @@
   color: var(--accent);
   text-underline-offset: 3px;
 }
+.notification-state {
+  flex: none;
+  color: var(--text-soft);
+  font-size: 12px;
+}
 .notifications-empty {
-  margin: 12px 0;
+  margin: 24px 0;
   color: var(--text-soft);
 }
 .notifications-undo {
-  padding-top: 4px;
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.notifications-load-more {
+  display: flex;
+  margin: 20px auto 0;
 }
 
 @media (max-width: 700px) {
@@ -429,7 +490,7 @@
   .focus-header .focus-button,
   .focus-header .conversation-actions > summary,
   :is(.focus-sidebar, .focus-account-menu) button,
-  .notifications-inbox :is(.focus-button, .notification-action) {
+  .notifications-page :is(.focus-button, .notification-action) {
     min-width: 44px;
     min-height: 44px;
   }
@@ -460,8 +521,7 @@
   .focus-sidebar.glass-surface > .glass-optics {
     background-color: var(--glass-strong);
   }
-  .focus-workspace > main,
-  .notifications-inbox {
+  .focus-workspace > main {
     grid-column: 1;
     grid-row: 2;
   }
@@ -501,13 +561,5 @@
   }
   .focus-workspace .composer-wrap {
     padding-bottom: max(8px, var(--bottom-safe-area));
-  }
-  .focus-workspace.inbox-open > main {
-    visibility: hidden;
-  }
-  .notifications-inbox {
-    border-left: 0;
-    padding-inline: max(14px, env(safe-area-inset-left, 0px))
-      max(14px, env(safe-area-inset-right, 0px));
   }
 }

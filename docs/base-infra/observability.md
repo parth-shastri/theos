@@ -25,7 +25,7 @@ Reasoning tokens are part of total output tokens. They are not billed or counted
 
 | Output | Location | Contents |
 | --- | --- | --- |
-| Application events | `AGENT_DATA_DIR/logs/theos.log` | Fixed event names, timestamps, levels, and selected metadata |
+| Application events | `AGENT_DATA_DIR/logs/theos.log` | Fixed event names, timestamps, levels, safe metadata, and per-turn timing profiles |
 | Runtime traces | `traces` table in `theos.sqlite3` | Owner, session, event, tool name, status, and timestamp |
 | OpenTelemetry spans | Configured OTLP endpoint | Turn, model, tool, delegate, and title timing with token counts and status |
 | Model usage | `usage` table in `theos.sqlite3` | Owner, session, model, token counts, and optional cost estimate |
@@ -39,12 +39,18 @@ The server suppresses verbose harness and external client loggers.
 ## Read application events
 
 ```sh
-docker compose exec theos python -c   'from pathlib import Path; print(Path("/data/logs/theos.log").read_text()[-16000:])'
+docker compose exec -T theos tail -n 100 /data/logs/theos.log
+docker compose exec -T theos tail -F /data/logs/theos.log
 ```
+
+The first command reads recent JSON lines; the second follows new events across file rotation. For a native process, read `$AGENT_DATA_DIR/logs/theos.log` (the standalone terminal defaults to `~/.theos/logs/theos.log`). `docker compose logs --tail=100 -f theos` reads container process output, which is separate from these application events. The browser admin token can also call `GET /api/logs` for up to 100 recent events; the **Admin dashboard** displays this feed.
 
 | Event | Meaning |
 | --- | --- |
 | `started` | Application workers entered their lifespan |
+| `first_model_call` | Seconds from turn start until the first model request, including harness waits and preparation |
+| `turn_profile` | One safe timing profile per reserved turn, including failures and cancellations |
+| `response_delivery` | Time from the final event entering the queue until the transport consumer finishes or closes |
 | `turn_incomplete` | A turn reached a limit or raised an exception before its final answer |
 | `delegate_incomplete` | One delegate stopped and returned available findings |
 | `final_answer_unavailable` | The bounded final request failed, so the runtime returned saved findings |
@@ -54,7 +60,9 @@ docker compose exec theos python -c   'from pathlib import Path; print(Path("/da
 | `scheduler_failed` | Scheduled work raised an exception |
 | `trace_export_failed` | Remote trace delivery failed |
 
-The formatter permits `error_type` and `session_id` metadata.
+The formatter retains every fixed Theos event name and permits only known fields. `turn_profile` contains request acceptance, concurrency wait, history restore, input save, model setup, capacity lookup, tool registration, memory retrieval, prompt assembly, harness work, recovery, finalization, and total duration when each stage ran. It also contains model and tool counts, up to 64 individual model timings, model first-event wait, total model time, total tool time, and a bounded per-tool-name summary. `request_accept_seconds` begins at HTTP ingress, Telegram update processing, local terminal input, or scheduled task dispatch and ends when the runtime reserves the turn. `time_to_first_model_call_seconds` begins at reservation and ends when the harness yields its first parent model request. `model_wait_seconds` runs from each model call to its first streamed event or complete response; it includes provider/network wait and is not a separate provider queue measurement. Prompt assembly time excludes the separately reported memory retrieval time. Concurrent model and tool totals can exceed wall-clock time. `response_delivery` measures application-side consumer drain after the runtime queues `done`; it does not prove that a remote browser or Telegram client displayed the result.
+
+The formatter permits `error_type`, `session_id`, and bounded numeric timing fields.
 It does not include exception text or stack traces.
 A generic error type can require a separate service check.
 
@@ -70,28 +78,107 @@ It returns users, recent sessions, usage totals, recent traces, recent jobs, and
 `GET /api/logs` returns up to 100 recent application events.
 There is no separate `/dashboard` page.
 
-## View a trace waterfall
+## View traces in Langfuse
 
-Use Jaeger v2 for a private waterfall viewer.
-Its single-node Badger storage requires no separate database and retains traces across restarts.
-The supplied configuration keeps spans for seven days.
-See the [Jaeger storage documentation](https://www.jaegertracing.io/docs/2.22/storage/badger/).
+Langfuse is an optional viewer for model and tool traces. Theos exports standard OTLP/HTTP protobuf and adds Langfuse observation attributes.
+The existing `gen_ai.*` attributes remain on the spans, so the same trace data can also go to another OTel backend.
+Content capture stays disabled unless `AGENT_TRACING__CAPTURE_CONTENT=true`. When enabled, bounded messages and tool data are sent to the trace backend.
 
-1. Start Theos and Jaeger from the repository root.
+Run Langfuse on the runtime host or another host that Theos can reach.
+Set `AGENT_TRACING__ENDPOINT` to that host's `/api/public/otel/v1/traces` URL.
+Set private authentication headers in `AGENT_TRACING__HEADERS`.
+The optional [Langfuse Compose overlay](../../compose.langfuse.yaml) uses `http://langfuse-web:3000` when both services share the `theos-observability` Docker network.
+Set a reachable private URL instead when the services use separate hosts or networks.
 
-   ```sh
-   docker compose -f compose.yaml -f compose.tracing.yaml up --build -d
-   ```
+For development or evaluation, the helper starts a loopback Langfuse stack on a Docker host:
 
-2. Open [Jaeger](http://127.0.0.1:16686).
-3. Send a new message through Telegram, the browser, or the connected terminal.
-4. Select service **theos** in Jaeger.
-5. Select **Span Name → invoke_agent Theos** and find traces.
-6. Open a trace to inspect the waterfall.
+```sh
+python3 scripts/deploy_langfuse_local.py
+```
+
+This helper is not required to run Theos or to use another Langfuse installation.
+It stores local credentials under the ignored `.theos/langfuse-local/` directory.
+Use `--port 3001 --public-url http://localhost:3001` if port 3000 is already in use.
+Open the helper's loopback URL or the private URL for your own Langfuse service.
+
+To check the development stack, send a disposable fake-model turn without a model API request:
+
+```sh
+uv run --extra server python scripts/check_tracing.py \
+  --endpoint http://127.0.0.1:3000/api/public/otel/v1/traces \
+  --viewer http://127.0.0.1:3000 \
+  --headers-file .theos/langfuse-local/theos-headers.json \
+  --capture-content
+```
+
+The script prints a trace ID and viewer URL. The model and tool observations show only synthetic content.
+Each Theos turn remains its own trace. The shared `langfuse.session.id` groups turns in a conversation.
+
+For a shared Docker network, add `compose.langfuse.yaml` to the Theos Compose command.
+Set `LANGFUSE_AUTH_STRING` in its private `.env` to Base64 of the Langfuse `public-key:secret-key` pair.
+The overlay keeps content capture off unless you enable it.
+For other layouts, configure the endpoint and secret headers directly on the Theos process.
+
+Theos application logs remain separate from traces. They stay in the JSON file under `AGENT_DATA_DIR/logs` with bounded rotation.
+The `first_model_call` log event and `theos.turn.time_to_first_model_call_seconds` span attribute measure harness work before the first model request.
+Langfuse does not ingest OpenTelemetry logs.
+
+## View service logs in OpenObserve
+
+OpenObserve is optional. You can run it beside Theos or on another reachable host.
+The supplied [Compose file](../../compose.openobserve.yaml) pins `v1.1.2`, stores data in a persistent volume, and binds the UI to host loopback port `5080`.
+It sets seven-day retention. Edit the Compose setting if your deployment needs another retention period.
+Set `OPENOBSERVE_EMAIL` and `OPENOBSERVE_PASSWORD` in a private Compose environment file before starting the service.
+Run the service from the repository root:
+
+```sh
+docker compose --env-file /path/to/observability.env -f compose.openobserve.yaml up -d
+```
+
+Run a log collector on each host that can read a Theos application log.
+The supplied [collector Compose file](../../compose.openobserve-collector.yaml) reads the external `theos-service-logs` volume without write access.
+Mount that volume at `/data/logs` in the Theos container.
+The optional [skills overlay](../../compose.skills.yaml) includes this mount for deployments that also use a shared skills directory.
+Back up existing `/data/logs` files before a new volume hides that directory.
+For other deployments, create the external volume and add this Compose override:
+
+```sh
+docker volume create theos-service-logs
+```
+
+```yaml
+services:
+  theos:
+    volumes:
+      - theos-service-logs:/data/logs
+volumes:
+  theos-service-logs:
+    external: true
+```
+
+Set `OPENOBSERVE_OTLP_URL` to an organization endpoint that the collector can reach, such as `https://logs.example.com/api/default`.
+When both services share a Compose network, `http://openobserve:5080/api/default` is an option.
+Set `OPENOBSERVE_AUTH_HEADER` to the full `Basic ...` value for a private OpenObserve ingestion credential.
+Choose `OPENOBSERVE_STREAM` for each log source. The default stream name is `theos`.
+Set `THEOS_OTEL_STATE_DIR` to a persistent host directory owned by UID `10001`.
+The collector stores file offsets and its retry queue there and forwards JSON events over OTLP/HTTP.
+Start the collector after you mount the shared log volume in Theos:
+
+```sh
+docker compose --env-file /path/to/collector.env -f compose.openobserve-collector.yaml up -d
+```
+
+For a native Theos process, point a filelog collector at `$AGENT_DATA_DIR/logs/theos.log` and its rotated files.
+Use the service manager available on that host. A macOS LaunchAgent is one optional choice for local development.
+Theos keeps its rotating log file even when OpenObserve is unavailable.
+
+## Trace structure in Langfuse
+
+Open a trace in Langfuse to inspect the model and tool observations.
+Use the conversation session to group separate turn traces.
 
 The operation uses the configured assistant name when it differs from `Theos`.
-The browser Admin dashboard still shows SQLite events. Jaeger shows the span waterfall.
-Old SQLite events do not become OTel traces.
+The browser Admin dashboard still shows recent SQLite events. Old SQLite events do not become OTel traces.
 
 Each turn starts a new root trace, including approval continuation and scheduled turns.
 Every span includes the existing `gen_ai.conversation.id` and its `theos.turn.id`.
@@ -122,7 +209,7 @@ Time to first model call includes lock waits and request preparation.
 Use per-model chunk times to measure provider latency after each request starts.
 Providers send stream chunks, so these values do not measure individual tokenizer tokens.
 Delegate spans include `theos.delegate.model_calls.limit` for the configured local cap.
-Use `gen_ai.conversation.id` in Jaeger's **Attributes** filter to find turns from one conversation.
+Use `langfuse.session.id` in Langfuse to find turns from one conversation.
 
 OpenTelemetry defines a conversation identifier, but it does not require one trace for an entire conversation.
 Its [GenAI conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md) use that identifier to correlate operations.
@@ -132,7 +219,7 @@ These conventions remain in development.
 Theos uses one trace per turn because each turn has a clear start, result, and cancellation boundary.
 A conversation can remain idle for days and continue after a restart.
 A conversation root would include that idle time and require a separate lifecycle policy.
-Jaeger searches related turn traces by attribute. It does not provide a dedicated conversation replay page.
+Langfuse groups the turn traces under the conversation session.
 
 Model calls and executed tools are children of the turn.
 Each research delegate is a child of `execute_tool delegate_tasks`.
@@ -182,95 +269,12 @@ No transient process identifier is exported as `gen_ai.agent.id`.
 The exporter does not write local OTLP/JSON files.
 SQLite events and usage remain available when remote tracing is disabled.
 
-The Compose viewer and receiver bind to host loopback.
-Jaeger access is separate from Theos administrator authentication.
-The current setup has no Jaeger password, user accounts, or per-user trace isolation.
-Anyone who can reach the viewer can inspect every stored trace, including captured conversation content.
-Treat the viewer as an operator tool. Theos browser tokens do not protect its UI or query API.
-Local access, authenticated SSH tunnels, and Pi Tailscale Serve control network access. They do not filter traces by owner.
-A reverse proxy can add login protection, but login alone does not enforce per-user trace ownership.
-User-facing trace access needs a separate layer that checks conversation ownership. This layer is not implemented.
-For a remote host, use private access or an SSH tunnel.
-
-```sh
-ssh -L 16686:127.0.0.1:16686 your-host
-```
-
-Use both Compose files for later lifecycle commands.
-The `jaeger-data` volume is separate from application data and application backups.
-The named volume has no hard disk limit. Badger expires spans after seven days.
-Background maintenance reclaims expired data. Monitor volume growth separately.
-
-## Pi viewer through Tailscale Serve
-
-Connect your Mac to Tailscale and open [Pi Jaeger](https://neuralbox-pi.tail61f0ca.ts.net:8443/).
-Select service **theos** and find traces. Existing trace links also work with this hostname and port.
-The viewer uses your Tailscale device identity. You do not need an SSH port forward or a Jaeger password.
-The operator group currently contains `parth-shastri@github`.
-All allowed operators can inspect all stored traces, including captured conversation content.
-
-The Pi runs Tailscale `1.102.4` on the host.
-Serve terminates HTTPS on the Pi tailnet addresses and proxies `http://127.0.0.1:16686`.
-The `--bg` configuration persists across restarts.
-The host loopback bindings for Jaeger and OTLP remain unchanged.
-Serve exposes only the viewer. It does not expose OTLP port 4318.
-This endpoint uses private Serve, without public Funnel access.
-See [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
-
-The [policy snapshot](../../config/tailscale/pi-jaeger.policy.json) records the applied tailnet policy and seven access tests.
-It is not an automatic policy synchronization mechanism.
-Review the current tailnet policy before reapplying this snapshot, to preserve later changes.
-
-The former wildcard grant allowed every device to reach every port.
-Tailscale grants are additive. An operator grant cannot override an existing wildcard grant.
-The current policy excludes both Pi IP addresses from the broader grant.
-Separate grants retain other Pi TCP ports, UDP, and ICMP.
-Only `group:theos-operators` receives Pi TCP 8443.
-The four `/1` prefixes cover both address families before the IP set removes the Pi addresses.
-The test aliases are unassigned addresses for nonoperator policy checks, not enrolled devices.
-The existing SSH policy and Funnel capability attributes remain unchanged.
-A Funnel capability does not create a public endpoint. The Pi Serve configuration has no Funnel listener.
-See [grants](https://tailscale.com/docs/reference/syntax/grants) and [policy tests](https://tailscale.com/docs/reference/syntax/policy-file#tests).
-
-To configure another deployment:
-
-1. Confirm the host's Tailscale IPv4 and IPv6 addresses.
-2. Set the operator group to the approved operator identities.
-3. Exclude the viewer's TCP port from all broader grants that match the host.
-4. Add operator allow tests and nonoperator deny tests for both IP families.
-5. Save the policy after all Tailscale tests pass.
-6. Enable the private HTTPS proxy on the host.
-
-   ```sh
-   sudo tailscale serve --bg --https=8443 http://127.0.0.1:16686
-   ```
-
-7. Check the persistent proxy configuration.
-
-   ```sh
-   tailscale serve status --json
-   ```
-
-8. Verify HTTPS from an operator device with certificate validation enabled.
-
-   ```sh
-   curl --fail https://neuralbox-pi.tail61f0ca.ts.net:8443/api/v3/services
-   ```
-
-To add an operator, update `group:theos-operators` in the Tailscale admin console and save after the policy tests pass.
-Update this snapshot with the reviewed policy. Do not add a wildcard grant for Pi TCP 8443.
-If the Pi's Tailscale addresses change, update the grant destinations, IP set exclusions, and policy tests together.
-
-To disable this viewer endpoint, run the following command on the Pi:
-
-```sh
-sudo tailscale serve --https=8443 off
-```
-
-Keep the operator restriction in place when disabling Serve.
-Restore the former policy only after the listener is disabled, if a full rollback is required.
-The Jaeger container, trace volume, and seven-day retention do not require changes.
-The existing SSH tunnel remains available as a private alternative.
+Protect each viewer with its own authentication and private network access.
+Theos browser tokens do not protect either UI or filter records by owner.
+Operators who can sign in can inspect the records available to that viewer.
+Keep trace content capture disabled unless your deployment needs captured messages and tool data.
+Choose a private proxy, tunnel, or network route if operators need access from another host.
+The supplied Compose files bind viewer ports to host loopback by default.
 
 ## Export to another backend
 
@@ -278,7 +282,7 @@ The `server` extra includes the OTel SDK and OTLP/HTTP exporter.
 Standalone terminal mode uses the same tracing settings.
 Connected terminal mode sends turns to the server. Configure tracing on that server.
 
-Without the Jaeger Compose override, configure these values in the server's private `.env`:
+For a local process or another receiver, configure these values in the server's private `.env`:
 
 ```dotenv
 AGENT_TRACING__ENABLED=true
@@ -295,8 +299,8 @@ AGENT_TRACING__HEADERS={}
 The endpoint is the complete trace URL, including `/v1/traces` or the backend's equivalent path.
 For authenticated endpoints, set secret headers through `AGENT_TRACING__HEADERS`.
 For example, use `{"Authorization":"Bearer your-token"}` in the private configuration.
-The Jaeger Compose override selects `http://jaeger:4318/v1/traces` inside the container network.
-For another receiver, omit that override and set the receiver's address.
+Langfuse uses `/api/public/otel/v1/traces` as its OTLP trace endpoint.
+The optional Compose overlay uses the `langfuse-web` service on a shared Docker network.
 
 Sampling defaults to every turn. A lower ratio selects whole traces, preserving their child hierarchy.
 Tracing defaults to disabled and does not replace the process-wide OTel provider.
@@ -339,9 +343,8 @@ The estimate does not represent an invoice or separate cached-token pricing.
 | Application log age | Rotate the current file after seven days. Remove backups with modification times older than seven days | Startup, rotation, and hourly checks when the handler emits events |
 | Container output | 5 MB per file, three files per container | Docker logging driver |
 | Export queue | 2,048 spans, batches of 256 | SDK discards queued spans on overflow rather than growing without a limit |
-| Jaeger spans | Seven-day expiry | Badger TTL and background maintenance |
-| Jaeger memory | 512 MiB container limit, 300 MiB Go memory target | A limiter refuses ingestion above its 320 MiB soft heap threshold. Batches contain at most 256 spans |
-| Jaeger storage | Persistent named volume with no hard size cap | Seven-day span expiry and background maintenance |
+| OpenObserve logs | Seven-day default in supplied Compose file | OpenObserve compaction; the supplied service also limits accepted event age to seven days |
+| Collector offsets and queue | Persistent file storage on each source host | Filelog storage extension and bounded export queue |
 | SQLite events, usage, and conversation state | Keep existing records | No automatic deletion in this change |
 
 These policies keep logs on disk and bound the queue in memory.
@@ -390,7 +393,7 @@ OpenRouter may accept an HTTP request with 200 and later report 502 inside its s
 Read `theos.provider.http_status` and `theos.provider.status_code` separately.
 A valid generation ID supports a provider-side lookup, but failed generations may have no retained record.
 A 502 alone does not prove overload, disconnection, or timeout.
-The old Pi failure lost its detailed error metadata and cannot establish that distinction.
+The older recorded failure lost its detailed error metadata and cannot establish that distinction.
 
 Transient accepted OpenRouter streams receive at most two additional attempts before any model event.
 Additional attempts start only within the first 30 seconds, so a long failed generation does not start more long waits.

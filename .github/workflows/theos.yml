@@ -76,7 +76,7 @@ jobs:
       - run: uv sync --locked --extra server --extra terminal
       - run: uv run --no-sync ruff check src/theos tests/app scripts/ci_policy.py scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
       - run: uv run --no-sync ruff format --check src/theos tests/app scripts/ci_policy.py scripts/check_release.py scripts/deploy_rpi.py scripts/rehearse_rpi.py tests/deployment
-      - run: uv run --no-sync pytest -q
+      - run: uv run --no-sync pytest -q -o faulthandler_timeout=60
       - run: uv build
       - name: Check installed wheel and lightweight remote client
         run: |

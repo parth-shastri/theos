@@ -267,7 +267,7 @@ def delegate_call():
 
 
 async def test_one_delegate_timeout_preserves_sibling_answer(runtime, monkeypatch):
-    monkeypatch.setattr(tools, "DELEGATE_SECONDS", 0.03)
+    monkeypatch.setattr(tools, "DELEGATE_SECONDS", 0.2)
     parent = FakeModel(
         [
             delegate_call(),

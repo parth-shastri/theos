@@ -17,7 +17,7 @@ from theos.settings import Settings, TracingSettings
 from theos.storage.database import Database
 
 
-async def check(endpoint, viewer):
+async def check(endpoint, viewer, headers, capture_content):
     scripts = [
         [
             AssistantMessage(
@@ -55,7 +55,12 @@ async def check(endpoint, viewer):
             data_dir=Path(directory),
             provider="fake",
             auto_titles=False,
-            tracing=TracingSettings(enabled=True, endpoint=endpoint),
+            tracing=TracingSettings(
+                enabled=True,
+                endpoint=endpoint,
+                headers=headers,
+                capture_content=capture_content,
+            ),
         )
         db = Database(settings.data_dir)
         runtime = Runtime(settings, db, models=factory)
@@ -88,5 +93,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--endpoint", default="http://127.0.0.1:4318/v1/traces")
     parser.add_argument("--viewer", default="http://127.0.0.1:16686")
+    parser.add_argument(
+        "--headers-file",
+        type=Path,
+        help="Read OTLP headers from a private JSON file, avoiding command-line secrets",
+    )
+    parser.add_argument(
+        "--capture-content",
+        action="store_true",
+        help="Capture only the disposable fake-model messages for viewer checks",
+    )
     args = parser.parse_args()
-    asyncio.run(check(args.endpoint, args.viewer))
+    headers = json.loads(args.headers_file.read_text()) if args.headers_file else {}
+    if not isinstance(headers, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in headers.items()
+    ):
+        parser.error("--headers-file must contain a JSON object of string headers")
+    asyncio.run(check(args.endpoint, args.viewer, headers, args.capture_content))

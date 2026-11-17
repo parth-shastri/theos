@@ -102,7 +102,7 @@ def health_tools(client, owner, *, result_stager=None):
         """Disconnect Google Health and stop pending imports and exports."""
         return await client.oauth.disconnect(owner, "health")
 
-    @tool
+    @tool(timeout_s=1200)
     async def get_health_summary(
         start_date: date | None = None,
         end_date: date | None = None,

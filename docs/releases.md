@@ -15,6 +15,25 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.5.4
+
+Package version 1.5.4 uses tag `rpi-v1.5.4` from the promoted `rpi` tip.
+The browser keeps responses with their conversations during navigation and marks unread completions.
+Users can enable browser completion notifications while the workspace is open.
+Voice recording shows a microphone-responsive waveform.
+Complex visual answers can group views in a dropdown or an ordered journey.
+The release also updates health imports, speech timeouts, and optional observability tools.
+No database migration or new private configuration value is required.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
+## Release 1.5.3
+
+Package version 1.5.3 uses tag `rpi-v1.5.3` from the current `rpi` tip.
+OpenUI lets the model choose the visual form from the question and evidence. Mixed units alone no longer favor a table.
+Tables wrap long values and notes inside each cell. Wide tables still scroll when columns need more room.
+No database migration or private configuration change is required.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
 ## Release 1.5.2
 
 Package version 1.5.2 uses tag `rpi-v1.5.2` from the promoted `rpi` tip.

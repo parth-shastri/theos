@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import time
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 
@@ -187,6 +188,7 @@ def create_app(settings=None, runtime=None):
 
     @app.middleware("http")
     async def security_headers(request, call_next):
+        request.state.received_at = time.monotonic()
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -423,13 +425,18 @@ def create_app(settings=None, runtime=None):
                 body.files,
                 mode=body.mode,
                 browser_ui=True,
+                received_at=request.state.received_at,
             )
         )
 
     @app.post("/api/sessions/{session_id}/resume")
     async def resume(session_id: str, request: Request, owner=Depends(identity)):
         browser_session(request, owner, session_id)
-        return stream(current(request).start(owner, session_id, browser_ui=True))
+        return stream(
+            current(request).start(
+                owner, session_id, browser_ui=True, received_at=request.state.received_at
+            )
+        )
 
     @app.post("/api/sessions/{session_id}/openui-actions")
     async def openui_action(
@@ -451,6 +458,7 @@ def create_app(settings=None, runtime=None):
             tools_disabled=text_recovery,
             text_recovery=text_recovery,
             display_text=display_text,
+            received_at=request.state.received_at,
         )
         return stream(turn)
 
@@ -499,6 +507,7 @@ def create_app(settings=None, runtime=None):
             session_id,
             approval=(approval_id, body.approved),
             browser_ui=True,
+            received_at=request.state.received_at,
         )
         return stream(turn, approvals=runtime.pending(owner, session_id))
 

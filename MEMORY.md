@@ -1,6 +1,78 @@
 # Theos project memory
 
-Updated: 2026-11-15.
+## OpenUI answer views, 2026-11-18
+
+Use one AnswerViews card when a complex answer needs distinct visual views.
+Use a dropdown for independent views and step controls for an ordered journey.
+Keep conclusions, caveats, and action forms visible outside the views.
+OpenUI version 6 adds this card and reads saved versions 1 through 5.
+
+## Health imports and speech timeouts, 2026-11-17
+
+Read Google Health pages with the provider's maximum requested page size.
+Normalize each page before reading the next page. Preserve the last complete summary if a read fails.
+Retry transient page reads and stop if the provider repeats a page token.
+Allow health summary and speech tools more time than the default tool deadline.
+Allow the speech gateway enough time to complete CPU synthesis before the client times out.
+
+Updated: 2026-11-16.
+
+## Langfuse trace viewing, 2026-11-16
+
+Use Langfuse as the primary chat-oriented viewer while keeping Theos on standard OTLP/HTTP protobuf and the GenAI semantic conventions.
+Map captured model and tool content through Langfuse observation attributes and propagate `langfuse.session.id` to every span.
+Keep trace content capture disabled by default. Keep Theos application logs local and separate from GenAI traces; record the first-model-call harness timing in both the application log and optional turn span.
+Keep the local Langfuse Compose helper optional for development checks. Other deployments can use any reachable Langfuse service.
+
+## Service log access and timing profiles, 2026-11-16
+
+Keep service events in Theos' content-free rotating JSON file at `AGENT_DATA_DIR/logs/theos.log`; container stdout remains available separately through Docker Compose.
+Use the admin dashboard or authenticated `GET /api/logs` for a recent-event view, and `tail -F` on the file for live access.
+Log per-turn request acceptance, concurrency wait, setup phases, model/tool timings, recovery, finalization, and time to first model call without recording prompts, tool arguments, or exception prose.
+Keep the log formatter on a fixed event and field allowlist, with bounded file rotation and retention.
+
+## Portable observability setup, 2026-11-17
+
+Use Langfuse for GenAI turn traces and OpenObserve for Theos service logs.
+Keep the OTLP trace and JSON log pipelines separate.
+Keep both viewers optional and let the operator choose one host or several hosts.
+Require each log collector to read its source log file and reach the configured OpenObserve endpoint.
+The supplied Compose collector reads the external `theos-service-logs` volume without write access.
+Keep its file offsets and retry queue in persistent host storage.
+Let operators choose stream names for each log source.
+Keep local files, rotation, and timing fields unchanged while forwarding their copies.
+The supplied OpenObserve Compose file defaults to seven-day log retention.
+Keep trace content capture disabled by default.
+Treat the local Langfuse helper and native macOS collector as optional development paths.
+Keep viewer authentication and private network access separate from Theos browser authentication.
+The retired Jaeger configuration remains absent from active deployment files.
+
+## Browser chat navigation and completion, 2026-11-17
+
+Keep browser streams attached to their conversation while the user moves between chats and workspace screens.
+Disable turn actions only in the conversation with a running turn.
+Mark a completed response unread when the user was away from that conversation. Clear the dot when they view it.
+Send browser notifications for these responses when browser permission and the account preference allow them.
+The browser must have the workspace open to receive the completion event.
+Show microphone activity as dots and live bars in the browser composer. Keep the waveform visible while transcription runs.
+Use a static waveform with reduced motion. Return the transcript to the draft for review.
+
+## Browser UI libraries, 2026-11-15
+
+Use Tailwind CSS with the existing theme tokens for new shared controls. Keep Tailwind Preflight off.
+Use the local shadcn/ui Button and Radix-based Select for shared actions and choices.
+Use one icon set, Lucide React, through the shared Icon component. Keep provider logos as assets.
+Use Motion for state-driven animation. Keep simple CSS transitions and the existing glass optics.
+Keep the native dialog for its viewport and top-layer behavior. Put a Select portal inside an open native dialog.
+Do not add Radix Themes, Material Symbols, or Heroicons unless a specific UI need warrants them.
+
+## OpenUI visual choice and table layout, 2026-11-15
+
+The operator wants the model to choose charts, cards, diagrams, or tables based on the question and evidence.
+Do not force a fixed answer pattern for mixed units or two-day health comparisons.
+Keep factual limits for charts. Do not invent samples, dates, goals, or history.
+Wrap long table cells so interpretations and activity totals remain readable on narrow screens.
+Release this urgent Pi fix as 1.5.3 from `rpi`, then copy it to `dev` through a separate PR.
 
 ## Release 1.5.2 preparation, 2026-11-15
 
@@ -281,9 +353,9 @@ Docker Desktop still requires a macOS login. A future login or disk-encryption c
 | Browser conversation titles | Generate from the first completed exchange with the selected model and refine once after three user messages. Bound title calls, include their usage in costs, preserve custom titles, and retain a fallback on failure. Migration 007 tracks automatic titles |
 | Configuration | Pydantic settings with the `AGENT_` prefix |
 | Deployment | One application worker and scheduler per SQLite database |
-| Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. All spans share the existing conversation ID and a separate turn ID. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata by default. Optional bounded content capture includes model messages, tool arguments/results, and delegate tasks/results. Use OTel GenAI roles, parts, and descriptive agent names inherited by child spans. Retain legacy string delegate tasks. Theos chooses descriptive agent names from task scope without user-supplied names. Delegate substantial independent research when useful, and handle simple or dependent lookups directly. Instruct research delegates to use at most two focused search calls with three results each, then return findings and unverified facts. These search limits are guidance. After delegation, instruct the parent to use findings and caveats, with at most two focused verification searches before answering. Retain call usage accounting and the 90-second tool timeout. Capture limits default to 8,192 UTF-8 JSON bytes per field and 32,768 per span. Exclude reasoning, binary payloads, provider state, and exception payloads. Keep SQLite events and usage. Use optional Jaeger v2 with single-node Badger storage for waterfalls |
-| Trace access | The optional Jaeger viewer and OTLP receiver bind to host loopback. The Pi uses persistent Tailscale Serve on HTTPS port 8443 to proxy the viewer. Restrict Pi TCP 8443 to `group:theos-operators` in the tailnet policy. Exclude this endpoint from broader grants across both IP families. The group currently contains `parth-shastri@github`. Keep Funnel disabled for this endpoint. Jaeger has no configured password or per-user trace isolation. Theos authentication does not protect it. Operators can also use local access or authenticated SSH tunnels. Anyone with Jaeger access can inspect all stored traces. Per-user trace access requires a separate ownership-checking layer and is not implemented |
-| Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. Use seven-day Jaeger span expiry, a 512 MiB container limit, and memory pressure guards. Do not impose a 1 GB disk quota. Jaeger storage retains traces across restarts. Monitor disk growth separately |
+| Tracing | Optional runtime-owned OTel SDK with OTLP/HTTP protobuf export. One root trace per turn. All spans share the existing conversation ID and a separate turn ID. Model and tool spans nest under the turn, with separate parallel research delegates. Export metadata by default. Optional bounded content capture includes model messages, tool arguments/results, and delegate tasks/results. Use OTel GenAI roles, parts, and descriptive agent names inherited by child spans. Retain legacy string delegate tasks. Theos chooses descriptive agent names from task scope without user-supplied names. Delegate substantial independent research when useful, and handle simple or dependent lookups directly. Instruct research delegates to use at most two focused search calls with three results each, then return findings and unverified facts. These search limits are guidance. After delegation, instruct the parent to use findings and caveats, with at most two focused verification searches before answering. Retain call usage accounting and the 90-second tool timeout. Capture limits default to 8,192 UTF-8 JSON bytes per field and 32,768 per span. Exclude reasoning, binary payloads, provider state, and exception payloads. Keep SQLite events and usage. Langfuse can display these traces on any reachable host |
+| Trace access | Place optional Langfuse and OpenObserve viewers on one host or several hosts. Protect each viewer with its own authentication and private routing. Viewer sign-in does not filter records by Theos owner. Theos browser authentication does not protect either viewer |
+| Diagnostic retention | Keep SQLite events and usage unchanged. Rotate application logs by size and age, and bound Docker logs. The supplied OpenObserve Compose file sets seven-day retention. Keep collector offsets and retry queues in persistent storage and monitor storage growth |
 | Turn recovery | Preserve the transcript and uncertain actions. Retry provider context rejection only with a smaller request, without repeating tools. An irreducible request remains a failure, never a fabricated successful answer |
 | Checkpoint latency | Commit SQLite state and fsynced local objects before work proceeds. Use one background R2 worker with bounded batches, connection reuse, storage backoff, and a durable transfer journal. Publish remote recovery pointers only after their snapshots and sources are uploaded. Remote recovery can lag local recovery. Restart replication without repeating assistant tools |
 | Parallel Gmail reads | Mark search, message, thread, draft-list, draft-read, and label-list tools safe for parallel execution. Preserve that declaration and view metadata through journal wrappers. Keep writes and approved sends ordered. Preserve each call ID, completed result, ownership check, and uncertain outcome |
@@ -575,20 +647,6 @@ On 2026-10-11, the operator authorized a fresh beta reset of chats, pending chat
 Keep account setup, connected credentials, enrollment, preferences, files, and usage accounting.
 Preserve the Telegram offset so a restart does not replay old updates.
 This is a one-time reset, not a retention policy for SQLite events.
-
-## Pi Jaeger access
-
-On 2026-10-11, the operator requested private Pi Jaeger access through Tailscale Serve.
-The viewer URL is `https://neuralbox-pi.tail61f0ca.ts.net:8443/`.
-Tailscale Serve proxies `http://127.0.0.1:16686` and persists across restarts.
-The tailnet policy restricts Pi TCP 8443 to `group:theos-operators`, currently `parth-shastri@github`.
-The former wildcard grant now excludes the Pi. Separate grants retain other Pi TCP ports, UDP, and ICMP.
-The existing SSH policy and node attributes remain unchanged. This endpoint has no public Funnel configuration.
-Seven saved policy tests cover operator access, nonoperator rejection, both IP families, and other service access.
-Mac HTTPS checks passed with certificate validation. The viewer displayed an existing four-span Pi trace.
-No nonoperator device was available for a live denial check. The saved policy tests validate denial.
-Keep the policy snapshot and runbook together in the same change.
-See [observability](docs/base-infra/observability.md#pi-viewer-through-tailscale-serve) and [policy snapshot](config/tailscale/pi-jaeger.policy.json).
 
 ## Research response fix
 
@@ -1219,6 +1277,14 @@ The temporary ingress permits only the webhook POST and a readiness GET. Other a
 Synthetic public ingress checks passed signature validation and deduplication. Real GitHub and Telegram deliveries remain unverified.
 The implementation passed 1,164 Python tests, 20 frontend tests, and 64 browser cases, with eight final themed alert reruns.
 Stop the two tunnel processes after the requested live testing. No production deployment was changed.
+
+## GitHub Connections inbox layout, 2026-11-15
+
+Keep GitHub notification preferences visible in Connections. Collapse the saved private inbox under Recent alerts by default so its history does not expand the connection card. Show the unread count for the loaded alerts in the disclosure label.
+
+## Workspace notifications page, 2026-11-16
+
+The operator requested a separate page for all notifications and removal of the collapsed GitHub alert list from Connections. Keep only delivery preferences and a link to the page in the GitHub card. Use the existing workspace notification feed for unread count and dismissal, and a paginated owner-scoped history feed for saved reminders and GitHub alerts, including read or dismissed records. Center the page content with consistent mobile and desktop margins.
 
 ## General evidence guidance, 2026-10-28
 

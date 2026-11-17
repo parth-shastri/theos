@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useState,
 } from "react";
 import {
   createLibrary,
@@ -38,12 +39,13 @@ import {
   ScenarioExplorer as Scenarios,
 } from "./explainers.js";
 
-export const OPENUI_LIBRARY_VERSION = "theos-openui-5";
+export const OPENUI_LIBRARY_VERSION = "theos-openui-6";
 export const OPENUI_COMPATIBLE_VERSIONS = new Set([
   "theos-openui-1",
   "theos-openui-2",
   "theos-openui-3",
   "theos-openui-4",
+  "theos-openui-5",
   OPENUI_LIBRARY_VERSION,
 ]);
 
@@ -867,11 +869,9 @@ const CardRow = defineComponent({
     h("div", { className: "openui-card-row" }, renderNode(props.cards)),
 });
 
-const sectionRef = z.union([
+const viewContent = [
   SummaryCard.ref,
   EvidenceList.ref,
-  StatusNotice.ref,
-  ScheduleReminderForm.ref,
   MetricGrid.ref,
   BarChart.ref,
   LineChart.ref,
@@ -889,6 +889,125 @@ const sectionRef = z.union([
   ScenarioExplorer.ref,
   LeverExplainer.ref,
   CardRow.ref,
+];
+
+const AnswerView = defineComponent({
+  name: "AnswerView",
+  description:
+    "One named view with one or two related visuals inside AnswerViews.",
+  props: z.object({
+    label: z.string().min(1).max(100),
+    content: z.array(z.union(viewContent)).min(1).max(2),
+  }),
+  component: ({ props, renderNode }) => renderNode(props.content),
+});
+
+const AnswerViews = defineComponent({
+  name: "AnswerViews",
+  description:
+    "A single integrated card with a view dropdown. Use journey mode for ordered views with Previous and Next controls.",
+  props: z.object({
+    title: z.string().min(1).max(200),
+    views: z.array(AnswerView.ref).min(2).max(6),
+    mode: z.enum(["dropdown", "journey"]).optional(),
+  }),
+  component: ({ props, renderNode }) => {
+    const { SelectPicker } = useContext(OpenUIAnswerContext);
+    const [selected, select] = useState("0");
+    const id = useId();
+    const views = (props.views ?? []).filter((view) => view?.props?.label);
+    if (!views.length) return null;
+
+    const active = Math.min(Number(selected), views.length - 1);
+    const journey = props.mode === "journey";
+    const options = views.map((view, i) => ({
+      value: String(i),
+      label: view.props.label,
+    }));
+    const picker = SelectPicker
+      ? h(SelectPicker, {
+          id,
+          label: journey ? "Step" : "View",
+          menuClassName: "openui-view-menu",
+          value: String(active),
+          options,
+          onChange: select,
+        })
+      : h("label", null, [
+          journey ? "Step" : "View",
+          h(
+            "select",
+            {
+              key: "select",
+              value: String(active),
+              onChange: (event) => select(event.target.value),
+            },
+            options.map(({ value, label }) =>
+              h("option", { key: value, value }, label),
+            ),
+          ),
+        ]);
+    return h(
+      "section",
+      {
+        className: "openui-visual openui-view-card",
+        "aria-labelledby": id + "-title",
+      },
+      [
+        h("header", { className: "openui-view-header", key: "header" }, [
+          h("h3", { id: id + "-title", key: "title" }, props.title),
+          h("div", { className: "openui-view-picker", key: "picker" }, picker),
+          journey
+            ? h(
+                "div",
+                { className: "openui-view-navigation", key: "navigation" },
+                [
+                  h(
+                    "button",
+                    {
+                      key: "previous",
+                      type: "button",
+                      className: "soft-button",
+                      disabled: active === 0,
+                      onClick: () => select(String(active - 1)),
+                    },
+                    "Previous",
+                  ),
+                  h(
+                    "span",
+                    { key: "position", role: "status" },
+                    `${active + 1} of ${views.length}`,
+                  ),
+                  h(
+                    "button",
+                    {
+                      key: "next",
+                      type: "button",
+                      className: "soft-button",
+                      disabled: active === views.length - 1,
+                      onClick: () => select(String(active + 1)),
+                    },
+                    "Next",
+                  ),
+                ],
+              )
+            : null,
+        ]),
+        h(
+          "div",
+          { className: "openui-view-content", key: active },
+          renderNode(views[active]),
+        ),
+      ],
+    );
+  },
+});
+
+const sectionRef = z.union([
+  ...viewContent,
+  StatusNotice.ref,
+  ScheduleReminderForm.ref,
+  AnswerViews.ref,
 ]);
 
 const TheosAnswer = defineComponent({
@@ -925,6 +1044,8 @@ export const openuiLibrary = createLibrary({
   components: [
     TheosAnswer,
     AnswerSummary,
+    AnswerViews,
+    AnswerView,
     SummaryCard,
     SummaryFact,
     EvidenceList,
@@ -964,6 +1085,8 @@ export const openuiLibrary = createLibrary({
       components: [
         "TheosAnswer",
         "AnswerSummary",
+        "AnswerViews",
+        "AnswerView",
         "SummaryCard",
         "SummaryFact",
         "StatusNotice",
@@ -971,6 +1094,7 @@ export const openuiLibrary = createLibrary({
       notes: [
         "Every program must start with root = TheosAnswer(summary, sections).",
         "TheosAnswer requires one visible AnswerSummary. Put the concise answer and important caveats there.",
+        "When a complex answer needs several distinct visuals, group them in one AnswerViews card. Give each AnswerView a short, distinct label. Put the most useful view first. Use journey mode when order matters.",
         "Use only facts from the actual tool results. Never invent values, coverage, or successful actions.",
         "Use StatusNotice only for information, warnings, or errors. Never use it to claim a write succeeded.",
       ],
@@ -1003,10 +1127,10 @@ export const openuiLibrary = createLibrary({
       notes: [
         "Use MetricGrid to show a few important values that can have different units. Preserve the source's units, dates, and missing-data notes.",
         "Use a bar chart for comparable categories, a line chart for a longer evenly spaced series, and a donut only for parts of one total.",
-        "Charts need matching labels and values, with one shared unit. Use a table for irregular timestamps, mixed units, or exact multi-column comparisons.",
+        "Charts need matching labels and values, with one shared unit. Keep measures with different units on separate scales or in separate cards. Choose a table when its rows and columns make the answer clearer; a mix of units alone does not require one.",
         "Null means missing data, not zero. Do not fabricate dates, samples, deltas, targets, or history to make a chart.",
         "Use ProgressCard only when the user or a completed tool supplies the goal. Do not prescribe health targets.",
-        "Prefer one useful chart with a few metric cards over repeating the same facts in many sections.",
+        "Avoid repeating the same facts across visuals and text. Let the evidence and the user's question determine which components and how many sections are useful.",
         "Use TrendCard for a short, evenly spaced series with a useful latest value. Use ComparisonCard for a short list of comparable quantities.",
         "Match each label to one value. Put the time range or source scope in context when useful.",
         "Use StatusBreakdown when counts describe one set and each item belongs to exactly one status. Explain partial lists and avoid counting overlapping statuses.",
@@ -1072,6 +1196,7 @@ export const openuiPromptOptions = {
     "In user-visible reasoning summaries, call this presentation intelligent UI. Do not mention OpenUI or internal syntax unless the user asks about implementation.",
     "Use the required TheosAnswer root for every response. Keep simple answers in AnswerSummary and leave sections empty.",
     "Choose the display by the structure of the answer. A trend, comparison, set of parts, sequence, connection, or change across cases can benefit from a visual. Use one compact visual when it answers the question. Use only AnswerSummary for a direct fact, a request for text, or when the data required for a visual is unavailable.",
+    "Use AnswerViews for a complex answer with multiple perspectives or stages. Keep the takeaway, essential caveats, and any action outside the selectable views.",
     "Use information supplied by the user or returned by tools for real measurements, dates, and statuses. Use tools to look up facts that require a read. Label teaching examples, estimates, and assumptions explicitly.",
     "Arguments are positional. To skip an optional argument before a later one, put null in its slot. For icons, prefer activity, timer, calendar, branch, wallet, weather, skills, globe, lock, window, scale, connection, certificate, key, signature, verify, storage, sandbox, check, alert, chat, users, or search. Use null to skip an icon. Unknown names use a built-in fallback.",
     "Put the answer and caveats in AnswerSummary. Use sections to show information that is easier to understand visually. Keep exact labels and units, and use icons and color to reinforce meaning.",
@@ -1083,6 +1208,17 @@ export const openuiPromptOptions = {
     ['root = TheosAnswer(AnswerSummary("A decagon has ten sides."))'].join(
       "\n",
     ),
+    [
+      "root = TheosAnswer(summary, [details])",
+      'summary = AnswerSummary("The illustration compares a direct trip with a trip that includes a transfer.")',
+      'details = AnswerViews("Planning a trip", [route, duration], "journey")',
+      'route = AnswerView("Route", [stages])',
+      'stages = ProcessDiagram("Transfer route", [first, second])',
+      'first = ProcessStep("Bus", "Ride to the station.")',
+      'second = ProcessStep("Train", "Change to a train at the station.")',
+      'duration = AnswerView("Travel time", [times])',
+      'times = ComparisonCard("Illustrative travel times", ["Direct", "With transfer"], [25, 40], "min")',
+    ].join("\n"),
     [
       "root = TheosAnswer(summary, [chart])",
       'summary = AnswerSummary("Morning ridership rose from 130 to 168 across the reported weekdays. Wednesday is missing.")',

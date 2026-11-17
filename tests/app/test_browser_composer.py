@@ -64,7 +64,7 @@ class MediaRecorder {
   }
 }
 const me = {voice: {transcription: true, max_upload_bytes: 1024}};
-const useWorkspace = () => ({me, busy,
+const useWorkspace = () => ({me, busy, chat: {id: 'test-session'},
   setWorking(value) { busy = value; dirty = true; },
   async json(path) {
     if (path === '/api/files') return {id: 'test-file'};

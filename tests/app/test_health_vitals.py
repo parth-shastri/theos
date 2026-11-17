@@ -5,6 +5,8 @@ from datetime import date
 import httpx
 import pytest
 
+from theos.services.errors import ServiceError
+from theos.services.health.client import Health
 from theos.services.health.imports import DATA_TYPES, SUMMARY_VERSION, import_summary
 from theos.services.health.normalize import normalize_data_points
 from theos.services.health.vitals import VITAL_COMPONENTS
@@ -209,6 +211,92 @@ async def test_import_fetches_vitals_with_type_specific_filters_and_preserves_ca
         await import_summary(runtime.health, "alice", start, end)
     assert runtime.db.record("alice", "health", "summary") == saved
     assert runtime.db.record("alice", "health", "last_import") == imported_at
+
+
+async def test_import_sends_filters_and_page_tokens_through_http(runtime):
+    calls = []
+
+    async def token(owner, service):
+        return "test-token"
+
+    runtime.oauth.access_token = token
+
+    def endpoint(request):
+        calls.append(request)
+        assert request.headers["authorization"] == "Bearer test-token"
+        if request.url.path.endswith("/heart-rate/dataPoints"):
+            if not request.url.params.get("pageToken"):
+                return httpx.Response(200, json={"dataPoints": [], "nextPageToken": "next"})
+            assert request.url.params["pageToken"] == "next"
+        return httpx.Response(200, json={"dataPoints": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as http:
+        client = Health(runtime.oauth, runtime.settings, runtime.db, http)
+        await import_summary(client, "alice", date(2026, 10, 1), date(2026, 10, 31), save=False)
+    assert len(calls) == len(DATA_TYPES) + 1
+    assert all(request.url.params["pageSize"] == "10000" for request in calls)
+    assert all("2026-10-01" in request.url.params["filter"] for request in calls)
+
+
+async def test_repeated_page_does_not_replace_cached_summary(runtime):
+    runtime.db.put_record("alice", "health", "summary", {"sentinel": True})
+
+    async def request(*args, **kwargs):
+        return {"dataPoints": [], "nextPageToken": "same"}
+
+    runtime.health.request = request
+    with pytest.raises(ServiceError, match="repeated a page"):
+        await import_summary(runtime.health, "alice", date(2026, 10, 1), date(2026, 10, 31))
+    assert runtime.db.record("alice", "health", "summary")["sentinel"] is True
+
+
+async def test_page_retry_and_cross_page_vital_deduplication(runtime, monkeypatch):
+    from theos.services.health import imports
+
+    async def no_wait(_):
+        pass
+
+    monkeypatch.setattr(imports.asyncio, "sleep", no_wait)
+    point = vital_points()["heart-rate"][0]
+    attempts = 0
+
+    async def request(owner, method, path, *, params):
+        nonlocal attempts
+        if "/heart-rate/" not in path:
+            return {"dataPoints": []}
+        attempts += 1
+        if attempts == 1:
+            raise httpx.HTTPStatusError(
+                "Unavailable",
+                request=httpx.Request("GET", "https://example.invalid"),
+                response=httpx.Response(503),
+            )
+        if "pageToken" not in params:
+            return {"dataPoints": [point], "nextPageToken": "next"}
+        return {"dataPoints": [point]}
+
+    runtime.health.request = request
+    result = await import_summary(
+        runtime.health, "alice", date(2026, 10, 23), date(2026, 10, 23), save=False
+    )
+    assert attempts == 3
+    assert result["days"][0]["vitals"]["heart_rate"]["samples_bpm"]["sample_count"] == 1
+
+
+async def test_dense_import_can_read_more_than_100_pages(runtime):
+    calls = 0
+
+    async def request(owner, method, path, *, params):
+        nonlocal calls
+        if "/heart-rate/" not in path:
+            return {"dataPoints": []}
+        calls += 1
+        assert params.get("pageToken") == (str(calls - 1) if calls > 1 else None)
+        return {"dataPoints": [], "nextPageToken": str(calls) if calls < 105 else ""}
+
+    runtime.health.request = request
+    await import_summary(runtime.health, "alice", date(2026, 10, 1), date(2026, 10, 31), save=False)
+    assert calls == 105
 
 
 async def test_summary_upgrades_old_cache_and_exposes_default_and_selected_vitals(runtime):

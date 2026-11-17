@@ -3,15 +3,22 @@ import {
   createContext,
   forwardRef,
   useContext,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { providerIcons } from "../state/config";
 import { Icon } from "./Icon.js";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { createGlass } from "../runtime/glass";
 import { createScope } from "../runtime/scope";
+import { cn } from "../lib/utils";
 
 export { Icon };
 export function ConnectionIcon({ id }) {
@@ -125,221 +132,57 @@ export function SelectPicker({
   icon,
   disabled,
   describedBy,
+  menuClassName,
 }) {
-  const [enhanced, setEnhanced] = useState(false);
+  const trigger = useRef(null);
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({});
-  const trigger = useRef(null),
-    menu = useRef(null),
-    list = useRef(null);
-  const typed = useRef({ text: "", at: 0 });
-  const close = (focus = false) => {
-    setOpen(false);
-    if (focus) trigger.current?.focus();
-  };
-  useEffect(() => {
-    setEnhanced(!!HTMLElement.prototype.showPopover);
-  }, []);
-  useLayoutEffect(() => {
-    if (!open || disabled || !options.length) return;
-    // React can clear the forwarded ref before effect cleanup runs.
-    const menuElement = menu.current;
-    const bounds = window.visualViewport,
-      rect = trigger.current.getBoundingClientRect();
-    const top = bounds?.offsetTop || 0,
-      left = bounds?.offsetLeft || 0;
-    const height = bounds?.height || innerHeight,
-      width = bounds?.width || innerWidth;
-    const above = rect.top - top - 16,
-      below = top + height - rect.bottom - 16;
-    const desired = Math.min(394, options.length * 48 + 10);
-    const upward = above >= desired || above > below;
-    let menuHeight = Math.max(44, Math.min(desired, upward ? above : below));
-    if (menuHeight < desired && menuHeight >= 58)
-      menuHeight = Math.floor((menuHeight - 10) / 48) * 48 + 10;
-    const menuWidth = Math.min(rect.width, width - 24);
-    setPosition({
-      width: menuWidth,
-      maxHeight: menuHeight,
-      left: Math.min(
-        Math.max(left + 12, rect.left),
-        left + width - menuWidth - 12,
-      ),
-      top: upward ? rect.top - menuHeight - 8 : rect.bottom + 8,
-      upward,
-    });
-    menuElement.showPopover();
-    const selected =
-      menu.current.querySelector('[aria-selected="true"]:not(:disabled)') ||
-      menu.current.querySelector("button:not(:disabled)");
-    selected?.focus({ preventScroll: true });
-    selected?.scrollIntoView({ block: "nearest" });
-    const outside = (event) => {
-      if (
-        !menu.current?.contains(event.target) &&
-        !trigger.current?.contains(event.target)
-      )
-        close();
-    };
-    const scroll = (event) => {
-      if (!menu.current?.contains(event.target)) close();
-    };
-    const resize = () => close();
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("scroll", scroll, true);
-    window.addEventListener("resize", resize);
-    window.visualViewport?.addEventListener("resize", resize);
-    return () => {
-      if (menuElement.matches(":popover-open")) menuElement.hidePopover();
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("scroll", scroll, true);
-      window.removeEventListener("resize", resize);
-      window.visualViewport?.removeEventListener("resize", resize);
-    };
-  }, [open, disabled, options]);
-  useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
-  const keydown = (event) => {
-    const choices = [...menu.current.querySelectorAll("button:not(:disabled)")];
-    const index = choices.indexOf(document.activeElement);
-    if (["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
-      event.preventDefault();
-      const next =
-        event.key === "Home"
-          ? 0
-          : event.key === "End"
-            ? choices.length - 1
-            : (index + (event.key === "ArrowDown" ? 1 : -1) + choices.length) %
-              choices.length;
-      choices[next]?.focus({ preventScroll: true });
-      choices[next]?.scrollIntoView({ block: "nearest" });
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      close(true);
-    } else if (event.key === "Tab") close(true);
-    else if (
-      event.key.length === 1 &&
-      event.key !== " " &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey
-    ) {
-      const now = performance.now();
-      typed.current = {
-        text:
-          (now - typed.current.at < 650 ? typed.current.text : "") +
-          event.key.toLowerCase(),
-        at: now,
-      };
-      choices
-        .find((option) =>
-          option.textContent.toLowerCase().startsWith(typed.current.text),
-        )
-        ?.focus();
-    }
-  };
-  const selectedLabel =
-    options.find((option) => option.value === value)?.label || "Choose…";
+  const [container, setContainer] = useState(null);
+  const selectedLabel = options.find((option) => option.value === value)?.label;
   return (
     <>
-      <label htmlFor={enhanced ? id + "-trigger" : id}>{label}</label>
-      <select
-        id={id}
-        hidden={enhanced}
+      <label htmlFor={id + "-trigger"}>{label}</label>
+      <Select
         value={value}
-        disabled={disabled}
-        aria-describedby={describedBy}
-        onChange={(event) => onChange(event.target.value)}
+        onValueChange={onChange}
+        disabled={disabled || !options.length}
+        open={open}
+        onOpenChange={(next) => {
+          if (next)
+            setContainer(trigger.current?.closest("dialog") || document.body);
+          setOpen(next);
+        }}
       >
-        {options.map((option) => (
-          <option
-            value={option.value}
-            disabled={option.disabled}
-            key={option.value}
-          >
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {enhanced && (
-        <>
-          <button
-            type="button"
-            id={id + "-trigger"}
-            className="settings-select-trigger"
-            ref={trigger}
-            disabled={disabled || !options.length}
-            aria-label={label + ": " + selectedLabel}
-            aria-describedby={describedBy || ""}
-            aria-haspopup="listbox"
-            aria-expanded={open}
-            aria-controls={id + "-menu"}
-            onClick={() => setOpen(!open)}
-            onKeyDown={(event) => {
-              if (["ArrowUp", "ArrowDown"].includes(event.key)) {
-                event.preventDefault();
-                setOpen(true);
-              }
-            }}
-          >
-            <Icon name={icon} />
-            <span className="settings-select-value">{selectedLabel}</span>
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="select-chevron"
+        <SelectTrigger
+          id={id + "-trigger"}
+          ref={trigger}
+          aria-label={`${label}: ${selectedLabel || "Choose…"}`}
+          aria-describedby={describedBy}
+          className="settings-select-trigger"
+        >
+          {icon && <Icon name={icon} />}
+          <SelectValue placeholder="Choose…" />
+        </SelectTrigger>
+        <SelectContent
+          id={id + "-menu"}
+          aria-label={label}
+          container={container}
+          position="popper"
+          align="start"
+          sideOffset={8}
+          className={cn("settings-select-menu", menuClassName)}
+        >
+          {options.map((option) => (
+            <SelectItem
+              value={option.value}
+              disabled={option.disabled}
+              className="settings-select-option"
+              key={option.value}
             >
-              <path d="m7 10 5 5 5-5" />
-            </svg>
-          </button>
-          <Glass
-            id={id + "-menu"}
-            className={
-              "settings-select-menu" + (position.upward ? " opens-up" : "")
-            }
-            popover="manual"
-            role="listbox"
-            aria-label={label}
-            ref={menu}
-            style={{
-              width: position.width,
-              maxHeight: position.maxHeight,
-              left: position.left,
-              top: position.top,
-            }}
-            onKeyDown={keydown}
-          >
-            <div
-              className="settings-select-options"
-              ref={list}
-              style={{
-                maxHeight: Math.max(30, (position.maxHeight || 44) - 14),
-              }}
-            >
-              {options.map((option) => (
-                <button
-                  type="button"
-                  role="option"
-                  className="settings-select-option"
-                  tabIndex={-1}
-                  aria-selected={option.value === value}
-                  disabled={option.disabled}
-                  key={option.value}
-                  onClick={() => {
-                    onChange(option.value);
-                    close(true);
-                  }}
-                >
-                  <span>{option.label}</span>
-                  <Icon name="check" />
-                </button>
-              ))}
-            </div>
-          </Glass>
-        </>
-      )}
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </>
   );
 }
