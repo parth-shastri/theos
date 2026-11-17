@@ -283,6 +283,22 @@ async def test_page_retry_and_cross_page_vital_deduplication(runtime, monkeypatc
     assert result["days"][0]["vitals"]["heart_rate"]["samples_bpm"]["sample_count"] == 1
 
 
+async def test_dense_import_can_read_more_than_100_pages(runtime):
+    calls = 0
+
+    async def request(owner, method, path, *, params):
+        nonlocal calls
+        if "/heart-rate/" not in path:
+            return {"dataPoints": []}
+        calls += 1
+        assert params.get("pageToken") == (str(calls - 1) if calls > 1 else None)
+        return {"dataPoints": [], "nextPageToken": str(calls) if calls < 105 else ""}
+
+    runtime.health.request = request
+    await import_summary(runtime.health, "alice", date(2026, 10, 1), date(2026, 10, 31), save=False)
+    assert calls == 105
+
+
 async def test_summary_upgrades_old_cache_and_exposes_default_and_selected_vitals(runtime):
     old = {
         "from": "2026-10-23T00:00:00+00:00",
