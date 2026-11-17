@@ -1,5 +1,6 @@
 """Deploy the pinned Langfuse Compose stack for local Theos trace testing."""
 
+import argparse
 import base64
 import secrets
 import subprocess
@@ -23,7 +24,7 @@ def run(command, *, cwd=None, quiet=False):
     )
 
 
-def create_local_config():
+def create_local_config(port, public_url):
     LOCAL.mkdir(parents=True, exist_ok=True)
     LOCAL.chmod(0o700)
     env_path = UPSTREAM / ".env"
@@ -34,7 +35,20 @@ def create_local_config():
             raise RuntimeError(
                 f"Existing {env_path} is missing its private key files. Restore them before deploy."
             )
-        return
+        values = dict(
+            line.split("=", 1)
+            for line in env_path.read_text().splitlines()
+            if line.startswith(("LANGFUSE_UI_PORT=", "NEXTAUTH_URL="))
+        )
+        existing_port = int(values.get("LANGFUSE_UI_PORT", 3000))
+        if port is not None and port != existing_port:
+            raise RuntimeError(f"Existing deployment uses port {existing_port}.")
+        if public_url is not None and public_url != values.get("NEXTAUTH_URL"):
+            raise RuntimeError("Existing deployment uses a different public URL.")
+        return existing_port
+
+    port = 3000 if port is None else port
+    public_url = public_url or f"http://localhost:{port}"
 
     def token(size=32):
         return secrets.token_hex(size)
@@ -46,7 +60,8 @@ def create_local_config():
     admin_password = token()
     values = {
         "LANGFUSE_IMAGE_TAG": LANGFUSE_TAG.removeprefix("v"),
-        "NEXTAUTH_URL": "http://localhost:3000",
+        "LANGFUSE_UI_PORT": port,
+        "NEXTAUTH_URL": public_url,
         "NEXTAUTH_SECRET": token(),
         "DATABASE_URL": f"postgresql://postgres:{postgres_password}@postgres:5432/postgres",
         "POSTGRES_USER": "postgres",
@@ -84,7 +99,7 @@ def create_local_config():
     )
     headers_path.chmod(0o600)
     access_path.write_text(
-        "Local URL: http://127.0.0.1:3000\n"
+        f"URL: {public_url}\n"
         f"Email: {values['LANGFUSE_INIT_USER_EMAIL']}\n"
         f"Password: {admin_password}\n"
         f"Project: {values['LANGFUSE_INIT_PROJECT_NAME']}\n"
@@ -92,22 +107,30 @@ def create_local_config():
         f"Secret key: {secret_key}\n"
     )
     access_path.chmod(0o600)
+    return port
 
 
-def wait_until_ready(timeout=240):
+def wait_until_ready(port, timeout=240):
+    url = f"http://127.0.0.1:{port}/api/public/health"
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            with urlopen("http://127.0.0.1:3000", timeout=3) as response:
+            with urlopen(url, timeout=3) as response:
                 if response.status < 500:
                     return
         except (OSError, TimeoutError):
             pass
         time.sleep(2)
-    raise TimeoutError("Langfuse UI did not become ready at http://127.0.0.1:3000")
+    raise TimeoutError(f"Langfuse did not become ready at {url}")
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, metavar="PORT")
+    parser.add_argument("--public-url", help="Browser URL for an HTTPS reverse proxy")
+    args = parser.parse_args()
+    if args.port is not None and not 1 <= args.port <= 65535:
+        parser.error("--port must be between 1 and 65535")
     LOCAL.mkdir(parents=True, exist_ok=True)
     LOCAL.chmod(0o700)
     if not (UPSTREAM / ".git").exists():
@@ -133,7 +156,7 @@ def main():
     if version != LANGFUSE_TAG:
         raise RuntimeError(f"Expected Langfuse {LANGFUSE_TAG}, found {version}")
 
-    create_local_config()
+    port = create_local_config(args.port, args.public_url)
     run(["docker", "info"], quiet=True)
     network = subprocess.run(
         ["docker", "network", "inspect", NETWORK],
@@ -157,8 +180,8 @@ def main():
     ]
     run([*compose, "config", "--quiet"], cwd=UPSTREAM, quiet=True)
     run([*compose, "up", "-d", "--quiet-pull"], cwd=UPSTREAM)
-    wait_until_ready()
-    print("Langfuse is ready at http://127.0.0.1:3000")
+    wait_until_ready(port)
+    print(f"Langfuse is ready on loopback port {port}")
     print(f"Private access details: {access_path_for_user()}")
     print(f"Private OTLP headers: {LOCAL / 'theos-headers.json'}")
 

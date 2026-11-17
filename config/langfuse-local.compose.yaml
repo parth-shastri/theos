@@ -8,8 +8,10 @@ x-bounded-logs: &bounded-logs
 
 services:
   langfuse-web:
+    environment:
+      HOSTNAME: "0.0.0.0"
     ports: !override
-      - 127.0.0.1:3000:3000
+      - "127.0.0.1:${LANGFUSE_UI_PORT:-3000}:3000"
     networks:
       - default
       - theos-observability

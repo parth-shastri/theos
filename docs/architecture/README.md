@@ -16,7 +16,7 @@ All diagram text uses Excalidraw's traditional handwriting font.
 | Planned tools | [Excalidraw](theos-tools.excalidraw) | [PNG](theos-tools.png) / [SVG](theos-tools.svg) | `e30817048481493188` |
 | Current service boundaries | [Excalidraw](theos-services.excalidraw) | [PNG](theos-services.png) / [SVG](theos-services.svg) | `8ebb1891da70483cac` |
 | Telegram sequence | [Excalidraw](theos-telegram.excalidraw) | [PNG](theos-telegram.png) / [SVG](theos-telegram.svg) | `0ac33544769e4bf2b2` |
-| Conversations, turn tracing, and export | [Excalidraw](theos-tracing.excalidraw) | [PNG](theos-tracing.png) / [SVG](theos-tracing.svg) | `814ad577624f422db2` |
+| Logs and turn tracing | [Excalidraw](theos-tracing.excalidraw) | [PNG](theos-tracing.png) / [SVG](theos-tracing.svg) | `69a2d045d1d9498c92` |
 
 ## Complete framework
 

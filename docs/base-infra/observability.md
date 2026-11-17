@@ -84,13 +84,17 @@ Langfuse is the primary viewer for model and tool traces. Theos exports standard
 The existing `gen_ai.*` attributes remain on the spans, so the same trace data can also go to another OTel backend.
 Content capture stays disabled unless `AGENT_TRACING__CAPTURE_CONTENT=true`. When enabled, bounded messages and tool data are sent to the trace backend.
 
-The local stack uses the official Langfuse Compose repository at `v4.80.0`. It writes its database and object data to Docker volumes, binds the UI and MinIO to loopback, and rotates container output. Run it with:
+The Mac mini runs Langfuse `v4.80.0` with persistent Docker volumes. The private UI uses Tailscale Serve on port `8445`.
+The local development helper runs a separate stack on this Mac:
 
 ```sh
 python3 scripts/deploy_langfuse_local.py
 ```
 
-The script saves private sign-in details in `.theos/langfuse-local/access.txt` and OTLP headers in `.theos/langfuse-local/theos-headers.json`. Open [Langfuse](http://127.0.0.1:3000) to sign in.
+The local helper stores credentials under `.theos/langfuse-local/`.
+Use `--port 3001 --public-url http://localhost:3001` if port 3000 is already in use.
+The Mac mini login details stay in `~/.local/share/theos-observability/.theos/langfuse-local/access.txt`.
+Open [Langfuse](https://parths-mac-mini.tail61f0ca.ts.net:8445) while connected to Tailscale.
 
 Send a disposable fake-model turn to check trace ingestion without an OpenAI request or production conversation data:
 
@@ -107,30 +111,41 @@ The script prints a trace ID and viewer URL. In Langfuse, the model observation 
 To export from the Theos Compose service, add `compose.langfuse.yaml` to the Theos Compose command and put `LANGFUSE_AUTH_STRING` in its private `.env`. The string is Base64 of `public-key:secret-key`. The Theos service and Langfuse web service join the `theos-observability` network. The overlay keeps content capture off unless explicitly enabled.
 For a native Theos process on the same Mac, use `http://127.0.0.1:3000/api/public/otel/v1/traces` as the endpoint and configure the same secret headers through `AGENT_TRACING__HEADERS`.
 
-Theos application logs remain separate from traces. They stay in the local JSON log under `AGENT_DATA_DIR/logs` with the existing bounded rotation. The `first_model_call` log event and root span attribute `theos.turn.time_to_first_model_call_seconds` both measure harness work from turn start to the first model call, even when OTel tracing is disabled. Langfuse does not ingest OTel logs.
+Theos application logs remain separate from traces. They stay in the JSON file under `AGENT_DATA_DIR/logs` with bounded rotation.
+The `first_model_call` log event and `theos.turn.time_to_first_model_call_seconds` span attribute measure harness work before the first model request.
+Langfuse does not ingest OpenTelemetry logs.
 
-## View a trace waterfall in Jaeger
+## View service logs in OpenObserve
 
-Use Jaeger v2 for a private waterfall viewer.
-Its single-node Badger storage requires no separate database and retains traces across restarts.
-The supplied configuration keeps spans for seven days.
-See the [Jaeger storage documentation](https://www.jaegertracing.io/docs/2.22/storage/badger/).
+OpenObserve `v1.1.2` runs on the Mac mini. Its private UI uses Tailscale Serve on port `8446`.
+Open [OpenObserve](https://parths-mac-mini.tail61f0ca.ts.net:8446) while connected to Tailscale.
+The login details stay in `~/.local/share/theos-observability/openobserve.env` on the mini.
 
-1. Start Theos and Jaeger from the repository root.
+The `theos_pi` stream receives Pi application events. The `theos_macbook` stream receives local Theos events.
+Both streams keep data for seven days. The existing Theos file rotation remains active on each source host.
 
-   ```sh
-   docker compose -f compose.yaml -f compose.tracing.yaml up --build -d
-   ```
+The Pi collector reads `/data/logs` from the persistent `theos-service-logs` volume.
+It mounts the volume read-only and forwards JSON events over OTLP/HTTP.
+The host Compose overlay preserves this volume when application release volumes change.
+The collector keeps file offsets and its export queue under the deployment's `observability-next/otel-state` directory.
 
-2. Open [Jaeger](http://127.0.0.1:16686).
-3. Send a new message through Telegram, the browser, or the connected terminal.
-4. Select service **theos** in Jaeger.
-5. Select **Span Name → invoke_agent Theos** and find traces.
-6. Open a trace to inspect the waterfall.
+The local LaunchAgent tails the active Theos preview log and `~/.theos/logs/theos.log`.
+It discovers new `theos-focus-preview-*` directories and starts at the end of each file.
+It keeps offsets and a retry queue under the ignored `.theos/openobserve-local/collector` directory.
+Read collector diagnostics with `tail -f .theos/openobserve-local/collector.log`.
+The private token and collector configuration stay in `.theos/openobserve-local/` with mode `0600`.
+Synthetic ingestion and rotation checks passed. Confirm `first_model_call` and `turn_profile` events after the next real local model turn.
+
+Local Docker Desktop still returns EOF, and free disk space is low. This device runs only the collector.
+OpenObserve stores the local logs on the mini, so a local database does not use this disk.
+
+## Trace structure in Langfuse
+
+Open a trace in Langfuse to inspect the model and tool observations.
+Use the conversation session to group separate turn traces.
 
 The operation uses the configured assistant name when it differs from `Theos`.
-The browser Admin dashboard still shows SQLite events. Jaeger shows the span waterfall.
-Old SQLite events do not become OTel traces.
+The browser Admin dashboard still shows recent SQLite events. Old SQLite events do not become OTel traces.
 
 Each turn starts a new root trace, including approval continuation and scheduled turns.
 Every span includes the existing `gen_ai.conversation.id` and its `theos.turn.id`.
@@ -161,7 +176,7 @@ Time to first model call includes lock waits and request preparation.
 Use per-model chunk times to measure provider latency after each request starts.
 Providers send stream chunks, so these values do not measure individual tokenizer tokens.
 Delegate spans include `theos.delegate.model_calls.limit` for the configured local cap.
-Use `gen_ai.conversation.id` in Jaeger's **Attributes** filter to find turns from one conversation.
+Use `langfuse.session.id` in Langfuse to find turns from one conversation.
 
 OpenTelemetry defines a conversation identifier, but it does not require one trace for an entire conversation.
 Its [GenAI conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md) use that identifier to correlate operations.
@@ -171,7 +186,7 @@ These conventions remain in development.
 Theos uses one trace per turn because each turn has a clear start, result, and cancellation boundary.
 A conversation can remain idle for days and continue after a restart.
 A conversation root would include that idle time and require a separate lifecycle policy.
-Jaeger searches related turn traces by attribute. It does not provide a dedicated conversation replay page.
+Langfuse groups the turn traces under the conversation session.
 
 Model calls and executed tools are children of the turn.
 Each research delegate is a child of `execute_tool delegate_tasks`.
@@ -221,95 +236,17 @@ No transient process identifier is exported as `gen_ai.agent.id`.
 The exporter does not write local OTLP/JSON files.
 SQLite events and usage remain available when remote tracing is disabled.
 
-The Compose viewer and receiver bind to host loopback.
-Jaeger access is separate from Theos administrator authentication.
-The current setup has no Jaeger password, user accounts, or per-user trace isolation.
-Anyone who can reach the viewer can inspect every stored trace, including captured conversation content.
-Treat the viewer as an operator tool. Theos browser tokens do not protect its UI or query API.
-Local access, authenticated SSH tunnels, and Pi Tailscale Serve control network access. They do not filter traces by owner.
-A reverse proxy can add login protection, but login alone does not enforce per-user trace ownership.
-User-facing trace access needs a separate layer that checks conversation ownership. This layer is not implemented.
-For a remote host, use private access or an SSH tunnel.
+The Langfuse and OpenObserve services use private Tailscale Serve routes on the Mac mini.
+Theos browser tokens do not protect either UI or filter telemetry by owner.
+Operators who can sign in can inspect the records in each service.
+Trace content capture stays disabled by default. The Pi's existing private configuration keeps its current capture setting.
+Do not expose these services through Funnel or a public reverse proxy.
 
-```sh
-ssh -L 16686:127.0.0.1:16686 your-host
-```
-
-Use both Compose files for later lifecycle commands.
-The `jaeger-data` volume is separate from application data and application backups.
-The named volume has no hard disk limit. Badger expires spans after seven days.
-Background maintenance reclaims expired data. Monitor volume growth separately.
-
-## Pi viewer through Tailscale Serve
-
-Connect your Mac to Tailscale and open [Pi Jaeger](https://neuralbox-pi.tail61f0ca.ts.net:8443/).
-Select service **theos** and find traces. Existing trace links also work with this hostname and port.
-The viewer uses your Tailscale device identity. You do not need an SSH port forward or a Jaeger password.
-The operator group currently contains `parth-shastri@github`.
-All allowed operators can inspect all stored traces, including captured conversation content.
-
-The Pi runs Tailscale `1.102.4` on the host.
-Serve terminates HTTPS on the Pi tailnet addresses and proxies `http://127.0.0.1:16686`.
-The `--bg` configuration persists across restarts.
-The host loopback bindings for Jaeger and OTLP remain unchanged.
-Serve exposes only the viewer. It does not expose OTLP port 4318.
-This endpoint uses private Serve, without public Funnel access.
-See [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve).
-
-The [policy snapshot](../../config/tailscale/pi-jaeger.policy.json) records the applied tailnet policy and seven access tests.
-It is not an automatic policy synchronization mechanism.
-Review the current tailnet policy before reapplying this snapshot, to preserve later changes.
-
-The former wildcard grant allowed every device to reach every port.
-Tailscale grants are additive. An operator grant cannot override an existing wildcard grant.
-The current policy excludes both Pi IP addresses from the broader grant.
-Separate grants retain other Pi TCP ports, UDP, and ICMP.
-Only `group:theos-operators` receives Pi TCP 8443.
-The four `/1` prefixes cover both address families before the IP set removes the Pi addresses.
-The test aliases are unassigned addresses for nonoperator policy checks, not enrolled devices.
-The existing SSH policy and Funnel capability attributes remain unchanged.
-A Funnel capability does not create a public endpoint. The Pi Serve configuration has no Funnel listener.
-See [grants](https://tailscale.com/docs/reference/syntax/grants) and [policy tests](https://tailscale.com/docs/reference/syntax/policy-file#tests).
-
-To configure another deployment:
-
-1. Confirm the host's Tailscale IPv4 and IPv6 addresses.
-2. Set the operator group to the approved operator identities.
-3. Exclude the viewer's TCP port from all broader grants that match the host.
-4. Add operator allow tests and nonoperator deny tests for both IP families.
-5. Save the policy after all Tailscale tests pass.
-6. Enable the private HTTPS proxy on the host.
-
-   ```sh
-   sudo tailscale serve --bg --https=8443 http://127.0.0.1:16686
-   ```
-
-7. Check the persistent proxy configuration.
-
-   ```sh
-   tailscale serve status --json
-   ```
-
-8. Verify HTTPS from an operator device with certificate validation enabled.
-
-   ```sh
-   curl --fail https://neuralbox-pi.tail61f0ca.ts.net:8443/api/v3/services
-   ```
-
-To add an operator, update `group:theos-operators` in the Tailscale admin console and save after the policy tests pass.
-Update this snapshot with the reviewed policy. Do not add a wildcard grant for Pi TCP 8443.
-If the Pi's Tailscale addresses change, update the grant destinations, IP set exclusions, and policy tests together.
-
-To disable this viewer endpoint, run the following command on the Pi:
-
-```sh
-sudo tailscale serve --https=8443 off
-```
-
-Keep the operator restriction in place when disabling Serve.
-Restore the former policy only after the listener is disabled, if a full rollback is required.
-The Jaeger container, trace volume, and seven-day retention do not require changes.
-The existing SSH tunnel remains available as a private alternative.
+Tailscale Serve on the mini proxies `8445` to Langfuse loopback port `3001`.
+It proxies `8446` to OpenObserve loopback port `5080`.
+The old Pi Serve route on port `8443` has been removed. No tailnet policy changes were made.
+The former Jaeger container and image are gone. Its named data volume remains on the Pi for recovery.
+The retired manifest is archived under `~/theos-deploy/retired-jaeger-20261117T062644Z/`.
 
 ## Export to another backend
 
@@ -317,7 +254,7 @@ The `server` extra includes the OTel SDK and OTLP/HTTP exporter.
 Standalone terminal mode uses the same tracing settings.
 Connected terminal mode sends turns to the server. Configure tracing on that server.
 
-Without the Jaeger Compose override, configure these values in the server's private `.env`:
+For a local process or another receiver, configure these values in the server's private `.env`:
 
 ```dotenv
 AGENT_TRACING__ENABLED=true
@@ -334,8 +271,8 @@ AGENT_TRACING__HEADERS={}
 The endpoint is the complete trace URL, including `/v1/traces` or the backend's equivalent path.
 For authenticated endpoints, set secret headers through `AGENT_TRACING__HEADERS`.
 For example, use `{"Authorization":"Bearer your-token"}` in the private configuration.
-The Jaeger Compose override selects `http://jaeger:4318/v1/traces` inside the container network.
-For another receiver, omit that override and set the receiver's address.
+The production Pi now exports traces to the private Langfuse OTLP endpoint on the mini.
+The local development overlay uses the `langfuse-web` service on the shared Docker network.
 
 Sampling defaults to every turn. A lower ratio selects whole traces, preserving their child hierarchy.
 Tracing defaults to disabled and does not replace the process-wide OTel provider.
@@ -378,9 +315,9 @@ The estimate does not represent an invoice or separate cached-token pricing.
 | Application log age | Rotate the current file after seven days. Remove backups with modification times older than seven days | Startup, rotation, and hourly checks when the handler emits events |
 | Container output | 5 MB per file, three files per container | Docker logging driver |
 | Export queue | 2,048 spans, batches of 256 | SDK discards queued spans on overflow rather than growing without a limit |
-| Jaeger spans | Seven-day expiry | Badger TTL and background maintenance |
-| Jaeger memory | 512 MiB container limit, 300 MiB Go memory target | A limiter refuses ingestion above its 320 MiB soft heap threshold. Batches contain at most 256 spans |
-| Jaeger storage | Persistent named volume with no hard size cap | Seven-day span expiry and background maintenance |
+| OpenObserve logs | Seven-day retention | OpenObserve compaction; the Pi collector also limits accepted event age to seven days |
+| Collector offsets and queue | Persistent file storage on each source host | Filelog storage extension and bounded export queue |
+| Retired Jaeger traces | Preserved on the Pi | The old named volume remains unmounted for recovery |
 | SQLite events, usage, and conversation state | Keep existing records | No automatic deletion in this change |
 
 These policies keep logs on disk and bound the queue in memory.

@@ -1,0 +1,28 @@
+services:
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    command: ["--config=/etc/theos-otel.yaml"]
+    user: "10001:10001"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 192m
+    environment:
+      OPENOBSERVE_OTLP_URL: "${OPENOBSERVE_OTLP_URL:?Set the OpenObserve organization URL}"
+      OPENOBSERVE_AUTH_HEADER: "${OPENOBSERVE_AUTH_HEADER:?Set the private OpenObserve authorization header}"
+      OPENOBSERVE_STREAM: "${OPENOBSERVE_STREAM:-theos}"
+    volumes:
+      - ./config/openobserve-collector.yaml:/etc/theos-otel.yaml:ro
+      - theos-service-logs:/var/log/theos:ro
+      - "${THEOS_OTEL_STATE_DIR:?Set a directory owned by UID 10001}:/var/lib/theos-otel"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  theos-service-logs:
+    external: true

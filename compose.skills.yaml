@@ -2,9 +2,17 @@
 services:
   theos:
     volumes:
+      - type: volume
+        source: theos-service-logs
+        target: /data/logs
       - type: bind
         source: ${THEOS_SHARED_SKILLS_DIR:?Set THEOS_SHARED_SKILLS_DIR to the host shared skill directory}
         target: /skills
         read_only: true
         bind:
           create_host_path: false
+
+volumes:
+  theos-service-logs:
+    external: true
+    name: theos-service-logs

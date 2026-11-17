@@ -1,5 +1,27 @@
 # Feature and acceptance checklist
 
+## Langfuse and OpenObserve deployment, 2026-11-17
+
+The Mac mini runs Langfuse `v4.80.0` on private Tailscale Serve port `8445`.
+It runs OpenObserve `v1.1.2` on private Serve port `8446` with seven-day log retention.
+No tailnet policy changes were made. Existing Mem0 routes remain available.
+
+A disposable Pi turn exported 23 spans to Langfuse. The Observations API returned all spans.
+The active Pi exporter endpoint returned HTTP 200 after cutover.
+Pi API and web readiness returned HTTP 200 with the existing release images and data volume.
+
+The Pi collector sent a new `started` event to the `theos_pi` stream.
+The local collector sent smoke and rotation events to `theos_macbook`.
+It also discovered a new preview directory and delivered its marker.
+The local collector preserves file offsets and its retry queue under ignored `.theos/openobserve-local/`.
+The Pi collector reads the persistent `theos-service-logs` volume read-only.
+Synthetic local ingestion passed. Confirm real `first_model_call` and `turn_profile` events after the next local model turn.
+
+The Pi Jaeger container and image are absent. The old Serve route on port `8443` is removed.
+The named Jaeger data volume remains intact. The retired manifest is archived on the Pi.
+The Pi kernel did not apply the configured Docker memory cgroup limit to the collector.
+Local Docker Desktop still returns EOF, so the Mac runs a native collector without a local OpenObserve database.
+
 ## Langfuse local trace viewer, 2026-11-16
 
 The local Mac runs the official Langfuse Compose stack at `v4.80.0`.
@@ -11,7 +33,7 @@ Langfuse accepted the local trace. The Observations API returned 23 observations
 The content-free `first_model_call` log records harness time even when OTel is disabled. Per-turn log profiles now record request ingress, runtime phases, model attempts, tool totals, and response queue timing without prompt content.
 Before the per-turn profiles were added, the focused tracing and log-safety suites passed 35 tests.
 Ruff checks and formatting passed after the per-turn profile changes. The focused tracing and log-safety suites remain to be rerun against the final branch.
-The local stack uses persistent Docker volumes. Deployment and validation on the Mac mini remain open.
+The local stack uses persistent Docker volumes. The Mac mini deployment passed on 2026-11-17.
 
 ## Richer process diagrams, 2026-11-15
 
@@ -607,7 +629,7 @@ Telegram authentication and polling checks, public readiness, and the private Ja
 The running container reads all eight shared skills through the read-only `/skills` mount.
 The installed terminal client reports version 0.1.9 and passes startup and dependency checks.
 
-## Pi Jaeger through Tailscale Serve
+## Historical: Pi Jaeger through Tailscale Serve, retired 2026-11-17
 
 On 2026-10-11, the Pi enabled persistent HTTPS Serve on port 8443 for its loopback Jaeger viewer.
 The endpoint is `https://neuralbox-pi.tail61f0ca.ts.net:8443/`.
@@ -618,7 +640,7 @@ The nonoperator sources are synthetic policy-test addresses. No live nonoperator
 The Mac received HTTP 200 from the viewer with successful certificate validation.
 The Jaeger v3 services API returned `theos`. The viewer displayed the existing four-span Pi trace `ff2e20f09a5c2efd423cddf0c87844a3`.
 Serve status contains only the HTTPS proxy and no Funnel configuration.
-Jaeger port 16686 and OTLP port 4318 still listen on host loopback.
+At that time, Jaeger ports 16686 and 4318 still listened on host loopback.
 SSH access and public Theos readiness passed after the policy change.
 Seven-day retention, application data, model instructions, and the deployed application release remain unchanged.
 
@@ -727,7 +749,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Nutrition export, backfill, edits, deletion, retries | `services/health/`, `services/meals/` | Durable export reconciliation and cancellation tests |
 | Per-owner Zepto OAuth, encrypted credentials, Telegram return handoff, tools, and approvals | `services/zepto/`, `transports/telegram/`, `runtime/` | `test_zepto.py` covers encrypted restart storage, owner and state binding, inbox redaction, and chat isolation. Regression tests cover schemas and approvals |
 | Redacted logs, traces, token usage, cost estimates | `operations/logging.py`, `runtime/`, `server.py` | Accounting, dashboard access, and log redaction tests |
-| OTel turn waterfalls and OTLP/HTTP export | `operations/tracing.py`, runtime model and tool boundaries | `test_tracing.py`, Jaeger ingestion and restart checks |
+| OTel turn traces and OTLP/HTTP export | `operations/tracing.py`, runtime model and tool boundaries | `test_tracing.py`, Langfuse ingestion and restart checks |
 | Partial answers after runtime limits | `runtime/recovery.py`, delegate boundaries | `test_recovery.py`, terminal, schedule, and tracing checks |
 | Migrations, restart recovery, one scheduler, health endpoints | `storage/database.py`, `runtime/scheduler.py`, `server.py` | Database reopen, process lock, and restart tests |
 | Consistent backup and restore | `backup.py` | Database and file restoration in `test_integrations.py` |
@@ -747,8 +769,11 @@ Recovery can use its second tool-free attempt within the existing 15-second dead
 The final local suite passed 837 tests, with three live tests excluded, after integration with the current CI policy.
 Lint, formatting, lock validation, and package builds passed for version 0.1.5.
 The version and all release documentation changes are included in the tracing PR.
-Jaeger access remains private to operators, without built-in passwords or per-user trace isolation.
+The Jaeger viewer had no password or per-user trace isolation. It was retired on 2026-11-17.
 
+## Historical trace acceptance before Jaeger retirement
+
+These trace checks used the former Jaeger viewer. The current deployment sends traces to Langfuse.
 
 The 2026-10-10 tracing update adds optional, content-free OTel spans and OTLP/HTTP protobuf export.
 Twenty-one deterministic checks cover model and tool ownership, parallel delegates, title and compaction calls, errors, cancellation, approvals, sampling, redaction, and shutdown.

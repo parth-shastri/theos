@@ -21,7 +21,7 @@ The browser **Admin dashboard** requires an administrator token.
 It shows sessions, usage, traces, and jobs.
 Each user can open **Activity & usage** to inspect only their own usage.
 See [observability](base-infra/observability.md) for log locations and limits.
-That guide also covers optional OpenTelemetry export and the Jaeger trace waterfall.
+That guide also covers Langfuse traces and OpenObserve service logs.
 
 ## Read logs
 
@@ -41,6 +41,10 @@ docker compose exec -T theos tail -F /data/logs/theos.log
 Application events use a separate rotating file.
 They do not appear automatically in Docker output.
 Each completed, failed, or cancelled turn writes a `turn_profile` JSON line with the measured runtime phases. A `first_model_call` line marks when the harness first reaches a model request. A `response_delivery` line measures the final event's drain through the transport consumer. The **Admin dashboard** and authenticated `GET /api/logs` show the most recent 100 application events. See [observability](base-infra/observability.md) for field meanings and retention.
+
+OpenObserve receives copies of Pi and local Theos JSON events.
+Open [the private log viewer](https://parths-mac-mini.tail61f0ca.ts.net:8446) while connected to Tailscale.
+Use `theos_pi` for Pi events and `theos_macbook` for this Mac's events.
 
 ## Restart or change configuration
 

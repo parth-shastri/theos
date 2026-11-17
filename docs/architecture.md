@@ -69,16 +69,18 @@ Failed evaluations return to diagnosis and another evaluation cycle.
 
 | Framework stage | Current implementation | Remaining framework work |
 | --- | --- | --- |
-| Trace | SQLite events, structured logs, and optional per-turn OTel spans through OTLP/HTTP; a Compose overlay can export them to Langfuse | Durable remote replay and evaluation links |
+| Trace | SQLite events, structured logs, and per-turn OTel spans through OTLP/HTTP to Langfuse; filelog collectors send application logs to OpenObserve | Durable remote replay and evaluation links |
 | Evaluate | Deterministic harness and application acceptance tests | Simulation and model-based scoring |
 | Observe | Health endpoints, usage records, and the private dashboard | Broader production metrics and latency analysis |
 | Diagnose | Operator inspection of logs, traces, jobs, and conversations | Automated feedback into evaluations |
 | Gate | Repository acceptance workflow | Evaluation-based release gates |
 | Release | Manual image build, deployment, and rollback procedures | Automated release feedback across prompts, tools, retrieval, and models |
 
-The application keeps a backend-neutral OTLP/HTTP exporter. The local Langfuse Compose overlay adds Langfuse observation types, session IDs, and chat input/output mappings without adding an SDK.
-Jaeger remains an optional waterfall viewer. LangSmith is still a design option and is not configured.
-Local synthetic OTLP ingestion passes; deployment on the Mac mini remains open.
+The application keeps a backend-neutral OTLP/HTTP exporter. The Langfuse overlay adds observation types, session IDs, and chat input/output mappings without adding an SDK.
+Langfuse shows GenAI traces. OpenObserve shows service logs and harness timing profiles.
+Both services run on the Mac mini behind private Tailscale Serve routes.
+Pi and local Theos collectors send logs to OpenObserve. Pi traces reach Langfuse.
+LangSmith is not configured.
 Read [observability](base-infra/observability.md), [operations](operations.md), and the [acceptance checklist](runtime/acceptance.md) for current behavior.
 
 ## Tool design
