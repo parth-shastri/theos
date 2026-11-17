@@ -1,5 +1,12 @@
 # Theos project memory
 
+## OpenUI answer views, 2026-11-18
+
+Use one AnswerViews card when a complex answer needs distinct visual views.
+Use a dropdown for independent views and step controls for an ordered journey.
+Keep conclusions, caveats, and action forms visible outside the views.
+OpenUI version 6 adds this card and reads saved versions 1 through 5.
+
 ## Health imports and speech timeouts, 2026-11-17
 
 Read Google Health pages with the provider's maximum requested page size.
