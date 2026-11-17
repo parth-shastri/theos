@@ -1,5 +1,23 @@
 # Feature and acceptance checklist
 
+## Optional observability
+
+Theos records rotating JSON application events without an external viewer.
+Optional OTel tracing sends standard OTLP/HTTP protobuf with GenAI attributes to a configured receiver.
+Langfuse observation attributes support chat-oriented model and tool views and conversation sessions.
+Trace content capture stays disabled by default.
+
+Use a disposable fake-model turn to validate Langfuse without a model API request.
+Confirm the trace contains generation and tool observations. Enable content capture only for synthetic messages during this check.
+The supplied filelog collector should deliver application events after log rotation and when a new file appears.
+Its Compose configuration keeps offsets and an export queue in persistent host storage.
+The provided OpenObserve Compose file sets seven-day retention by default.
+When validating log collection, confirm `first_model_call` and `turn_profile` after a model turn.
+
+The content-free `first_model_call` event records harness time even when OTel is disabled.
+Per-turn profiles record request ingress, runtime phases, model attempts, tool totals, and response queue timing without prompt content.
+Run the focused tracing and log-safety checks when changing these observability paths.
+
 ## Richer process diagrams, 2026-11-15
 
 Each stage now shows its number and a short description in the flow.
@@ -594,21 +612,6 @@ Telegram authentication and polling checks, public readiness, and the private Ja
 The running container reads all eight shared skills through the read-only `/skills` mount.
 The installed terminal client reports version 0.1.9 and passes startup and dependency checks.
 
-## Pi Jaeger through Tailscale Serve
-
-On 2026-10-11, the Pi enabled persistent HTTPS Serve on port 8443 for its loopback Jaeger viewer.
-The endpoint is `https://neuralbox-pi.tail61f0ca.ts.net:8443/`.
-The operator group currently contains `parth-shastri@github`.
-Tailscale accepted seven policy tests before saving the restriction.
-These tests cover operator access, nonoperator denial over IPv4 and IPv6, and other service access.
-The nonoperator sources are synthetic policy-test addresses. No live nonoperator device was available.
-The Mac received HTTP 200 from the viewer with successful certificate validation.
-The Jaeger v3 services API returned `theos`. The viewer displayed the existing four-span Pi trace `ff2e20f09a5c2efd423cddf0c87844a3`.
-Serve status contains only the HTTPS proxy and no Funnel configuration.
-Jaeger port 16686 and OTLP port 4318 still listen on host loopback.
-SSH access and public Theos readiness passed after the policy change.
-Seven-day retention, application data, model instructions, and the deployed application release remain unchanged.
-
 ## Explicit deep research and protected final summaries
 
 PR #42 adds a turn-specific research mode, saved SQLite research records, and the browser Research view.
@@ -714,7 +717,7 @@ Test files are in [`tests/app`](../../tests/app).
 | Nutrition export, backfill, edits, deletion, retries | `services/health/`, `services/meals/` | Durable export reconciliation and cancellation tests |
 | Per-owner Zepto OAuth, encrypted credentials, Telegram return handoff, tools, and approvals | `services/zepto/`, `transports/telegram/`, `runtime/` | `test_zepto.py` covers encrypted restart storage, owner and state binding, inbox redaction, and chat isolation. Regression tests cover schemas and approvals |
 | Redacted logs, traces, token usage, cost estimates | `operations/logging.py`, `runtime/`, `server.py` | Accounting, dashboard access, and log redaction tests |
-| OTel turn waterfalls and OTLP/HTTP export | `operations/tracing.py`, runtime model and tool boundaries | `test_tracing.py`, Jaeger ingestion and restart checks |
+| OTel turn traces and OTLP/HTTP export | `operations/tracing.py`, runtime model and tool boundaries | `test_tracing.py`, Langfuse ingestion and restart checks |
 | Partial answers after runtime limits | `runtime/recovery.py`, delegate boundaries | `test_recovery.py`, terminal, schedule, and tracing checks |
 | Migrations, restart recovery, one scheduler, health endpoints | `storage/database.py`, `runtime/scheduler.py`, `server.py` | Database reopen, process lock, and restart tests |
 | Consistent backup and restore | `backup.py` | Database and file restoration in `test_integrations.py` |
@@ -734,8 +737,11 @@ Recovery can use its second tool-free attempt within the existing 15-second dead
 The final local suite passed 837 tests, with three live tests excluded, after integration with the current CI policy.
 Lint, formatting, lock validation, and package builds passed for version 0.1.5.
 The version and all release documentation changes are included in the tracing PR.
-Jaeger access remains private to operators, without built-in passwords or per-user trace isolation.
+The Jaeger viewer had no password or per-user trace isolation. It was retired on 2026-11-17.
 
+## Historical trace acceptance before Jaeger retirement
+
+These historical trace checks used Jaeger. Theos now supports Langfuse through the same OTLP trace exporter.
 
 The 2026-10-10 tracing update adds optional, content-free OTel spans and OTLP/HTTP protobuf export.
 Twenty-one deterministic checks cover model and tool ownership, parallel delegates, title and compaction calls, errors, cancellation, approvals, sampling, redaction, and shutdown.

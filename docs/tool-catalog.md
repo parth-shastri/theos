@@ -738,14 +738,19 @@ The server uses `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`
 It exports turn, model, tool, delegate, and title spans through OTLP/HTTP protobuf.
 Optional content capture includes messages, tool arguments, results, and named delegate tasks within configurable byte limits.
 The runtime owns its tracer provider and background batch processor.
-The optional `compose.tracing.yaml` runs Jaeger `2.22.0` with seven-day Badger storage in a separate volume.
-Jaeger uses a 512 MiB container limit, a Go memory target, and the Collector memory limiter.
-Jaeger supplies the waterfall viewer. It is an operations dependency, not an assistant tool.
-The Pi uses host Tailscale `1.102.4` Serve for private HTTPS access to the viewer on port 8443.
-Tailnet grants restrict this port to `group:theos-operators` across IPv4 and IPv6.
-This host dependency does not change the application image or expose the OTLP receiver.
-See [observability](base-infra/observability.md) for setup and trace contents.
-Source: [tracing](../src/theos/operations/tracing.py) and [Jaeger configuration](../config/jaeger.yaml).
+When configured, Langfuse receives the same OTLP spans. Its observation attributes map captured input/output into its chat view.
+The `langfuse.session.id` attribute groups turns from one conversation.
+Content capture remains disabled by default. Langfuse can store traces, while OpenObserve can store application logs.
+The content-free `first_model_call` application event records elapsed harness time when the first request starts, whether or not OTel is enabled.
+The optional local Langfuse helper pins `v4.80.0` for development and evaluation.
+The supplied OpenObserve Compose file pins `v1.1.2` and seven-day log retention.
+OpenTelemetry Collector Contrib `v0.165.0` can forward JSON logs from any runtime host with access to the log file.
+The supplied Compose collector reads a persistent log volume through a read-only mount.
+The collector keeps file offsets and a retry queue in persistent storage on its host.
+Operators choose where to run these services and how to protect their private viewer URLs.
+These observability services are operations dependencies, not assistant tools.
+See [observability](base-infra/observability.md) for endpoints, streams, and retention.
+Source: [tracing](../src/theos/operations/tracing.py), [Langfuse export](../compose.langfuse.yaml), [Langfuse local Compose overlay](../config/langfuse-local.compose.yaml), [OpenObserve service](../compose.openobserve.yaml), [log collector](../compose.openobserve-collector.yaml), and [collector configuration](../config/openobserve-collector.yaml).
 The [content serializer](../src/theos/operations/trace_content.py) uses the OTel GenAI role and parts schema without new dependencies.
 Runtime phase spans measure queue waits, history restoration, model capacity, tool registration, memory retrieval, and local checkpoint persistence.
 HTTPX hooks measure each OpenAI-compatible HTTP request through response headers.
