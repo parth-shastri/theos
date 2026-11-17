@@ -72,6 +72,21 @@ test("voice waveform reacts to audio and preserves transcription review", async 
   await expect(waveform).toBeVisible();
   await expect(input).toBeHidden();
   await expect(page.locator("#status")).toHaveText("Listening...");
+  const alignment = await page.locator("#composer").evaluate((composer) => {
+    const center = (element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.top + rect.height / 2;
+    };
+    return [
+      center(composer),
+      center(composer.querySelector(".composer-waveform")),
+      center(composer.querySelector("#cancel-recording")),
+      center(composer.querySelector("#microphone")),
+      center(composer.querySelector("#send")),
+    ];
+  });
+  for (const center of alignment.slice(1))
+    expect(Math.abs(center - alignment[0])).toBeLessThan(1);
   const signalWidth = () =>
     waveform.locator("canvas").evaluate((canvas) => {
       const { width, height } = canvas;

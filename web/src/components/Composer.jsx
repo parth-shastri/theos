@@ -354,7 +354,7 @@ export default function Composer() {
         : "Microphone recording requires HTTPS or localhost and a supported browser";
   const statusText = voice.activity || chat.status;
   const statusClass = voice.activity
-    ? "voice-status" + (!draft && !showWaveform ? " placeholder-status" : "")
+    ? "voice-status" + (!draft || showWaveform ? " placeholder-status" : "")
     : chat.statusClass;
   const currentMode = messageModes[mode];
   const trackCaret = () =>
