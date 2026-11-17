@@ -103,14 +103,30 @@ class Deployer:
     def telegram_ready(self, release, *, preflight=False):
         # A one-off checker starts no worker and never opens the application database.
         command = ("run", "--rm", "--no-deps", "-T") if preflight else ("exec", "-T")
+        # Compose creates nested mount points inside /data. Keep them out of the
+        # candidate volume, which must remain empty until backup restoration.
+        check_release = (
+            {**release, "volume": release["volume"] + "-preflight"} if preflight else release
+        )
+        if preflight:
+            self.docker("volume", "create", check_release["volume"])
         try:
-            output = self.compose(
-                release, *command, "theos", "python", "-m", "theos.operations.telegram_check"
-            )
-        except DeploymentError:
-            raise DeploymentError(
-                "Telegram connection check failed. Verify the bot token, outbound HTTPS, and webhook configuration."
-            ) from None
+            try:
+                output = self.compose(
+                    check_release,
+                    *command,
+                    "theos",
+                    "python",
+                    "-m",
+                    "theos.operations.telegram_check",
+                )
+            except DeploymentError:
+                raise DeploymentError(
+                    "Telegram connection check failed. Verify the bot token, outbound HTTPS, and webhook configuration."
+                ) from None
+        finally:
+            if preflight:
+                self.docker("volume", "rm", check_release["volume"])
         if output:
             print(output)
 
