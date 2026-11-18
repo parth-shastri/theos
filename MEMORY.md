@@ -1,5 +1,13 @@
 # Theos project memory
 
+## Pi release retention, 2026-11-19
+
+Keep the active release and the two previous verified successful releases.
+Track release volumes from successful activations. Never infer ownership from a volume name alone.
+Leave untracked volumes and volumes in use by a container for separate review.
+Run retention only after activation succeeds. A cleanup failure must not roll back a healthy release.
+Keep off-host backups under a separate policy.
+
 ## Pi release preflight volumes, 2026-11-18
 
 Run the Telegram preflight with a disposable data volume.
