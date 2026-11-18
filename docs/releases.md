@@ -581,7 +581,15 @@ Read the result through SSH:
 ssh neuralbox-pi 'cat ~/theos-deploy/deployment-result.json'
 ```
 
-Do not prune saved images, retained volumes, or backups until their recovery window ends.
+After a successful activation, the deployment script tracks verified release volumes.
+It keeps the active release and the two previous tracked successful releases.
+It removes older tracked volumes only when no container uses them.
+Untracked volumes and volumes used by a container remain for manual review.
+Backups inside a removed release volume are also removed.
+Store independent backups off the Pi. This retention policy does not create them.
+Cleanup errors are recorded as `retention_warning` in `deployment-result.json`.
+An error leaves the active release running and preserves unremoved volumes for a later attempt.
+The policy does not remove release records or Docker images.
 A `rollback_failed` result requires operator attention.
 Use the [manual restore procedure](operations.md#restore) when the old deployment cannot restart.
 
