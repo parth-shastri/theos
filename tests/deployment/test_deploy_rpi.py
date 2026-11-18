@@ -219,6 +219,8 @@ def test_failed_snapshot_restarts_previous_service(deployment):
     with pytest.raises(DeploymentError, match="status=rolled_back"):
         deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
     assert ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos") in calls
+    assert not deployer.history_path.exists()
+    assert ("docker", "volume", "rm", "previous-volume") not in calls
 
 
 def test_timed_out_helper_is_removed_before_rollback_opens_previous_volume(deployment):
