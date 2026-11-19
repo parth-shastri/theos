@@ -2,6 +2,16 @@
 
 Updated: 2026-11-19.
 
+## R2 backup helper environment correction, 2026-11-19
+
+The 1.6.2 deployment rolled back to healthy 1.6.1 before activation.
+Docker's raw environment-file parser retained quotes that Compose removes.
+The archive helper failed while parsing unrelated tracing settings. R2 fields were quoted too.
+Resolve the previous service configuration with Compose and pass only its four R2 fields to backup helpers.
+Keep the temporary environment file private and remove it after success or failure.
+Release the correction as 1.6.3 from a Pi hotfix PR, then copy it to `dev` and promote `main` through separate PRs.
+Preserve the failed tag and all existing data. Verify the real helper configuration before retrying deployment.
+
 ## R2 storage patch release preparation, 2026-11-19
 
 The operator requested a storage PR, merge into `dev`, and separate promotions to `main` and `rpi`.
