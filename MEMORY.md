@@ -2,6 +2,21 @@
 
 Updated: 2026-11-19.
 
+## Environment-gated calling tools, 2026-11-19
+
+The operator requires calling to be absent from discovery when its environment is incomplete.
+Register `call_user(message)` only for an enabled, completely configured provider and a mapped private account.
+Hide the reminder tool's phone delivery parameter for all other accounts and channels.
+Keep ordinary message reminders available when calling fields are unset or incomplete.
+Reject malformed provided values and conflicting provider selections.
+Recheck current access when an already-discovered call tool executes.
+Queue immediate requests through the existing durable call worker with written notification fallback.
+Migration 020 preserves existing call rows while adding the request kind.
+
+The operator rejected slow, unreliable extra CI gates.
+Remove system FFmpeg installation from routine calling CI. Run its isolated unit and HTTP contract checks there.
+Keep the native audio decoding check explicitly marked for local integration runs and retain the live handset acceptance record.
+
 ## Telegram calling release preparation, 2026-11-19
 
 Prepare version 1.6.0 for the operator's Telegram calling setup.

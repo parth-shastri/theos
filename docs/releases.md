@@ -18,9 +18,10 @@ The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 ## Release 1.6.0
 
 Package version 1.6.0 uses tag `rpi-v1.6.0` from the promoted `rpi` tip.
-Mapped private users can request Telegram reminder calls with the app's existing voice.
+Mapped private users can request immediate and scheduled Telegram calls with the app's existing voice.
+Calling tools and phone delivery appear only when the required environment configuration is complete.
 Approvals that remain pending for two minutes trigger a generic call alert. Decisions remain in the authenticated application.
-Migration 019 saves reminder delivery choices and one call attempt per reminder or approval.
+Migrations 019 and 020 save reminder delivery choices and one call attempt per request, reminder, or approval.
 The Mac mini's separate calling gateway owns the regular Telegram account and native audio dependencies.
 Configure its private URL, shared key, and explicit owner-to-recipient mapping before activation.
 The optional Twilio provider remains disabled while account provisioning is restricted.

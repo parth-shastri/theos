@@ -12,6 +12,7 @@ from theos_calling.settings import Settings
 from theos_calling.telegram import TelegramCaller
 
 
+@pytest.mark.native_audio
 async def test_pinned_native_audio_stack_decodes_local_mp3(tmp_path):
     path = tmp_path / "clip with spaces.mp3"
     process = await asyncio.create_subprocess_exec(
@@ -72,6 +73,8 @@ async def test_incoming_calls_are_rejected_before_the_calling_library(tmp_path, 
     from telethon.tl.types import User
 
     import theos_calling.telegram as module
+
+    monkeypatch.setattr(module.shutil, "which", lambda name: "/test/bin/" + name)
 
     settings = Settings(
         _env_file=None,

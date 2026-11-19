@@ -1,5 +1,17 @@
 # Feature and acceptance checklist
 
+## Calling discovery and immediate requests, 2026-11-19
+
+Calling is absent from tool discovery when disabled, incompletely configured, unmapped, or outside a private account context.
+Eligible accounts discover `call_user(message)` and the reminder tool's phone delivery option.
+Immediate calls use the existing durable worker and keep a written notification.
+Migration 020 retains prior call attempts and supports request jobs.
+Focused checks cover missing fields for both providers, account and channel isolation, stale access, and one call per request.
+Routine gateway CI runs isolated unit and HTTP contract checks without system package downloads.
+The native audio check remains an explicit local integration test.
+The full application suite passed 1,258 tests. The focused calling checks passed 58 tests in 2.15 seconds.
+The routine gateway suite passed 25 checks, and the separate native audio check passed on the Mac.
+
 ## Telegram reminder and approval calls, 2026-11-18
 
 The optional calling gateway uses a dedicated regular Telegram account and the app's existing Kokoro voice.
