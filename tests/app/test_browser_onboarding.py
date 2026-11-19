@@ -109,6 +109,34 @@ async def test_telegram_password_link_keeps_token_and_revocation_removes_passwor
         assert browser_access.token_owner(runtime.settings, runtime.db, token) is None
 
 
+async def test_telegram_password_login_alias_preserves_existing_account(runtime, web_bot):
+    from theos.storage import browser_passwords
+
+    await enroll(web_bot)
+    owner = "telegram:123"
+    password = "orchid spanner midnight comet"
+    salt, digest = browser_passwords.create(password, password, [owner, "shriyashzhatu"])
+    browser_passwords.save(runtime.settings, runtime.db, owner, salt, digest)
+    session = runtime.db.create_session(owner, "model", "default")
+    runtime.db.execute(
+        "INSERT INTO browser_login_aliases(alias,owner) VALUES (?,?)",
+        ("shriyashzhatu", owner),
+    )
+    async with client(runtime) as browser:
+        for account in ("shriyashzhatu", owner):
+            result = await browser.post(
+                "/api/auth/password/login", json={"account": account, "password": password}
+            )
+            assert result.status_code == 200
+            assert (await browser.get("/api/me")).json()["id"] == owner
+            assert (await browser.get("/api/auth/password")).json() == {
+                "account": "shriyashzhatu",
+                "enabled": True,
+            }
+            assert (await browser.get(f"/api/sessions/{session['id']}")).status_code == 200
+            await browser.post("/api/auth/logout")
+
+
 async def test_telegram_onboarding_opens_own_ui_and_keeps_seed_admin_separate(runtime, web_bot):
     invite = await enroll(web_bot)
     await enroll(web_bot, 456)

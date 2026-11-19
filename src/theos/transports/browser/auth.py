@@ -163,7 +163,7 @@ def register_auth(app, settings, current):
         same_origin(request, settings)
         body = await password_body(request, PasswordSignIn)
         db = current(request).db
-        owner = body.account
+        owner = browser_passwords.login_owner(settings, db, body.account)
         source = login_source(request, settings)
         account = "password:" + owner
         async with password_work:
@@ -192,7 +192,10 @@ def register_auth(app, settings, current):
     async def password_status(request: Request):
         frontend_access(request, settings)
         db, owner, _ = password_account(request)
-        return {"account": owner, "enabled": bool(browser_passwords.for_owner(settings, db, owner))}
+        return {
+            "account": browser_passwords.login_account(db, owner),
+            "enabled": bool(browser_passwords.for_owner(settings, db, owner)),
+        }
 
     @app.post("/api/auth/password")
     async def save_password(request: Request):
@@ -208,6 +211,7 @@ def register_auth(app, settings, current):
                 [
                     owner,
                     owner.removeprefix("telegram:"),
+                    browser_passwords.login_account(db, owner),
                     settings.name,
                     profile.get("display_name", ""),
                 ],
@@ -216,7 +220,7 @@ def register_auth(app, settings, current):
             with db.transaction():
                 browser_passwords.save(settings, db, owner, salt, digest)
                 browser_passwords.revoke_other_sessions(db, owner, session)
-        return {"account": owner, "enabled": True}
+        return {"account": browser_passwords.login_account(db, owner), "enabled": True}
 
     @app.delete("/api/auth/password")
     async def remove_password(request: Request):
@@ -226,7 +230,7 @@ def register_auth(app, settings, current):
             with db.transaction():
                 db.execute("DELETE FROM browser_passwords WHERE owner=?", (owner,))
                 browser_passwords.revoke_other_sessions(db, owner, session)
-        return {"account": owner, "enabled": False}
+        return {"account": browser_passwords.login_account(db, owner), "enabled": False}
 
     @app.post("/api/onboarding/start")
     async def start(body: SignIn, request: Request):

@@ -10,6 +10,15 @@ The retry completed 344 browser tests with 16 skips before cancellation. Its rem
 Keep the current test matrix and single browser worker. Do not bypass the required CI gate.
 This CI correction does not require another application deployment. The verified Pi runtime remains version 1.6.3.
 
+## Browser password login aliases, 2026-11-19
+
+Keep Telegram numeric owners as the stable identity for sessions, credentials, and saved data.
+Allow an operator to assign one case-insensitive browser password login alias per owner in migration 022.
+Resolve aliases only at password sign-in. Share failed-login limits between an alias and its owner ID.
+Show the alias in password settings. Keep the owner ID valid for existing sign-ins.
+Release this Pi login fix as 1.6.4 from `rpi`, then copy it to a separate topic branch from `dev` through a PR.
+Assign the requested user's alias in the private Pi database after activation.
+
 ## R2 backup helper environment correction, 2026-11-19
 
 The 1.6.2 deployment rolled back to healthy 1.6.1 before activation.
