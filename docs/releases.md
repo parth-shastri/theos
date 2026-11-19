@@ -15,7 +15,19 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.3
+
+Package version 1.6.3 uses tag `rpi-v1.6.3` from the corrected `rpi` tip.
+Backup helpers receive only the R2 settings already resolved by Compose.
+This preserves quoted credentials and excludes unrelated application settings.
+The temporary environment file has mode 0600 and disappears after success or failure.
+The release retains the R2 storage behavior prepared for 1.6.2.
+Confirm activation, remote checksums, local spool removal, and both service health checks before reporting deployment.
+
 ## Release 1.6.2
+
+Activation failed in the backup archive helper. Automatic rollback restored healthy 1.6.1.
+The raw Docker environment-file parser retained quotes in tracing and R2 settings. Release 1.6.3 corrects this handling.
 
 Package version 1.6.2 uses tag `rpi-v1.6.2` from the promoted `rpi` tip.
 Catalog files and checkpoint contents leave the Pi after the background worker verifies their R2 copies.
@@ -371,6 +383,9 @@ These notes describe the prepared release. Confirm deployment through the workfl
 
 ## Continuous integration
 
+The frontend job has a 25-minute limit for dependency setup, browser acceptance, and its standalone container check.
+This budget accommodates cold browser installation without removing test steps or changing browser concurrency.
+
 [Theos CI](../.github/workflows/theos.yml) runs on pushes to `dev`, `main`, and `rpi`, and PRs into those branches.
 Topic branches run CI through their PR. A topic push does not start a second run.
 Every run retains these application checks:
@@ -585,7 +600,7 @@ A journal lets the next invocation recover an interrupted activation.
 
 An upgrade has downtime while the database is backed up and the candidate starts.
 Full backups include indexed remote-only file contents through temporary local staging.
-The backup helper needs outbound R2 access and the private deployment environment.
+The backup helper needs outbound R2 access and resolved private storage settings from Compose.
 Restoration uses the previous image and an isolated network before candidate migrations run.
 The candidate image then uploads the completed archive to R2 and verifies it before removing the local archive.
 The deployment result records an `r2:` backup reference when this transfer succeeds.

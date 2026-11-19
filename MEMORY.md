@@ -2,6 +2,24 @@
 
 Updated: 2026-11-19.
 
+## Browser CI job budget, 2026-11-19
+
+Allow the existing frontend CI job 25 minutes for setup, browser acceptance, and the standalone container check.
+Two main promotion attempts reached the former 15-minute limit during cold browser setup and acceptance.
+The retry completed 344 browser tests with 16 skips before cancellation. Its remaining container check never started.
+Keep the current test matrix and single browser worker. Do not bypass the required CI gate.
+This CI correction does not require another application deployment. The verified Pi runtime remains version 1.6.3.
+
+## R2 backup helper environment correction, 2026-11-19
+
+The 1.6.2 deployment rolled back to healthy 1.6.1 before activation.
+Docker's raw environment-file parser retained quotes that Compose removes.
+The archive helper failed while parsing unrelated tracing settings. R2 fields were quoted too.
+Resolve the previous service configuration with Compose and pass only its four R2 fields to backup helpers.
+Keep the temporary environment file private and remove it after success or failure.
+Release the correction as 1.6.3 from a Pi hotfix PR, then copy it to `dev` and promote `main` through separate PRs.
+Preserve the failed tag and all existing data. Verify the real helper configuration before retrying deployment.
+
 ## R2 storage patch release preparation, 2026-11-19
 
 The operator requested a storage PR, merge into `dev`, and separate promotions to `main` and `rpi`.
