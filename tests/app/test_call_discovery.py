@@ -176,6 +176,7 @@ def test_call_migration_preserves_existing_provider_attempts(settings):
     # Recreate the actual prior table, then upgrade an accepted call with private audio.
     db.execute("DROP TABLE phone_calls")
     db.execute("DROP TABLE call_connections")
+    db.execute("DROP TABLE browser_login_aliases")
     previous = Path(__file__).parents[2] / "src/theos/storage/migrations/019_phone_calls.sql"
     db.connection.executescript(
         "CREATE TABLE phone_calls" + previous.read_text().split("CREATE TABLE phone_calls", 1)[1]
@@ -202,7 +203,7 @@ def test_call_migration_preserves_existing_provider_attempts(settings):
     db.close()
     upgraded = Database(settings.data_dir)
     try:
-        assert upgraded.one("PRAGMA user_version")["user_version"] == 21
+        assert upgraded.one("PRAGMA user_version")["user_version"] == 22
         assert upgraded.one("SELECT * FROM phone_calls") == before
         assert not upgraded.rows("PRAGMA foreign_key_check")
     finally:
