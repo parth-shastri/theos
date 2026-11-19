@@ -13,6 +13,7 @@ from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
     RedirectResponse,
+    Response,
     StreamingResponse,
 )
 from pydantic import BaseModel, Field
@@ -543,6 +544,13 @@ def create_app(settings=None, runtime=None):
         else:
             row = await active.files.speech(owner, body.text)
         return {"file_id": row["id"], "name": row["name"], "media_type": row["media_type"]}
+
+    @app.get("/api/audio/phone-call/{token}.mp3")
+    async def phone_call_audio(token: str, request: Request):
+        """Serve one short-lived speech clip through the public frontend."""
+        frontend_access(request, settings)
+        audio = current(request).phone_calls.audio(token)
+        return Response(audio, media_type="audio/mpeg")
 
     from .github_events import register_github_events
     from .notifications import register_notifications

@@ -96,6 +96,7 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `search/`, `weather/`, `skills/` | Search fallback, forecasts, and bounded skill resources |
 | `files/` | Private catalog, image validation, automatic R2 replication, model checkpoints, and response attachments |
 | `voice/` | Transcription and Kokoro clients with audio tools |
+| `phone_calls.py` | Environment-gated call tools, queued Telegram or Twilio calls, and temporary audio |
 | `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `github/` | Official MCP configuration, reviewed read tools, signed event queue, per-owner subscriptions, and literal notifications |
@@ -127,8 +128,10 @@ They contain no database rules or external requests.
 
 `runtime/speech.py` writes expressive spoken renditions through the configured model and records their usage.
 The voice service calls this step before browser or tool synthesis. Display text and history remain unchanged.
+Phone alerts send literal text to the same synthesis client. The phone worker serves temporary audio through the frontend.
 The separate `speech/` project owns the optional Kokoro gateway and its audio effects on the speech host.
 The separate `transcription/` project owns the authenticated native MLX Whisper endpoint on that host.
+The separate `calling/` project owns the regular Telegram account, private calling gateway, and native audio dependencies.
 Its model, Metal runtime, and FFmpeg dependencies remain outside the assistant image.
 The runtime creates clients explicitly and closes them during shutdown.
 `runtime/scheduled.py` claims durable scheduled occurrences and delivers ordinary runtime turns.

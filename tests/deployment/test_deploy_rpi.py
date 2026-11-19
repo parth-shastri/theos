@@ -65,6 +65,97 @@ def previous_release(deployer):
     return previous
 
 
+def retained_release(number):
+    revision = f"{number:040x}"
+    return dict(
+        tag=f"rpi-v1.0.{number}",
+        revision=revision,
+        volume=f"theos-rpi-{revision[:12]}-{number:08x}",
+    )
+
+
+def test_retention_keeps_active_and_two_previous_verified_releases(deployment):
+    deployer, calls = deployment
+    first, second, third, fourth = [retained_release(n) for n in range(1, 5)]
+    deployer.docker = lambda *args: (
+        "\n".join(item["volume"] for item in (first, second, third, fourth))
+        if args == ("volume", "ls", "-q")
+        else calls.append(("docker", *args)) or ""
+    )
+    deployer.retain_releases(
+        third, second, {"status": "deployed", "current": second, "previous": first}
+    )
+    assert json.loads(deployer.history_path.read_text()) == [first, second, third]
+    deployer.retain_releases(fourth, third, {})
+    assert ("docker", "volume", "rm", first["volume"]) in calls
+    assert not any(
+        ("docker", "volume", "rm", item["volume"]) in calls for item in (second, third, fourth)
+    )
+    assert json.loads(deployer.history_path.read_text()) == [second, third, fourth]
+
+
+def test_retention_keeps_in_use_and_untracked_volumes(deployment):
+    deployer, calls = deployment
+    first, second, third, fourth = [retained_release(n) for n in range(1, 5)]
+    write_json(deployer.history_path, [first, second, third])
+
+    def docker(*args):
+        calls.append(args)
+        if args == ("volume", "ls", "-q"):
+            return first["volume"] + "\nuntracked-data"
+        if args == ("ps", "-aq", "--filter", f"volume={first['volume']}"):
+            return "existing-container"
+        return ""
+
+    deployer.docker = docker
+    deployer.retain_releases(fourth, third, {})
+    assert not any(args[:2] == ("volume", "rm") for args in calls)
+    assert json.loads(deployer.history_path.read_text()) == [first, second, third, fourth]
+
+
+def test_retention_fails_closed_for_inconsistent_history(deployment):
+    deployer, calls = deployment
+    first, second, third = [retained_release(n) for n in range(1, 4)]
+    write_json(deployer.history_path, [first])
+    with pytest.raises(DeploymentError, match="inconsistent release history"):
+        deployer.retain_releases(third, second, {})
+    assert json.loads(deployer.history_path.read_text()) == [first]
+    assert calls == []
+
+
+def test_retention_keeps_history_for_retry_after_removal_failure(deployment):
+    deployer, _ = deployment
+    first, second, third, fourth = [retained_release(n) for n in range(1, 5)]
+    write_json(deployer.history_path, [first, second, third])
+
+    def docker(*args):
+        if args == ("volume", "ls", "-q"):
+            return first["volume"]
+        if args[:2] == ("volume", "rm"):
+            raise DeploymentError("volume removal failed")
+        return ""
+
+    deployer.docker = docker
+    with pytest.raises(DeploymentError, match="volume removal failed"):
+        deployer.retain_releases(fourth, third, {})
+    assert json.loads(deployer.history_path.read_text()) == [first, second, third, fourth]
+
+
+def test_retention_failure_does_not_roll_back_successful_deployment(deployment):
+    deployer, calls = deployment
+    previous_release(deployer)
+
+    def fail_retention(*args):
+        raise DeploymentError("cleanup unavailable")
+
+    deployer.retain_releases = fail_retention
+    result = deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
+    assert result["status"] == "deployed"
+    assert result["retention_warning"] == "cleanup unavailable"
+    assert json.loads(deployer.current_path.read_text()) == result["current"]
+    assert not any(call[:2] == ("previous-volume", "up") for call in calls)
+
+
 def test_success_commits_new_volume_and_retains_previous(deployment):
     deployer, calls = deployment
     previous = previous_release(deployer)
@@ -128,6 +219,8 @@ def test_failed_snapshot_restarts_previous_service(deployment):
     with pytest.raises(DeploymentError, match="status=rolled_back"):
         deployer.deploy(IMAGE, "rpi-v0.1.0", REVISION)
     assert ("previous-volume", "up", "--no-build", "--pull", "never", "-d", "theos") in calls
+    assert not deployer.history_path.exists()
+    assert ("docker", "volume", "rm", "previous-volume") not in calls
 
 
 def test_timed_out_helper_is_removed_before_rollback_opens_previous_volume(deployment):

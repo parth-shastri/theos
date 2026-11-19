@@ -285,9 +285,39 @@ Source: [service tools](../src/theos/services/reminders/tools.py).
 
 | Callable | Action |
 | --- | --- |
-| `schedule_reminder` | Schedule a reminder. Recurrence is a five-field cron expression in your timezone. |
+| `schedule_reminder` | Schedule a reminder. Recurrence uses five-field cron in your timezone. Opted-in users can request phone delivery. |
 | `list_reminders` | List your pending reminders and their delivery status. |
 | `cancel_reminder` | Cancel one of your reminders. |
+
+### Immediate calls
+
+`call_user(message)` queues a call to the current owner's configured recipient and plays up to 360 characters.
+Only complete, enabled calling configuration and a mapped private account expose this tool.
+No caller number, recipient ID, or service credential appears in the tool input.
+Without calling configuration, reminder discovery offers only message delivery.
+Missing calling values leave ordinary tools available. Invalid provided values remain configuration errors.
+The worker rechecks access, preserves a written notification, and never redials uncertain attempts.
+
+### Direct phone calls
+
+HTTPX sends bounded MP3 audio to the separate private Telegram calling gateway.
+The gateway uses Telethon 1.46.0, PyTgCalls 3.0.1, NTgCalls 3.0.7, and host FFmpeg.
+A dedicated regular Telegram account starts private calls. The existing bot continues message delivery.
+The gateway retains the private account session and call IDs outside the assistant container.
+It rejects incoming calls and sends no microphone, camera, or recording stream.
+
+SQLite migrations 019 and 020 save one call attempt with its source reminder or approval and selected provider.
+The scheduler rechecks the owner and source before dialing. Approval calls wait two minutes and use a generic alert.
+Only mapped private accounts can request call delivery. Ordinary reminders retain message delivery by default.
+The immediate call tool and due reminders use the same worker. Read the [Telegram setup guide](../calling/README.md).
+
+The optional Twilio adapter calls Programmable Voice and serves expiring media through the existing frontend.
+Enable only one provider. Provider changes do not redirect already queued calls.
+Read the [carrier setup guide](files-and-voice.md#direct-phone-calls).
+
+Source: [call delivery](../src/theos/services/phone_calls.py), [calling gateway](../calling/src/theos_calling/server.py),
+[Telegram calls](https://core.telegram.org/api/calls), [PyTgCalls](https://github.com/pytgcalls/pytgcalls),
+and [Twilio call API](https://www.twilio.com/docs/voice/api/call-resource).
 
 ## Meals
 

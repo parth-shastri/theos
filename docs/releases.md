@@ -15,6 +15,19 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.0
+
+Package version 1.6.0 uses tag `rpi-v1.6.0` from the promoted `rpi` tip.
+Mapped private users can request immediate and scheduled Telegram calls with the app's existing voice.
+Calling tools and phone delivery appear only when the required environment configuration is complete.
+Approvals that remain pending for two minutes trigger a generic call alert. Decisions remain in the authenticated application.
+Migrations 019 and 020 save reminder delivery choices and one call attempt per request, reminder, or approval.
+The Mac mini's separate calling gateway owns the regular Telegram account and native audio dependencies.
+Configure its private URL, shared key, and explicit owner-to-recipient mapping before activation.
+The optional Twilio provider remains disabled while account provisioning is restricted.
+The release also includes the verified Pi release retention policy from `dev`.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
 ## Release 1.5.5
 
 Package version 1.5.5 uses tag `rpi-v1.5.5` from the promoted `rpi` tip.
@@ -581,7 +594,15 @@ Read the result through SSH:
 ssh neuralbox-pi 'cat ~/theos-deploy/deployment-result.json'
 ```
 
-Do not prune saved images, retained volumes, or backups until their recovery window ends.
+After a successful activation, the deployment script tracks verified release volumes.
+It keeps the active release and the two previous tracked successful releases.
+It removes older tracked volumes only when no container uses them.
+Untracked volumes and volumes used by a container remain for manual review.
+Backups inside a removed release volume are also removed.
+Store independent backups off the Pi. This retention policy does not create them.
+Cleanup errors are recorded as `retention_warning` in `deployment-result.json`.
+An error leaves the active release running and preserves unremoved volumes for a later attempt.
+The policy does not remove release records or Docker images.
 A `rollback_failed` result requires operator attention.
 Use the [manual restore procedure](operations.md#restore) when the old deployment cannot restart.
 

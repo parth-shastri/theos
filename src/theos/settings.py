@@ -1,5 +1,6 @@
 """Explicit settings for the application and optional services."""
 
+import re
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
@@ -149,6 +150,82 @@ class TracingSettings(BaseModel):
         return self
 
 
+class TelegramCallsSettings(BaseModel):
+    enabled: bool = False
+    url: str = ""
+    key: SecretStr = SecretStr("")
+    recipients: dict[str, int] = Field(default_factory=dict)
+    daily_limit: int = Field(default=20, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def check_gateway(self):
+        if self.enabled:
+            uri = urlsplit(self.url)
+            if self.url and (
+                uri.scheme not in {"http", "https"}
+                or not uri.hostname
+                or uri.username
+                or uri.password
+                or uri.query
+                or uri.fragment
+                or uri.path not in {"", "/"}
+            ):
+                raise ValueError("Set an HTTP or HTTPS calling gateway origin without credentials.")
+            if self.key.get_secret_value().strip() and len(self.key.get_secret_value()) < 32:
+                raise ValueError("Use a calling gateway key with at least 32 characters.")
+            if any(user_id <= 0 for user_id in self.recipients.values()):
+                raise ValueError("Map Telegram call recipients to positive user IDs.")
+        return self
+
+    @property
+    def configured(self):
+        return bool(
+            self.enabled and self.url and self.key.get_secret_value().strip() and self.recipients
+        )
+
+
+class TwilioSettings(BaseModel):
+    enabled: bool = False
+    account_sid: str = ""
+    api_key_sid: str = ""
+    api_key_secret: SecretStr = SecretStr("")
+    from_number: str = ""
+    recipients: dict[str, SecretStr] = Field(default_factory=dict)
+    daily_limit: int = Field(default=20, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def check_credentials(self):
+        if self.enabled:
+            if (self.account_sid and not re.fullmatch(r"AC[0-9a-fA-F]{32}", self.account_sid)) or (
+                self.api_key_sid and not re.fullmatch(r"SK[0-9a-fA-F]{32}", self.api_key_sid)
+            ):
+                raise ValueError("Set the Twilio Account SID, API Key SID, and API Key Secret.")
+            numbers = [value.get_secret_value() for value in self.recipients.values()]
+            if any(
+                not re.fullmatch(r"\+[1-9][0-9]{7,14}", number)
+                for number in [self.from_number, *numbers]
+                if number
+            ):
+                raise ValueError(
+                    "Set the Twilio caller number and recipient numbers in E.164 format."
+                )
+            if self.from_number and self.from_number in numbers:
+                raise ValueError("Use different Twilio caller and recipient numbers.")
+        return self
+
+    @property
+    def configured(self):
+        return bool(
+            self.enabled
+            and self.account_sid
+            and self.api_key_sid
+            and self.api_key_secret.get_secret_value().strip()
+            and self.from_number
+            and self.recipients
+            and all(value.get_secret_value() for value in self.recipients.values())
+        )
+
+
 class ClientSettings(BaseSettings):
     """Read remote credentials without validating deployment service configuration."""
 
@@ -226,6 +303,8 @@ class Settings(ClientSettings):
     kokoro_voice: str = "am_michael(0.7)+bm_george(0.3)"
     kokoro_speed: float = Field(default=0.9, ge=0.5, le=2)
     kokoro_key: SecretStr = SecretStr("")
+    twilio: TwilioSettings = Field(default_factory=TwilioSettings)
+    telegram_calls: TelegramCallsSettings = Field(default_factory=TelegramCallsSettings)
     github_webhook_secret: SecretStr = SecretStr("")
     github: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
     slack: MCPAccountSettings = Field(default_factory=MCPAccountSettings)
@@ -259,6 +338,8 @@ class Settings(ClientSettings):
                 )
             ):
                 raise ValueError("Use an HTTPS origin for AGENT_WEB_URL, except on localhost.")
+        if self.telegram_calls.enabled and self.twilio.enabled:
+            raise ValueError("Enable only one call provider per deployment.")
         from theos.storage.account_access import RESERVED_PREFIXES
 
         if any(not owner.strip() or owner.startswith(RESERVED_PREFIXES) for owner in self.users):
@@ -270,6 +351,18 @@ class Settings(ClientSettings):
             raise ValueError("Use a different browser token for each user.")
         if not self.admins <= self.users.keys():
             raise ValueError("Each administrator must have a browser token.")
+        if self.twilio.enabled and any(
+            owner not in self.users and not re.fullmatch(r"telegram:[1-9][0-9]*", owner)
+            for owner in self.twilio.recipients
+        ):
+            raise ValueError(
+                "Map Twilio recipients to configured browser or private Telegram owners."
+            )
+        if self.telegram_calls.enabled and any(
+            owner not in self.users and not re.fullmatch(r"telegram:[1-9][0-9]*", owner)
+            for owner in self.telegram_calls.recipients
+        ):
+            raise ValueError("Map Telegram call recipients to browser or private Telegram owners.")
         if self.github_webhook_secret and len(self.github_webhook_secret.get_secret_value()) < 32:
             raise ValueError("AGENT_GITHUB_WEBHOOK_SECRET must contain at least 32 characters.")
         self.github.check_callback("github")
