@@ -282,9 +282,15 @@ def test_snapshot_has_separate_bounded_backup_and_restore_deadlines(deployment):
         return ""
 
     deployer.docker = docker
-    deployer.snapshot(previous, dict(revision=REVISION, tag="rpi-v0.1.0", volume="candidate"))
-    assert [kwargs["timeout"] for _, kwargs in calls] == [1800, 900]
+    deployer.snapshot(
+        previous, dict(revision=REVISION, tag="rpi-v0.1.0", volume="candidate", image=IMAGE)
+    )
+    assert [kwargs["timeout"] for _, kwargs in calls] == [1800, 900, 1800]
     assert all("--no-healthcheck" in args and "--name" in args for args, _ in calls)
+    assert "--env-file" in calls[0][0]
+    assert "--network" not in calls[0][0]
+    assert "--network" in calls[1][0] and "none" in calls[1][0]
+    assert "--env-file" in calls[2][0] and IMAGE in calls[2][0]
 
 
 def test_helper_completion_during_cleanup_does_not_prevent_rollback(deployment):

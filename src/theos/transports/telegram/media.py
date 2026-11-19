@@ -1,7 +1,6 @@
 """Translate Telegram files into Theos file IDs, then send owned files back."""
 
 import mimetypes
-from pathlib import Path
 
 
 async def download(bot, file_id, name, media_type, owner):
@@ -69,5 +68,7 @@ async def deliver_file(bot, owner, chat, topic, file_id):
     return await bot.api(
         "sendAudio" if audio else "sendDocument",
         payload,
-        files={field: (row["name"], Path(row["path"]).read_bytes(), row["media_type"])},
+        files={
+            field: (row["name"], await bot.runtime.files.read(owner, file_id), row["media_type"])
+        },
     )
