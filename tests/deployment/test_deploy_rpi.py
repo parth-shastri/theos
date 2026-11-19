@@ -173,6 +173,8 @@ def test_success_commits_new_volume_and_retains_previous(deployment):
     assert current["volume"] != previous["volume"]
     assert result["backup"].startswith("previous-volume:/data/backups/")
     assert ("previous-volume", "stop", "theos") in calls
+    backup = next(c for c in calls if "theos-backup-" in " ".join(c))
+    assert IMAGE in backup and previous["image"] not in backup
     restore = next(c for c in calls if "/previous:ro" in " ".join(c))
     assert previous["image"] in restore
     assert not deployer.pending_path.exists()

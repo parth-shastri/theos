@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import tarfile
 import tempfile
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
@@ -80,41 +81,59 @@ def hydrate_remote_files(directory, staging):
                 ]
             if "files" in tables:
                 rows += [(dict(row), "file") for row in db.execute("SELECT * FROM files")]
-            for row, kind in rows:
-                relative = Path("checkpoints" if kind == "checkpoint" else "files") / row["id"]
-                target = staging / relative
-                if target.exists():
-                    continue
-                if len(row["id"]) != (64 if kind == "checkpoint" else 32) or any(
-                    c not in "0123456789abcdef" for c in row["id"]
-                ):
-                    raise ValueError("Invalid remote backup file reference.")
-                if not row["object_key"] or (kind == "checkpoint" and row["status"] != "saved"):
-                    raise ValueError("A pending backup file is missing from local storage.")
-                if client is None:
-                    config = Settings(_env_file=None, data_dir=directory).storage
-                    client = storage_client(config)
+
+            def fetch(row, kind, target, expected_sha):
                 data = Files.remote_bytes(client, config.bucket, row["object_key"])
                 if kind == "checkpoint":
                     valid = hashlib.sha256(gzip.decompress(data)).hexdigest() == row["digest"]
                 else:
-                    digest = (
-                        db.execute(
-                            "SELECT value FROM records WHERE owner=? AND kind='file_digest' AND id=?",
-                            (row["owner"], row["id"]),
-                        ).fetchone()
-                        if "records" in tables
-                        else None
-                    )
                     valid = len(data) == row["size"] and (
-                        not digest
-                        or hashlib.sha256(data).hexdigest() == json.loads(digest[0])["sha256"]
+                        expected_sha is None or hashlib.sha256(data).hexdigest() == expected_sha
                     )
                 if not valid:
                     raise ValueError("Remote backup file checksum mismatch.")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(data)
-                target.chmod(0o600)
+                return target, data
+
+            pending = set()
+
+            def write_completed():
+                completed, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    pending.remove(future)
+                    target, data = future.result()
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                    target.chmod(0o600)
+
+            # Bound concurrent downloads and the number of retained payloads.
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for row, kind in rows:
+                    relative = Path("checkpoints" if kind == "checkpoint" else "files") / row["id"]
+                    target = staging / relative
+                    if target.exists():
+                        continue
+                    if len(row["id"]) != (64 if kind == "checkpoint" else 32) or any(
+                        c not in "0123456789abcdef" for c in row["id"]
+                    ):
+                        raise ValueError("Invalid remote backup file reference.")
+                    if not row["object_key"] or (kind == "checkpoint" and row["status"] != "saved"):
+                        raise ValueError("A pending backup file is missing from local storage.")
+                    if client is None:
+                        config = Settings(_env_file=None, data_dir=directory).storage
+                        client = storage_client(config)
+                    expected_sha = None
+                    if kind == "file" and "records" in tables:
+                        digest = db.execute(
+                            "SELECT value FROM records WHERE owner=? AND kind='file_digest' AND id=?",
+                            (row["owner"], row["id"]),
+                        ).fetchone()
+                        if digest:
+                            expected_sha = json.loads(digest[0])["sha256"]
+                    pending.add(pool.submit(fetch, row, kind, target, expected_sha))
+                    if len(pending) >= 8:
+                        write_completed()
+                while pending:
+                    write_completed()
     finally:
         if client:
             client.close()

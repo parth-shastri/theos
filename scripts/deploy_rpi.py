@@ -282,7 +282,7 @@ class Deployer:
             "/tmp",
             "-v",
             f"{previous['volume']}:/data",
-            previous["image"],
+            candidate["image"],
             "python",
             "-m",
             "theos.backup",

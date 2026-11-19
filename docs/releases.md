@@ -15,6 +15,13 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.5
+
+Package version 1.6.5 uses tag `rpi-v1.6.5` from a Pi backup throughput fix.
+The deployment backup fetches remote-only checkpoint contents with bounded concurrency and retains complete digest verification.
+The candidate image creates the backup from the previous volume; the previous image still restores it.
+Confirm backup completion, both service health checks, and the active manifest before assigning the private browser login alias.
+
 ## Release 1.6.4
 
 Package version 1.6.4 uses tag `rpi-v1.6.4` from the Pi login fix.
