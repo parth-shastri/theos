@@ -2,6 +2,14 @@
 
 Updated: 2026-11-19.
 
+## Browser CI job budget, 2026-11-19
+
+Allow the existing frontend CI job 25 minutes for setup, browser acceptance, and the standalone container check.
+Two main promotion attempts reached the former 15-minute limit during cold browser setup and acceptance.
+The retry completed 344 browser tests with 16 skips before cancellation. Its remaining container check never started.
+Keep the current test matrix and single browser worker. Do not bypass the required CI gate.
+This CI correction does not require another application deployment. The verified Pi runtime remains version 1.6.3.
+
 ## R2 backup helper environment correction, 2026-11-19
 
 The 1.6.2 deployment rolled back to healthy 1.6.1 before activation.
