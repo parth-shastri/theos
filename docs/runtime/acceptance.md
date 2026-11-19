@@ -1,5 +1,15 @@
 # Feature and acceptance checklist
 
+## Resolved R2 backup helper environment, 2026-11-19
+
+The 1.6.2 activation rolled back after Docker retained quotes in the private environment file.
+Backup helpers now receive only storage settings resolved by Compose through a temporary file with mode 0600.
+Checks cover exact field transfer, unrelated settings, multiline rejection, and credential-file removal after success or failure.
+A Pi rehearsal used the real resolved configuration with an isolated volume and synthetic data.
+It uploaded a backup to R2, verified and removed the local archive, and restored the same bytes from R2.
+The rehearsal removed its R2 object, volume, and temporary credential file. Existing application data remained unchanged.
+Release 1.6.3 activation and the active-volume spool audit remain pending.
+
 ## R2 file contents and local spool, 2026-11-19
 
 The background worker uploads catalog files and checkpoint objects, then verifies remote checksums before removing local copies.
