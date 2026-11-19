@@ -289,7 +289,7 @@ class Deployer:
             "create",
             "/data",
             archive,
-            timeout=1800,
+            timeout=3600,
         )
         # Restore with the old code; only the candidate runs new migrations.
         restore_code = (
@@ -335,7 +335,7 @@ class Deployer:
             "archive",
             "/data",
             archive,
-            timeout=1800,
+            timeout=3600,
         )
         return (
             stored.strip()
