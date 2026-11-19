@@ -15,6 +15,13 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.4
+
+Package version 1.6.4 uses tag `rpi-v1.6.4` from the Pi login fix.
+Migration 022 adds optional browser password login aliases without changing Telegram owner IDs or existing credentials.
+Assign the requested alias in the private Pi database after activation and confirm password sign-in opens the same account.
+The original account ID remains a valid sign-in name.
+
 ## Release 1.6.3
 
 Package version 1.6.3 uses tag `rpi-v1.6.3` from the corrected `rpi` tip.

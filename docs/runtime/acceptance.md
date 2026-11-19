@@ -1,5 +1,12 @@
 # Feature and acceptance checklist
 
+## Browser password login alias, 2026-11-19
+
+Migration 022 adds one optional alias per owner. The alias resolves to the existing owner at password sign-in.
+Password settings show the alias, while existing owner IDs remain valid.
+Focused checks cover alias sign-in, retained conversation ownership, and a shared failed-login limit.
+Pi activation, private alias assignment, and live password sign-in remain to be verified.
+
 ## Resolved R2 backup helper environment, 2026-11-19
 
 The 1.6.2 activation rolled back after Docker retained quotes in the private environment file.
