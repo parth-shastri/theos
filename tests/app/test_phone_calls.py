@@ -56,7 +56,7 @@ async def schedule(runtime, scripted_models, session, *, delivery="phone"):
                         {
                             "text": "Take the 8 milligram dose.",
                             "due": (datetime.now(UTC) + timedelta(minutes=2)).isoformat(),
-                            "delivery": delivery,
+                            **({"delivery": delivery} if delivery != "message" else {}),
                         },
                     )
                 ]
@@ -119,7 +119,7 @@ async def test_reminder_plays_app_voice_and_keeps_the_written_notice(
             group = db.create_session("alice", "model", "default", "telegram-group")
             for session in (bob, group):
                 result = await schedule(runtime, scripted_models, session)
-                assert result.status == "failed" and "unavailable" in result.content
+                assert result.status == "not_started" and "delivery" in result.content
             phone = await schedule(runtime, scripted_models, alice)
             assert phone.status == "completed"
             reminder_id = json.loads(phone.content)["id"]
@@ -312,7 +312,7 @@ async def test_telegram_reminder_posts_private_audio_once(
         bob = db.create_session("bob", "model", "default")
         group = db.create_session("alice", "model", "default", "telegram-group")
         for other in (bob, group):
-            assert (await schedule(runtime, scripted_models, other)).status == "failed"
+            assert (await schedule(runtime, scripted_models, other)).status == "not_started"
         assert (await schedule(runtime, scripted_models, alice)).status == "completed"
         db.execute("UPDATE reminders SET due=?", (time.time() - 1,))
         await dispatch(scheduler)
