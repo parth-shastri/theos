@@ -14,7 +14,9 @@ from theos.services.preferences.tools import preferences
 from .timezones import local_time
 
 
-def reminder_tools(db, owner, session_id, default_timezone, *, phone_enabled=False):
+def reminder_tools(
+    db, owner, session_id, default_timezone, *, phone_enabled=False, phone_default=False
+):
     """Build reminder tools bound to the owner and delivery conversation."""
 
     def user_preferences():
@@ -59,9 +61,9 @@ def reminder_tools(db, owner, session_id, default_timezone, *, phone_enabled=Fal
             due: datetime,
             recurrence: str | None = None,
             timezone: str | None = None,
-            delivery: Literal["message", "phone"] = "message",
+            delivery: Literal["message", "phone"] = "phone" if phone_default else "message",
         ):
-            """Schedule a reminder. Use phone delivery only when the user explicitly asks for a call. Phone text allows 360 characters. Recurrence uses five-field cron."""
+            """Schedule a reminder using your saved delivery preference. Use message delivery when requested. Phone text allows 360 characters. Recurrence uses five-field cron."""
             return save(text, due, recurrence, timezone, delivery)
 
     else:

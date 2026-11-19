@@ -182,3 +182,41 @@ async def test_daily_limit_and_provider_failure(settings, auth):
             assert (
                 await c.post("/v1/calls/capped", headers=auth, params=params(), content=b"mp3")
             ).status_code == 429
+
+
+async def test_dynamic_recipient_requires_authenticated_private_proof(settings, auth):
+    from urllib.parse import parse_qs, urlsplit
+
+    caller = Caller()
+    caller.profile_url = "https://t.me/theos_test"
+    app = create_app(settings, caller=caller)
+    id = "d" * 32
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            assert (await client.post("/v1/connections/" + id, json={})).status_code == 401
+            linked = await client.post(
+                "/v1/connections/" + id,
+                headers={"Authorization": auth["Authorization"]},
+                json={"expected_recipient": 456},
+            )
+            assert linked.status_code == 200
+            proof = parse_qs(urlsplit(linked.json()["url"]).query)["text"][0]
+            args = {
+                "headers": auth,
+                "params": {"recipient": 456, "expires": time.time() + 120},
+                "content": b"mp3",
+            }
+            assert (await client.post("/v1/calls/new-user", **args)).status_code == 403
+            await caller.connection_handler(789, proof)
+            assert (await client.post("/v1/calls/new-user", **args)).status_code == 403
+            await caller.connection_handler(456, proof)
+            assert (await client.get("/v1/connections/" + id, headers=auth)).json()[
+                "recipient"
+            ] == 456
+            assert (await client.post("/v1/calls/new-user", **args)).status_code == 202
+            caller.release.set()
+            await app.state.task
+            await client.delete("/v1/connections/" + id, headers=auth)
+            assert (await client.post("/v1/calls/revoked", **args)).status_code == 403

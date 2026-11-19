@@ -15,6 +15,16 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.1
+
+Package version 1.6.1 uses tag `rpi-v1.6.1` from the promoted `rpi` tip.
+New users can connect Telegram calls during optional onboarding without operator changes for each recipient.
+Migration 021 saves verified recipients, test calls, and separate reminder and approval choices by owner.
+The global environment gate remains required. Calling discovery stays hidden until the user verifies and tests their connection.
+Update the native calling gateway before activating the application. It adds authenticated connection setup and private message verification.
+The existing account session, shared key, static recipient mappings, and call deduplication records remain valid.
+Confirm the tagged workflow, both service health checks, migration 021, and the active Pi manifest before reporting deployment.
+
 ## Release 1.6.0
 
 Package version 1.6.0 uses tag `rpi-v1.6.0` from the promoted `rpi` tip.

@@ -3825,6 +3825,63 @@ summary:focus-visible {
 .connection-heading {
   margin: 28px 0 14px;
 }
+.call-setup {
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.call-setup-heading,
+.call-setup-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.call-setup-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.call-setup-heading > svg {
+  width: 20px;
+  height: 20px;
+}
+.call-setup > p,
+.call-setup-preferences p {
+  max-width: 68ch;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.call-setup-actions {
+  margin: 16px 0;
+}
+.call-setup-preferences {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0 16px;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+}
+.call-setup-preferences legend {
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.call-setup-preferences label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+.call-setup-preferences input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.call-setup-actions > button {
+  white-space: normal;
+  text-align: left;
+}
 .connection-heading h2,
 .connection-heading h3 {
   margin: 0;

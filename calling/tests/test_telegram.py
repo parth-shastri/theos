@@ -137,6 +137,24 @@ async def test_incoming_calls_are_rejected_before_the_calling_library(tmp_path, 
     monkeypatch.setattr(module, "PyTgCalls", Calls)
     caller = TelegramCaller(settings)
     await caller.start()
+    proofs = []
+
+    async def receive(recipient, text):
+        proofs.append((recipient, text))
+
+    async def sender():
+        return User(id=123456789, bot=False)
+
+    caller.connection_handler = receive
+    connect = next(handler for handler in handlers if handler.__name__ == "connect_recipient")
+    message = SimpleNamespace(is_private=True, fwd_from=None, get_sender=sender, raw_text="proof")
+    await connect(message)
+    assert proofs == [(123456789, "proof")]
+    message.fwd_from = object()
+    await connect(message)
+    message.fwd_from, message.is_private = None, False
+    await connect(message)
+    assert len(proofs) == 1
     incoming = PhoneCallRequested(
         id=1,
         access_hash=2,
@@ -147,7 +165,9 @@ async def test_incoming_calls_are_rejected_before_the_calling_library(tmp_path, 
         protocol=None,
     )
     with pytest.raises(events.StopPropagation):
-        await handlers[0](SimpleNamespace(phone_call=incoming))
+        await next(handler for handler in handlers if handler.__name__ == "route_call_update")(
+            SimpleNamespace(phone_call=incoming)
+        )
     assert isinstance(invoked[0].reason, PhoneCallDiscardReasonBusy)
     assert invoked[0].peer.id == 1
     event = caller.finished[123456789] = asyncio.Event()

@@ -16,8 +16,7 @@ Keep this service on localhost or a private network such as Tailscale.
 3. Sign into [my.telegram.org](https://my.telegram.org) with that account.
 4. Open **API development tools** and create an application.
 5. Save its `api_id` and `api_hash` in the gateway's private environment.
-6. Exchange a message between the calling account and your personal account.
-7. Allow calls from the calling account in your personal Telegram privacy settings.
+6. Give the calling account a public username so users can open its chat during setup.
 
 Use the receiving account's numeric Telegram user ID as the recipient.
 For a Telegram-linked Theos account, the authenticated `/api/me` response has an `id` such as `telegram:123456789`.
@@ -41,7 +40,8 @@ chmod 600 .env
 ```
 
 Edit `.env` with the application credentials, private data path, and a fresh shared gateway key.
-Set the numeric receiving ID when known. Otherwise, set `AGENT_CALLING_RECIPIENTS=[]` and `AGENT_CALLING_RECIPIENT_USERNAME` to the receiving username.
+Leave `AGENT_CALLING_RECIPIENTS=[]` for per-user onboarding.
+Optional operator recipients can still use explicit numeric IDs or `AGENT_CALLING_RECIPIENT_USERNAME` during login.
 Use `openssl rand -hex 32` to generate the key. Retain this same value for the application configuration below.
 Use an absolute data path outside the source checkout.
 For a remote Pi client, set the host to the gateway machine's private Tailscale address.
@@ -57,7 +57,8 @@ Set the optional `AGENT_CALLING_PHONE` to supply the calling number from the pri
 Enter these values directly in the local terminal. The login tool does not place a call.
 It resolves the supplied username after authorization and rejects the calling account as its own recipient.
 It saves the account session and a private `authorization.json` record under `AGENT_CALLING_DATA_DIR`.
-Copy the record's `recipient_ids` array into `AGENT_CALLING_RECIPIENTS` before starting the gateway.
+For optional operator recipients, copy the record's `recipient_ids` array into `AGENT_CALLING_RECIPIENTS`.
+New users verify their own accounts through Theos. They do not need entries in this environment variable.
 Protect this directory as an account credential. Do not run login and the server against the session simultaneously.
 
 Both commands accept `--env-file /absolute/path/to/private.env` for a configuration outside the checkout.
@@ -75,40 +76,62 @@ The gateway does not accept incoming calls or record audio. It plays the supplie
 ## Connect Theos
 
 Set these values in the private Theos deployment environment.
-Replace the owner and numeric recipient with the receiving account's actual identifiers.
 
 ```dotenv
 AGENT_TWILIO__ENABLED=false
 AGENT_TELEGRAM_CALLS__ENABLED=true
 AGENT_TELEGRAM_CALLS__URL=http://private-gateway-address:8882
 AGENT_TELEGRAM_CALLS__KEY=the-same-private-gateway-key
-AGENT_TELEGRAM_CALLS__RECIPIENTS={"telegram:123456789":123456789}
+AGENT_TELEGRAM_CALLS__RECIPIENTS={}
 AGENT_TELEGRAM_CALLS__DAILY_LIMIT=20
 ```
 
 The selected speech gateway must remain configured through `AGENT_KOKORO_URL` and its existing credentials.
-A separately configured browser account needs its own owner mapping if it should receive call alerts.
-Mapping an owner enables requested call reminders and approval alerts for that owner.
-Use only accounts whose users opted in. Enable one calling provider per deployment.
+Enable one calling provider per deployment. Existing operator mappings remain supported as verified fallback recipients.
+The global environment requires the enabled flag, gateway URL, shared key, and speech endpoint.
+Recipient mappings are optional when users connect through onboarding.
 Restart Theos after updating its environment.
 
-Ask Theos to call you in two minutes with a short test reminder.
-Answer in Telegram and confirm the voice and full message. Check the normal written reminder too.
-Leave a separate approval pending for two minutes to test its generic call alert.
-Resolve approvals in the authenticated Theos application.
+## Connect each user
+
+1. Open **Connections → Telegram calls** in the browser, or send `/calls` in the private bot chat.
+2. Select **Connect Telegram calls**.
+3. Open the calling account and send the prepared verification message.
+4. Return to Theos and check the connection.
+5. Select **Call me for the test** and answer in Telegram.
+6. Choose reminder and approval calls, then confirm that you heard the message.
+
+Setup is optional. Users can skip it and connect later. They do not supply API keys or create another calling account.
+The verification link expires after ten minutes. It uses Telegram's [draft-message links](https://core.telegram.org/api/links#public-username-links).
+Users must send the message themselves. Opening a link alone does not verify an account.
+Telegram-owned Theos accounts require the same sender ID. Browser accounts prove control of the account that sends the challenge.
+The gateway rejects forwarded messages, bots, groups, expired challenges, and reused challenges.
+Verification stays outside the assistant's model history.
+If Telegram blocks the test call, allow calls from the calling account in Telegram's privacy settings and try again.
+The calling account's username is preferred. A phone-number link is used when the account has no username.
+
+The app stores verified recipients and call preferences in migration 021.
+The gateway stores verified connections beside its existing call ledger and account session.
+Users can change each call preference or disconnect in Connections or `/calls`.
+Disconnection immediately blocks new and queued application calls. It also revokes the gateway connection.
+Written notifications remain available. Resolve approvals in the authenticated Theos application.
 
 ## Delivery and recovery
 
-`call_user(message)` queues an immediate call for the current mapped private owner.
+`call_user(message)` queues an immediate call for the current activated private owner.
 It accepts no recipient or credential arguments.
-Calling discovery requires an enabled provider, complete credentials, a speech endpoint, and a mapped private owner.
+Calling discovery requires an enabled provider, complete credentials, a speech endpoint, and an activated private owner.
+New connections activate only after verification, a test call, and the user's audio confirmation.
 The Twilio provider also requires its public frontend media configuration.
 With missing values, calling stays hidden and ordinary reminders remain available.
-The reminder tool exposes `delivery="phone"` only when calling is available for the current conversation. Its default remains `message`.
+The reminder tool exposes `delivery="phone"` only when reminder calls are enabled for the current conversation.
+Users who enable reminder calls receive phone delivery by default. Other users retain message delivery.
+Existing operator mappings retain their original message default until preferences are saved.
 Reminder audio uses at most 360 characters of literal saved text.
 The gateway allows one active call, waits up to 25 seconds for an answer, and caps the call workflow at 90 seconds.
 It rejects a concurrent call instead of adding a queue that could become stale.
 Both services enforce a rolling daily limit, default 20 attempts.
+This limit and the single active call apply to the shared calling account across all users.
 
 The application retains written delivery and saves its call attempt before requesting a call.
 The gateway saves the call ID before touching Telegram. Repeated IDs never start another call.
