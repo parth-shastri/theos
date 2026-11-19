@@ -96,7 +96,7 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `search/`, `weather/`, `skills/` | Search fallback, forecasts, and bounded skill resources |
 | `files/` | Private catalog, image validation, automatic R2 replication, model checkpoints, and response attachments |
 | `voice/` | Transcription and Kokoro clients with audio tools |
-| `phone_calls.py` | Owner opt-in, queued Telegram or Twilio calls, and temporary audio |
+| `phone_calls.py` | Environment-gated call tools, queued Telegram or Twilio calls, and temporary audio |
 | `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `github/` | Official MCP configuration, reviewed read tools, signed event queue, per-owner subscriptions, and literal notifications |

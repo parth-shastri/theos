@@ -99,7 +99,12 @@ Resolve approvals in the authenticated Theos application.
 
 ## Delivery and recovery
 
-The reminder tool uses `delivery="phone"` for either calling provider. Its default remains `message`.
+`call_user(message)` queues an immediate call for the current mapped private owner.
+It accepts no recipient or credential arguments.
+Calling discovery requires an enabled provider, complete credentials, a speech endpoint, and a mapped private owner.
+The Twilio provider also requires its public frontend media configuration.
+With missing values, calling stays hidden and ordinary reminders remain available.
+The reminder tool exposes `delivery="phone"` only when calling is available for the current conversation. Its default remains `message`.
 Reminder audio uses at most 360 characters of literal saved text.
 The gateway allows one active call, waits up to 25 seconds for an answer, and caps the call workflow at 90 seconds.
 It rejects a concurrent call instead of adding a queue that could become stale.
@@ -129,3 +134,8 @@ uv run --no-sync ruff format --check src tests
 Tests cover admission, recipient isolation, bounded audio, duplicate IDs, the daily limit, cleanup, and restart recovery.
 The pinned native audio stack decodes a local synthetic MP3 with FFmpeg without contacting Telegram.
 These checks use a fake Telegram caller. Real ringing and playback require the dedicated account and handset acceptance.
+
+Routine CI runs the gateway's isolated unit and HTTP contract checks without system package installation.
+The local `native_audio` check requires FFmpeg and verifies the pinned native decoder.
+Run it on the speech host with `uv run --no-sync pytest -q -m native_audio`.
+Real ringing and playback remain a handset acceptance check.

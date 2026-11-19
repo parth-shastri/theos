@@ -161,7 +161,7 @@ class TelegramCallsSettings(BaseModel):
     def check_gateway(self):
         if self.enabled:
             uri = urlsplit(self.url)
-            if (
+            if self.url and (
                 uri.scheme not in {"http", "https"}
                 or not uri.hostname
                 or uri.username
@@ -171,11 +171,17 @@ class TelegramCallsSettings(BaseModel):
                 or uri.path not in {"", "/"}
             ):
                 raise ValueError("Set an HTTP or HTTPS calling gateway origin without credentials.")
-            if len(self.key.get_secret_value()) < 32:
+            if self.key.get_secret_value().strip() and len(self.key.get_secret_value()) < 32:
                 raise ValueError("Use a calling gateway key with at least 32 characters.")
-            if not self.recipients or any(user_id <= 0 for user_id in self.recipients.values()):
+            if any(user_id <= 0 for user_id in self.recipients.values()):
                 raise ValueError("Map Telegram call recipients to positive user IDs.")
         return self
+
+    @property
+    def configured(self):
+        return bool(
+            self.enabled and self.url and self.key.get_secret_value().strip() and self.recipients
+        )
 
 
 class TwilioSettings(BaseModel):
@@ -190,23 +196,34 @@ class TwilioSettings(BaseModel):
     @model_validator(mode="after")
     def check_credentials(self):
         if self.enabled:
-            if (
-                not re.fullmatch(r"AC[0-9a-fA-F]{32}", self.account_sid)
-                or not re.fullmatch(r"SK[0-9a-fA-F]{32}", self.api_key_sid)
-                or not self.api_key_secret.get_secret_value().strip()
+            if (self.account_sid and not re.fullmatch(r"AC[0-9a-fA-F]{32}", self.account_sid)) or (
+                self.api_key_sid and not re.fullmatch(r"SK[0-9a-fA-F]{32}", self.api_key_sid)
             ):
                 raise ValueError("Set the Twilio Account SID, API Key SID, and API Key Secret.")
             numbers = [value.get_secret_value() for value in self.recipients.values()]
-            if not numbers or any(
+            if any(
                 not re.fullmatch(r"\+[1-9][0-9]{7,14}", number)
                 for number in [self.from_number, *numbers]
+                if number
             ):
                 raise ValueError(
                     "Set the Twilio caller number and recipient numbers in E.164 format."
                 )
-            if self.from_number in numbers:
+            if self.from_number and self.from_number in numbers:
                 raise ValueError("Use different Twilio caller and recipient numbers.")
         return self
+
+    @property
+    def configured(self):
+        return bool(
+            self.enabled
+            and self.account_sid
+            and self.api_key_sid
+            and self.api_key_secret.get_secret_value().strip()
+            and self.from_number
+            and self.recipients
+            and all(value.get_secret_value() for value in self.recipients.values())
+        )
 
 
 class ClientSettings(BaseSettings):
@@ -323,17 +340,6 @@ class Settings(ClientSettings):
                 raise ValueError("Use an HTTPS origin for AGENT_WEB_URL, except on localhost.")
         if self.telegram_calls.enabled and self.twilio.enabled:
             raise ValueError("Enable only one call provider per deployment.")
-        if self.telegram_calls.enabled and not self.kokoro_url:
-            raise ValueError("Telegram calls require the Kokoro speech service.")
-        if self.twilio.enabled and (
-            not self.kokoro_url
-            or not self.web_url.startswith("https://")
-            or not self.frontend_secret
-            or urlsplit(self.web_url).hostname in {"localhost", "127.0.0.1", "::1"}
-        ):
-            raise ValueError(
-                "Twilio requires Kokoro, a public HTTPS web URL, and a frontend secret."
-            )
         from theos.storage.account_access import RESERVED_PREFIXES
 
         if any(not owner.strip() or owner.startswith(RESERVED_PREFIXES) for owner in self.users):

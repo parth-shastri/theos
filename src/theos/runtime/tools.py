@@ -88,6 +88,7 @@ async def build_tools(runtime, session):
         runtime.settings.timezone,
         phone_enabled=bool(runtime.phone_calls.recipient(owner, session["channel"])),
     )
+    tools += runtime.phone_calls.tools(owner, session_id, session["channel"])
     tools += custom_tools(runtime.db, owner, runtime.settings.data_dir / "tables")
     tools += information_tools(runtime.settings, runtime.http)
     tools += voice_tools(runtime.files.voice, owner, session_id)
