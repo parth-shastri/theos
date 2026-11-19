@@ -15,6 +15,18 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.2
+
+Package version 1.6.2 uses tag `rpi-v1.6.2` from the promoted `rpi` tip.
+Catalog files and checkpoint contents leave the Pi after the background worker verifies their R2 copies.
+Completed reads use R2 without a persistent local file cache. Pending transfers remain local until verification succeeds.
+New image messages store file references. Older inline image history remains unchanged.
+Deployment transfers complete backup archives to R2 and verifies them before removing their local copies.
+Existing R2 credentials require object read, write, and delete access. No new configuration value or database migration is required.
+The existing release-volume limit still keeps the current release and two previous successful releases.
+R2 backup archive retention remains separate. Existing unindexed files and local backup archives require separate review.
+Confirm the tagged workflow, both service health checks, remote checksums, and local spool removal before reporting deployment.
+
 ## Release 1.6.1
 
 Package version 1.6.1 uses tag `rpi-v1.6.1` from the promoted `rpi` tip.

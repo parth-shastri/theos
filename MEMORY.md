@@ -2,6 +2,15 @@
 
 Updated: 2026-11-19.
 
+## R2 storage patch release preparation, 2026-11-19
+
+The operator requested a storage PR, merge into `dev`, and separate promotions to `main` and `rpi`.
+Prepare version 1.6.2 after the independent 1.6.1 release finishes.
+Publish `rpi-v1.6.2` from the promoted `rpi` tip after CI passes.
+Preserve the private R2 settings and all pending local transfers.
+Verify remote checksums, local spool removal, file downloads, both service health checks, and the active Pi manifest.
+Do not remove unindexed files or historical backup archives through this release.
+
 ## R2 file contents and local spool, 2026-11-19
 
 The operator selected R2 for uploaded files, generated attachments, workspace versions, and recovery checkpoints.
