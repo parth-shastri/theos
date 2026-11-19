@@ -242,7 +242,7 @@ def test_timed_out_helper_is_removed_before_rollback_opens_previous_volume(deplo
     def docker(*args, **kwargs):
         nonlocal running
         if args[0] == "run" and "--name" in args:
-            assert kwargs["timeout"] == 1800
+            assert kwargs["timeout"] == 3600
             running = True
             raise DeploymentError("backup helper timed out")
         if args[:2] == ("ps", "-aq") and "name=^/theos-backup-" in args[-1]:
@@ -296,7 +296,7 @@ def test_snapshot_has_separate_bounded_backup_and_restore_deadlines(deployment):
     deployer.snapshot(
         previous, dict(revision=REVISION, tag="rpi-v0.1.0", volume="candidate", image=IMAGE)
     )
-    assert [kwargs["timeout"] for _, kwargs in calls] == [1800, 900, 1800]
+    assert [kwargs["timeout"] for _, kwargs in calls] == [3600, 900, 3600]
     assert all("--no-healthcheck" in args and "--name" in args for args, _ in calls)
     assert "--env-file" in calls[0][0]
     assert "--network" not in calls[0][0]

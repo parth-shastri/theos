@@ -1,5 +1,12 @@
 # Feature and acceptance checklist
 
+## Pi full-backup window, 2026-11-19
+
+The 1.6.5 Pi snapshot hydrated all 4,590 remote checkpoints but timed out while writing the archive. Automatic rollback restored healthy 1.6.3 services.
+Snapshot creation and archive transfer now allow 60 minutes each; the deployment job allows 120 minutes.
+The incomplete 1.6.4 and 1.6.5 staging directories and partial 1.6.5 archive were removed after rollback.
+Live 1.6.6 deployment and alias assignment remain pending.
+
 ## Pi backup hydration throughput, 2026-11-19
 
 The backup downloader now runs up to four remote reads concurrently with eight pending results.

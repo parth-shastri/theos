@@ -10,6 +10,13 @@ The retry completed 344 browser tests with 16 skips before cancellation. Its rem
 Keep the current test matrix and single browser worker. Do not bypass the required CI gate.
 This CI correction does not require another application deployment. The verified Pi runtime remains version 1.6.3.
 
+## Pi full-backup window, 2026-11-19
+
+The 1.6.5 deployment hydrated all 4,590 remote checkpoints, then hit the 30-minute helper limit while writing the local archive. It rolled back to healthy 1.6.3.
+Allow 60 minutes for snapshot creation and archive transfer, with a 120-minute deployment job so restore, health checks, and rollback have time to finish.
+Preserve the complete-backup requirement and remove only the incomplete staging directories and partial archive from failed attempts before retrying.
+Release this Pi fix as 1.6.6, then copy it to `dev` through a separate PR.
+
 ## Pi backup hydration throughput, 2026-11-19
 
 The Pi has thousands of remote-only checkpoint objects. Serial hydration can exceed the 30-minute deployment backup limit.
