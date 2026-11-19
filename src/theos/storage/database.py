@@ -80,6 +80,7 @@ class Database:
             self.execute(
                 "UPDATE github_notifications SET telegram='uncertain' WHERE telegram='sending'"
             )
+            self.execute("UPDATE phone_calls SET status='uncertain' WHERE status='sending'")
             # 1. Preserve uncertainty. An interrupted process cannot prove an external write failed.
             self.execute("UPDATE tool_runs SET status='unknown' WHERE status='running'")
             self.execute("UPDATE sessions SET status='interrupted' WHERE status='running'")
