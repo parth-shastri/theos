@@ -9,7 +9,6 @@ from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import (
-    FileResponse,
     HTMLResponse,
     JSONResponse,
     RedirectResponse,
@@ -320,7 +319,7 @@ def create_app(settings=None, runtime=None):
     @app.get("/api/sessions/{session_id}")
     async def session(session_id: str, request: Request, owner=Depends(identity)):
         row = browser_session(request, owner, session_id)
-        row["history"] = json.loads(row["history"])
+        row["history"] = await current(request).files.display_history(owner, session_id)
         row["generation"] = json.loads(row["generation"])
         row["approvals"] = current(request).pending(owner, session_id)
         row["usage"] = usage_summary(current(request).db, owner=owner, session=session_id)
@@ -523,8 +522,12 @@ def create_app(settings=None, runtime=None):
     @app.get("/api/files/{file_id}")
     async def download(file_id: str, request: Request, owner=Depends(identity)):
         row = current(request).files.get(owner, file_id)
-        return FileResponse(
-            row["path"], filename=row["name"], media_type="application/octet-stream"
+        from urllib.parse import quote
+
+        return Response(
+            await current(request).files.read(owner, file_id),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": "attachment; filename*=utf-8''" + quote(row["name"])},
         )
 
     @app.post("/api/audio/transcribe")

@@ -13,6 +13,7 @@ from contextvars import Context
 from pathlib import Path
 
 from harness import message_to_dict
+from theos.storage.messages import display_metadata, restore_message, serialize_message
 
 from .retention import Retention, live_sources
 
@@ -34,6 +35,7 @@ class Checkpoints:
         self.client_lock = asyncio.Lock()
         self.closed = False
         self.retention = Retention(self)
+        self.files.wake = self.start
 
     def span(self, name, attributes=None, *, root=False):
         return self.tracing.span(name, attributes, root=root) if self.tracing else nullcontext(None)
@@ -63,6 +65,7 @@ class Checkpoints:
             try:
                 complete = await self.flush()
                 await self.retention.collect()
+                await self.evict_saved()
             except Exception as error:
                 logger.warning(
                     "checkpoint_replication_failed", extra={"error_type": type(error).__name__}
@@ -87,6 +90,7 @@ class Checkpoints:
         if not self.settings.storage.endpoint:
             return True
         async with self.replication_lock:
+            files_complete = await self.files.flush()
             rows = self.db.rows(
                 "SELECT objects.* FROM context_objects objects "
                 "LEFT JOIN records retry ON retry.owner=objects.owner "
@@ -95,7 +99,7 @@ class Checkpoints:
                 "WHERE objects.status='pending' AND deleting.id IS NULL "
                 "ORDER BY COALESCE(retry.updated,objects.created) LIMIT 20"
             )
-            failed = False
+            failed = not files_complete
             for row in rows:
                 if self.closed:
                     return False
@@ -135,6 +139,10 @@ class Checkpoints:
         )
         if len(saved) != len(dependencies):
             return True
+        for file in snapshot.get("catalog_files", []):
+            current = self.files.get(owner, file["id"])
+            if current["object_key"] != file["object_key"]:
+                return True
         with self.span(
             "checkpoint publish", {"gen_ai.conversation.id": session}, root=True
         ) as span:
@@ -179,7 +187,9 @@ class Checkpoints:
             if not self.settings.storage.endpoint:
                 return True
             pending = self.db.one("SELECT id FROM context_objects WHERE status='pending' LIMIT 1")
-            if not pending:
+            if not pending and not self.files.has_pending():
+                while await self.evict_saved() == 20:
+                    pass
                 return True
             if self.db.one(
                 "SELECT objects.id FROM context_objects objects JOIN context_deletions deleting "
@@ -288,14 +298,78 @@ class Checkpoints:
             if row["status"] != "saved":
                 raise FileNotFoundError("The pending source is missing from local storage.")
             client = await self.storage_client()
-            await asyncio.to_thread(
-                client.download_file, self.settings.storage.bucket, row["object_key"], str(path)
+            encoded = await asyncio.to_thread(
+                self.files.remote_bytes, client, self.settings.storage.bucket, row["object_key"]
             )
-            path.chmod(0o600)
-        data = gzip.decompress(path.read_bytes())
+        else:
+            encoded = path.read_bytes()
+        data = gzip.decompress(encoded)
         if hashlib.sha256(data).hexdigest() != row["digest"]:
             raise ValueError("Checkpoint checksum mismatch.")
         return json.loads(data)
+
+    async def evict_saved(self):
+        """Discard local payloads only after a verified R2 read succeeds."""
+        async with self.replication_lock:
+            return await self._evict_saved()
+
+    async def _evict_saved(self):
+        if not self.settings.storage.endpoint:
+            return 0
+        rows = self.db.rows("SELECT * FROM context_objects WHERE status='saved' ORDER BY created")
+        local = [row for row in rows if (self.directory / row["id"]).is_file()]
+        evicted = 0
+        for row in local[:20]:
+            if row["path"] != str(self.directory / row["id"]):
+                continue
+            local_data = gzip.decompress((self.directory / row["id"]).read_bytes())
+            if hashlib.sha256(local_data).hexdigest() != row["digest"]:
+                raise ValueError("Local checkpoint checksum mismatch.")
+            client = await self.storage_client()
+            try:
+                encoded = await asyncio.to_thread(
+                    self.files.remote_bytes, client, self.settings.storage.bucket, row["object_key"]
+                )
+                data = gzip.decompress(encoded)
+                if hashlib.sha256(data).hexdigest() != row["digest"]:
+                    raise ValueError("Remote checkpoint checksum mismatch.")
+            except Exception:
+                # A restored archive can contain saved rows whose remote objects expired.
+                # Keep verified local bytes and repair the remote copy before eviction.
+                self.db.execute(
+                    "UPDATE context_objects SET status='pending' WHERE id=? AND status='saved'",
+                    (row["id"],),
+                )
+                raise
+            current = self.db.one(
+                "SELECT status,digest FROM context_objects WHERE id=?", (row["id"],)
+            )
+            if not current or current["status"] != "saved" or current["digest"] != row["digest"]:
+                continue
+            if row["kind"] == "checkpoint":
+                snapshot = json.loads(data)
+                if snapshot["owner"] != row["owner"] or snapshot["session"] != row["session"]:
+                    raise ValueError("Remote checkpoint scope mismatch.")
+                # GC needs references, not file contents. Keep this small index locally.
+                self.db.put_record(
+                    row["owner"],
+                    "checkpoint_references",
+                    row["id"],
+                    {
+                        "digest": row["digest"],
+                        "owner": row["owner"],
+                        "session": row["session"],
+                        "objects": [
+                            {key: item[key] for key in ("id", "owner", "session")}
+                            for item in snapshot.get("objects", [])
+                        ],
+                    },
+                )
+            (self.directory / row["id"]).unlink(missing_ok=True)
+            evicted += 1
+        if len(local) > 20 and evicted:
+            self.wake.set()
+        return evicted
 
     async def restore_attachments(self, owner, session, snapshot, client):
         """Validate and stage response attachments before the recovery transaction."""
@@ -376,7 +450,21 @@ class Checkpoints:
                     "session": session,
                     "owner": owner,
                     "stage": stage,
-                    "history": [message_to_dict(m) for m in history],
+                    "history": [serialize_message(m) for m in history],
+                    "catalog_files": [
+                        {
+                            **self.files.get(owner, file_id),
+                            "object_key": "theos/" + file_id,
+                            "sha256": await self.files.checksum(owner, file_id),
+                        }
+                        for file_id in sorted(
+                            {
+                                file_id
+                                for message in history
+                                for file_id in display_metadata(message).get("image_files", [])
+                            }
+                        )
+                    ],
                     "memory": memory.to_dict(),
                     "tool_runs": self.db.rows(
                         "SELECT * FROM tool_runs WHERE session=?", (session,)
@@ -442,8 +530,29 @@ class Checkpoints:
             raise PermissionError("Checkpoint owner mismatch.")
         from harness import ToolResultMessage, message_from_dict, unanswered_calls
 
-        restored = [message_from_dict(m) for m in snapshot["history"]]
+        restored = [restore_message(m) for m in snapshot["history"]]
         memory = snapshot["memory"]
+        catalog_files = snapshot.get("catalog_files", [])
+        for file in catalog_files:
+            file_id = file["id"]
+            if (
+                file["owner"] != owner
+                or len(file_id) != 32
+                or any(c not in "0123456789abcdef" for c in file_id)
+                or file["object_key"] != "theos/" + file_id
+            ):
+                raise ValueError("Invalid checkpoint catalog reference.")
+            existing = self.db.one("SELECT owner FROM files WHERE id=?", (file_id,))
+            if existing and existing["owner"] != owner:
+                raise PermissionError("Checkpoint catalog owner mismatch.")
+            content = await asyncio.to_thread(
+                self.files.remote_bytes, client, self.settings.storage.bucket, file["object_key"]
+            )
+            if (
+                len(content) != file["size"]
+                or hashlib.sha256(content).hexdigest() != file["sha256"]
+            ):
+                raise ValueError("Checkpoint catalog checksum mismatch.")
         # Fetch attachment bytes before committing any restored conversation state.
         # A failed transfer leaves the empty session available for another restore.
         attachments = await self.restore_attachments(owner, session, snapshot, client)
@@ -452,6 +561,21 @@ class Checkpoints:
             raise ValueError("Restored checkpoint identity mismatch.")
 
         with self.db.transaction():
+            for file in catalog_files:
+                self.db.execute(
+                    "INSERT OR IGNORE INTO files VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        file["id"],
+                        owner,
+                        file["name"],
+                        file["media_type"],
+                        file["size"],
+                        str(self.files.directory / file["id"]),
+                        file["object_key"],
+                        file["created"],
+                    ),
+                )
+                self.db.put_record(owner, "file_digest", file["id"], {"sha256": file["sha256"]})
             # Register the observed remote recovery root, including on a fresh database.
             self.db.execute("UPDATE context_objects SET status='saved' WHERE id=?", (identity,))
             self.db.put_record(owner, "context_checkpoint_remote", session, {"id": identity})
@@ -547,7 +671,7 @@ class Checkpoints:
             )
             # The snapshot may omit actions that started after it was uploaded.
             self.db.put_record(owner, "remote_recovery_review", session, {"checkpoint": identity})
-        snapshot["history"] = [message_to_dict(m) for m in restored]
+        snapshot["history"] = [serialize_message(m) for m in restored]
         snapshot["tool_runs"] = self.db.rows("SELECT * FROM tool_runs WHERE session=?", (session,))
         return snapshot
 

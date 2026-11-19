@@ -253,11 +253,9 @@ def gmail_tools(client, owner, *, result_stager=None, file_importer=None):
         message.set_content(body)
         for file_id in attachment_ids or []:
             row = client.files.get(owner, file_id)
-            from pathlib import Path
-
             major, minor = row["media_type"].split("/", 1)
             message.add_attachment(
-                Path(row["path"]).read_bytes(),
+                await client.files.read(owner, file_id),
                 maintype=major,
                 subtype=minor,
                 filename=row["name"],

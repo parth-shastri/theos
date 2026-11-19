@@ -16,6 +16,7 @@ EVENT_NAMES = {
     "checkpoint_retention_invalid_path",
     "delegate_incomplete",
     "final_answer_unavailable",
+    "file_replication_failed",
     "first_model_call",
     "github_event_processing_failed",
     "github_notification_delivery_uncertain",

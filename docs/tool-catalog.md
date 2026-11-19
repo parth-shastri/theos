@@ -462,6 +462,10 @@ The runtime owns the private catalog, input transfers, workspace checkpoints, an
 The model uses ordinary paths under `/workspace`. Shell commands list, read, write, and delete task files.
 Selected uploads and Gmail attachments enter the conversation workspace automatically.
 Changed files receive immutable checkpoint versions. Replication runs in the background and retries without repeating commands.
+The same worker uploads catalog files and verifies remote checksums before removing local file contents.
+Completed file reads use R2 without a persistent disk cache. Pending transfers remain local.
+New image history stores catalog references. Model and browser reads resolve the images in memory.
+The collector uses a small local checkpoint reference index after snapshot contents leave the host.
 Deleting a workspace file removes it from the current manifest. Retained checkpoints and response attachments preserve their recorded versions.
 The runtime keeps three recent recovery checkpoints per session by default. It also protects the current workspace, both recovery pointers, and uncertain remote publications.
 A periodic collector retires unreferenced workspace versions, orphaned attachment snapshots, and superseded checkpoints after a one-hour grace period.
@@ -477,6 +481,10 @@ Image inspection through `run_command.inspect_images` supplies model image input
 The internal catalog retains owner checks. The model has no archive, restore, transfer, or catalog-management tools.
 
 Source: [workspace hooks](../src/theos/services/sandbox/workspace.py), [file catalog](../src/theos/services/files/catalog.py), [checkpoints](../src/theos/services/files/checkpoints.py), and [retention](../src/theos/services/files/retention.py).
+
+Full backups use the existing Boto3 dependency to include indexed remote objects through temporary staging.
+Pi deployment uploads completed archives to R2 and verifies their contents before removing local archives.
+No new dependency or private configuration value is required.
 
 ## Voice
 
