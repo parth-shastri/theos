@@ -1,5 +1,11 @@
 # Feature and acceptance checklist
 
+## Pi backup hydration throughput, 2026-11-19
+
+The backup downloader now runs up to four remote reads concurrently with eight pending results.
+The candidate image creates a complete archive of the previous volume, and the previous image restores that archive.
+Focused backup and deployment checks pass. Live Pi release completion remains pending.
+
 ## Browser password login alias, 2026-11-19
 
 Migration 022 adds one optional alias per owner. The alias resolves to the existing owner at password sign-in.
