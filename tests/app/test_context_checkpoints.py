@@ -685,7 +685,7 @@ async def test_remote_restore_recovers_immutable_attachment_and_can_retry_transf
     await runtime.workspaces.save_attachment("alice", sid, {"file_id": file["id"]})
     await runtime.checkpoints.save("alice", sid, [UserMessage("Report")], ContextMemory(), "test")
     assert await runtime.checkpoints.drain()
-    Path(file["path"]).unlink()
+    Path(file["path"]).unlink(missing_ok=True)
     runtime.db.execute("DELETE FROM files WHERE id=?", (file["id"],))
     for source in runtime.db.rows("SELECT path FROM context_objects WHERE session=?", (sid,)):
         Path(source["path"]).unlink(missing_ok=True)

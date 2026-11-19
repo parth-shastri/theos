@@ -561,6 +561,12 @@ The deployment lock and workflow concurrency limit keep deployments sequential.
 A journal lets the next invocation recover an interrupted activation.
 
 An upgrade has downtime while the database is backed up and the candidate starts.
+Full backups include indexed remote-only file contents through temporary local staging.
+The backup helper needs outbound R2 access and the private deployment environment.
+Restoration uses the previous image and an isolated network before candidate migrations run.
+The candidate image then uploads the completed archive to R2 and verifies it before removing the local archive.
+The deployment result records an `r2:` backup reference when this transfer succeeds.
+Without R2, deployment retains the local archive. A failed transfer also retains it.
 The pipeline keeps one application worker and scheduler active at a time.
 Readiness checks the application and database; it does not prove live model or Telegram access.
 The separate Telegram check calls `getMe` and `getWebhookInfo` with bounded HTTPS timeouts.
@@ -598,7 +604,8 @@ It keeps the active release and the two previous tracked successful releases.
 It removes older tracked volumes only when no container uses them.
 Untracked volumes and volumes used by a container remain for manual review.
 Backups inside a removed release volume are also removed.
-Store independent backups off the Pi. This retention policy does not create them.
+R2 backup archives remain outside release-volume retention. Configure their retention separately.
+Local-only deployments still need an independent off-host backup policy.
 Cleanup errors are recorded as `retention_warning` in `deployment-result.json`.
 An error leaves the active release running and preserves unremoved volumes for a later attempt.
 The policy does not remove release records or Docker images.

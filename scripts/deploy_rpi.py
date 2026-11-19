@@ -202,7 +202,7 @@ class Deployer:
 
     def restore_previous(self, candidate, previous):
         self.compose(candidate, "stop", *self.services(candidate))
-        for kind in ("backup", "restore"):
+        for kind in ("backup", "restore", "archive"):
             self.remove_helper(f"theos-{kind}-{candidate['revision'][:12]}")
         if previous:
             self.compose(
@@ -253,8 +253,8 @@ class Deployer:
         archive = f"/data/backups/{candidate['tag']}-{candidate['revision'][:12]}.tar.gz"
         self.run_helper(
             f"theos-backup-{candidate['revision'][:12]}",
-            "--network",
-            "none",
+            "--env-file",
+            str(self.directory / ".env"),
             "--read-only",
             "--tmpfs",
             "/tmp",
@@ -295,7 +295,31 @@ class Deployer:
             restore_code,
             timeout=900,
         )
-        return f"{previous['volume']}:{archive}"
+        # The candidate understands remote archives. Older release images still create
+        # and restore their original archive format before this optional transfer.
+        stored = self.run_helper(
+            f"theos-archive-{candidate['revision'][:12]}",
+            "--env-file",
+            str(self.directory / ".env"),
+            "--read-only",
+            "--tmpfs",
+            "/tmp",
+            "-v",
+            f"{previous['volume']}:/data",
+            candidate["image"],
+            "python",
+            "-m",
+            "theos.backup",
+            "archive",
+            "/data",
+            archive,
+            timeout=1800,
+        )
+        return (
+            stored.strip()
+            if stored.strip().startswith("r2:")
+            else f"{previous['volume']}:{archive}"
+        )
 
     def deploy(self, image, tag, revision, web_image=None):
         if not re.fullmatch(r"ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[a-f0-9]{64}", image):

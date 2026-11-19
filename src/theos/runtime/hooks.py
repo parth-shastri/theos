@@ -33,6 +33,7 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         if turn and turn.provider_failure:
             raise turn.provider_failure
         await runtime.workspaces.stage_inputs(owner, session_id, ctx.history)
+        await runtime.files.hydrate_images(owner, ctx.history)
         # Command inspection queues owned image versions. Delivery remains a separate action.
         # The hook adds pixels without exposing storage operations to the model.
         queued = ctx.state.pop("view_images", [])
@@ -44,9 +45,13 @@ def build_hooks(runtime, session, *, limits=None, deadline=None):
         for file_id in dict.fromkeys(queued):
             if file_id in seen:
                 continue
-            image = UserMessage("Image from your workspace:", [runtime.files.image(owner, file_id)])
+            image = UserMessage(
+                "Image from your workspace:", [await runtime.files.read_image(owner, file_id)]
+            )
             stamp_message(image)
             update_display_metadata(image, {"workspace_inspection": file_id})
+            if runtime.settings.storage.endpoint:
+                update_display_metadata(image, {"image_files": [file_id]})
             ctx.history.append(image)
             request.messages.append(image)
         if deadline is not None and monotonic() >= deadline:

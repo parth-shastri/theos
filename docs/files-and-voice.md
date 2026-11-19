@@ -1,7 +1,8 @@
 # Files and voice
 
 Theos stores uploads and generated files in a private catalog.
-Local files persist in the application data volume.
+Without R2, file contents persist in the application data volume.
+With R2, the data volume holds a temporary upload spool and the file catalog.
 R2 replication and voice services are optional external integrations.
 
 Read [speech hosting](speech-hosting.md) for Docker, native Apple Silicon, hosted providers, and live test procedures.
@@ -9,6 +10,7 @@ Read [speech hosting](speech-hosting.md) for Docker, native Apple Silicon, hoste
 ## Local files
 
 Each file has an opaque ID, an owner, metadata, and a local path.
+The path can be absent after verified R2 replication.
 A supplied filename cannot select the storage path.
 Downloads and workspace input transfers check the authenticated owner.
 
@@ -36,6 +38,22 @@ AGENT_STORAGE__SECRET_KEY=replace-me
 The credential needs object read, write, and delete access for the selected bucket.
 The application uses an S3-compatible client.
 
+One background worker uploads catalog files and checkpoint objects in bounded batches.
+The worker verifies uploaded contents through an R2 read before removing the local copy.
+Uploads, generated audio, response attachments, and workspace versions use this path.
+Failed uploads retain their local contents and retry without repeating the assistant action.
+Previously saved local files follow the same verification and eviction path after startup.
+
+Downloads, transcription, email attachments, and workspace restoration read completed files directly from R2.
+These reads use temporary memory and do not create a persistent local download cache.
+New image messages retain file references in SQLite. The model and browser resolve them when needed.
+Older inline image history remains readable. This change does not rewrite those historical database rows.
+R2 outages can delay access to completed files whose local copies were removed.
+
+After transfers complete, the indexed file and checkpoint directories can be empty.
+SQLite, file metadata, logs, and running application processes still need local storage and memory.
+An upload backlog or full backup temporarily needs additional disk space.
+
 The runtime automatically saves changed `/workspace` files into the session checkpoint journal.
 A background worker replicates those objects to R2. Storage outages retain pending transfers without repeating model commands.
 Selected uploads enter `/workspace/uploads/` before the next model request.
@@ -46,7 +64,10 @@ Attachment recovery retains the same file ID and exact bytes after remote restor
 The model has no catalog listing, archive, restore, or transfer tool.
 
 R2 is not required for ordinary uploads or image input. Without it, recovery uses the local application data directory.
-A full backup needs the local catalog, checkpoint directory, and separate retention for remote objects.
+A full backup includes the catalog and indexed local or remote file contents.
+Remote-only contents enter temporary backup staging and disappear from staging when the backup finishes.
+Pi deployment transfers the completed archive to R2 before removing its local copy.
+Read the [backup procedure](operations.md#back-up) for manual archives and remote restoration.
 Deleting a workspace file removes the current manifest entry. Saved response attachments and retained checkpoints preserve their recorded bytes.
 The runtime retains three recent recovery checkpoints per session, plus current local and published remote pointers.
 An hourly collector removes unreferenced versions after a one-hour grace period. Storage settings can change these defaults.

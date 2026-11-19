@@ -243,7 +243,12 @@ class TerminalSession:
                     yield Notice(item["message"], "error")
                 elif item["type"] == "file":
                     row = self.runtime.files.get(self.owner, item["file_id"])
-                    yield Notice(f"File: {row['name']}\n{row['path']}")
+                    location = (
+                        row["path"]
+                        if Path(row["path"]).exists()
+                        else self.runtime.settings.web_url.rstrip("/") + "/api/files/" + row["id"]
+                    )
+                    yield Notice(f"File: {row['name']}\n{location}")
                 elif item["type"] == "done":
                     pending = self.pending_interactions(session_id)
                     for request in pending:

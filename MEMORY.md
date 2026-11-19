@@ -2,6 +2,21 @@
 
 Updated: 2026-11-19.
 
+## R2 file contents and local spool, 2026-11-19
+
+The operator selected R2 for uploaded files, generated attachments, workspace versions, and recovery checkpoints.
+Keep SQLite, file metadata, and pending transfers on the application host.
+Remove local file contents only after a remote read verifies their checksum.
+Read completed files from R2 into memory without a persistent download cache.
+Keep a small checkpoint reference index so collection does not require local snapshot bodies.
+Store new R2-backed image messages as catalog references instead of embedded image bytes.
+Keep older inline image history readable. This change does not rewrite historical database rows.
+Full backups include remote-only indexed file contents through temporary staging.
+Pi deployment transfers completed backup archives to R2 and verifies them before removing local archives.
+Keep failed uploads locally for retry. Local-only installations retain their existing behavior.
+R2 backup archive retention remains separate from checkpoint and Pi release retention.
+These changes require a later reviewed release before they affect the Pi.
+
 ## Telegram calling release preparation, 2026-11-19
 
 Prepare version 1.6.0 for the operator's Telegram calling setup.

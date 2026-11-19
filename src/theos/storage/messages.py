@@ -27,10 +27,12 @@ def stamp_message(message, *, created_at=None, duration_ms=None):
     return message
 
 
-def serialize_message(message):
+def serialize_message(message, *, include_images=False):
     """Keep display values in the application's existing history JSON."""
     value = message_to_dict(message)
     display = display_metadata(message)
+    if display.get("image_files") and not include_images:
+        value.pop("images", None)
     if display:
         value["display"] = display
     return value

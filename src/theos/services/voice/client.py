@@ -1,7 +1,5 @@
 """Speech and transcription clients backed by the private file catalog."""
 
-from pathlib import Path
-
 import httpx
 
 from theos.services.errors import ServiceError
@@ -29,7 +27,9 @@ class Voice:
                     "Authorization": "Bearer " + self.settings.transcription_key.get_secret_value()
                 },
                 data={"model": self.settings.transcription_model},
-                files={"file": (row["name"], Path(row["path"]).read_bytes(), row["media_type"])},
+                files={
+                    "file": (row["name"], await self.files.read(owner, file_id), row["media_type"])
+                },
             )
             response.raise_for_status()
             return response.json()["text"]

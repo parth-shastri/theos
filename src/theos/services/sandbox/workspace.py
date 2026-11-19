@@ -5,7 +5,7 @@ import base64
 import hashlib
 import shlex
 from dataclasses import replace
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 
 from harness import OutcomeUnknown
 from theos.prompts import render
@@ -106,7 +106,7 @@ class Workspaces:
         """Make a selected owned upload available without a model transfer call."""
         row = self.runtime.files.get(owner, row["id"])
         path = self.input_path(row)
-        await self.write(owner, session, path, Path(row["path"]).read_bytes())
+        await self.write(owner, session, path, await self.runtime.files.read(owner, row["id"]))
         return path
 
     async def stage_inputs(self, owner, session, history):
@@ -197,7 +197,7 @@ class Workspaces:
             owner,
             session,
             "response_attachment",
-            {"data": base64.b64encode(Path(row["path"]).read_bytes()).decode()},
+            {"data": base64.b64encode(await self.runtime.files.read(owner, row["id"])).decode()},
         )
         self.runtime.db.put_record(
             owner,

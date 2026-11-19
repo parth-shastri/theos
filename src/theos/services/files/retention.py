@@ -39,7 +39,21 @@ class Retention:
 
     def snapshot(self, row):
         """Fail closed when a retained snapshot cannot prove its references locally."""
-        data = gzip.decompress((self.checkpoints.directory / row["id"]).read_bytes())
+        path = self.checkpoints.directory / row["id"]
+        if not path.exists() and row["status"] == "saved":
+            reference = self.db.one(
+                "SELECT value FROM records WHERE owner=? AND kind='checkpoint_references' AND id=?",
+                (row["owner"], row["id"]),
+            )
+            value = json.loads(reference["value"]) if reference else {}
+            if (
+                value.get("digest") != row["digest"]
+                or value.get("owner") != row["owner"]
+                or value.get("session") != row["session"]
+            ):
+                raise ValueError("Retained checkpoint references are missing or invalid.")
+            return value
+        data = gzip.decompress(path.read_bytes())
         if hashlib.sha256(data).hexdigest() != row["digest"]:
             raise ValueError("Retained checkpoint checksum mismatch.")
         value = json.loads(data)
@@ -148,6 +162,10 @@ class Retention:
         # Its local bytes and pending upload must survive completion of the old delete.
         if not self.db.one("SELECT id FROM context_objects WHERE id=?", (row["id"],)):
             (self.checkpoints.directory / row["id"]).unlink(missing_ok=True)
+            self.db.execute(
+                "DELETE FROM records WHERE owner=? AND kind='checkpoint_references' AND id=?",
+                (row["owner"], row["id"]),
+            )
         else:
             self.checkpoints.wake.set()
         self.db.execute(

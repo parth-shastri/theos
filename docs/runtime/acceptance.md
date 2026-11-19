@@ -1,5 +1,19 @@
 # Feature and acceptance checklist
 
+## R2 file contents and local spool, 2026-11-19
+
+The background worker uploads catalog files and checkpoint objects, then verifies remote checksums before removing local copies.
+Completed downloads, transcription, image inputs, email attachments, and workspace imports read R2 contents without a persistent local cache.
+New R2-backed image history stores file references. Older inline image history remains unchanged.
+Checkpoint collection retains a local reference index after snapshot bodies leave the host.
+Full backups include indexed remote contents. Pi deployment transfers completed archives to R2 before removing their local copies.
+
+The local Python suite passed 1,251 tests. Three credential-dependent tests remained excluded.
+Checks cover owner isolation, corrupt uploads, remote failures, image recovery, retained workspace sources, and independent backup restoration.
+Project lint, formatting, package builds, and the streaming checksum check passed.
+These storage checks use mocked object storage. Live R2 transfer, Pi disk measurements, and tagged deployment remain unverified.
+Existing backup archives and historical inline image rows require separate review before removal.
+
 ## Telegram reminder and approval calls, 2026-11-18
 
 The optional calling gateway uses a dedicated regular Telegram account and the app's existing Kokoro voice.

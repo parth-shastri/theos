@@ -187,8 +187,12 @@ Restarted workers retry storage operations without repeating assistant tools.
 
 The worker publishes a remote recovery pointer only after it uploads the snapshot and all conversation sources.
 Remote recovery can lag the current local transcript during an outage or transfer backlog.
-Local recovery continues from SQLite and the checkpoint directory.
-Back up both stores.
+Pending objects remain in the checkpoint directory until a remote read verifies their checksum.
+The worker then removes their local contents and retains a small reference index for garbage collection.
+Completed object reads use R2 without a persistent download cache.
+Local recovery combines SQLite with pending local objects and completed R2 objects.
+An R2 outage can delay recovery that needs an evicted object.
+Full backups collect indexed remote objects into temporary staging before archive creation.
 Do not treat an outstanding remote transfer as an external action failure.
 
 Independent Gmail reads can overlap within bounded tool batches.
