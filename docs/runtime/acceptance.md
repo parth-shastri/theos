@@ -7,7 +7,7 @@ Migration 019 retains explicit reminder delivery choices, provider identity, and
 Mapped private owners receive generic alerts when approvals remain pending for two minutes.
 Written reminders and authenticated approval decisions retain their existing paths.
 
-The full application suite passed 1,221 checks before the final additional call cases.
+The full application suite passed 1,235 checks after integration with current `dev`.
 The focused call suite passed 15 checks across Telegram and the optional Twilio adapter.
 It covers owner and group isolation, literal voice settings, delayed approvals, resolution during synthesis, and recovery without redial.
 Additional cases cover cancellation, expiry, provider changes, access revocation, synthesis errors, and the daily limit.
@@ -24,6 +24,7 @@ The gateway marked the call completed and removed its temporary MP3.
 The first attempt was silent. A following attempt reported a busy receiver. Those attempts remain uncertain without automatic redial.
 Remote hangup after failed native cleanup now has a focused regression check.
 The Mac mini runs the private gateway through its native login agent.
+Readiness recovered after a launchd restart. The Pi completed an authenticated gateway status read over Tailscale.
 Application delivery, delayed approval alerts, and full host reboot remain open deployment checks.
 The optional Twilio path remains unverified while account provisioning is restricted by error 22300.
 

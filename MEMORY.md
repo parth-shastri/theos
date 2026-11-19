@@ -2,6 +2,15 @@
 
 Updated: 2026-11-19.
 
+## Telegram calling release preparation, 2026-11-19
+
+Prepare version 1.6.0 for the operator's Telegram calling setup.
+Merge the calling topic through its `dev` PR, then promote `dev` to `rpi` through a merge-commit PR.
+Publish `rpi-v1.6.0` from the promoted tip after checks pass.
+Enable the private calling gateway only for the operator's configured browser and verified private Telegram owners.
+Preserve existing deployment secrets, data, speech settings, and message delivery.
+Keep the optional Twilio adapter disabled. The authenticated Pi-to-gateway read check passed over Tailscale.
+
 ## Telegram calling account login, 2026-11-19
 
 Accept the receiving username during local login before numeric recipient IDs are available.
