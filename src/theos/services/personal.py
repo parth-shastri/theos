@@ -6,11 +6,20 @@ from .reminders.tools import reminder_tools
 from .training.tools import training_tools
 
 
-def personal_tools(db, owner, session_id, default_timezone, *, phone_enabled=False):
+def personal_tools(
+    db, owner, session_id, default_timezone, *, phone_enabled=False, phone_default=False
+):
     """Use the server's owner identity for every personal service."""
     return [
         *preference_tools(db, owner, default_timezone),
-        *reminder_tools(db, owner, session_id, default_timezone, phone_enabled=phone_enabled),
+        *reminder_tools(
+            db,
+            owner,
+            session_id,
+            default_timezone,
+            phone_enabled=phone_enabled,
+            phone_default=phone_default,
+        ),
         *meal_tools(db, owner, default_timezone),
         *training_tools(db, owner, default_timezone),
     ]

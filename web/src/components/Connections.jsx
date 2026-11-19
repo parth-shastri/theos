@@ -11,6 +11,7 @@ import { ConnectionIcon, Glass, Icon } from "./Primitives";
 import PanelHeading from "./PanelHeading";
 import BrowserSignIn from "./BrowserSignIn";
 import GitHubNotifications from "./GitHubNotifications";
+import CallSetup from "./CallSetup";
 
 function SignInLink({ url }) {
   try {
@@ -421,13 +422,24 @@ export default function Connections() {
         </button>
       </PanelHeading>
       {setup?.needed ? (
-        <SetupProfile key={me?.id} setup={setup} busy={busy} action={action} />
+        <SetupProfile
+          key={`profile:${me?.id}`}
+          setup={setup}
+          busy={busy}
+          action={action}
+        />
       ) : (
         <p className="panel-description">
           Connect your own accounts. Connections and personal records are
           available across your private conversations.
         </p>
       )}
+      <CallSetup
+        key={`calls:${me?.id}`}
+        calling={connections?.calling}
+        busy={busy}
+        action={action}
+      />
       <div className="connection-heading">
         <div className="section-title">
           <h2>Your accounts</h2>
@@ -486,7 +498,7 @@ export default function Connections() {
         </div>
       )}
       <BrowserSignIn
-        key={me?.id}
+        key={`browser:${me?.id}`}
         configured={connections?.services.some(
           (service) => service.id === "sandbox" && service.configured,
         )}

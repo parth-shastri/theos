@@ -8,6 +8,8 @@ from theos.services.account_setup import ACCOUNT_LABELS, complete_setup, setup_s
 from theos.services.errors import ServiceError
 from theos.storage.account_access import account_access
 
+from . import call_setup
+
 logger = logging.getLogger("theos")
 LABELS = dict(ACCOUNT_LABELS)
 
@@ -27,12 +29,19 @@ async def offer(bot, owner, chat, topic):
         ]
         for account in setup["accounts"]
     ]
+    if call_setup.offer_button(bot, owner):
+        buttons.append(call_setup.offer_button(bot, owner))
     buttons.append([{"text": "Skip for now", "callback_data": "connect:skip"}])
     await bot.send(
         chat,
         "Would you like to connect your accounts?\n"
         "Gmail helps with email, Calendar with events, Zepto with shopping, and Google Health with activity and vitals.\n"
-        "All connections are optional. You can add them later.",
+        + (
+            "Telegram calls can also alert you about reminders and pending approvals.\n"
+            if setup["calling"]
+            else ""
+        )
+        + "All connections are optional. You can add them later.",
         topic,
         {"inline_keyboard": buttons},
     )
@@ -88,6 +97,8 @@ async def menu(bot, owner, chat, topic):
         ]
         for item in available
     ]
+    if bot.runtime.phone_calls.connections.configured:
+        rows.append([{"text": "Telegram call settings", "callback_data": "calls:status"}])
     rows.append([{"text": "Done", "callback_data": "connect:skip"}])
     lines.extend(["", "All connections are optional. Choose an account or tap Done."])
     await bot.send(chat, "\n".join(lines), topic, {"inline_keyboard": rows})
@@ -246,6 +257,8 @@ async def accept_return(bot, message, owner, chat, topic):
 
 
 async def handle(bot, message, owner, channel, chat, topic, callback):
+    if await call_setup.handle(bot, message, owner, channel, chat, topic, callback):
+        return True
     data = (callback or {}).get("data", "")
     command = message.get("text", "").split(" ", 1)[0].split("@")[0]
     direct = (

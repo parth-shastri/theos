@@ -58,7 +58,7 @@ async def test_login_resolves_username_without_a_placeholder_id(settings):
     assert receipt.stat().st_mode & 0o777 == 0o600
     assert settings.session_path.stat().st_mode & 0o777 == 0o600
     assert client.closed
-    # The HTTP gateway still requires explicit numeric recipients and a shared key.
+    # The HTTP gateway still requires a shared key.
     with pytest.raises(ValidationError):
         Settings(_env_file=None, **settings.model_dump())
 
@@ -88,11 +88,9 @@ async def test_login_does_not_approve_the_wrong_account_or_recipient(settings, c
     assert client.closed
 
 
-@pytest.mark.parametrize("case", ["missing_recipient", "link", "phone"])
+@pytest.mark.parametrize("case", ["link", "phone"])
 async def test_login_rejects_bad_setup_before_contacting_telegram(settings, case):
-    if case == "missing_recipient":
-        settings.recipient_username = ""
-    elif case == "link":
+    if case == "link":
         settings.recipient_username = "https://t.me/receiver"
     else:
         settings.phone = "invalid number"
@@ -110,3 +108,12 @@ async def test_login_rejects_bad_setup_before_contacting_telegram(settings, case
     with pytest.raises(ValueError):
         await authorize(settings, client_factory=factory)
     assert not contacted
+
+
+async def test_login_can_start_without_static_recipients_for_user_onboarding(settings):
+    settings.recipient_username = ""
+    client = Client(settings)
+    result = await authorize(settings, client_factory=lambda *args: client)
+    assert result["recipient_ids"] == [] and client.requested == []
+    gateway = Settings(_env_file=None, **settings.model_dump(), key="k" * 32)
+    assert gateway.recipients == set()
