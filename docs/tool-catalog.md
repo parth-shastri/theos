@@ -289,6 +289,17 @@ Source: [service tools](../src/theos/services/reminders/tools.py).
 | `list_reminders` | List your pending reminders and their delivery status. |
 | `cancel_reminder` | Cancel one of your reminders. |
 
+### Immediate calls
+
+`call_user(message)` queues a call to the current owner's configured recipient and plays up to 360 characters.
+Only complete, enabled calling configuration and a verified, activated private account expose this tool.
+Users connect their Telegram account and confirm a test call during optional onboarding.
+The operator's existing explicit recipient mappings remain supported.
+No caller number, recipient ID, or service credential appears in the tool input.
+Without calling configuration, reminder discovery offers only message delivery.
+Missing calling values leave ordinary tools available. Invalid provided values remain configuration errors.
+The worker rechecks access, preserves a written notification, and never redials uncertain attempts.
+
 ### Direct phone calls
 
 HTTPX sends bounded MP3 audio to the separate private Telegram calling gateway.
@@ -297,10 +308,12 @@ A dedicated regular Telegram account starts private calls. The existing bot cont
 The gateway retains the private account session and call IDs outside the assistant container.
 It rejects incoming calls and sends no microphone, camera, or recording stream.
 
-SQLite migration 019 saves one call attempt with its source reminder or approval and selected provider.
+SQLite migrations 019 and 020 save one call attempt with its source reminder or approval and selected provider.
+Migration 021 saves each owner's verified recipient, test call, and reminder and approval choices.
 The scheduler rechecks the owner and source before dialing. Approval calls wait two minutes and use a generic alert.
-Only mapped private accounts can request call delivery. Ordinary reminders retain message delivery by default.
-The call path has no separate agent tool. Read the [Telegram setup guide](../calling/README.md).
+Only activated private accounts can request call delivery. Users who enable reminder calls receive phone delivery by default.
+All other reminders retain message delivery. Disconnection and preference changes stop queued calls before dialing.
+The immediate call tool and due reminders use the same worker. Read the [Telegram setup guide](../calling/README.md).
 
 The optional Twilio adapter calls Programmable Voice and serves expiring media through the existing frontend.
 Enable only one provider. Provider changes do not redirect already queued calls.

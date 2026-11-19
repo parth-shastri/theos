@@ -31,7 +31,7 @@ class LoginSettings(AccountSettings):
 
 class Settings(AccountSettings):
     key: SecretStr = Field(min_length=32)
-    recipients: set[int] = Field(min_length=1)
+    recipients: set[int] = Field(default_factory=set)
     host: str = "127.0.0.1"
     port: int = Field(default=8882, ge=1, le=65535)
     daily_limit: int = Field(default=20, ge=1, le=1000)

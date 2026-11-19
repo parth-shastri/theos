@@ -14,24 +14,15 @@ from theos.services.preferences.tools import preferences
 from .timezones import local_time
 
 
-def reminder_tools(db, owner, session_id, default_timezone, *, phone_enabled=False):
+def reminder_tools(
+    db, owner, session_id, default_timezone, *, phone_enabled=False, phone_default=False
+):
     """Build reminder tools bound to the owner and delivery conversation."""
 
     def user_preferences():
         return preferences(db, owner, default_timezone)
 
-    @tool
-    async def schedule_reminder(
-        text: str,
-        due: datetime,
-        recurrence: str | None = None,
-        timezone: str | None = None,
-        delivery: Literal["message", "phone"] = "message",
-    ):
-        """Schedule a reminder. Use phone delivery only when the user explicitly asks for a call.
-
-        Phone reminders can contain up to 360 characters. Recurrence uses five-field cron.
-        """
+    def save(text, due, recurrence, timezone, delivery="message"):
         zone = timezone or user_preferences()["timezone"]
         when = local_time(due, zone)
         if len(text) > 4000 or not text.strip():
@@ -61,6 +52,31 @@ def reminder_tools(db, owner, session_id, default_timezone, *, phone_enabled=Fal
             "recurrence": recurrence,
             "delivery": delivery,
         }
+
+    if phone_enabled:
+
+        @tool
+        async def schedule_reminder(
+            text: str,
+            due: datetime,
+            recurrence: str | None = None,
+            timezone: str | None = None,
+            delivery: Literal["message", "phone"] = "phone" if phone_default else "message",
+        ):
+            """Schedule a reminder using your saved delivery preference. Use message delivery when requested. Phone text allows 360 characters. Recurrence uses five-field cron."""
+            return save(text, due, recurrence, timezone, delivery)
+
+    else:
+
+        @tool
+        async def schedule_reminder(
+            text: str,
+            due: datetime,
+            recurrence: str | None = None,
+            timezone: str | None = None,
+        ):
+            """Schedule a message reminder. Recurrence uses five-field cron in your timezone."""
+            return save(text, due, recurrence, timezone)
 
     @tool
     async def list_reminders():

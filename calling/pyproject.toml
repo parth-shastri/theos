@@ -26,6 +26,7 @@ dev = ["pytest>=9", "pytest-asyncio>=1.3", "httpx>=0.28,<1", "ruff>=0.12"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["native_audio: local FFmpeg and pinned native audio stack integration"]
 
 [tool.ruff]
 target-version = "py312"

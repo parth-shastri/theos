@@ -17,6 +17,35 @@ Keep failed uploads locally for retry. Local-only installations retain their exi
 R2 backup archive retention remains separate from checkpoint and Pi release retention.
 These changes require a later reviewed release before they affect the Pi.
 
+## Per-user calling onboarding, 2026-11-19
+
+Offer optional Telegram calls in browser and private Telegram onboarding when the global calling environment is configured.
+Use one regular calling account for all users. Do not request provider credentials from each user.
+Bind recipients through a ten-minute challenge sent directly from the receiving account to the calling account.
+For Telegram owners, require the existing authenticated sender ID. Browser owners verify the account that sends their private challenge.
+Keep verification messages outside model history. Reject forwarded, bot, group, expired, and reused proofs.
+Require a test call and the user's audio confirmation before exposing calling tools.
+Save separate reminder and approval choices per owner in migration 021.
+Opted-in reminders default to phone delivery. Keep written notifications and authenticated approval decisions.
+Recheck preferences and access before dialing. Disconnect locally before remote cleanup so failures cannot restore access.
+Retain existing operator recipient mappings as verified fallbacks. A saved disconnect overrides them.
+Keep routine CI free of system package downloads and live Telegram calls.
+
+## Environment-gated calling tools, 2026-11-19
+
+The operator requires calling to be absent from discovery when its environment is incomplete.
+Register `call_user(message)` only for an enabled, completely configured provider and a mapped private account.
+Hide the reminder tool's phone delivery parameter for all other accounts and channels.
+Keep ordinary message reminders available when calling fields are unset or incomplete.
+Reject malformed provided values and conflicting provider selections.
+Recheck current access when an already-discovered call tool executes.
+Queue immediate requests through the existing durable call worker with written notification fallback.
+Migration 020 preserves existing call rows while adding the request kind.
+
+The operator rejected slow, unreliable extra CI gates.
+Remove system FFmpeg installation from routine calling CI. Run its isolated unit and HTTP contract checks there.
+Keep the native audio decoding check explicitly marked for local integration runs and retain the live handset acceptance record.
+
 ## Telegram calling release preparation, 2026-11-19
 
 Prepare version 1.6.0 for the operator's Telegram calling setup.

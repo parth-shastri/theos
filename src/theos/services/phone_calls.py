@@ -6,10 +6,14 @@ import logging
 import re
 import secrets
 import time
+from urllib.parse import urlsplit
+from uuid import uuid4
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 import httpx
 
+from harness import tool
+from theos.services.call_connections import CallConnections
 from theos.services.errors import ServiceError
 from theos.storage.account_access import account_access
 
@@ -34,14 +38,32 @@ class PhoneCalls:
         self.http = http
         self.voice = voice
         self.next_cleanup = 0
+        self.connections = CallConnections(self)
 
-    def recipient(self, owner, channel):
-        if not self.config.enabled or channel not in {"browser", "telegram-private"}:
+    def recipient(self, owner, channel, *, testing=False, purpose=None):
+        if not self.available or channel not in {"browser", "telegram-private"}:
             return None
-        recipient = self.config.recipients.get(owner)
+        recipient = (
+            self.connections.recipient(owner, testing=testing, purpose=purpose)
+            if self.provider == "telegram"
+            else self.config.recipients.get(owner)
+        )
         if recipient and account_access(self.settings, self.db, owner):
             return recipient if self.provider == "telegram" else recipient.get_secret_value()
         return None
+
+    @property
+    def available(self):
+        if not self.config.configured or not self.settings.kokoro_url.strip():
+            return False
+        if self.provider == "twilio":
+            return bool(
+                self.settings.web_url.startswith("https://")
+                and self.settings.frontend_secret
+                and urlsplit(self.settings.web_url).hostname
+                not in {"localhost", "127.0.0.1", "::1"}
+            )
+        return True
 
     def enqueue(self, id, owner, session, kind, source_id, due, expires):
         """Save the call in the same transaction as its reminder or approval."""
@@ -51,7 +73,44 @@ class PhoneCalls:
             (id, owner, session, kind, source_id, due, expires, self.provider),
         )
 
+    def tools(self, owner, session_id, channel):
+        """Discover calling only for an enabled provider and a mapped private account."""
+        if not self.recipient(owner, channel):
+            return []
+
+        @tool
+        async def call_user(message: str):
+            """Call your configured account now and play a message of up to 360 characters. Use only when the user asks for a call. A queued call does not prove that it was answered."""
+            session = self.db.one(
+                "SELECT channel FROM sessions WHERE id=? AND owner=?", (session_id, owner)
+            )
+            if not session or not self.recipient(owner, session["channel"]):
+                raise ServiceError("Calls are unavailable for this conversation.")
+            text = message.strip()
+            if not text or len(text) > MAX_REMINDER_TEXT:
+                raise ValueError(f"Supply a call message from 1 to {MAX_REMINDER_TEXT} characters.")
+            with self.db.transaction():
+                id = self.queue(owner, session_id, text)
+            return {"id": id, "status": "queued", "delivery": "phone"}
+
+        return [call_user]
+
+    def queue(self, owner, session_id, text):
+        id, now = uuid4().hex, time.time()
+        self.db.execute(
+            "INSERT INTO notifications(id,owner,session,text,created,delivered) VALUES (?,?,?,?,?,0)",
+            (id, owner, session_id, text, now),
+        )
+        self.enqueue(id, owner, session_id, "request", id, now, now + 120)
+        return id
+
     def _source(self, job):
+        if job["kind"] == "request":
+            notice = self.db.one(
+                "SELECT text FROM notifications WHERE id=? AND owner=? AND session=?",
+                (job["source_id"], job["owner"], job["session"]),
+            )
+            return notice["text"] if notice else None
         if job["kind"] == "approval":
             from theos.runtime.approvals import requires_approval
 
@@ -89,7 +148,12 @@ class PhoneCalls:
             "SELECT channel FROM sessions WHERE id=? AND owner=?", (job["session"], job["owner"])
         )
         if session and job["expires"] > time.time() and job["provider"] == self.provider:
-            return self.recipient(job["owner"], session["channel"])
+            connection = self.connections.row(job["owner"]) if self.provider == "telegram" else None
+            testing = bool(connection and connection["test_call_id"] == job["id"])
+            purpose = {"reminder": "reminders", "approval": "approvals"}.get(job["kind"])
+            return self.recipient(
+                job["owner"], session["channel"], testing=testing, purpose=purpose
+            )
         return None
 
     async def _deliver(self, job):
@@ -197,7 +261,7 @@ class PhoneCalls:
                 (now,),
             )
             self.db.execute("DELETE FROM phone_calls WHERE expires<?", (now - 30 * _DAY,))
-        if self.config.enabled:
+        if self.available:
             for job in self.db.rows(
                 "SELECT id,owner,session,kind,source_id,expires,provider FROM phone_calls "
                 "WHERE status='pending' AND due<=? AND expires>? ORDER BY due,id LIMIT 5",
@@ -207,7 +271,11 @@ class PhoneCalls:
 
     def audio(self, token):
         """Return only the bytes authorized by an unexpired random media URL."""
-        if self.settings.twilio.enabled and re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
+        if (
+            self.provider == "twilio"
+            and self.available
+            and re.fullmatch(r"[A-Za-z0-9_-]{43}", token)
+        ):
             row = self.db.one(
                 "SELECT audio FROM phone_calls WHERE audio_digest=? AND audio_expires>?",
                 (hashlib.sha256(token.encode()).hexdigest(), time.time()),

@@ -127,6 +127,9 @@ Theos uses the same Kokoro voice, speed, and gateway effects as app playback.
 The existing bot continues to deliver messages. It cannot start private voice calls.
 Read the [calling gateway setup](../calling/README.md) for account login, credentials, and deployment values.
 
+Mapped owners can ask for an immediate call through `call_user(message)`.
+The tool is absent when required calling variables are missing, calling is disabled, or the account has no mapped recipient.
+The reminder tool hides its phone delivery parameter under the same conditions.
 Mapped owners can request a reminder with `delivery="phone"`. The selected deployment provider determines where the call rings.
 Written reminders remain available. Pending approvals trigger a generic call alert after two minutes.
 The user reviews and decides approvals in the authenticated application.
