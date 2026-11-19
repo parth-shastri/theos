@@ -34,6 +34,27 @@ The optional Twilio adapter uses expiring frontend audio URLs and private deploy
 The account cannot provision a number until Twilio reviews error 22300. No carrier call has been tested.
 Migration 019 retains reminder delivery choices and one durable call attempt per occurrence or approval.
 
+## Pi release retention, 2026-11-19
+
+Keep the active release and the two previous verified successful releases.
+Track release volumes from successful activations. Never infer ownership from a volume name alone.
+Leave untracked volumes and volumes in use by a container for separate review.
+Run retention only after activation succeeds. A cleanup failure must not roll back a healthy release.
+Keep off-host backups under a separate policy.
+
+## Pi release preflight volumes, 2026-11-18
+
+Run the Telegram preflight with a disposable data volume.
+Compose can create nested mount points in that volume. Keep the candidate volume empty until restoration.
+Remove only the disposable preflight volume after the check.
+
+## OpenUI answer views, 2026-11-18
+
+Use one AnswerViews card when a complex answer needs distinct visual views.
+Use a dropdown for independent views and step controls for an ordered journey.
+Keep conclusions, caveats, and action forms visible outside the views.
+OpenUI version 6 adds this card and reads saved versions 1 through 5.
+
 ## Health imports and speech timeouts, 2026-11-17
 
 Read Google Health pages with the provider's maximum requested page size.
@@ -72,6 +93,16 @@ Keep trace content capture disabled by default.
 Treat the local Langfuse helper and native macOS collector as optional development paths.
 Keep viewer authentication and private network access separate from Theos browser authentication.
 The retired Jaeger configuration remains absent from active deployment files.
+
+## Browser chat navigation and completion, 2026-11-17
+
+Keep browser streams attached to their conversation while the user moves between chats and workspace screens.
+Disable turn actions only in the conversation with a running turn.
+Mark a completed response unread when the user was away from that conversation. Clear the dot when they view it.
+Send browser notifications for these responses when browser permission and the account preference allow them.
+The browser must have the workspace open to receive the completion event.
+Show microphone activity as dots and live bars in the browser composer. Keep the waveform visible while transcription runs.
+Use a static waveform with reduced motion. Return the transcript to the draft for review.
 
 ## Browser UI libraries, 2026-11-15
 

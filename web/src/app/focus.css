@@ -211,10 +211,27 @@
   flex-shrink: 0;
 }
 .focus-sidebar nav button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-height: 36px;
   margin: 2px 0;
   padding: 6px 8px;
   border-radius: 8px;
+}
+.focus-sidebar .conversation-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conversation-unread-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 .focus-account-menu #user-cost {
   margin: 0;
@@ -235,6 +252,17 @@
   background: transparent;
   text-align: left;
   font-weight: 550;
+}
+#response-notifications-button {
+  justify-content: space-between;
+  gap: 6px;
+}
+.response-notification-state {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+#response-notifications-button[aria-pressed="true"] .response-notification-state {
+  color: var(--accent);
 }
 .focus-sidebar #new-session,
 .account-drawer-entry {

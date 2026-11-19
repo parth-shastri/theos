@@ -15,6 +15,28 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.5.5
+
+Package version 1.5.5 uses tag `rpi-v1.5.5` from the promoted `rpi` tip.
+The Telegram preflight uses a disposable data volume before backup restoration.
+This keeps the candidate data volume empty when the deployment uses the shared logs mount.
+The release includes the changes prepared for 1.5.4.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
+## Release 1.5.4
+
+The deployment failed during restore because the preflight created a mount point in the candidate volume.
+The workflow restored 1.5.3. Release 1.5.5 replaces this failed activation.
+
+Package version 1.5.4 uses tag `rpi-v1.5.4` from the promoted `rpi` tip.
+The browser keeps responses with their conversations during navigation and marks unread completions.
+Users can enable browser completion notifications while the workspace is open.
+Voice recording shows a microphone-responsive waveform.
+Complex visual answers can group views in a dropdown or an ordered journey.
+The release also updates health imports, speech timeouts, and optional observability tools.
+No database migration or new private configuration value is required.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
 ## Release 1.5.3
 
 Package version 1.5.3 uses tag `rpi-v1.5.3` from the current `rpi` tip.
@@ -559,7 +581,15 @@ Read the result through SSH:
 ssh neuralbox-pi 'cat ~/theos-deploy/deployment-result.json'
 ```
 
-Do not prune saved images, retained volumes, or backups until their recovery window ends.
+After a successful activation, the deployment script tracks verified release volumes.
+It keeps the active release and the two previous tracked successful releases.
+It removes older tracked volumes only when no container uses them.
+Untracked volumes and volumes used by a container remain for manual review.
+Backups inside a removed release volume are also removed.
+Store independent backups off the Pi. This retention policy does not create them.
+Cleanup errors are recorded as `retention_warning` in `deployment-result.json`.
+An error leaves the active release running and preserves unremoved volumes for a later attempt.
+The policy does not remove release records or Docker images.
 A `rollback_failed` result requires operator attention.
 Use the [manual restore procedure](operations.md#restore) when the old deployment cannot restart.
 
