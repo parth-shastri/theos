@@ -125,9 +125,9 @@ class Scheduler:
             logger.warning("phone_call_worker_failed")
 
     async def spoken_work(self):
-        """Collect short decisions independently of speech generation for other calls."""
+        """Process voice turns independently of speech generation for other calls."""
         try:
-            await self.runtime.spoken_approvals.tick(self.telegram)
+            await self.runtime.call_conversations.tick(self.telegram)
         except Exception as error:
             logger.warning(
                 "spoken_approval_worker_failed", extra={"error_type": type(error).__name__}

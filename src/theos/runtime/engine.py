@@ -130,7 +130,10 @@ class Runtime:
         from theos.services.spoken_approvals import SpokenApprovals
 
         self.spoken_approvals = SpokenApprovals(self)
-        self.phone_calls.spoken = self.spoken_approvals
+        from theos.services.call_conversations import CallConversations
+
+        self.call_conversations = CallConversations(self)
+        self.phone_calls.conversations = self.call_conversations
         self.checkpoints = Checkpoints(self.files, self.tracing)
         self.checkpoints.start()
         self.workspaces = Workspaces(self)
@@ -217,6 +220,8 @@ class Runtime:
         display_text=None,
         received_at=None,
         expected_approval_digest=None,
+        voice_call=False,
+        voice_context=(),
     ):
         """Reserve one turn before a response stream starts."""
         request_received_at = time.monotonic() if received_at is None else received_at
@@ -274,6 +279,8 @@ class Runtime:
             browser_ui=browser_ui,
             tools_disabled=tools_disabled,
             text_recovery=text_recovery,
+            voice_call=voice_call,
+            voice_context=tuple(voice_context)[-8:],
             library_version=openui_version,
             research_task=research_task,
         )
@@ -504,6 +511,8 @@ class Runtime:
                         self.tracing.span("runtime tool registry"),
                     ):
                         tools = [] if turn.tools_disabled else await self.tools(session)
+                        if turn.voice_call:
+                            tools = [tool for tool in tools if tool.name != "call_user"]
                     with turn.phase("prompt_assembly_seconds"):
                         user_preferences = preferences(self.db, turn.owner, self.settings.timezone)
                         query = (
@@ -555,6 +564,13 @@ class Runtime:
                             retrieved_memory=retrieved,
                             telegram=session["channel"].startswith("telegram"),
                         )
+                        if turn.voice_call:
+                            instructions += "\n\n" + render(
+                                "calls/conversation.md",
+                                voice_context_json=json.dumps(
+                                    turn.voice_context, ensure_ascii=False
+                                ),
+                            )
                         if turn.browser_ui or turn.text_recovery:
                             from theos.runtime.openui import system_prompt
 
@@ -743,7 +759,6 @@ class Runtime:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        await self.spoken_approvals.close()
         await self.checkpoints.close()
         await self.zepto.close()
         await self.slack.close()

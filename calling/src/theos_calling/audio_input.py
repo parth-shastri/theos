@@ -4,23 +4,23 @@ import asyncio
 import io
 import math
 import sys
-import time
 import wave
 from array import array
 
 SAMPLE_RATE = 48000
-MAX_SECONDS = 10
+MAX_SECONDS = 30
 MAX_PCM = SAMPLE_RATE * 2 * MAX_SECONDS
 
 
 class AudioInput:
     def __init__(self):
         self.done = asyncio.Event()
+        self.heard = asyncio.Event()
         self.buffer = bytearray()
-        self.started = time.monotonic()
         self.voice_bytes = 0
         self.quiet_bytes = 0
         self.source = None
+        self.truncated = False
 
     def feed(self, source, pcm):
         if self.done.is_set() or not pcm or len(pcm) % 2:
@@ -29,6 +29,7 @@ class AudioInput:
             return
         self.source = source
         if len(self.buffer) + len(pcm) > MAX_PCM:
+            self.truncated = True
             self.done.set()
             return
         samples = array("h", pcm)
@@ -37,6 +38,7 @@ class AudioInput:
         rms = math.sqrt(sum(value * value for value in samples) / len(samples))
         voiced = rms >= 350
         if voiced:
+            self.heard.set()
             self.voice_bytes += len(pcm)
             self.quiet_bytes = 0
         elif self.voice_bytes:
@@ -53,11 +55,22 @@ class AudioInput:
     async def finish(self, disconnected):
         speech = asyncio.create_task(self.done.wait())
         ended = asyncio.create_task(disconnected.wait())
+        heard = asyncio.create_task(self.heard.wait())
         try:
+            await asyncio.wait(
+                (heard, ended, speech), timeout=30, return_when=asyncio.FIRST_COMPLETED
+            )
+            if not self.heard.is_set() or disconnected.is_set():
+                return None
             await asyncio.wait(
                 (speech, ended), timeout=MAX_SECONDS, return_when=asyncio.FIRST_COMPLETED
             )
-            if disconnected.is_set() or self.voice_bytes < SAMPLE_RATE // 2:
+            if (
+                disconnected.is_set()
+                or self.truncated
+                or not self.done.is_set()
+                or self.voice_bytes < SAMPLE_RATE // 2
+            ):
                 return None
             result = io.BytesIO()
             with wave.open(result, "wb") as output:
@@ -69,5 +82,6 @@ class AudioInput:
         finally:
             speech.cancel()
             ended.cancel()
-            await asyncio.gather(speech, ended, return_exceptions=True)
+            heard.cancel()
+            await asyncio.gather(speech, ended, heard, return_exceptions=True)
             self.buffer.clear()

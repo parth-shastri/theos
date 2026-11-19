@@ -84,6 +84,10 @@ class Database:
             self.execute(
                 "UPDATE phone_calls SET voice_status='uncertain' WHERE voice_status IN ('listening','processing')"
             )
+            self.execute(
+                "UPDATE phone_calls SET conversation_status='uncertain' WHERE conversation_status='active'"
+            )
+            self.execute("UPDATE call_utterances SET status='uncertain' WHERE status='processing'")
             # 1. Preserve uncertainty. An interrupted process cannot prove an external write failed.
             self.execute("UPDATE tool_runs SET status='unknown' WHERE status='running'")
             self.execute("UPDATE sessions SET status='interrupted' WHERE status='running'")

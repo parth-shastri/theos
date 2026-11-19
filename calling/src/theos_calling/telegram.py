@@ -175,7 +175,7 @@ class TelegramCaller:
         disconnected = self.finished[recipient] = asyncio.Event()
         self.playback[recipient] = asyncio.Event()
         try:
-            async with asyncio.timeout(150):
+            async with asyncio.timeout(300):
                 await self.calls.play(
                     recipient,
                     MediaStream(
@@ -185,35 +185,55 @@ class TelegramCaller:
                     ),
                     CallConfig(timeout=25, conference=False),
                 )
-                if not await self._playback_done(recipient, disconnected):
-                    return
-                await asyncio.sleep(0.35)
-                if disconnected.is_set():
-                    return
-                capture = self.inputs[recipient] = AudioInput()
-                await self._connected_stream(
-                    recipient, RecordStream(True, AudioParameters(SAMPLE_RATE, 1)), incoming=True
-                )
-                try:
-                    answer = await capture.finish(disconnected)
-                finally:
-                    self.inputs.pop(recipient, None)
-                    # Stop receiving before transcription or decision processing.
-                    with contextlib.suppress(Exception):
-                        await self._connected_stream(recipient, None, incoming=True)
-                if answer:
-                    feedback = await respond(answer)
-                    if feedback and not disconnected.is_set():
-                        self.playback[recipient].clear()
-                        await self._connected_stream(
-                            recipient,
-                            MediaStream(
-                                feedback,
-                                audio_flags=MediaStream.Flags.REQUIRED,
-                                video_flags=MediaStream.Flags.IGNORE,
-                            ),
+                for _ in range(20):
+                    if not await self._playback_done(recipient, disconnected):
+                        return
+                    await asyncio.sleep(0.35)
+                    if disconnected.is_set():
+                        return
+                    capture = self.inputs[recipient] = AudioInput()
+                    await self._connected_stream(
+                        recipient,
+                        RecordStream(True, AudioParameters(SAMPLE_RATE, 1)),
+                        incoming=True,
+                    )
+                    try:
+                        answer = await capture.finish(disconnected)
+                    finally:
+                        self.inputs.pop(recipient, None)
+                        with contextlib.suppress(Exception):
+                            await self._connected_stream(recipient, None, incoming=True)
+                    if not answer or disconnected.is_set():
+                        return
+                    # Hangups end the pending reply immediately; they are never consent.
+                    reply_task = asyncio.create_task(respond(answer))
+                    ended_task = asyncio.create_task(disconnected.wait())
+                    try:
+                        done, _ = await asyncio.wait(
+                            (reply_task, ended_task), return_when=asyncio.FIRST_COMPLETED
                         )
+                        if ended_task in done:
+                            return
+                        feedback = reply_task.result()
+                    finally:
+                        reply_task.cancel()
+                        ended_task.cancel()
+                        await asyncio.gather(reply_task, ended_task, return_exceptions=True)
+                    if not feedback or disconnected.is_set():
+                        return
+                    feedback, end = feedback if isinstance(feedback, tuple) else (feedback, True)
+                    self.playback[recipient].clear()
+                    await self._connected_stream(
+                        recipient,
+                        MediaStream(
+                            feedback,
+                            audio_flags=MediaStream.Flags.REQUIRED,
+                            video_flags=MediaStream.Flags.IGNORE,
+                        ),
+                    )
+                    if end:
                         await self._playback_done(recipient, disconnected)
+                        return
         finally:
             self.inputs.pop(recipient, None)
             self.playback.pop(recipient, None)

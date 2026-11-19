@@ -232,7 +232,8 @@ async def test_spoken_response_and_feedback_are_authenticated_ephemeral_and_dedu
     async def interact(recipient, path, respond):
         answered.append(recipient)
         caller.entered.set()
-        feedback = await respond(b"RIFF-test-response")
+        feedback, end = await respond(b"RIFF-test-response")
+        assert end is True
         assert feedback.read_bytes() == b"feedback-mp3"
         assert feedback.stat().st_mode & 0o777 == 0o600
 
@@ -332,3 +333,65 @@ async def test_interrupted_spoken_call_loses_audio_and_cannot_restart_the_dial(s
             )
             assert duplicate.json()["status"] == "uncertain"
             assert not restarted.state.caller.calls
+
+
+async def test_two_voice_turns_continue_one_call_and_reject_stale_feedback(settings, auth):
+    settings.two_way = True
+    caller = Caller()
+    ready = [asyncio.Event(), asyncio.Event()]
+
+    async def interact(recipient, path, respond):
+        for index in range(2):
+            ready[index].set()
+            feedback, end = await respond(b"RIFF-utterance-" + str(index + 1).encode())
+            assert feedback.read_bytes() == b"reply-" + str(index + 1).encode()
+            assert end == (index == 1)
+
+    caller.interact = interact
+    app = create_app(settings, caller=caller)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/v1/calls/conversation",
+                headers=auth,
+                params={**params(), "interactive": True, "dialogue_expires": time.time() + 300},
+                content=b"greeting",
+            )
+            assert response.status_code == 202
+            await ready[0].wait()
+            first = await client.get("/v1/calls/conversation/response", headers=auth)
+            assert first.headers["x-theos-voice-turn"] == "1"
+            await client.post(
+                "/v1/calls/conversation/finish",
+                headers=auth,
+                params={"turn": 1, "end": False},
+                content=b"reply-1",
+            )
+            await ready[1].wait()
+            second = await client.get("/v1/calls/conversation/response", headers=auth)
+            assert second.headers["x-theos-voice-turn"] == "2"
+            duplicate = await client.post(
+                "/v1/calls/conversation/finish",
+                headers=auth,
+                params={"turn": 1, "end": False},
+                content=b"reply-1",
+            )
+            assert duplicate.status_code == 200
+            assert not app.state.dialogue.feedback.done()
+            wrong = await client.post(
+                "/v1/calls/conversation/finish",
+                headers=auth,
+                params={"turn": 1, "end": False},
+                content=b"changed",
+            )
+            assert wrong.status_code == 409
+            await client.post(
+                "/v1/calls/conversation/finish",
+                headers=auth,
+                params={"turn": 2, "end": True},
+                content=b"reply-2",
+            )
+            await app.state.task
+            assert app.state.dialogue is None

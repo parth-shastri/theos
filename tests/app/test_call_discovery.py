@@ -176,6 +176,7 @@ def test_call_migration_preserves_existing_provider_attempts(settings):
     # Recreate the actual prior table, then upgrade an accepted call with private audio.
     db.execute("DROP TABLE phone_calls")
     db.execute("DROP TABLE call_connections")
+    db.execute("DROP TABLE call_utterances")
     previous = Path(__file__).parents[2] / "src/theos/storage/migrations/019_phone_calls.sql"
     db.connection.executescript(
         "CREATE TABLE phone_calls" + previous.read_text().split("CREATE TABLE phone_calls", 1)[1]

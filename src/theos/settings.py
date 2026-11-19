@@ -157,6 +157,7 @@ class TelegramCallsSettings(BaseModel):
     recipients: dict[str, int] = Field(default_factory=dict)
     daily_limit: int = Field(default=20, ge=1, le=1000)
     spoken_approvals: bool = False
+    two_way: bool = False
 
     @model_validator(mode="after")
     def check_gateway(self):

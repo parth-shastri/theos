@@ -72,7 +72,7 @@ uv run --no-sync theos-calling
 `GET /ready` reports startup readiness. The service refuses startup when the account is unauthorized or a recipient is unavailable.
 Startup never prompts for login. Keep the process running with the host's service manager after handset acceptance.
 The gateway rejects incoming calls. Normal calls play the supplied MP3 and end the call.
-Optional spoken approvals receive a bounded reply in memory. The gateway never opens the host's microphone or camera.
+Optional two-way calls receive bounded voice responses in memory. The gateway never opens the host's microphone or camera.
 
 ## Connect Theos
 
@@ -115,44 +115,56 @@ The app stores verified recipients and call preferences in migration 021.
 The gateway stores verified connections beside its existing call ledger and account session.
 Users can change each call preference or disconnect in Connections or `/calls`.
 Disconnection immediately blocks new and queued application calls. It also revokes the gateway connection.
-Written notifications remain available. Resolve approvals in the authenticated Theos application.
+Written notifications remain available. With two-way calling disabled, resolve approvals in the authenticated Theos application.
 
-## Spoken approvals: local implementation
+## Two-way calls: local implementation
 
-This work has not been deployed. Both spoken approval flags default to false.
-The application uses `AGENT_TELEGRAM_CALLS__SPOKEN_APPROVALS`. The gateway uses `AGENT_CALLING_SPOKEN_APPROVALS`.
+This work has not been deployed. Both two-way flags default to false.
+The application uses `AGENT_TELEGRAM_CALLS__TWO_WAY`. The gateway uses `AGENT_CALLING_TWO_WAY`.
+The earlier `SPOKEN_APPROVALS` flags remain aliases for this same conversation flow.
 The application also needs its existing transcription endpoint and credentials.
 Missing transcription configuration retains ordinary call alerts. No extra provider account is required.
 
-An eligible approval call reads the complete saved review in the app's voice.
-It then receives one short reply. Clear yes/approve and no/decline phrases decide only that approval.
-The complete prompt must fit 600 characters. Long, HTML, or opaque reviews stay in the existing application review flow.
-Silence or unclear speech leaves the approval pending. The call never treats an unrelated answer as approval.
+Reminder, approval, immediate, and test calls accept natural sentences and multiple replies on the same call.
+Theos uses its normal runtime and tools for ordinary voice requests. It removes `call_user` during an active call.
+When approval is pending, questions use the saved review. Other tasks and changed actions need that review resolved first.
+Eligible calls read the complete review in the app's voice before accepting an explicit approval or decline.
+The complete review prompt must fit 600 characters. Long, HTML, or opaque reviews retain the application review path.
+Questions, conditions, unclear speech, unrelated sentences, and silence do not decide an approval.
+A caller can say goodbye or end the call at any time. Ending the call leaves an undecided approval pending.
+An explicit decision can also request the call to end. Ending a call does not undo an already recorded decision.
 
-Incoming audio starts after the readback ends and a short guard interval passes.
-The gateway receives at most ten seconds of mono, 48 kHz, signed 16-bit PCM.
-It keeps the WAV response in memory for at most forty seconds while the application processes it.
-The application bounds transcription and validation to twenty-five seconds.
-The complete interactive call is bounded to 150 seconds and the original request expiry.
-Normal message calls retain their existing 90-second bound.
+Incoming audio starts after Theos finishes speaking and a short guard interval passes.
+The gateway receives up to thirty seconds of mono, 48 kHz, signed 16-bit PCM per response.
+One second of trailing silence ends an utterance. Thirty seconds without speech ends the call.
+Speech cut off at the response limit cannot authorize an action.
+The call accepts up to twenty responses and lasts at most five minutes, including dialing and playback.
+Approval calls also respect their original approval expiry. Each response can wait up to ninety seconds for application feedback.
+The application bounds response processing to eighty seconds. It never opens the host microphone or camera.
+This is turn-based audio. Interruption while Theos speaks is not implemented.
 
-The private HTTP contract adds `interactive=true` to the existing call request.
-Authenticated `GET /v1/calls/{id}/response` returns WAV audio, HTTP 204 while waiting, or HTTP 410 when unavailable.
-Authenticated `POST /v1/calls/{id}/finish` supplies MP3 acknowledgement audio for the same active call.
-The call ID and mode retain the existing durable deduplication contract.
-No callback URL or public incoming endpoint is required.
+The private HTTP contract adds `interactive=true` and `dialogue_expires` to the existing call request.
+Authenticated `GET /v1/calls/{id}/response` returns WAV audio with its `X-Theos-Voice-Turn` sequence number.
+It returns HTTP 204 while waiting or HTTP 410 when unavailable.
+Authenticated `GET /v1/calls/{id}/dialogue` reports the active sequence and whether it awaits feedback.
+Authenticated `POST /v1/calls/{id}/finish?turn=N&end=false` supplies MP3 feedback and continues the same call.
+The `end=true` option finishes after feedback. Authenticated `DELETE /v1/calls/{id}/dialogue` closes the call.
+Duplicate feedback for the same sequence is idempotent. Changed or stale feedback cannot answer a later response.
+The call ID and mode retain durable deduplication. No callback URL or public incoming endpoint is required.
 
-The application binds the reply to the saved owner, recipient, approval, tool call, arguments, preview, and expiry.
+The application binds each decision to the saved owner, recipient, approval, tool call, arguments, preview, and expiry.
 It re-reads the provider preview before applying a decision through the existing runtime approval path.
-Migration 022 stores only digests and outcome metadata. Raw responses and transcripts never enter the file catalog, R2, or model history.
+The intent model uses the whole current utterance. A partial positive quote cannot authorize an action.
+Migration 022 stores private transcripts, replies, response digests, and decision metadata.
+Ordinary voice requests also enter their existing conversation history. Raw response audio never enters the file catalog, R2, or model history.
 The recorded decision, voice outcome, and written notice commit together.
-Failed acknowledgements cannot erase a recorded decision or repeat an action.
-Interrupted listening and processing remain uncertain after restart. They are never replayed or redialed automatically.
+Failed feedback cannot erase a recorded decision or repeat an action.
+Interrupted conversations remain uncertain after restart. They are never replayed or redialed automatically.
 
 The pinned native binding changes streams only on the existing call.
-The high-level library recording helper can start playback when a call is missing, so later stream changes bypass that reconnect behavior.
+Later stream changes bypass the high-level library helper because it can reconnect a missing call.
 Keep the pinned adapter tests when updating PyTgCalls or NTgCalls.
-Live handset input, recognition of human speech, and acknowledgement playback remain open acceptance checks.
+Live handset input, human speech recognition, and consecutive feedback playback remain open acceptance checks.
 
 ## Delivery and recovery
 

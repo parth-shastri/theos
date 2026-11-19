@@ -108,13 +108,15 @@ def create_app(settings: Settings, *, caller=None):
                 async def respond(answer):
                     feedback = await dialogue.answer(answer)
                     if feedback:
+                        feedback, end = feedback
+                        feedback_path.unlink(missing_ok=True)
                         with feedback_path.open("xb") as output:
                             feedback_path.chmod(0o600)
                             output.write(feedback)
-                        return feedback_path
+                        return feedback_path, end
                     return None
 
-                async with asyncio.timeout(max(0.001, min(150, expires - time.time()))):
+                async with asyncio.timeout(max(0.001, min(300, dialogue.expires - time.time()))):
                     await app.state.caller.interact(recipient, path, respond)
             else:
                 await app.state.caller.play(recipient, path)
@@ -145,12 +147,19 @@ def create_app(settings: Settings, *, caller=None):
         recipient: Annotated[int, Query(gt=0)],
         expires: float,
         interactive: bool = False,
+        dialogue_expires: float | None = None,
     ):
-        if interactive and not settings.spoken_approvals:
-            raise HTTPException(409, "Spoken approval calls are not enabled.")
+        if interactive and not (settings.two_way or settings.spoken_approvals):
+            raise HTTPException(409, "Two-way calls are not enabled.")
         if recipient not in settings.recipients and not app.state.connections.permitted(recipient):
             raise HTTPException(403, "Call recipient is unavailable.")
         now = time.time()
+        if dialogue_expires is not None and (
+            not interactive
+            or not math.isfinite(dialogue_expires)
+            or not now < dialogue_expires <= now + 301
+        ):
+            raise HTTPException(400, "Use a dialogue expiry within five minutes.")
         if not math.isfinite(expires) or not now < expires <= now + 901:
             raise HTTPException(410, "The call request expired.")
         if request.headers.get("content-type", "").split(";", 1)[0] != "audio/mpeg":
@@ -188,7 +197,7 @@ def create_app(settings: Settings, *, caller=None):
         )
         dialogue = Dialogue(id, recipient) if interactive else None
         if dialogue:
-            dialogue.expires = expires
+            dialogue.expires = dialogue_expires or min(expires, time.time() + 300)
             app.state.dialogue = dialogue
         # A single worker claims the row before starting the external effect.
         app.state.task = asyncio.create_task(
@@ -202,17 +211,38 @@ def create_app(settings: Settings, *, caller=None):
             raise HTTPException(410, "The spoken response is unavailable.")
         return dialogue
 
+    @app.get("/v1/calls/{id}/dialogue", dependencies=[Depends(authenticate)])
+    async def dialogue_state(id: CallID):
+        dialogue = active_dialogue(id)
+        return {
+            "turn": dialogue.turn,
+            "waiting": dialogue.response is not None,
+            "expires": dialogue.expires,
+        }
+
+    @app.delete("/v1/calls/{id}/dialogue", dependencies=[Depends(authenticate)])
+    async def close_dialogue(id: CallID):
+        active_dialogue(id)
+        if app.state.task:
+            app.state.task.cancel()
+            await asyncio.gather(app.state.task, return_exceptions=True)
+        return {"status": "closed"}
+
     @app.get("/v1/calls/{id}/response", dependencies=[Depends(authenticate)])
     async def response(id: CallID):
         dialogue = active_dialogue(id)
         if dialogue.response is None:
             return Response(status_code=204, headers={"Cache-Control": "no-store"})
         return Response(
-            dialogue.response, media_type="audio/wav", headers={"Cache-Control": "no-store"}
+            dialogue.response,
+            media_type="audio/wav",
+            headers={"Cache-Control": "no-store", "X-Theos-Voice-Turn": str(dialogue.turn)},
         )
 
     @app.post("/v1/calls/{id}/finish", dependencies=[Depends(authenticate)])
-    async def finish(id: CallID, request: Request):
+    async def finish(
+        id: CallID, request: Request, turn: Annotated[int, Query(ge=1, le=20)] = 1, end: bool = True
+    ):
         dialogue = active_dialogue(id)
         if request.headers.get("content-type", "").split(";", 1)[0] != "audio/mpeg":
             raise HTTPException(415, "Send MP3 audio.")
@@ -223,7 +253,7 @@ def create_app(settings: Settings, *, caller=None):
             audio.extend(chunk)
         if not audio:
             raise HTTPException(400, "Send nonempty MP3 audio.")
-        dialogue.finish(bytes(audio))
+        dialogue.finish(bytes(audio), turn, end)
         return {"status": "accepted"}
 
     @app.get("/v1/calls/{id}", dependencies=[Depends(authenticate)])

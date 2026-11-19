@@ -98,7 +98,9 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `voice/` | Transcription and Kokoro clients with audio tools |
 | `phone_calls.py` | Environment-gated call tools, queued Telegram or Twilio calls, and temporary audio |
 | `call_connections.py` | Per-owner Telegram recipient verification, setup test calls, and call preferences |
-| `spoken_approvals.py` | Bounded spoken reviews, ephemeral transcription, exact approval binding, and decision acknowledgements |
+| `call_conversations.py` | Freeform call turns, ephemeral audio, ordinary runtime requests, and sequenced feedback |
+| `call_intent.py` | Tool-free natural intent classification and whole-utterance decision validation |
+| `spoken_approvals.py` | Complete bounded spoken reviews and exact approval binding |
 | `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `github/` | Official MCP configuration, reviewed read tools, signed event queue, per-owner subscriptions, and literal notifications |

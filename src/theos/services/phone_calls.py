@@ -39,7 +39,7 @@ class PhoneCalls:
         self.voice = voice
         self.next_cleanup = 0
         self.connections = CallConnections(self)
-        self.spoken = None
+        self.conversations = None
 
     def recipient(self, owner, channel, *, testing=False, purpose=None):
         if not self.available or channel not in {"browser", "telegram-private"}:
@@ -168,8 +168,8 @@ class PhoneCalls:
         )["count"]
         if count >= self.config.daily_limit:
             return self._finish(id, "rate_limited")
-        if job["kind"] == "approval" and self.spoken and await self.spoken.dispatch(job, recipient):
-            return
+        if self.conversations and self.conversations.available:
+            return await self.conversations.dispatch(job, recipient, text)
         try:
             async with asyncio.timeout(35):
                 audio = await self.voice.synthesize(
@@ -221,7 +221,7 @@ class PhoneCalls:
             return self._finish(id, "uncertain")
         return self._finish(id, "accepted", sid)
 
-    async def _telegram(self, job, recipient, audio, *, interactive=False):
+    async def _telegram(self, job, recipient, audio, *, interactive=False, dialogue_expires=None):
         claimed = self.db.execute(
             "UPDATE phone_calls SET status='sending',attempted=? WHERE id=? AND status='pending'",
             (time.time(), job["id"]),
@@ -235,6 +235,7 @@ class PhoneCalls:
                     "recipient": recipient,
                     "expires": job["expires"],
                     **({"interactive": "true"} if interactive else {}),
+                    **({"dialogue_expires": dialogue_expires} if dialogue_expires else {}),
                 },
                 content=audio,
                 headers={

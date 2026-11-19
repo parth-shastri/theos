@@ -323,28 +323,36 @@ Source: [call delivery](../src/theos/services/phone_calls.py), [calling gateway]
 [Telegram calls](https://core.telegram.org/api/calls), [PyTgCalls](https://github.com/pytgcalls/pytgcalls),
 and [Twilio call API](https://www.twilio.com/docs/voice/api/call-resource).
 
-### Spoken approval calls
+### Freeform two-way calls
 
-The local spoken approval implementation is disabled by default and has not been deployed.
-Set `AGENT_TELEGRAM_CALLS__SPOKEN_APPROVALS` in the application and `AGENT_CALLING_SPOKEN_APPROVALS` in the native gateway for a future activation.
+The local two-way implementation is disabled by default and has not been deployed.
+The application flag is `AGENT_TELEGRAM_CALLS__TWO_WAY`. The native gateway flag is `AGENT_CALLING_TWO_WAY`.
+The earlier `SPOKEN_APPROVALS` flags enable the same loop for compatibility.
 The existing transcription endpoint must also be configured. No new tool or provider credential is required.
-Reminder and immediate message calls retain their existing playback behavior.
 
-Eligible approval calls read the full review in the app's voice, then accept one short spoken yes or no.
-The complete prompt must fit 600 characters. Long, HTML, or opaque reviews retain the existing application review path.
-The response is bounded to ten seconds of mono, 48 kHz, signed 16-bit PCM and stays in memory.
-The gateway exposes it only to the authenticated application. The application uses its existing transcription client without saving a catalog file.
-An exact phrase parser accepts clear decisions. It does not ask a model to infer consent.
+All call kinds accept freeform voice, follow-up questions, and multiple replies on the existing Telegram call.
+The configured model routes natural intent through OpenAI Responses. It has no tools during intent classification.
+Ordinary requests use the normal Theos runtime and tools, with `call_user` removed to prevent nested calls.
+Pending approval questions use only the saved review. Other tasks and changes wait until that request is resolved.
+An explicit decision requires the complete spoken review and a verbatim whole-utterance authorization quote.
+The review prompt must fit 600 characters. Long, HTML, or opaque reviews retain the application review path.
+Silence, questions, conditions, unrelated words, and ending the call leave the approval pending.
 
-Migration 022 saves the review digest, verified recipient, response digest, decision status, and decision time.
-The application rechecks ownership, access, preferences, provider preview, saved action fields, and expiry before resuming the existing tool call.
+The call lasts up to five minutes and twenty responses. Each utterance lasts up to thirty seconds.
+Thirty seconds without speech ends the call. Capture starts after playback and stops before transcription.
+Incoming mono, 48 kHz, signed 16-bit PCM stays in memory and reaches only the authenticated application.
+Raw response audio never enters the file catalog, R2, or model history.
+Migration 022 stores private utterance transcripts, replies, digests, intent, and exact approval bindings.
+Normal voice requests also enter the existing conversation history.
+
+The application rechecks ownership, access, recipient, provider preview, saved action fields, and expiry before resuming the existing tool call.
 The decision, voice outcome, and written notice commit together. Existing execution-time approval checks still apply.
-Silence and unclear replies leave the approval pending. Changed or expired actions cannot use the spoken grant.
-Feedback plays on the existing call. A missing call cannot reconnect to deliver feedback.
+Changed or expired actions cannot use the spoken grant. Duplicate responses never repeat an action.
+Feedback continues the existing call or ends it when requested. A missing call cannot reconnect for feedback.
 Interrupted processing remains uncertain and is never replayed automatically.
 
-Source: [spoken approval service](../src/theos/services/spoken_approvals.py), [incoming audio](../calling/src/theos_calling/audio_input.py),
-and the pinned [PyTgCalls recording implementation](https://github.com/pytgcalls/pytgcalls/blob/master/pytgcalls/methods/stream/record.py).
+Source: [call conversations](../src/theos/services/call_conversations.py), [intent classification](../src/theos/services/call_intent.py),
+[approval binding](../src/theos/services/spoken_approvals.py), and [incoming audio](../calling/src/theos_calling/audio_input.py).
 
 ## Meals
 

@@ -1,22 +1,30 @@
 # Feature and acceptance checklist
 
-## Spoken approval calls, local work, 2026-11-19
+## Freeform two-way calls, local work, 2026-11-19
 
-This branch adds optional two-way Telegram approval calls. It has not been deployed or enabled on installed services.
-The app and native gateway flags default to false. The existing transcription service handles ephemeral response audio.
-Eligible calls read the complete bounded review, receive a short reply, and apply clear yes/no decisions through the existing runtime checks.
-Long, HTML, or opaque reviews keep the application review path. Silence and unclear replies leave approvals pending.
+This branch adds optional conversations to all Telegram call kinds. It has not been deployed or enabled on installed services.
+The application and native gateway flags default to false. The existing transcription service handles ephemeral response audio.
+Natural sentences route through a tool-free intent model. Ordinary requests then use the normal Theos runtime and tools.
+Pending approval questions use the saved review. Explicit decisions require a complete spoken review and the unchanged action binding.
+Long, HTML, or opaque reviews retain the application review path. Silence, conditions, questions, and unrelated replies leave approvals pending.
+Ending the call does not decline an undecided approval. An explicit decision can also request the call to end.
+The call accepts twenty responses within five minutes. Utterances and idle listening each have thirty-second bounds.
+Audio is turn-based. Interruption during Theos playback remains unsupported.
+
 Changes to the owner, recipient, access, action fields, remote preview, or expiry prevent a spoken grant.
-Migration 022 stores digests and outcome metadata. The decision and written notice commit together.
-Lost acknowledgement delivery preserves the decision. Restart recovery never replays an interrupted spoken response.
+Migration 022 stores private transcripts, replies, digests, and decision metadata. Raw response audio remains ephemeral.
+The decision and written notice commit together. Lost feedback preserves the decision, and restart recovery never replays an interrupted response.
 
-The full application suite passed 1,308 tests with three credential-dependent checks excluded.
-The focused calling suite passed 72 checks. The gateway passed 37 isolated checks and the local native decoder check.
-Checks cover clear and contradictory replies, stale reviews, access changes, expiry, quota enforcement, and response cleanup.
-The native adapter checks verify capture after playback, no capture after hangup, and feedback without a second dial.
-Gateway HTTP checks cover authentication, call isolation, mode binding, deduplication, and in-memory response loss after restart.
+The full Python suite passed 1,305 tests with three credential-dependent checks excluded.
+The focused calling suite passed 69 checks. The native gateway passed 42 checks, including the local decoder integration.
+Twelve synthetic utterances passed intent checks against the configured default model without Telegram access or tool execution.
+Checks cover natural approval and decline, contradictory and conditional speech, follow-up questions, unrelated requests, and ending the call.
+They also cover stale reviews, revoked access, changed recipients, expiry, quota enforcement, lost feedback, and restart uncertainty.
+Native checks verify consecutive responses, capture after playback, cancellation after hangup, rejection of truncated speech, and feedback without another dial.
+Gateway HTTP checks cover authentication, call isolation, sequence binding, deduplication, and in-memory response loss after restart.
+Project lint, formatting, and whitespace checks passed. No new CI job or system dependency installation was added.
 No live call, installed gateway restart, private environment update, merge, tag, or deployment was performed.
-Live handset microphone capture, human speech recognition, and acknowledgement playback remain open acceptance checks.
+Live handset microphone capture, human speech recognition, and consecutive feedback playback remain open acceptance checks.
 
 ## R2 file contents and local spool, 2026-11-19
 
