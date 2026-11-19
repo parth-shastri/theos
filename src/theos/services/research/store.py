@@ -4,7 +4,8 @@ import json
 import time
 from uuid import uuid4
 
-from harness import AssistantMessage, message_to_dict
+from harness import AssistantMessage
+from theos.storage.messages import serialize_message
 
 
 class Research:
@@ -83,7 +84,7 @@ class Research:
 
     def checkpoint(self, owner, session, run_id, history, memory, *, save_session=False):
         self.get(owner, session, run_id)
-        saved = json.dumps([message_to_dict(m) for m in history], ensure_ascii=False)
+        saved = json.dumps([serialize_message(m) for m in history], ensure_ascii=False)
         summary = json.dumps(memory.to_dict(), ensure_ascii=False)
         now = time.time()
         with self.db.transaction():

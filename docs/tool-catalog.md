@@ -285,9 +285,43 @@ Source: [service tools](../src/theos/services/reminders/tools.py).
 
 | Callable | Action |
 | --- | --- |
-| `schedule_reminder` | Schedule a reminder. Recurrence is a five-field cron expression in your timezone. |
+| `schedule_reminder` | Schedule a reminder. Recurrence uses five-field cron in your timezone. Opted-in users can request phone delivery. |
 | `list_reminders` | List your pending reminders and their delivery status. |
 | `cancel_reminder` | Cancel one of your reminders. |
+
+### Immediate calls
+
+`call_user(message)` queues a call to the current owner's configured recipient and plays up to 360 characters.
+Only complete, enabled calling configuration and a verified, activated private account expose this tool.
+Users connect their Telegram account and confirm a test call during optional onboarding.
+The operator's existing explicit recipient mappings remain supported.
+No caller number, recipient ID, or service credential appears in the tool input.
+Without calling configuration, reminder discovery offers only message delivery.
+Missing calling values leave ordinary tools available. Invalid provided values remain configuration errors.
+The worker rechecks access, preserves a written notification, and never redials uncertain attempts.
+
+### Direct phone calls
+
+HTTPX sends bounded MP3 audio to the separate private Telegram calling gateway.
+The gateway uses Telethon 1.46.0, PyTgCalls 3.0.1, NTgCalls 3.0.7, and host FFmpeg.
+A dedicated regular Telegram account starts private calls. The existing bot continues message delivery.
+The gateway retains the private account session and call IDs outside the assistant container.
+It rejects incoming calls and sends no microphone, camera, or recording stream.
+
+SQLite migrations 019 and 020 save one call attempt with its source reminder or approval and selected provider.
+Migration 021 saves each owner's verified recipient, test call, and reminder and approval choices.
+The scheduler rechecks the owner and source before dialing. Approval calls wait two minutes and use a generic alert.
+Only activated private accounts can request call delivery. Users who enable reminder calls receive phone delivery by default.
+All other reminders retain message delivery. Disconnection and preference changes stop queued calls before dialing.
+The immediate call tool and due reminders use the same worker. Read the [Telegram setup guide](../calling/README.md).
+
+The optional Twilio adapter calls Programmable Voice and serves expiring media through the existing frontend.
+Enable only one provider. Provider changes do not redirect already queued calls.
+Read the [carrier setup guide](files-and-voice.md#direct-phone-calls).
+
+Source: [call delivery](../src/theos/services/phone_calls.py), [calling gateway](../calling/src/theos_calling/server.py),
+[Telegram calls](https://core.telegram.org/api/calls), [PyTgCalls](https://github.com/pytgcalls/pytgcalls),
+and [Twilio call API](https://www.twilio.com/docs/voice/api/call-resource).
 
 ## Meals
 
@@ -428,6 +462,10 @@ The runtime owns the private catalog, input transfers, workspace checkpoints, an
 The model uses ordinary paths under `/workspace`. Shell commands list, read, write, and delete task files.
 Selected uploads and Gmail attachments enter the conversation workspace automatically.
 Changed files receive immutable checkpoint versions. Replication runs in the background and retries without repeating commands.
+The same worker uploads catalog files and verifies remote checksums before removing local file contents.
+Completed file reads use R2 without a persistent disk cache. Pending transfers remain local.
+New image history stores catalog references. Model and browser reads resolve the images in memory.
+The collector uses a small local checkpoint reference index after snapshot contents leave the host.
 Deleting a workspace file removes it from the current manifest. Retained checkpoints and response attachments preserve their recorded versions.
 The runtime keeps three recent recovery checkpoints per session by default. It also protects the current workspace, both recovery pointers, and uncertain remote publications.
 A periodic collector retires unreferenced workspace versions, orphaned attachment snapshots, and superseded checkpoints after a one-hour grace period.
@@ -443,6 +481,10 @@ Image inspection through `run_command.inspect_images` supplies model image input
 The internal catalog retains owner checks. The model has no archive, restore, transfer, or catalog-management tools.
 
 Source: [workspace hooks](../src/theos/services/sandbox/workspace.py), [file catalog](../src/theos/services/files/catalog.py), [checkpoints](../src/theos/services/files/checkpoints.py), and [retention](../src/theos/services/files/retention.py).
+
+Full backups use the existing Boto3 dependency to include indexed remote objects through temporary staging.
+Pi deployment uploads completed archives to R2 and verifies their contents before removing local archives.
+No new dependency or private configuration value is required.
 
 ## Voice
 

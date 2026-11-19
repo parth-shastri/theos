@@ -34,6 +34,76 @@ class Deployer:
         self.current_path = self.directory / "current.json"
         self.pending_path = self.directory / "pending.json"
         self.result_path = self.directory / "deployment-result.json"
+        self.history_path = self.directory / "release-history.json"
+
+    def retain_releases(self, candidate, previous, prior_result):
+        """Keep three verified successful releases; leave untracked data alone."""
+
+        def valid(release):
+            if not isinstance(release, dict):
+                return False
+            revision = release.get("revision", "")
+            volume = release.get("volume", "")
+            return (
+                isinstance(revision, str)
+                and re.fullmatch(r"[a-f0-9]{40}", revision) is not None
+                and isinstance(volume, str)
+                and re.fullmatch(
+                    re.escape(self.project_name) + r"-rpi-" + revision[:12] + r"-[a-f0-9]{8}",
+                    volume,
+                )
+                is not None
+                and isinstance(release.get("tag"), str)
+                and re.fullmatch(r"rpi-v\d+\.\d+\.\d+", release["tag"]) is not None
+            )
+
+        if not valid(candidate) or (previous and not valid(previous)):
+            raise DeploymentError("Release retention skipped: invalid release metadata.")
+        if self.history_path.exists():
+            history = json.loads(self.history_path.read_text())
+            if (
+                not isinstance(history, list)
+                or not all(valid(item) for item in history)
+                or len({item["volume"] for item in history}) != len(history)
+                or (previous and (not history or history[-1]["volume"] != previous["volume"]))
+                or (not previous and history)
+                or any(item["volume"] == candidate["volume"] for item in history)
+            ):
+                raise DeploymentError("Release retention skipped: inconsistent release history.")
+        else:
+            history = []
+            if (
+                previous
+                and isinstance(prior_result, dict)
+                and prior_result.get("status") == "deployed"
+                and prior_result.get("current") == previous
+                and valid(prior_result.get("previous"))
+                and prior_result["previous"]["volume"] != previous["volume"]
+            ):
+                history.append(prior_result["previous"])
+            if previous:
+                history.append(previous)
+        if previous and candidate["volume"] == previous["volume"]:
+            raise DeploymentError("Release retention skipped: duplicate release volume.")
+        history.append(candidate)
+        # Persist before removing anything, so a crash never loses the protected set.
+        write_json(self.history_path, history)
+        protected = {item["volume"] for item in history[-3:]}
+        remaining = []
+        existing = set(self.docker("volume", "ls", "-q").splitlines())
+        for release in history[:-3]:
+            volume = release["volume"]
+            if volume in protected:
+                remaining.append(release)
+                continue
+            if volume in existing:
+                # Do not remove a volume used by any container, even a stopped one.
+                if self.docker("ps", "-aq", "--filter", f"volume={volume}"):
+                    remaining.append(release)
+                    continue
+                self.docker("volume", "rm", volume)
+        write_json(self.history_path, remaining + history[-3:])
+        return remaining
 
     def docker(self, *args, timeout=300):
         try:
@@ -132,7 +202,7 @@ class Deployer:
 
     def restore_previous(self, candidate, previous):
         self.compose(candidate, "stop", *self.services(candidate))
-        for kind in ("backup", "restore"):
+        for kind in ("backup", "restore", "archive"):
             self.remove_helper(f"theos-{kind}-{candidate['revision'][:12]}")
         if previous:
             self.compose(
@@ -183,8 +253,8 @@ class Deployer:
         archive = f"/data/backups/{candidate['tag']}-{candidate['revision'][:12]}.tar.gz"
         self.run_helper(
             f"theos-backup-{candidate['revision'][:12]}",
-            "--network",
-            "none",
+            "--env-file",
+            str(self.directory / ".env"),
             "--read-only",
             "--tmpfs",
             "/tmp",
@@ -225,7 +295,31 @@ class Deployer:
             restore_code,
             timeout=900,
         )
-        return f"{previous['volume']}:{archive}"
+        # The candidate understands remote archives. Older release images still create
+        # and restore their original archive format before this optional transfer.
+        stored = self.run_helper(
+            f"theos-archive-{candidate['revision'][:12]}",
+            "--env-file",
+            str(self.directory / ".env"),
+            "--read-only",
+            "--tmpfs",
+            "/tmp",
+            "-v",
+            f"{previous['volume']}:/data",
+            candidate["image"],
+            "python",
+            "-m",
+            "theos.backup",
+            "archive",
+            "/data",
+            archive,
+            timeout=1800,
+        )
+        return (
+            stored.strip()
+            if stored.strip().startswith("r2:")
+            else f"{previous['volume']}:{archive}"
+        )
 
     def deploy(self, image, tag, revision, web_image=None):
         if not re.fullmatch(r"ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[a-f0-9]{64}", image):
@@ -250,6 +344,12 @@ class Deployer:
     def deploy_locked(self, image, tag, revision, web_image=None):
         self.recover_interrupted()
         previous = json.loads(self.current_path.read_text()) if self.current_path.exists() else None
+        try:
+            prior_result = (
+                json.loads(self.result_path.read_text()) if self.result_path.exists() else None
+            )
+        except (OSError, ValueError):
+            prior_result = None
         existing = self.docker(
             "ps",
             "-aq",
@@ -328,7 +428,6 @@ class Deployer:
             self.pending_path.unlink()
             result.update(status="deployed", current=candidate)
             write_json(self.result_path, result)
-            return result
         except BaseException as error:
             result["error"] = str(error)
             if changing:
@@ -341,6 +440,16 @@ class Deployer:
             raise DeploymentError(
                 f"Release failed; status={result['status']}. See {self.result_path}."
             ) from error
+        try:
+            remaining = self.retain_releases(candidate, previous, prior_result)
+            if remaining:
+                result["retention_warning"] = "Older release volumes are still in use."
+                write_json(self.result_path, result)
+        except (DeploymentError, OSError, ValueError, TypeError) as error:
+            # The new release is already active. Never roll it back for cleanup.
+            result["retention_warning"] = str(error)
+            write_json(self.result_path, result)
+        return result
 
 
 def main():

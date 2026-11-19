@@ -3,9 +3,10 @@
 from typing import Annotated
 
 from fastapi import Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from theos.services.account_setup import ACCOUNT_LABELS, complete_setup, setup_status
+from theos.services.errors import ServiceError
 from theos.storage.account_access import browser_account_access
 
 
@@ -18,6 +19,12 @@ class ReturnURL(BaseModel):
 class CompleteSetup(BaseModel):
     display_name: str | None = Field(default=None, max_length=200)
     timezone: str | None = Field(default=None, max_length=100)
+
+
+class CallPreferences(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reminders: bool = True
+    approvals: bool = True
 
 
 def connection_status(runtime, owner):
@@ -73,6 +80,7 @@ def connection_status(runtime, owner):
             {"id": service, "name": name, "configured": bool(enabled)}
             for service, name, enabled in services
         ],
+        "calling": runtime.phone_calls.connections.status(owner),
     }
 
 
@@ -89,7 +97,52 @@ def register_connections(app, settings, current, identity):
     async def connections(request: Request, owner: Annotated[str, Depends(identity)]):
         if not browser_account_access(settings, owner, current(request).db):
             raise PermissionError("Browser account access is required.")
-        return connection_status(current(request), owner)
+        runtime = current(request)
+        result = connection_status(runtime, owner)
+        if result["calling"]["configured"]:
+            try:
+                result["calling"] = await runtime.phone_calls.connections.refresh(owner)
+            except ServiceError as error:
+                result["calling"]["error"] = str(error)
+        return result
+
+    def calls(request, owner):
+        runtime = current(request)
+        if not browser_account_access(settings, owner, runtime.db):
+            raise PermissionError("Browser account access is required.")
+        return runtime.phone_calls.connections
+
+    @app.post("/api/calling/connect")
+    async def connect_calls(request: Request, owner: Annotated[str, Depends(identity)]):
+        return await calls(request, owner).start(owner)
+
+    @app.post("/api/calling/test")
+    async def test_calls(request: Request, owner: Annotated[str, Depends(identity)]):
+        return calls(request, owner).test(owner, "browser")
+
+    @app.post("/api/calling/retry")
+    async def retry_calls(request: Request, owner: Annotated[str, Depends(identity)]):
+        service = calls(request, owner)
+        status = await service.refresh(owner)
+        if status.get("test_status") == "accepted":
+            raise ValueError("End the current Telegram call before another test.")
+        return service.retry_test(owner)
+
+    @app.post("/api/calling/confirm")
+    async def confirm_calls(
+        body: CallPreferences, request: Request, owner: Annotated[str, Depends(identity)]
+    ):
+        return calls(request, owner).confirm(owner, body.reminders, body.approvals)
+
+    @app.post("/api/calling/preferences")
+    async def call_preferences(
+        body: CallPreferences, request: Request, owner: Annotated[str, Depends(identity)]
+    ):
+        return calls(request, owner).preferences(owner, body.reminders, body.approvals)
+
+    @app.post("/api/calling/disconnect")
+    async def disconnect_calls(request: Request, owner: Annotated[str, Depends(identity)]):
+        return await calls(request, owner).disconnect(owner)
 
     @app.post("/api/connections/{service}/connect")
     async def connect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):

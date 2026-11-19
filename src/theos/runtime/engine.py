@@ -7,6 +7,7 @@ import time
 from contextlib import AsyncExitStack, aclosing, asynccontextmanager
 from datetime import UTC, datetime
 from functools import partial
+from pathlib import Path
 
 import httpx
 
@@ -122,8 +123,10 @@ class Runtime:
         self.memory_automation = MemoryAutomation(self)
         self.files = Files(settings, db, self.http, speech_renderer=partial(speech.prepare, self))
         from theos.services.files.checkpoints import Checkpoints
+        from theos.services.phone_calls import PhoneCalls
         from theos.services.sandbox.workspace import Workspaces
 
+        self.phone_calls = PhoneCalls(settings, db, self.http, self.files.voice)
         self.checkpoints = Checkpoints(self.files, self.tracing)
         self.checkpoints.start()
         self.workspaces = Workspaces(self)
@@ -281,17 +284,21 @@ class Runtime:
         """Build a message after checking each attachment's owner."""
         # Check ownership before supplying image pixels or automatic workspace paths.
         # Input metadata lets the pre-model hook stage each selected file once.
-        images = []
+        images, image_files = [], []
         text = text or ""
         for file_id in file_ids:
             row = self.files.get(owner, file_id)
             if row["media_type"].startswith("image/"):
-                images.append(self.files.image(owner, file_id))
+                image_files.append(file_id)
+                if Path(row["path"]).exists() or not self.settings.storage.endpoint:
+                    images.append(self.files.image(owner, file_id))
             if self.settings.sandbox.enabled:
                 text += f"\nAttached file: {row['name']} at {self.workspaces.input_path(row)}"
             else:
                 text += f"\nAttached file: {row['name']} (file ID {file_id})"
         message = stamp_message(UserMessage(text, images))
+        if image_files and self.settings.storage.endpoint:
+            update_display_metadata(message, {"image_files": image_files})
         if file_ids and self.settings.sandbox.enabled:
             update_display_metadata(message, {"workspace_files": list(file_ids)})
         return message

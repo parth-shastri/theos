@@ -6,7 +6,6 @@ import hashlib
 import json
 import threading
 import time
-from pathlib import Path
 
 import pytest
 from pydantic import SecretStr
@@ -130,7 +129,7 @@ async def test_retention_keeps_current_versions_retained_checkpoints_and_attachm
     assert not exists(runtime, checkpoints[0])
     assert exists(runtime, checkpoints[-1])
     assert storage.objects["unrelated/object"] == b"leave alone"
-    assert Path(runtime.files.get("alice", file["id"])["path"]).read_bytes() == b"attached version"
+    assert await runtime.files.read("alice", file["id"]) == b"attached version"
     assert key(runtime, sid, sources[0]) not in storage.objects
     assert not (runtime.checkpoints.directory / sources[0]).exists()
 
@@ -230,7 +229,7 @@ async def test_recreated_content_survives_a_delete_in_flight_without_blocking_lo
     await collection
     storage.block_delete = None
     assert await runtime.checkpoints.drain()
-    assert (runtime.checkpoints.directory / old).exists()
+    assert not (runtime.checkpoints.directory / old).exists()
     assert (await runtime.checkpoints.get("alice", sid, old))["data"] == value["data"]
     events = [event for event in storage.events if event[1] == key(runtime, sid, old)]
     assert events[-2:] == [("delete", key(runtime, sid, old)), ("upload", key(runtime, sid, old))]

@@ -5,6 +5,7 @@ import time
 from uuid import uuid4
 
 from harness import ALLOW, ASK, DENY, unanswered_calls
+from theos.services.phone_calls import APPROVAL_DELAY
 
 
 def requires_approval(name):
@@ -98,18 +99,33 @@ async def check_approval(runtime, session, tool, args, ctx):
         return ASK
     # 3. Save the review contents before asking the transport to show approval controls.
     preview = await runtime.approval_preview(session, tool.name, arguments)
-    runtime.db.save_history(owner, session_id, ctx.history, ctx.memory.to_dict())
-    runtime.db.execute(
-        "INSERT INTO approvals(id,session,call_id,tool,arguments,preview,created,expires) VALUES (?,?,?,?,?,?,?,?)",
-        (
-            uuid4().hex,
-            session_id,
-            call.id,
-            tool.name,
-            json.dumps(arguments, sort_keys=True),
-            json.dumps(preview),
-            time.time(),
-            time.time() + 900,
-        ),
-    )
+    approval_id = uuid4().hex
+    now = time.time()
+    expires = now + 900
+    with runtime.db.transaction():
+        runtime.db.save_history(owner, session_id, ctx.history, ctx.memory.to_dict())
+        runtime.db.execute(
+            "INSERT INTO approvals(id,session,call_id,tool,arguments,preview,created,expires) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (
+                approval_id,
+                session_id,
+                call.id,
+                tool.name,
+                json.dumps(arguments, sort_keys=True),
+                json.dumps(preview),
+                now,
+                expires,
+            ),
+        )
+        if runtime.phone_calls.recipient(owner, session["channel"], purpose="approvals"):
+            runtime.phone_calls.enqueue(
+                approval_id,
+                owner,
+                session_id,
+                "approval",
+                approval_id,
+                now + APPROVAL_DELAY,
+                expires,
+            )
     return ASK

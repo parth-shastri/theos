@@ -99,14 +99,31 @@ Copying only a live `.sqlite3` file can omit recent writes.
 5. Store the archive in private backup storage.
 6. Store `.env` and the matching token encryption key in private backup storage.
 
-The archive contains databases, personal records, and local files.
+The archive contains databases, personal records, and indexed local or R2 file contents.
+The backup command reads remote-only files with the configured R2 credentials and verifies their checksums.
+An unavailable or corrupt indexed object fails the backup instead of silently omitting its contents.
 It excludes logs, previous backups, and the process lock.
 The backup rejects symbolic links in the included data.
 The staging copy needs free space in the data volume.
 
-Remote memory, R2 objects, and remote sandboxes require separate backup policies.
+Remote memory, unindexed R2 objects, and remote sandboxes require separate backup policies.
 The archive does not contain those external stores.
 A restored OAuth token needs the original `AGENT_TOKEN_ENCRYPTION_KEY`.
+
+Pi deployment uploads each completed archive to `theos/backups/` in R2.
+It verifies the uploaded archive before removing the local archive.
+The deployment result records its `r2:` reference. A failed transfer retains the local archive.
+Without R2, deployment retains the local archive.
+Existing local backup archives require separate review. This change does not remove them.
+R2 archive retention remains an operator policy, separate from checkpoint and release-volume retention.
+
+Restore a remote archive with the matching image and private R2 configuration:
+
+```sh
+python -m theos.backup restore /data/new-volume r2:theos/backups/ARCHIVE_ID.tar.gz
+```
+
+The destination must be empty. Temporary staging needs space for the archive and restored files.
 
 ## Restore
 

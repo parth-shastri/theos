@@ -1,5 +1,109 @@
 # Theos project memory
 
+Updated: 2026-11-19.
+
+## R2 storage patch release preparation, 2026-11-19
+
+The operator requested a storage PR, merge into `dev`, and separate promotions to `main` and `rpi`.
+Prepare version 1.6.2 after the independent 1.6.1 release finishes.
+Publish `rpi-v1.6.2` from the promoted `rpi` tip after CI passes.
+Preserve the private R2 settings and all pending local transfers.
+Verify remote checksums, local spool removal, file downloads, both service health checks, and the active Pi manifest.
+Do not remove unindexed files or historical backup archives through this release.
+
+## R2 file contents and local spool, 2026-11-19
+
+The operator selected R2 for uploaded files, generated attachments, workspace versions, and recovery checkpoints.
+Keep SQLite, file metadata, and pending transfers on the application host.
+Remove local file contents only after a remote read verifies their checksum.
+Read completed files from R2 into memory without a persistent download cache.
+Keep a small checkpoint reference index so collection does not require local snapshot bodies.
+Store new R2-backed image messages as catalog references instead of embedded image bytes.
+Keep older inline image history readable. This change does not rewrite historical database rows.
+Full backups include remote-only indexed file contents through temporary staging.
+Pi deployment transfers completed backup archives to R2 and verifies them before removing local archives.
+Keep failed uploads locally for retry. Local-only installations retain their existing behavior.
+R2 backup archive retention remains separate from checkpoint and Pi release retention.
+These changes require a later reviewed release before they affect the Pi.
+
+## Per-user calling onboarding, 2026-11-19
+
+Offer optional Telegram calls in browser and private Telegram onboarding when the global calling environment is configured.
+Use one regular calling account for all users. Do not request provider credentials from each user.
+Bind recipients through a ten-minute challenge sent directly from the receiving account to the calling account.
+For Telegram owners, require the existing authenticated sender ID. Browser owners verify the account that sends their private challenge.
+Keep verification messages outside model history. Reject forwarded, bot, group, expired, and reused proofs.
+Require a test call and the user's audio confirmation before exposing calling tools.
+Save separate reminder and approval choices per owner in migration 021.
+Opted-in reminders default to phone delivery. Keep written notifications and authenticated approval decisions.
+Recheck preferences and access before dialing. Disconnect locally before remote cleanup so failures cannot restore access.
+Retain existing operator recipient mappings as verified fallbacks. A saved disconnect overrides them.
+Keep routine CI free of system package downloads and live Telegram calls.
+
+## Environment-gated calling tools, 2026-11-19
+
+The operator requires calling to be absent from discovery when its environment is incomplete.
+Register `call_user(message)` only for an enabled, completely configured provider and a mapped private account.
+Hide the reminder tool's phone delivery parameter for all other accounts and channels.
+Keep ordinary message reminders available when calling fields are unset or incomplete.
+Reject malformed provided values and conflicting provider selections.
+Recheck current access when an already-discovered call tool executes.
+Queue immediate requests through the existing durable call worker with written notification fallback.
+Migration 020 preserves existing call rows while adding the request kind.
+
+The operator rejected slow, unreliable extra CI gates.
+Remove system FFmpeg installation from routine calling CI. Run its isolated unit and HTTP contract checks there.
+Keep the native audio decoding check explicitly marked for local integration runs and retain the live handset acceptance record.
+
+## Telegram calling release preparation, 2026-11-19
+
+Prepare version 1.6.0 for the operator's Telegram calling setup.
+Merge the calling topic through its `dev` PR, then promote `dev` to `rpi` through a merge-commit PR.
+Publish `rpi-v1.6.0` from the promoted tip after checks pass.
+Enable the private calling gateway only for the operator's configured browser and verified private Telegram owners.
+Preserve existing deployment secrets, data, speech settings, and message delivery.
+Keep the optional Twilio adapter disabled. The authenticated Pi-to-gateway read check passed over Tailscale.
+
+## Telegram calling account login, 2026-11-19
+
+Accept the receiving username during local login before numeric recipient IDs are available.
+Resolve it through the authorized calling account. Reject bots, groups, deleted users, and the calling account itself.
+Check a configured calling number against the authorized account before saving the result.
+Keep the account session and verified numeric IDs in private host storage outside Git.
+Keep gateway startup strict about an explicit numeric recipient allowlist and shared key.
+The operator completed local login. The calling and receiving accounts are separate.
+A live short test rang and played the selected app voice. The gateway marked it completed and removed the audio.
+An earlier test was silent, and a later attempt encountered a busy receiver. Keep those outcomes uncertain and do not redial them.
+Discard the remote Telegram call after native cleanup errors. Log only error types and code locations.
+The native login agent is `com.parthshastri.theos-calling`, bound to the Mac mini's private Tailscale address on port 8882.
+Keep its runtime under `~/.local/share/theos-calling/runtime` and private configuration under `~/.config/theos-calling`.
+Keep session and deduplication storage outside the source checkout. Do not place these credentials in the assistant image.
+
+## Telegram calls, 2026-11-18
+
+The operator selected Telegram calls while Twilio reviews the number provisioning restriction.
+Use a dedicated regular Telegram account through MTProto. The existing bot cannot start private calls.
+Keep Telethon, PyTgCalls, NTgCalls, FFmpeg, and account login in a separate private calling gateway.
+Reuse the app's Kokoro voice, speed, and gateway effects. Send literal reminders or generic approval alerts.
+Map private Theos owners to explicit Telegram user IDs. Keep approval decisions in the authenticated application.
+Preserve written delivery. Save one attempt per reminder or approval and never redial uncertain attempts.
+The operator must create the calling account and complete local login before live acceptance.
+
+## Direct phone calls, 2026-11-17
+
+The operator requested carrier calls that use the same voice as the app.
+The optional Twilio adapter uses expiring frontend audio URLs and private deployment credentials.
+The account cannot provision a number until Twilio reviews error 22300. No carrier call has been tested.
+Migration 019 retains reminder delivery choices and one durable call attempt per occurrence or approval.
+
+## Pi release retention, 2026-11-19
+
+Keep the active release and the two previous verified successful releases.
+Track release volumes from successful activations. Never infer ownership from a volume name alone.
+Leave untracked volumes and volumes in use by a container for separate review.
+Run retention only after activation succeeds. A cleanup failure must not roll back a healthy release.
+Keep off-host backups under a separate policy.
+
 ## Pi release preflight volumes, 2026-11-18
 
 Run the Telegram preflight with a disposable data volume.
@@ -21,7 +125,6 @@ Retry transient page reads and stop if the provider repeats a page token.
 Allow health summary and speech tools more time than the default tool deadline.
 Allow the speech gateway enough time to complete CPU synthesis before the client times out.
 
-Updated: 2026-11-16.
 
 ## Langfuse trace viewing, 2026-11-16
 

@@ -37,13 +37,26 @@ def setup_status(settings, db, owner, zepto):
         if enabled and not connected:
             available.append({"id": service, "name": label})
     profile = preferences(db, owner, settings.timezone)
+    calling = settings.telegram_calls.configured and bool(settings.kokoro_url.strip())
+    connection = db.one("SELECT state FROM call_connections WHERE owner=?", (owner,))
+    calls_ready = (
+        connection["state"] == "ready"
+        if connection
+        else owner in settings.telegram_calls.recipients
+    )
     return {
         "needed": bool(
-            (available or (configured and not profile.get("display_name"))) and not complete
+            (
+                available
+                or (configured and not profile.get("display_name"))
+                or (calling and not calls_ready)
+            )
+            and not complete
         ),
         "accounts": available,
         "display_name": profile.get("display_name", ""),
         "timezone": profile.get("timezone", settings.timezone),
+        "calling": calling,
     }
 
 

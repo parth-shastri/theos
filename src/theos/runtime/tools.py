@@ -81,7 +81,17 @@ async def build_tools(runtime, session):
     session_id = session["id"]
     # Start with the everyday app tools. Each builder returns the same generic harness
     # Tool type, even though the implementations use local records or external services.
-    tools = personal_tools(runtime.db, owner, session_id, runtime.settings.timezone)
+    tools = personal_tools(
+        runtime.db,
+        owner,
+        session_id,
+        runtime.settings.timezone,
+        phone_enabled=bool(
+            runtime.phone_calls.recipient(owner, session["channel"], purpose="reminders")
+        ),
+        phone_default=runtime.phone_calls.connections.default_phone(owner),
+    )
+    tools += runtime.phone_calls.tools(owner, session_id, session["channel"])
     tools += custom_tools(runtime.db, owner, runtime.settings.data_dir / "tables")
     tools += information_tools(runtime.settings, runtime.http)
     tools += voice_tools(runtime.files.voice, owner, session_id)

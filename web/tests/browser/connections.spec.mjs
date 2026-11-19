@@ -375,3 +375,83 @@ test("GitHub settings link to the separate notifications page without model turn
   });
   expect(state.turns).toBe(0);
 });
+
+test("Telegram calling onboarding verifies, tests, saves preferences, and disconnects without a model turn", async ({
+  page,
+}, info) => {
+  const state = await fixture(page, { onboarding: true });
+  state.data.calling = {
+    configured: true,
+    status: "disconnected",
+    reminders: false,
+    approvals: false,
+  };
+  let calls = 0;
+  await page.route("**/api/calling/*", async (route) => {
+    const step = route.request().url().split("/").pop();
+    const calling = state.data.calling;
+    if (step === "connect")
+      Object.assign(calling, {
+        status: "waiting",
+        url: "https://t.me/theos_test?text=proof",
+      });
+    if (step === "test") {
+      calls++;
+      calling.test_status = "pending";
+    }
+    if (step === "confirm")
+      Object.assign(calling, {
+        status: "ready",
+        ...route.request().postDataJSON(),
+      });
+    if (step === "preferences")
+      Object.assign(calling, route.request().postDataJSON());
+    if (step === "disconnect")
+      Object.assign(calling, {
+        status: "disabled",
+        reminders: false,
+        approvals: false,
+      });
+    await route.fulfill({ json: calling });
+  });
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  const setup = page.getByRole("region", { name: "Telegram calls" });
+  await expect(setup).toBeVisible();
+  await setup
+    .getByRole("button", { name: "Connect Telegram calls", exact: true })
+    .click();
+  await expect(
+    setup.getByRole("link", { name: "Open Theos calling" }),
+  ).toHaveAttribute("href", "https://t.me/theos_test?text=proof");
+  state.data.calling.status = "linked";
+  await setup.getByRole("button", { name: "Check connection" }).click();
+  await setup.getByRole("button", { name: "Call me for the test" }).click();
+  await expect(
+    setup.getByRole("button", { name: /I heard the message/ }),
+  ).toBeDisabled();
+  state.data.calling.test_status = "completed";
+  await expect(
+    setup.getByRole("button", { name: /I heard the message/ }),
+  ).toBeEnabled();
+  await setup
+    .getByLabel("Call when an approval waits for two minutes")
+    .uncheck();
+  await setup.screenshot({ path: info.outputPath("calling-onboarding.png") });
+  await setup.getByRole("button", { name: /I heard the message/ }).click();
+  await expect(setup.getByText("Connected", { exact: true })).toBeVisible();
+  expect(state.data.calling.reminders).toBe(true);
+  expect(state.data.calling.approvals).toBe(false);
+  await setup.getByLabel("Call for reminders").uncheck();
+  await expect.poll(() => state.data.calling.reminders).toBe(false);
+  await setup.getByRole("button", { name: "Disconnect calls" }).click();
+  await expect(
+    setup.getByRole("button", { name: "Connect Telegram calls", exact: true }),
+  ).toBeVisible();
+  expect(calls).toBe(1);
+  expect(state.turns).toBe(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});

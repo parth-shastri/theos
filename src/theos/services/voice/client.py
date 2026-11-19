@@ -1,7 +1,5 @@
 """Speech and transcription clients backed by the private file catalog."""
 
-from pathlib import Path
-
 import httpx
 
 from theos.services.errors import ServiceError
@@ -29,7 +27,9 @@ class Voice:
                     "Authorization": "Bearer " + self.settings.transcription_key.get_secret_value()
                 },
                 data={"model": self.settings.transcription_model},
-                files={"file": (row["name"], Path(row["path"]).read_bytes(), row["media_type"])},
+                files={
+                    "file": (row["name"], await self.files.read(owner, file_id), row["media_type"])
+                },
             )
             response.raise_for_status()
             return response.json()["text"]
@@ -47,8 +47,16 @@ class Voice:
         if self.prepare is None:
             raise ServiceError("Expressive speech preparation is unavailable.")
         text = await self.prepare(owner, text, session_id=session_id)
+        audio = await self.synthesize(text)
+        return self.files.save(owner, "speech.mp3", "audio/mpeg", audio)
+
+    async def synthesize(self, text, *, max_bytes=None):
+        """Render literal text with the configured Kokoro voice and speech gateway."""
+        if not self.settings.kokoro_url:
+            raise ServiceError("Set the Kokoro service URL before you request speech.")
         try:
-            response = await self.http.post(
+            async with self.http.stream(
+                "POST",
                 self.settings.kokoro_url.rstrip("/") + "/audio/speech",
                 timeout=httpx.Timeout(120, connect=10),
                 headers=(
@@ -63,8 +71,19 @@ class Voice:
                     "speed": self.settings.kokoro_speed,
                     "response_format": "mp3",
                 },
-            )
-            response.raise_for_status()
+            ) as response:
+                response.raise_for_status()
+                if max_bytes is None:
+                    return await response.aread()
+                if response.headers.get("content-type", "").split(";", 1)[0] != "audio/mpeg":
+                    raise ServiceError("The speech service did not return MP3 audio.")
+                audio = bytearray()
+                async for chunk in response.aiter_bytes():
+                    if len(audio) + len(chunk) > max_bytes:
+                        raise ServiceError("Generated speech exceeds the phone audio limit.")
+                    audio.extend(chunk)
+                if not audio:
+                    raise ServiceError("The speech service returned empty audio.")
+                return bytes(audio)
         except httpx.HTTPError as error:
             raise ServiceError("Speech generation failed. Check the Kokoro service.") from error
-        return self.files.save(owner, "speech.mp3", "audio/mpeg", response.content)

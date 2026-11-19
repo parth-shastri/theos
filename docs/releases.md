@@ -15,6 +15,41 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.2
+
+Package version 1.6.2 uses tag `rpi-v1.6.2` from the promoted `rpi` tip.
+Catalog files and checkpoint contents leave the Pi after the background worker verifies their R2 copies.
+Completed reads use R2 without a persistent local file cache. Pending transfers remain local until verification succeeds.
+New image messages store file references. Older inline image history remains unchanged.
+Deployment transfers complete backup archives to R2 and verifies them before removing their local copies.
+Existing R2 credentials require object read, write, and delete access. No new configuration value or database migration is required.
+The existing release-volume limit still keeps the current release and two previous successful releases.
+R2 backup archive retention remains separate. Existing unindexed files and local backup archives require separate review.
+Confirm the tagged workflow, both service health checks, remote checksums, and local spool removal before reporting deployment.
+
+## Release 1.6.1
+
+Package version 1.6.1 uses tag `rpi-v1.6.1` from the promoted `rpi` tip.
+New users can connect Telegram calls during optional onboarding without operator changes for each recipient.
+Migration 021 saves verified recipients, test calls, and separate reminder and approval choices by owner.
+The global environment gate remains required. Calling discovery stays hidden until the user verifies and tests their connection.
+Update the native calling gateway before activating the application. It adds authenticated connection setup and private message verification.
+The existing account session, shared key, static recipient mappings, and call deduplication records remain valid.
+Confirm the tagged workflow, both service health checks, migration 021, and the active Pi manifest before reporting deployment.
+
+## Release 1.6.0
+
+Package version 1.6.0 uses tag `rpi-v1.6.0` from the promoted `rpi` tip.
+Mapped private users can request immediate and scheduled Telegram calls with the app's existing voice.
+Calling tools and phone delivery appear only when the required environment configuration is complete.
+Approvals that remain pending for two minutes trigger a generic call alert. Decisions remain in the authenticated application.
+Migrations 019 and 020 save reminder delivery choices and one call attempt per request, reminder, or approval.
+The Mac mini's separate calling gateway owns the regular Telegram account and native audio dependencies.
+Configure its private URL, shared key, and explicit owner-to-recipient mapping before activation.
+The optional Twilio provider remains disabled while account provisioning is restricted.
+The release also includes the verified Pi release retention policy from `dev`.
+Confirm the tagged workflow, both service health checks, and the active Pi manifest before reporting deployment.
+
 ## Release 1.5.5
 
 Package version 1.5.5 uses tag `rpi-v1.5.5` from the promoted `rpi` tip.
@@ -549,6 +584,12 @@ The deployment lock and workflow concurrency limit keep deployments sequential.
 A journal lets the next invocation recover an interrupted activation.
 
 An upgrade has downtime while the database is backed up and the candidate starts.
+Full backups include indexed remote-only file contents through temporary local staging.
+The backup helper needs outbound R2 access and the private deployment environment.
+Restoration uses the previous image and an isolated network before candidate migrations run.
+The candidate image then uploads the completed archive to R2 and verifies it before removing the local archive.
+The deployment result records an `r2:` backup reference when this transfer succeeds.
+Without R2, deployment retains the local archive. A failed transfer also retains it.
 The pipeline keeps one application worker and scheduler active at a time.
 Readiness checks the application and database; it does not prove live model or Telegram access.
 The separate Telegram check calls `getMe` and `getWebhookInfo` with bounded HTTPS timeouts.
@@ -581,7 +622,16 @@ Read the result through SSH:
 ssh neuralbox-pi 'cat ~/theos-deploy/deployment-result.json'
 ```
 
-Do not prune saved images, retained volumes, or backups until their recovery window ends.
+After a successful activation, the deployment script tracks verified release volumes.
+It keeps the active release and the two previous tracked successful releases.
+It removes older tracked volumes only when no container uses them.
+Untracked volumes and volumes used by a container remain for manual review.
+Backups inside a removed release volume are also removed.
+R2 backup archives remain outside release-volume retention. Configure their retention separately.
+Local-only deployments still need an independent off-host backup policy.
+Cleanup errors are recorded as `retention_warning` in `deployment-result.json`.
+An error leaves the active release running and preserves unremoved volumes for a later attempt.
+The policy does not remove release records or Docker images.
 A `rollback_failed` result requires operator attention.
 Use the [manual restore procedure](operations.md#restore) when the old deployment cannot restart.
 

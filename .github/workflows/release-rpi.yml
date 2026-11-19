@@ -187,6 +187,8 @@ jobs:
                   current = result.get('current') or {}
                   summary.write(f"Active release: `{current.get('tag', 'none confirmed')}`\n\n")
                   summary.write(f"Backup: `{result.get('backup') or 'not created'}`\n")
+                  if result.get('retention_warning'):
+                      summary.write('\nRelease retention did not complete. Inspect deployment-result.json.\n')
               else:
                   summary.write('Deployment did not create a result. Check the failed step.\n')
           PY

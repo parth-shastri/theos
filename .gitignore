@@ -33,3 +33,7 @@ web/test-results/
 web/playwright-report/
 
 !web/.env.example
+
+# Regular Telegram account sessions are private credentials.
+*.session*
+!calling/.env.example

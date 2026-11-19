@@ -1,5 +1,72 @@
 # Feature and acceptance checklist
 
+## R2 file contents and local spool, 2026-11-19
+
+The background worker uploads catalog files and checkpoint objects, then verifies remote checksums before removing local copies.
+Completed downloads, transcription, image inputs, email attachments, and workspace imports read R2 contents without a persistent local cache.
+New R2-backed image history stores file references. Older inline image history remains unchanged.
+Checkpoint collection retains a local reference index after snapshot bodies leave the host.
+Full backups include indexed remote contents. Pi deployment transfers completed archives to R2 before removing their local copies.
+
+The local Python suite passed 1,251 tests. Three credential-dependent tests remained excluded.
+Checks cover owner isolation, corrupt uploads, remote failures, image recovery, retained workspace sources, and independent backup restoration.
+Project lint, formatting, package builds, and the streaming checksum check passed.
+These storage checks use mocked object storage. Live R2 transfer, Pi disk measurements, and tagged deployment remain unverified.
+Existing backup archives and historical inline image rows require separate review before removal.
+
+## Per-user calling onboarding, 2026-11-19
+
+Browser Connections and private Telegram onboarding offer optional recipient verification and a test call.
+Users confirm the audio and choose reminder and approval calls separately. No per-user provider credentials are required.
+Migration 021 retains verified recipients and choices by owner. Existing operator mappings remain available.
+Disconnect overrides those mappings and blocks queued calls before dialing.
+The gateway accepts recipients only through operator mappings or fresh private verification messages.
+Proofs expire after ten minutes and cannot be forwarded, reused, or claimed by another Telegram owner.
+The full application suite passed 1,263 tests. The gateway passed 29 isolated checks without system package installation.
+All 16 focused onboarding browser cases passed across four widths and both themes.
+The mobile and desktop renders passed visual review. The design detector reported no findings in the changed UI targets.
+Native gateway activation and application deployment remain open.
+
+## Calling discovery and immediate requests, 2026-11-19
+
+Calling is absent from tool discovery when disabled, incompletely configured, unmapped, or outside a private account context.
+Eligible accounts discover `call_user(message)` and the reminder tool's phone delivery option.
+Immediate calls use the existing durable worker and keep a written notification.
+Migration 020 retains prior call attempts and supports request jobs.
+Focused checks cover missing fields for both providers, account and channel isolation, stale access, and one call per request.
+Routine gateway CI runs isolated unit and HTTP contract checks without system package downloads.
+The native audio check remains an explicit local integration test.
+The full application suite passed 1,258 tests. The focused calling checks passed 58 tests in 2.15 seconds.
+The routine gateway suite passed 25 checks, and the separate native audio check passed on the Mac.
+
+## Telegram reminder and approval calls, 2026-11-18
+
+The optional calling gateway uses a dedicated regular Telegram account and the app's existing Kokoro voice.
+Migration 019 retains explicit reminder delivery choices, provider identity, and one durable attempt per reminder or approval.
+Mapped private owners receive generic alerts when approvals remain pending for two minutes.
+Written reminders and authenticated approval decisions retain their existing paths.
+
+The full application suite passed 1,235 checks after integration with current `dev`.
+The focused call suite passed 15 checks across Telegram and the optional Twilio adapter.
+It covers owner and group isolation, literal voice settings, delayed approvals, resolution during synthesis, and recovery without redial.
+Additional cases cover cancellation, expiry, provider changes, access revocation, synthesis errors, and the daily limit.
+The gateway passed 26 isolated checks, including local MP3 decoding with its pinned native audio stack and FFmpeg.
+The configured live Kokoro gateway produced a 73,004-byte MP3 that the pinned Telegram audio stack decoded without a call.
+The probe removed its private temporary audio.
+Gateway checks cover authentication, recipient bounds, duplicate IDs, concurrent requests, audio cleanup, and interrupted delivery.
+Python lint, formatting, dependency locks, workflow validation, and both package builds passed.
+
+The operator completed local login on 2026-11-19. The verified calling and receiving accounts are separate.
+Username resolution and account-mismatch rejection passed the additional login checks.
+A short live call rang and played the selected voice. The operator confirmed hearing the message.
+The gateway marked the call completed and removed its temporary MP3.
+The first attempt was silent. A following attempt reported a busy receiver. Those attempts remain uncertain without automatic redial.
+Remote hangup after failed native cleanup now has a focused regression check.
+The Mac mini runs the private gateway through its native login agent.
+Readiness recovered after a launchd restart. The Pi completed an authenticated gateway status read over Tailscale.
+Application delivery, delayed approval alerts, and full host reboot remain open deployment checks.
+The optional Twilio path remains unverified while account provisioning is restricted by error 22300.
+
 ## Optional observability
 
 Theos records rotating JSON application events without an external viewer.
