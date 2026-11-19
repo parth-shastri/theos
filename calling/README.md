@@ -40,7 +40,8 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Edit `.env` with the application credentials, receiving user ID, private data path, and a fresh shared gateway key.
+Edit `.env` with the application credentials, private data path, and a fresh shared gateway key.
+Set the numeric receiving ID when known. Otherwise, set `AGENT_CALLING_RECIPIENTS=[]` and `AGENT_CALLING_RECIPIENT_USERNAME` to the receiving username.
 Use `openssl rand -hex 32` to generate the key. Retain this same value for the application configuration below.
 Use an absolute data path outside the source checkout.
 For a remote Pi client, set the host to the gateway machine's private Tailscale address.
@@ -52,8 +53,11 @@ uv run --no-sync theos-calling-login
 ```
 
 The terminal prompts for the calling account's number, login code, and optional two-step verification password.
+Set the optional `AGENT_CALLING_PHONE` to supply the calling number from the private environment.
 Enter these values directly in the local terminal. The login tool does not place a call.
-It saves the account session with private file permissions under `AGENT_CALLING_DATA_DIR`.
+It resolves the supplied username after authorization and rejects the calling account as its own recipient.
+It saves the account session and a private `authorization.json` record under `AGENT_CALLING_DATA_DIR`.
+Copy the record's `recipient_ids` array into `AGENT_CALLING_RECIPIENTS` before starting the gateway.
 Protect this directory as an account credential. Do not run login and the server against the session simultaneously.
 
 Both commands accept `--env-file /absolute/path/to/private.env` for a configuration outside the checkout.

@@ -1,6 +1,21 @@
 # Theos project memory
 
-Updated: 2026-11-18.
+Updated: 2026-11-19.
+
+## Telegram calling account login, 2026-11-19
+
+Accept the receiving username during local login before numeric recipient IDs are available.
+Resolve it through the authorized calling account. Reject bots, groups, deleted users, and the calling account itself.
+Check a configured calling number against the authorized account before saving the result.
+Keep the account session and verified numeric IDs in private host storage outside Git.
+Keep gateway startup strict about an explicit numeric recipient allowlist and shared key.
+The operator completed local login. The calling and receiving accounts are separate.
+A live short test rang and played the selected app voice. The gateway marked it completed and removed the audio.
+An earlier test was silent, and a later attempt encountered a busy receiver. Keep those outcomes uncertain and do not redial them.
+Discard the remote Telegram call after native cleanup errors. Log only error types and code locations.
+The native login agent is `com.parthshastri.theos-calling`, bound to the Mac mini's private Tailscale address on port 8882.
+Keep its runtime under `~/.local/share/theos-calling/runtime` and private configuration under `~/.config/theos-calling`.
+Keep session and deduplication storage outside the source checkout. Do not place these credentials in the assistant image.
 
 ## Telegram calls, 2026-11-18
 

@@ -11,15 +11,20 @@ The full application suite passed 1,221 checks before the final additional call 
 The focused call suite passed 15 checks across Telegram and the optional Twilio adapter.
 It covers owner and group isolation, literal voice settings, delayed approvals, resolution during synthesis, and recovery without redial.
 Additional cases cover cancellation, expiry, provider changes, access revocation, synthesis errors, and the daily limit.
-The gateway passed 15 isolated checks, including local MP3 decoding with its pinned native audio stack and FFmpeg.
+The gateway passed 26 isolated checks, including local MP3 decoding with its pinned native audio stack and FFmpeg.
 The configured live Kokoro gateway produced a 73,004-byte MP3 that the pinned Telegram audio stack decoded without a call.
 The probe removed its private temporary audio.
 Gateway checks cover authentication, recipient bounds, duplicate IDs, concurrent requests, audio cleanup, and interrupted delivery.
 Python lint, formatting, dependency locks, workflow validation, and both package builds passed.
 
-The operator still needs to create the dedicated account and complete local login.
-No live Telegram call has been placed. Handset ringing, the full spoken reminder, approval alerts, and host restart remain open checks.
-Neither gateway nor application changes have been deployed.
+The operator completed local login on 2026-11-19. The verified calling and receiving accounts are separate.
+Username resolution and account-mismatch rejection passed the additional login checks.
+A short live call rang and played the selected voice. The operator confirmed hearing the message.
+The gateway marked the call completed and removed its temporary MP3.
+The first attempt was silent. A following attempt reported a busy receiver. Those attempts remain uncertain without automatic redial.
+Remote hangup after failed native cleanup now has a focused regression check.
+The Mac mini runs the private gateway through its native login agent.
+Application delivery, delayed approval alerts, and full host reboot remain open deployment checks.
 The optional Twilio path remains unverified while account provisioning is restricted by error 22300.
 
 ## Optional observability

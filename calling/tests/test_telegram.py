@@ -151,3 +151,28 @@ async def test_incoming_calls_are_rejected_before_the_calling_library(tmp_path, 
     await updates[0](None, StreamEnded(123456789, StreamEnded.Type.AUDIO, Device.MICROPHONE))
     assert event.is_set()
     await caller.close()
+
+
+async def test_native_cleanup_failure_still_discards_the_remote_call(tmp_path):
+    from telethon.tl.types import InputPhoneCall, PhoneCallDiscardReasonHangup
+
+    caller = TelegramCaller(None)
+    discarded = []
+
+    async def play(*args):
+        raise RuntimeError("connection did not complete")
+
+    async def leave(*args):
+        raise RuntimeError("native call was already removed")
+
+    async def telegram(request):
+        discarded.append(request)
+
+    caller.calls = SimpleNamespace(play=play, leave_call=leave)
+    caller.client = telegram
+    caller.peers[123456789] = InputPhoneCall(id=1, access_hash=2)
+    with pytest.raises(RuntimeError):
+        await caller.play(123456789, tmp_path / "voice.mp3")
+    assert len(discarded) == 1 and discarded[0].peer.id == 1
+    assert isinstance(discarded[0].reason, PhoneCallDiscardReasonHangup)
+    assert not caller.finished and not caller.peers

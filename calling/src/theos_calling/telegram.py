@@ -10,8 +10,13 @@ from telethon import TelegramClient, events
 from telethon.tl.functions.phone import DiscardCallRequest
 from telethon.tl.types import (
     InputPhoneCall,
+    PhoneCall,
+    PhoneCallAccepted,
+    PhoneCallDiscarded,
     PhoneCallDiscardReasonBusy,
+    PhoneCallDiscardReasonHangup,
     PhoneCallRequested,
+    PhoneCallWaiting,
     UpdatePhoneCall,
     User,
 )
@@ -23,6 +28,7 @@ class TelegramCaller:
         self.client = None
         self.calls = None
         self.finished = {}
+        self.peers = {}
 
     async def start(self):
         if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
@@ -52,7 +58,7 @@ class TelegramCaller:
                 raise RuntimeError("A call recipient is unavailable.")
 
         @self.client.on(events.Raw(types=UpdatePhoneCall))
-        async def refuse_incoming(event):
+        async def route_call_update(event):
             call = event.phone_call
             if isinstance(call, PhoneCallRequested):
                 # Do not let the calling library treat an incoming call as an outgoing request.
@@ -66,6 +72,13 @@ class TelegramCaller:
                         )
                     )
                 raise events.StopPropagation
+            if isinstance(call, (PhoneCall, PhoneCallAccepted, PhoneCallWaiting)):
+                if call.admin_id == me.id and call.participant_id in self.settings.recipients:
+                    self.peers[call.participant_id] = InputPhoneCall(call.id, call.access_hash)
+            elif isinstance(call, PhoneCallDiscarded):
+                self.peers = {
+                    recipient: peer for recipient, peer in self.peers.items() if peer.id != call.id
+                }
 
         self.calls = PyTgCalls(self.client)
 
@@ -99,9 +112,22 @@ class TelegramCaller:
                 )
                 await finished.wait()
         finally:
+            peer = self.peers.pop(recipient, None)
             with contextlib.suppress(Exception):
                 async with asyncio.timeout(5):
                     await self.calls.leave_call(recipient)
+            # A failed native connection can prevent the library from discarding the remote call.
+            if peer and self.client:
+                with contextlib.suppress(Exception):
+                    async with asyncio.timeout(5):
+                        await self.client(
+                            DiscardCallRequest(
+                                peer=peer,
+                                duration=0,
+                                reason=PhoneCallDiscardReasonHangup(),
+                                connection_id=0,
+                            )
+                        )
             self.finished.pop(recipient, None)
 
     async def close(self):

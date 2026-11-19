@@ -9,6 +9,7 @@ import os
 import secrets
 import sqlite3
 import time
+import traceback
 from contextlib import asynccontextmanager
 from typing import Annotated
 
@@ -78,9 +79,14 @@ def create_app(settings: Settings, *, caller=None):
             status = "completed"
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as error:
             # A Telegram error can follow an accepted dial. Log no account or media data.
-            logger.warning("telegram_call_uncertain")
+            frames = traceback.extract_tb(error.__traceback__)[-6:]
+            logger.warning(
+                "telegram_call_uncertain error_type=%s frames=%s",
+                type(error).__name__,
+                ">".join(f"{frame.name}:{frame.lineno}" for frame in frames),
+            )
         finally:
             path.unlink(missing_ok=True)
             app.state.db.execute("UPDATE calls SET status=? WHERE id=?", (status, id))
