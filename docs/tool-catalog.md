@@ -306,11 +306,11 @@ HTTPX sends bounded MP3 audio to the separate private Telegram calling gateway.
 The gateway uses Telethon 1.46.0, PyTgCalls 3.0.1, NTgCalls 3.0.7, and host FFmpeg.
 A dedicated regular Telegram account starts private calls. The existing bot continues message delivery.
 The gateway retains the private account session and call IDs outside the assistant container.
-It rejects incoming calls and sends no microphone, camera, or recording stream.
+It rejects incoming calls and never opens the host's microphone or camera.
 
 SQLite migrations 019 and 020 save one call attempt with its source reminder or approval and selected provider.
 Migration 021 saves each owner's verified recipient, test call, and reminder and approval choices.
-The scheduler rechecks the owner and source before dialing. Approval calls wait two minutes and use a generic alert.
+The scheduler rechecks the owner and source before dialing. Approval calls wait two minutes and use a generic alert by default.
 Only activated private accounts can request call delivery. Users who enable reminder calls receive phone delivery by default.
 All other reminders retain message delivery. Disconnection and preference changes stop queued calls before dialing.
 The immediate call tool and due reminders use the same worker. Read the [Telegram setup guide](../calling/README.md).
@@ -322,6 +322,29 @@ Read the [carrier setup guide](files-and-voice.md#direct-phone-calls).
 Source: [call delivery](../src/theos/services/phone_calls.py), [calling gateway](../calling/src/theos_calling/server.py),
 [Telegram calls](https://core.telegram.org/api/calls), [PyTgCalls](https://github.com/pytgcalls/pytgcalls),
 and [Twilio call API](https://www.twilio.com/docs/voice/api/call-resource).
+
+### Spoken approval calls
+
+The local spoken approval implementation is disabled by default and has not been deployed.
+Set `AGENT_TELEGRAM_CALLS__SPOKEN_APPROVALS` in the application and `AGENT_CALLING_SPOKEN_APPROVALS` in the native gateway for a future activation.
+The existing transcription endpoint must also be configured. No new tool or provider credential is required.
+Reminder and immediate message calls retain their existing playback behavior.
+
+Eligible approval calls read the full review in the app's voice, then accept one short spoken yes or no.
+The complete prompt must fit 600 characters. Long, HTML, or opaque reviews retain the existing application review path.
+The response is bounded to ten seconds of mono, 48 kHz, signed 16-bit PCM and stays in memory.
+The gateway exposes it only to the authenticated application. The application uses its existing transcription client without saving a catalog file.
+An exact phrase parser accepts clear decisions. It does not ask a model to infer consent.
+
+Migration 022 saves the review digest, verified recipient, response digest, decision status, and decision time.
+The application rechecks ownership, access, preferences, provider preview, saved action fields, and expiry before resuming the existing tool call.
+The decision, voice outcome, and written notice commit together. Existing execution-time approval checks still apply.
+Silence and unclear replies leave the approval pending. Changed or expired actions cannot use the spoken grant.
+Feedback plays on the existing call. A missing call cannot reconnect to deliver feedback.
+Interrupted processing remains uncertain and is never replayed automatically.
+
+Source: [spoken approval service](../src/theos/services/spoken_approvals.py), [incoming audio](../calling/src/theos_calling/audio_input.py),
+and the pinned [PyTgCalls recording implementation](https://github.com/pytgcalls/pytgcalls/blob/master/pytgcalls/methods/stream/record.py).
 
 ## Meals
 

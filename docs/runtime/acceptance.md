@@ -1,5 +1,23 @@
 # Feature and acceptance checklist
 
+## Spoken approval calls, local work, 2026-11-19
+
+This branch adds optional two-way Telegram approval calls. It has not been deployed or enabled on installed services.
+The app and native gateway flags default to false. The existing transcription service handles ephemeral response audio.
+Eligible calls read the complete bounded review, receive a short reply, and apply clear yes/no decisions through the existing runtime checks.
+Long, HTML, or opaque reviews keep the application review path. Silence and unclear replies leave approvals pending.
+Changes to the owner, recipient, access, action fields, remote preview, or expiry prevent a spoken grant.
+Migration 022 stores digests and outcome metadata. The decision and written notice commit together.
+Lost acknowledgement delivery preserves the decision. Restart recovery never replays an interrupted spoken response.
+
+The full application suite passed 1,308 tests with three credential-dependent checks excluded.
+The focused calling suite passed 72 checks. The gateway passed 37 isolated checks and the local native decoder check.
+Checks cover clear and contradictory replies, stale reviews, access changes, expiry, quota enforcement, and response cleanup.
+The native adapter checks verify capture after playback, no capture after hangup, and feedback without a second dial.
+Gateway HTTP checks cover authentication, call isolation, mode binding, deduplication, and in-memory response loss after restart.
+No live call, installed gateway restart, private environment update, merge, tag, or deployment was performed.
+Live handset microphone capture, human speech recognition, and acknowledgement playback remain open acceptance checks.
+
 ## R2 file contents and local spool, 2026-11-19
 
 The background worker uploads catalog files and checkpoint objects, then verifies remote checksums before removing local copies.

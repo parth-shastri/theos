@@ -1,11 +1,23 @@
 """Approval policy and content checks before a tool can execute."""
 
+import hashlib
 import json
 import time
 from uuid import uuid4
 
 from harness import ALLOW, ASK, DENY, unanswered_calls
 from theos.services.phone_calls import APPROVAL_DELAY
+
+
+def review_digest(row):
+    """Bind a spoken decision to all saved action and expiry fields."""
+    value = {
+        key: row[key]
+        for key in ("id", "session", "call_id", "tool", "arguments", "preview", "expires")
+    }
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def requires_approval(name):

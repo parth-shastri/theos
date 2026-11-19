@@ -220,3 +220,115 @@ async def test_dynamic_recipient_requires_authenticated_private_proof(settings, 
             await app.state.task
             await client.delete("/v1/connections/" + id, headers=auth)
             assert (await client.post("/v1/calls/revoked", **args)).status_code == 403
+
+
+async def test_spoken_response_and_feedback_are_authenticated_ephemeral_and_deduplicated(
+    settings, auth
+):
+    settings.spoken_approvals = True
+    caller = Caller()
+    answered = []
+
+    async def interact(recipient, path, respond):
+        answered.append(recipient)
+        caller.entered.set()
+        feedback = await respond(b"RIFF-test-response")
+        assert feedback.read_bytes() == b"feedback-mp3"
+        assert feedback.stat().st_mode & 0o777 == 0o600
+
+    caller.interact = interact
+    app = create_app(settings, caller=caller)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/v1/calls/spoken",
+                headers=auth,
+                params={**params(), "interactive": True},
+                content=b"prompt",
+            )
+            assert response.status_code == 202
+            await asyncio.wait_for(caller.entered.wait(), 1)
+            assert (await client.get("/v1/calls/spoken/response")).status_code == 401
+            reply = await client.get("/v1/calls/spoken/response", headers=auth)
+            assert (
+                reply.content == b"RIFF-test-response"
+                and reply.headers["cache-control"] == "no-store"
+            )
+            assert (await client.get("/v1/calls/other/response", headers=auth)).status_code == 410
+            changed = await client.post(
+                "/v1/calls/spoken", headers=auth, params=params(), content=b"prompt"
+            )
+            assert changed.status_code == 409
+            finish = await client.post(
+                "/v1/calls/spoken/finish", headers=auth, content=b"feedback-mp3"
+            )
+            assert finish.status_code == 200
+            await app.state.task
+            assert app.state.dialogue is None and not list(settings.data_dir.glob("clip-*.mp3"))
+            assert (await client.get("/v1/calls/spoken/response", headers=auth)).status_code == 410
+            duplicate = await client.post(
+                "/v1/calls/spoken",
+                headers=auth,
+                params={**params(), "interactive": True},
+                content=b"prompt",
+            )
+            assert duplicate.json()["status"] == "completed" and answered == [123456789]
+
+
+async def test_spoken_capture_is_env_gated(settings, auth):
+    app = create_app(settings, caller=Caller())
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/v1/calls/spoken",
+                headers=auth,
+                params={**params(), "interactive": True},
+                content=b"prompt",
+            )
+            assert response.status_code == 409
+            assert app.state.db.execute("SELECT count(*) FROM calls").fetchone()[0] == 0
+
+
+async def test_interrupted_spoken_call_loses_audio_and_cannot_restart_the_dial(settings, auth):
+    settings.spoken_approvals = True
+    caller = Caller()
+
+    async def interact(recipient, path, respond):
+        caller.entered.set()
+        await respond(b"private-ephemeral-response")
+
+    caller.interact = interact
+    app = create_app(settings, caller=caller)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            await client.post(
+                "/v1/calls/interrupted-voice",
+                headers=auth,
+                params={**params(), "interactive": True},
+                content=b"prompt",
+            )
+            await asyncio.wait_for(caller.entered.wait(), 1)
+            assert app.state.dialogue.response == b"private-ephemeral-response"
+    assert app.state.dialogue is None
+    restarted = create_app(settings, caller=Caller())
+    async with restarted.router.lifespan_context(restarted):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=restarted), base_url="http://test"
+        ) as client:
+            assert (
+                await client.get("/v1/calls/interrupted-voice/response", headers=auth)
+            ).status_code == 410
+            duplicate = await client.post(
+                "/v1/calls/interrupted-voice",
+                headers=auth,
+                params={**params(), "interactive": True},
+                content=b"prompt",
+            )
+            assert duplicate.json()["status"] == "uncertain"
+            assert not restarted.state.caller.calls

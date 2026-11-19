@@ -127,6 +127,10 @@ class Runtime:
         from theos.services.sandbox.workspace import Workspaces
 
         self.phone_calls = PhoneCalls(settings, db, self.http, self.files.voice)
+        from theos.services.spoken_approvals import SpokenApprovals
+
+        self.spoken_approvals = SpokenApprovals(self)
+        self.phone_calls.spoken = self.spoken_approvals
         self.checkpoints = Checkpoints(self.files, self.tracing)
         self.checkpoints.start()
         self.workspaces = Workspaces(self)
@@ -212,6 +216,7 @@ class Runtime:
         text_recovery=False,
         display_text=None,
         received_at=None,
+        expected_approval_digest=None,
     ):
         """Reserve one turn before a response stream starts."""
         request_received_at = time.monotonic() if received_at is None else received_at
@@ -242,6 +247,11 @@ class Runtime:
             )
             if not row or row["status"] != "pending" or row["expires"] <= time.time():
                 raise ValueError("This approval is absent, expired, or already used.")
+            if (
+                expected_approval_digest is not None
+                and approvals.review_digest(row) != expected_approval_digest
+            ):
+                raise ValueError("The approval changed after the spoken review.")
             self.db.execute(
                 "UPDATE approvals SET status=? WHERE id=?",
                 ("approved" if approved else "denied", approval_id),
@@ -733,6 +743,7 @@ class Runtime:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        await self.spoken_approvals.close()
         await self.checkpoints.close()
         await self.zepto.close()
         await self.slack.close()

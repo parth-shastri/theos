@@ -2,6 +2,24 @@
 
 Updated: 2026-11-19.
 
+## Spoken approval calls, local work, 2026-11-19
+
+The operator requested two-way approval calls and explicitly prohibited deployment for this work.
+Keep all changes on `feature/spoken-call-approvals`. Do not merge, tag, restart installed services, change private environments, or place live calls.
+Add optional spoken approvals behind separate application and native gateway flags. Both flags default to false.
+Reuse the configured transcription service and the app's existing Kokoro voice. No new provider credential is required.
+Read the complete bounded approval review before receiving one short reply. Do not truncate reviews to permit voice approval.
+Keep long, HTML, or opaque reviews in the existing application review flow.
+Accept explicit English yes/approve and no/decline phrases. Silence, contradictory speech, or unclear replies do not decide an action.
+Bind each response to the saved approval, owner, recipient, tool call, arguments, preview, and expiry.
+Re-read the current provider preview and access before resuming through the existing approval checkpoints.
+Capture incoming PCM in memory after playback ends. Stop capture before transcription and discard the response after processing.
+Persist only review and response digests, outcome metadata, and a written decision notice in migration 022.
+Commit the decision and its voice outcome together. Lost feedback must not erase a decision or repeat an external action.
+Recover interrupted listening and processing as uncertain. Never redial or replay the spoken decision automatically.
+Use the pinned native stream binding for later media changes because high-level playback helpers can reconnect a missing call.
+Keep routine tests isolated from Telegram and system package downloads. Live handset input remains an open acceptance check.
+
 ## R2 storage patch release preparation, 2026-11-19
 
 The operator requested a storage PR, merge into `dev`, and separate promotions to `main` and `rpi`.

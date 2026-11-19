@@ -20,6 +20,14 @@ class Voice:
         row = self.files.get(owner, file_id)
         if not self.settings.transcription_url:
             raise ServiceError("Set the transcription service URL before you send voice messages.")
+        return await self.transcribe_audio(
+            await self.files.read(owner, file_id), row["name"], row["media_type"]
+        )
+
+    async def transcribe_audio(self, audio, name, media_type, *, timeout=30):
+        """Transcribe an already-authorized ephemeral clip without adding it to the catalog."""
+        if not self.settings.transcription_url:
+            raise ServiceError("Set the transcription service URL before you send voice messages.")
         try:
             response = await self.http.post(
                 self.settings.transcription_url.rstrip("/") + "/audio/transcriptions",
@@ -27,9 +35,8 @@ class Voice:
                     "Authorization": "Bearer " + self.settings.transcription_key.get_secret_value()
                 },
                 data={"model": self.settings.transcription_model},
-                files={
-                    "file": (row["name"], await self.files.read(owner, file_id), row["media_type"])
-                },
+                files={"file": (name, audio, media_type)},
+                timeout=timeout,
             )
             response.raise_for_status()
             return response.json()["text"]

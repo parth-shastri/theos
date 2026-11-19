@@ -71,7 +71,8 @@ uv run --no-sync theos-calling
 
 `GET /ready` reports startup readiness. The service refuses startup when the account is unauthorized or a recipient is unavailable.
 Startup never prompts for login. Keep the process running with the host's service manager after handset acceptance.
-The gateway does not accept incoming calls or record audio. It plays the supplied local MP3 and ends the call.
+The gateway rejects incoming calls. Normal calls play the supplied MP3 and end the call.
+Optional spoken approvals receive a bounded reply in memory. The gateway never opens the host's microphone or camera.
 
 ## Connect Theos
 
@@ -115,6 +116,43 @@ The gateway stores verified connections beside its existing call ledger and acco
 Users can change each call preference or disconnect in Connections or `/calls`.
 Disconnection immediately blocks new and queued application calls. It also revokes the gateway connection.
 Written notifications remain available. Resolve approvals in the authenticated Theos application.
+
+## Spoken approvals: local implementation
+
+This work has not been deployed. Both spoken approval flags default to false.
+The application uses `AGENT_TELEGRAM_CALLS__SPOKEN_APPROVALS`. The gateway uses `AGENT_CALLING_SPOKEN_APPROVALS`.
+The application also needs its existing transcription endpoint and credentials.
+Missing transcription configuration retains ordinary call alerts. No extra provider account is required.
+
+An eligible approval call reads the complete saved review in the app's voice.
+It then receives one short reply. Clear yes/approve and no/decline phrases decide only that approval.
+The complete prompt must fit 600 characters. Long, HTML, or opaque reviews stay in the existing application review flow.
+Silence or unclear speech leaves the approval pending. The call never treats an unrelated answer as approval.
+
+Incoming audio starts after the readback ends and a short guard interval passes.
+The gateway receives at most ten seconds of mono, 48 kHz, signed 16-bit PCM.
+It keeps the WAV response in memory for at most forty seconds while the application processes it.
+The application bounds transcription and validation to twenty-five seconds.
+The complete interactive call is bounded to 150 seconds and the original request expiry.
+Normal message calls retain their existing 90-second bound.
+
+The private HTTP contract adds `interactive=true` to the existing call request.
+Authenticated `GET /v1/calls/{id}/response` returns WAV audio, HTTP 204 while waiting, or HTTP 410 when unavailable.
+Authenticated `POST /v1/calls/{id}/finish` supplies MP3 acknowledgement audio for the same active call.
+The call ID and mode retain the existing durable deduplication contract.
+No callback URL or public incoming endpoint is required.
+
+The application binds the reply to the saved owner, recipient, approval, tool call, arguments, preview, and expiry.
+It re-reads the provider preview before applying a decision through the existing runtime approval path.
+Migration 022 stores only digests and outcome metadata. Raw responses and transcripts never enter the file catalog, R2, or model history.
+The recorded decision, voice outcome, and written notice commit together.
+Failed acknowledgements cannot erase a recorded decision or repeat an action.
+Interrupted listening and processing remain uncertain after restart. They are never replayed or redialed automatically.
+
+The pinned native binding changes streams only on the existing call.
+The high-level library recording helper can start playback when a call is missing, so later stream changes bypass that reconnect behavior.
+Keep the pinned adapter tests when updating PyTgCalls or NTgCalls.
+Live handset input, recognition of human speech, and acknowledgement playback remain open acceptance checks.
 
 ## Delivery and recovery
 

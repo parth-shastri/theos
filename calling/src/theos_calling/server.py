@@ -15,9 +15,11 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi import Path as PathParam
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .connections import Connections
+from .dialogue import Dialogue
 from .settings import Settings
 
 MAX_AUDIO = 2 * 1024 * 1024
@@ -41,12 +43,15 @@ def create_app(settings: Settings, *, caller=None):
             "CREATE TABLE IF NOT EXISTS calls "
             "(id TEXT PRIMARY KEY,recipient INTEGER,digest TEXT,created REAL,status TEXT)"
         )
+        if "interactive" not in {row["name"] for row in db.execute("PRAGMA table_info(calls)")}:
+            db.execute("ALTER TABLE calls ADD COLUMN interactive INTEGER NOT NULL DEFAULT 0")
         # Accepted work can have reached Telegram before a crash. Never repeat it.
         db.execute("UPDATE calls SET status='uncertain' WHERE status='accepted'")
         for path in settings.data_dir.glob("clip-*.mp3"):
             path.unlink()
         app.state.db = db
         app.state.task = None
+        app.state.dialogue = None
         if caller is None:
             from .telegram import TelegramCaller
 
@@ -90,14 +95,29 @@ def create_app(settings: Settings, *, caller=None):
         app.state.connections.disable(id)
         return {"status": "disabled"}
 
-    async def deliver(id, recipient, audio):
+    async def deliver(id, recipient, audio, dialogue=None, expires=None):
         path = settings.data_dir / ("clip-" + secrets.token_hex(16) + ".mp3")
+        feedback_path = settings.data_dir / ("clip-" + secrets.token_hex(16) + ".mp3")
         status = "uncertain"
         try:
             with path.open("xb") as output:
                 path.chmod(0o600)
                 output.write(audio)
-            await app.state.caller.play(recipient, path)
+            if dialogue:
+
+                async def respond(answer):
+                    feedback = await dialogue.answer(answer)
+                    if feedback:
+                        with feedback_path.open("xb") as output:
+                            feedback_path.chmod(0o600)
+                            output.write(feedback)
+                        return feedback_path
+                    return None
+
+                async with asyncio.timeout(max(0.001, min(150, expires - time.time()))):
+                    await app.state.caller.interact(recipient, path, respond)
+            else:
+                await app.state.caller.play(recipient, path)
             status = "completed"
         except asyncio.CancelledError:
             raise
@@ -111,6 +131,11 @@ def create_app(settings: Settings, *, caller=None):
             )
         finally:
             path.unlink(missing_ok=True)
+            feedback_path.unlink(missing_ok=True)
+            if dialogue:
+                dialogue.close()
+                if app.state.dialogue is dialogue:
+                    app.state.dialogue = None
             app.state.db.execute("UPDATE calls SET status=? WHERE id=?", (status, id))
 
     @app.post("/v1/calls/{id}", status_code=202, dependencies=[Depends(authenticate)])
@@ -119,7 +144,10 @@ def create_app(settings: Settings, *, caller=None):
         request: Request,
         recipient: Annotated[int, Query(gt=0)],
         expires: float,
+        interactive: bool = False,
     ):
+        if interactive and not settings.spoken_approvals:
+            raise HTTPException(409, "Spoken approval calls are not enabled.")
         if recipient not in settings.recipients and not app.state.connections.permitted(recipient):
             raise HTTPException(403, "Call recipient is unavailable.")
         now = time.time()
@@ -140,7 +168,11 @@ def create_app(settings: Settings, *, caller=None):
         digest = hashlib.sha256(audio).hexdigest()
         existing = db.execute("SELECT * FROM calls WHERE id=?", (id,)).fetchone()
         if existing:
-            if existing["recipient"] != recipient or existing["digest"] != digest:
+            if (
+                existing["recipient"] != recipient
+                or existing["digest"] != digest
+                or bool(existing["interactive"]) != interactive
+            ):
                 raise HTTPException(409, "The call ID is already in use.")
             return {"id": id, "status": existing["status"]}
         if app.state.task and not app.state.task.done():
@@ -150,10 +182,49 @@ def create_app(settings: Settings, *, caller=None):
         ]
         if count >= settings.daily_limit:
             raise HTTPException(429, "The daily call limit was reached.")
-        db.execute("INSERT INTO calls VALUES (?,?,?,?,?)", (id, recipient, digest, now, "accepted"))
+        db.execute(
+            "INSERT INTO calls(id,recipient,digest,created,status,interactive) VALUES (?,?,?,?,?,?)",
+            (id, recipient, digest, now, "accepted", interactive),
+        )
+        dialogue = Dialogue(id, recipient) if interactive else None
+        if dialogue:
+            dialogue.expires = expires
+            app.state.dialogue = dialogue
         # A single worker claims the row before starting the external effect.
-        app.state.task = asyncio.create_task(deliver(id, recipient, bytes(audio)))
+        app.state.task = asyncio.create_task(
+            deliver(id, recipient, bytes(audio), dialogue, expires)
+        )
         return {"id": id, "status": "accepted"}
+
+    def active_dialogue(id):
+        dialogue = app.state.dialogue
+        if not dialogue or dialogue.id != id or dialogue.expires <= time.time():
+            raise HTTPException(410, "The spoken response is unavailable.")
+        return dialogue
+
+    @app.get("/v1/calls/{id}/response", dependencies=[Depends(authenticate)])
+    async def response(id: CallID):
+        dialogue = active_dialogue(id)
+        if dialogue.response is None:
+            return Response(status_code=204, headers={"Cache-Control": "no-store"})
+        return Response(
+            dialogue.response, media_type="audio/wav", headers={"Cache-Control": "no-store"}
+        )
+
+    @app.post("/v1/calls/{id}/finish", dependencies=[Depends(authenticate)])
+    async def finish(id: CallID, request: Request):
+        dialogue = active_dialogue(id)
+        if request.headers.get("content-type", "").split(";", 1)[0] != "audio/mpeg":
+            raise HTTPException(415, "Send MP3 audio.")
+        audio = bytearray()
+        async for chunk in request.stream():
+            if len(audio) + len(chunk) > MAX_AUDIO:
+                raise HTTPException(413, "Call audio exceeds the size limit.")
+            audio.extend(chunk)
+        if not audio:
+            raise HTTPException(400, "Send nonempty MP3 audio.")
+        dialogue.finish(bytes(audio))
+        return {"status": "accepted"}
 
     @app.get("/v1/calls/{id}", dependencies=[Depends(authenticate)])
     async def status(id: CallID):
