@@ -383,6 +383,9 @@ These notes describe the prepared release. Confirm deployment through the workfl
 
 ## Continuous integration
 
+The frontend job has a 25-minute limit for dependency setup, browser acceptance, and its standalone container check.
+This budget accommodates cold browser installation without removing test steps or changing browser concurrency.
+
 [Theos CI](../.github/workflows/theos.yml) runs on pushes to `dev`, `main`, and `rpi`, and PRs into those branches.
 Topic branches run CI through their PR. A topic push does not start a second run.
 Every run retains these application checks:
