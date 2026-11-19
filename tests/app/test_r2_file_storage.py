@@ -5,6 +5,8 @@ import hashlib
 import io
 import json
 import sqlite3
+import threading
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -231,6 +233,21 @@ async def test_independent_backup_can_restore_after_remote_objects_disappear(
     snapshot = await runtime.checkpoints.save(
         "alice", sid, [UserMessage("Saved")], ContextMemory(), "test"
     )
+    extra = []
+    for index in range(8):
+        payload = f"workspace {index}".encode()
+        extra.append(
+            await runtime.checkpoints.put(
+                "alice",
+                sid,
+                "workspace_file",
+                {
+                    "path": f"/workspace/report-{index}.txt",
+                    "data": base64.b64encode(payload).decode(),
+                    "digest": hashlib.sha256(payload).hexdigest(),
+                },
+            )
+        )
     assert await runtime.checkpoints.drain()
     assert not Path(saved["path"]).exists()
     assert not (runtime.checkpoints.directory / snapshot).exists()
@@ -243,13 +260,32 @@ async def test_independent_backup_can_restore_after_remote_objects_disappear(
     ):
         source.backup(destination)
     monkeypatch.setattr(catalog, "storage_client", lambda config: objects)
+    original_read = catalog.Files.remote_bytes
+    lock = threading.Lock()
+    active = peak = 0
+
+    def delayed_read(client, bucket, key):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        try:
+            time.sleep(0.02)
+            return original_read(client, bucket, key)
+        finally:
+            with lock:
+                active -= 1
+
+    monkeypatch.setattr(catalog.Files, "remote_bytes", staticmethod(delayed_read))
     archive = tmp_path / "independent.tar.gz"
     backup(stopped, archive)
+    assert 2 <= peak <= 4
     objects.objects.clear()
     restored = tmp_path / "restored"
     restore(archive, restored)
     assert (restored / "files" / saved["id"]).read_bytes() == b"archive bytes"
     assert (restored / "checkpoints" / snapshot).is_file()
+    assert all((restored / "checkpoints" / identity).is_file() for identity in extra)
     assert not (stopped / "files" / saved["id"]).exists()
 
 

@@ -10,6 +10,14 @@ The retry completed 344 browser tests with 16 skips before cancellation. Its rem
 Keep the current test matrix and single browser worker. Do not bypass the required CI gate.
 This CI correction does not require another application deployment. The verified Pi runtime remains version 1.6.3.
 
+## Pi backup hydration throughput, 2026-11-19
+
+The Pi has thousands of remote-only checkpoint objects. Serial hydration can exceed the 30-minute deployment backup limit.
+Fetch remote backup payloads with four workers and at most eight pending results, verifying each digest before writing it.
+Keep SQLite reads and file writes on the backup thread. Use the candidate image for backup creation so the optimized code can process the previous volume without migrating it.
+Restore the archive with the previous image. Keep the rollback and complete-backup requirements.
+Prepare 1.6.5 as a follow-up Pi hotfix if 1.6.4 cannot finish activation, then copy it to `dev` through a separate PR.
+
 ## Browser password login aliases, 2026-11-19
 
 Keep Telegram numeric owners as the stable identity for sessions, credentials, and saved data.
