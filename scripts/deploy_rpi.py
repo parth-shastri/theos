@@ -8,6 +8,7 @@ import re
 import shutil
 import signal
 import subprocess
+import tempfile
 import time
 import uuid
 from datetime import UTC, datetime
@@ -250,11 +251,32 @@ class Deployer:
             self.remove_helper(name)
 
     def snapshot(self, previous, candidate):
+        # Compose resolves quoting and interpolation. Docker's raw env-file parser
+        # does not. Give helpers only resolved storage fields, never unrelated settings.
+        config = json.loads(self.compose(previous, "config", "--format", "json"))
+        environment = config["services"]["theos"].get("environment") or {}
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix=".backup-storage-", dir=self.directory, encoding="utf-8"
+        ) as private:
+            for field in ("ENDPOINT", "BUCKET", "ACCESS_KEY", "SECRET_KEY"):
+                name = "AGENT_STORAGE__" + field
+                value = environment.get(name)
+                if value is None:
+                    continue
+                if not isinstance(value, str) or "\n" in value or "\r" in value:
+                    raise DeploymentError(
+                        "Backup storage settings must contain single-line values."
+                    )
+                private.write(f"{name}={value}\n")
+            private.flush()
+            return self.snapshot_with_environment(previous, candidate, private.name)
+
+    def snapshot_with_environment(self, previous, candidate, environment_file):
         archive = f"/data/backups/{candidate['tag']}-{candidate['revision'][:12]}.tar.gz"
         self.run_helper(
             f"theos-backup-{candidate['revision'][:12]}",
             "--env-file",
-            str(self.directory / ".env"),
+            environment_file,
             "--read-only",
             "--tmpfs",
             "/tmp",
@@ -300,7 +322,7 @@ class Deployer:
         stored = self.run_helper(
             f"theos-archive-{candidate['revision'][:12]}",
             "--env-file",
-            str(self.directory / ".env"),
+            environment_file,
             "--read-only",
             "--tmpfs",
             "/tmp",
