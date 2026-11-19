@@ -97,6 +97,7 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `files/` | Private catalog, image validation, automatic R2 replication, model checkpoints, and response attachments |
 | `voice/` | Transcription and Kokoro clients with audio tools |
 | `phone_calls.py` | Environment-gated call tools, queued Telegram or Twilio calls, and temporary audio |
+| `call_connections.py` | Per-owner Telegram recipient verification, setup test calls, and call preferences |
 | `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `github/` | Official MCP configuration, reviewed read tools, signed event queue, per-owner subscriptions, and literal notifications |
@@ -132,6 +133,8 @@ Phone alerts send literal text to the same synthesis client. The phone worker se
 The separate `speech/` project owns the optional Kokoro gateway and its audio effects on the speech host.
 The separate `transcription/` project owns the authenticated native MLX Whisper endpoint on that host.
 The separate `calling/` project owns the regular Telegram account, private calling gateway, and native audio dependencies.
+Its connection handler verifies short-lived messages sent directly by recipients. The app stores verified bindings in migration 021.
+`transports/telegram/call_setup.py` and the browser Connections controls share the same per-owner setup service.
 Its model, Metal runtime, and FFmpeg dependencies remain outside the assistant image.
 The runtime creates clients explicitly and closes them during shutdown.
 `runtime/scheduled.py` claims durable scheduled occurrences and delivers ordinary runtime turns.

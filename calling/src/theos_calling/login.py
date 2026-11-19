@@ -20,8 +20,6 @@ async def authorize(settings, *, client_factory=None, prompt=None):
     username = settings.recipient_username.strip().removeprefix("@")
     if username and not re.fullmatch(r"[A-Za-z0-9_]{1,64}", username):
         raise ValueError("Set a Telegram recipient username without a link.")
-    if not username and not settings.recipients:
-        raise ValueError("Set the receiving Telegram username or numeric user ID before login.")
     phone = settings.phone.get_secret_value()
     if phone and not re.fullmatch(r"\+[1-9][0-9]{7,14}", phone):
         raise ValueError("Set the calling account number with its country code.")
@@ -59,7 +57,9 @@ async def authorize(settings, *, client_factory=None, prompt=None):
         descriptor = os.open(receipt, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(descriptor, "w") as output:
             json.dump(result, output)
-        print("Calling account authorized. Receiving account verified. No call was placed.")
+        print("Calling account authorized. No call was placed.")
+        if targets:
+            print("Configured receiving accounts verified.")
         return result
     finally:
         await client.disconnect()

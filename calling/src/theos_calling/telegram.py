@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import re
 import shutil
 
 from pytgcalls import PyTgCalls
@@ -29,6 +30,8 @@ class TelegramCaller:
         self.calls = None
         self.finished = {}
         self.peers = {}
+        self.profile_url = ""
+        self.connection_handler = None
 
     async def start(self):
         if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
@@ -51,6 +54,24 @@ class TelegramCaller:
         me = await self.client.get_me()
         if me.bot or me.id in self.settings.recipients:
             raise RuntimeError("Use a separate regular Telegram account for calling.")
+        if me.username and re.fullmatch(r"[A-Za-z0-9_]+", me.username):
+            self.profile_url = "https://t.me/" + me.username
+        elif me.phone and re.fullmatch(r"[0-9]+", me.phone):
+            self.profile_url = "https://t.me/+" + me.phone
+
+        @self.client.on(events.NewMessage(incoming=True))
+        async def connect_recipient(event):
+            if not self.connection_handler or not event.is_private or event.fwd_from:
+                return
+            sender = await event.get_sender()
+            if (
+                isinstance(sender, User)
+                and not sender.bot
+                and not sender.deleted
+                and sender.id != me.id
+            ):
+                await self.connection_handler(sender.id, event.raw_text)
+
         # Resolve from the calling account's existing dialogs. Never guess a user by name.
         for recipient in self.settings.recipients:
             entity = await self.client.get_entity(recipient)
@@ -73,7 +94,7 @@ class TelegramCaller:
                     )
                 raise events.StopPropagation
             if isinstance(call, (PhoneCall, PhoneCallAccepted, PhoneCallWaiting)):
-                if call.admin_id == me.id and call.participant_id in self.settings.recipients:
+                if call.admin_id == me.id and call.participant_id in self.finished:
                     self.peers[call.participant_id] = InputPhoneCall(call.id, call.access_hash)
             elif isinstance(call, PhoneCallDiscarded):
                 self.peers = {

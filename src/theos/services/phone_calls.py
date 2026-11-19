@@ -13,6 +13,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 import httpx
 
 from harness import tool
+from theos.services.call_connections import CallConnections
 from theos.services.errors import ServiceError
 from theos.storage.account_access import account_access
 
@@ -37,11 +38,16 @@ class PhoneCalls:
         self.http = http
         self.voice = voice
         self.next_cleanup = 0
+        self.connections = CallConnections(self)
 
-    def recipient(self, owner, channel):
+    def recipient(self, owner, channel, *, testing=False, purpose=None):
         if not self.available or channel not in {"browser", "telegram-private"}:
             return None
-        recipient = self.config.recipients.get(owner)
+        recipient = (
+            self.connections.recipient(owner, testing=testing, purpose=purpose)
+            if self.provider == "telegram"
+            else self.config.recipients.get(owner)
+        )
         if recipient and account_access(self.settings, self.db, owner):
             return recipient if self.provider == "telegram" else recipient.get_secret_value()
         return None
@@ -83,18 +89,20 @@ class PhoneCalls:
             text = message.strip()
             if not text or len(text) > MAX_REMINDER_TEXT:
                 raise ValueError(f"Supply a call message from 1 to {MAX_REMINDER_TEXT} characters.")
-            id = uuid4().hex
-            now = time.time()
             with self.db.transaction():
-                self.db.execute(
-                    "INSERT INTO notifications(id,owner,session,text,created,delivered) "
-                    "VALUES (?,?,?,?,?,0)",
-                    (id, owner, session_id, text, now),
-                )
-                self.enqueue(id, owner, session_id, "request", id, now, now + 120)
+                id = self.queue(owner, session_id, text)
             return {"id": id, "status": "queued", "delivery": "phone"}
 
         return [call_user]
+
+    def queue(self, owner, session_id, text):
+        id, now = uuid4().hex, time.time()
+        self.db.execute(
+            "INSERT INTO notifications(id,owner,session,text,created,delivered) VALUES (?,?,?,?,?,0)",
+            (id, owner, session_id, text, now),
+        )
+        self.enqueue(id, owner, session_id, "request", id, now, now + 120)
+        return id
 
     def _source(self, job):
         if job["kind"] == "request":
@@ -140,7 +148,12 @@ class PhoneCalls:
             "SELECT channel FROM sessions WHERE id=? AND owner=?", (job["session"], job["owner"])
         )
         if session and job["expires"] > time.time() and job["provider"] == self.provider:
-            return self.recipient(job["owner"], session["channel"])
+            connection = self.connections.row(job["owner"]) if self.provider == "telegram" else None
+            testing = bool(connection and connection["test_call_id"] == job["id"])
+            purpose = {"reminder": "reminders", "approval": "approvals"}.get(job["kind"])
+            return self.recipient(
+                job["owner"], session["channel"], testing=testing, purpose=purpose
+            )
         return None
 
     async def _deliver(self, job):

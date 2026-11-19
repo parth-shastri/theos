@@ -118,7 +118,7 @@ async def check_approval(runtime, session, tool, args, ctx):
                 expires,
             ),
         )
-        if runtime.phone_calls.recipient(owner, session["channel"]):
+        if runtime.phone_calls.recipient(owner, session["channel"], purpose="approvals"):
             runtime.phone_calls.enqueue(
                 approval_id,
                 owner,

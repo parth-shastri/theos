@@ -15,12 +15,19 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi import Path as PathParam
+from pydantic import BaseModel, Field
 
+from .connections import Connections
 from .settings import Settings
 
 MAX_AUDIO = 2 * 1024 * 1024
 logger = logging.getLogger("theos.calling")
 CallID = Annotated[str, PathParam(pattern=r"^[A-Za-z0-9_:.-]{1,160}$")]
+ConnectionID = Annotated[str, PathParam(pattern=r"^[a-f0-9]{32}$")]
+
+
+class ConnectionRequest(BaseModel):
+    expected_recipient: int | None = Field(default=None, gt=0)
 
 
 def create_app(settings: Settings, *, caller=None):
@@ -46,6 +53,8 @@ def create_app(settings: Settings, *, caller=None):
             app.state.caller = TelegramCaller(settings)
         else:
             app.state.caller = caller
+        app.state.connections = Connections(db, settings.key.get_secret_value(), app.state.caller)
+        app.state.caller.connection_handler = app.state.connections.receive
         try:
             await app.state.caller.start()
             yield
@@ -67,6 +76,19 @@ def create_app(settings: Settings, *, caller=None):
     @app.get("/ready")
     async def ready():
         return {"status": "ok"}
+
+    @app.post("/v1/connections/{id}", dependencies=[Depends(authenticate)])
+    async def connect(id: ConnectionID, body: ConnectionRequest):
+        return app.state.connections.start(id, body.expected_recipient)
+
+    @app.get("/v1/connections/{id}", dependencies=[Depends(authenticate)])
+    async def connection(id: ConnectionID):
+        return app.state.connections.status(id)
+
+    @app.delete("/v1/connections/{id}", dependencies=[Depends(authenticate)])
+    async def disconnect(id: ConnectionID):
+        app.state.connections.disable(id)
+        return {"status": "disabled"}
 
     async def deliver(id, recipient, audio):
         path = settings.data_dir / ("clip-" + secrets.token_hex(16) + ".mp3")
@@ -98,7 +120,7 @@ def create_app(settings: Settings, *, caller=None):
         recipient: Annotated[int, Query(gt=0)],
         expires: float,
     ):
-        if recipient not in settings.recipients:
+        if recipient not in settings.recipients and not app.state.connections.permitted(recipient):
             raise HTTPException(403, "Call recipient is unavailable.")
         now = time.time()
         if not math.isfinite(expires) or not now < expires <= now + 901:

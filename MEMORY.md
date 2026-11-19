@@ -2,6 +2,20 @@
 
 Updated: 2026-11-19.
 
+## Per-user calling onboarding, 2026-11-19
+
+Offer optional Telegram calls in browser and private Telegram onboarding when the global calling environment is configured.
+Use one regular calling account for all users. Do not request provider credentials from each user.
+Bind recipients through a ten-minute challenge sent directly from the receiving account to the calling account.
+For Telegram owners, require the existing authenticated sender ID. Browser owners verify the account that sends their private challenge.
+Keep verification messages outside model history. Reject forwarded, bot, group, expired, and reused proofs.
+Require a test call and the user's audio confirmation before exposing calling tools.
+Save separate reminder and approval choices per owner in migration 021.
+Opted-in reminders default to phone delivery. Keep written notifications and authenticated approval decisions.
+Recheck preferences and access before dialing. Disconnect locally before remote cleanup so failures cannot restore access.
+Retain existing operator recipient mappings as verified fallbacks. A saved disconnect overrides them.
+Keep routine CI free of system package downloads and live Telegram calls.
+
 ## Environment-gated calling tools, 2026-11-19
 
 The operator requires calling to be absent from discovery when its environment is incomplete.

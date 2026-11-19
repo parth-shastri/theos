@@ -179,9 +179,7 @@ class TelegramCallsSettings(BaseModel):
 
     @property
     def configured(self):
-        return bool(
-            self.enabled and self.url and self.key.get_secret_value().strip() and self.recipients
-        )
+        return bool(self.enabled and self.url and self.key.get_secret_value().strip())
 
 
 class TwilioSettings(BaseModel):
