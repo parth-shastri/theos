@@ -15,7 +15,17 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.8
+
+Package version 1.6.8 retries interrupted remote reads during backup hydration with a bounded delay.
+The completed response must still pass the existing digest check. Permanent errors and corrupt objects still stop the backup.
+Deployment helper failures now identify the helper, exit code, and exception class without exposing private output.
+The release retains the two-way calling changes and Pi gateway location prepared for 1.6.7.
+No additional local tests or live calls were requested.
+
 ## Release 1.6.7
+
+Activation failed during backup creation. Automatic rollback restored healthy 1.6.6.
 
 Package version 1.6.7 uses tag `rpi-v1.6.7` from the promoted `rpi` tip.
 Telegram calls accept freeform voice, follow-up questions, explicit approval or decline, and spoken requests to end the call.
