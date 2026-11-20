@@ -15,6 +15,25 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.7
+
+Package version 1.6.7 uses tag `rpi-v1.6.7` from the promoted `rpi` tip.
+Telegram calls accept freeform voice, follow-up questions, explicit approval or decline, and spoken requests to end the call.
+Ordinary voice requests use the existing Theos runtime after pending approvals are resolved.
+The same loop handles reminders, immediate calls, approval calls, and onboarding test calls.
+Migration 023 stores private call transcripts, sequence numbers, and exact decision bindings. Migration 022 remains the browser alias migration.
+Calls retain the configured Kokoro voice and transcription service. No new provider credential is required.
+Install the compatible native gateway before enabling `AGENT_TELEGRAM_CALLS__TWO_WAY` and `AGENT_CALLING_TWO_WAY` in their private environments.
+Both flags default to false for other installations.
+The production calling gateway now runs on the Pi as the user service `theos-calling.service`.
+The operator Mac no longer owns the Telegram account session or gateway runtime.
+Telegram bot messaging continues inside the existing Theos API container on the Pi.
+A call permits twenty responses within five minutes, with thirty-second bounds for speech and idle listening.
+Questions, conditional speech, unrelated replies, and ending a call do not approve a pending action.
+The operator confirmed clear replies during a live five-turn conversation that exercised questions, decline, and spoken hangup.
+Positive spoken approval retains isolated automated coverage but still lacks live handset acceptance.
+The operator requested deployment without additional local tests or live calls.
+
 ## Release 1.6.5
 
 Package version 1.6.5 uses tag `rpi-v1.6.5` from a Pi backup throughput fix.
@@ -396,6 +415,9 @@ No database migration is required. Existing conversation output overrides remain
 These notes describe the prepared release. Confirm deployment through the workflow result and Pi `current.json` manifest.
 
 ## Continuous integration
+
+The frontend job has a 25-minute limit for dependency setup, browser acceptance, and its standalone container check.
+This budget accommodates cold browser installation without removing test steps or changing browser concurrency.
 
 [Theos CI](../.github/workflows/theos.yml) runs on pushes to `dev`, `main`, and `rpi`, and PRs into those branches.
 Topic branches run CI through their PR. A topic push does not start a second run.

@@ -199,3 +199,164 @@ async def test_native_cleanup_failure_still_discards_the_remote_call(tmp_path):
     assert len(discarded) == 1 and discarded[0].peer.id == 1
     assert isinstance(discarded[0].reason, PhoneCallDiscardReasonHangup)
     assert not caller.finished and not caller.peers
+
+
+async def test_spoken_call_receives_only_after_prompt_and_never_dials_for_feedback(tmp_path):
+    from pytgcalls.types import RecordStream
+
+    from theos_calling.audio_input import SAMPLE_RATE
+
+    caller = TelegramCaller(None)
+    dialed = []
+    stages = []
+
+    async def play(recipient, media, config):
+        dialed.append(recipient)
+        assert not caller.inputs
+        caller.playback[recipient].set()
+
+    async def leave(recipient):
+        stages.append("hangup")
+
+    async def connected(recipient, stream, *, incoming=False):
+        if incoming and stream is not None:
+            assert isinstance(stream, RecordStream)
+            assert stream.speaker is stream.camera is stream.screen is None
+            stages.append("listen")
+            capture = caller.inputs[recipient]
+            capture.feed(1, b"\x00\x04" * (SAMPLE_RATE // 3))
+            capture.feed(1, b"\x00\x00" * SAMPLE_RATE)
+        elif incoming:
+            assert recipient not in caller.inputs
+            stages.append("stop-listening")
+        else:
+            stages.append("feedback")
+            caller.playback[recipient].set()
+
+    async def respond(audio):
+        assert audio.startswith(b"RIFF") and not caller.inputs
+        stages.append("decide")
+        return tmp_path / "feedback.mp3"
+
+    caller.calls = SimpleNamespace(play=play, leave_call=leave)
+    caller._connected_stream = connected
+    await caller.interact(123, tmp_path / "prompt.mp3", respond)
+    assert dialed == [123]
+    assert stages == ["listen", "stop-listening", "decide", "feedback", "hangup"]
+    assert not caller.inputs and not caller.finished and not caller.playback
+
+
+async def test_hangup_before_listening_does_not_record_or_reconnect(tmp_path):
+    caller = TelegramCaller(None)
+    dialed = []
+
+    async def play(recipient, *args):
+        dialed.append(recipient)
+        caller._finish(recipient)
+
+    async def leave(recipient):
+        pass
+
+    async def forbidden(*args, **kwargs):
+        raise AssertionError("A disconnected call must not receive audio or reconnect.")
+
+    caller.calls = SimpleNamespace(play=play, leave_call=leave)
+    caller._connected_stream = forbidden
+    await caller.interact(123, tmp_path / "prompt.mp3", forbidden)
+    assert dialed == [123] and not caller.inputs
+
+
+async def test_native_receive_binding_uses_external_pcm_and_never_calls_public_record():
+    from ntgcalls import MediaSource, StreamMode
+    from pytgcalls.types import RecordStream
+    from pytgcalls.types.raw import AudioParameters
+
+    caller = TelegramCaller(None)
+    changes = []
+
+    async def set_sources(recipient, mode, media):
+        changes.append((recipient, mode, media))
+
+    caller.calls = SimpleNamespace(_binding=SimpleNamespace(set_stream_sources=set_sources))
+    await caller._connected_stream(
+        123, RecordStream(True, AudioParameters(48000, 1)), incoming=True
+    )
+    recipient, mode, media = changes[0]
+    assert recipient == 123 and mode == StreamMode.PLAYBACK
+    assert media.microphone.media_source == MediaSource.EXTERNAL
+    assert media.speaker is media.camera is media.screen is None
+
+
+async def test_two_freeform_replies_continue_on_one_native_call(tmp_path):
+    from theos_calling.audio_input import SAMPLE_RATE
+
+    caller = TelegramCaller(None)
+    stages, dialed = [], []
+
+    async def play(recipient, *args):
+        dialed.append(recipient)
+        caller.playback[recipient].set()
+
+    async def leave(recipient):
+        stages.append("hangup")
+
+    async def connected(recipient, stream, *, incoming=False):
+        if incoming and stream is not None:
+            stages.append("listen")
+            capture = caller.inputs[recipient]
+            capture.feed(1, b"\x00\x04" * (SAMPLE_RATE // 3))
+            capture.feed(1, b"\x00\x00" * SAMPLE_RATE)
+        elif incoming:
+            stages.append("stop-listening")
+        else:
+            stages.append("feedback")
+            caller.playback[recipient].set()
+
+    replies = 0
+
+    async def respond(audio):
+        nonlocal replies
+        replies += 1
+        assert audio.startswith(b"RIFF") and not caller.inputs
+        stages.append("respond")
+        return tmp_path / "feedback.mp3", replies == 2
+
+    caller.calls = SimpleNamespace(play=play, leave_call=leave)
+    caller._connected_stream = connected
+    await caller.interact(123, tmp_path / "prompt.mp3", respond)
+    assert dialed == [123] and replies == 2
+    assert stages == ["listen", "stop-listening", "respond", "feedback"] * 2 + ["hangup"]
+    assert not caller.inputs and not caller.finished and not caller.playback
+
+
+async def test_hangup_while_waiting_for_a_reply_cancels_it_without_playback(tmp_path):
+    from theos_calling.audio_input import SAMPLE_RATE
+
+    caller = TelegramCaller(None)
+    cancelled = asyncio.Event()
+
+    async def play(recipient, *args):
+        caller.playback[recipient].set()
+
+    async def leave(recipient):
+        pass
+
+    async def connected(recipient, stream, *, incoming=False):
+        assert incoming, "A hangup must not play feedback or redial."
+        if stream is not None:
+            capture = caller.inputs[recipient]
+            capture.feed(1, b"\x00\x04" * (SAMPLE_RATE // 3))
+            capture.feed(1, b"\x00\x00" * SAMPLE_RATE)
+
+    async def respond(audio):
+        caller._finish(123)
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    caller.calls = SimpleNamespace(play=play, leave_call=leave)
+    caller._connected_stream = connected
+    await caller.interact(123, tmp_path / "prompt.mp3", respond)
+    assert cancelled.is_set()
+    assert not caller.inputs and not caller.finished and not caller.playback

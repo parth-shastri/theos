@@ -306,11 +306,11 @@ HTTPX sends bounded MP3 audio to the separate private Telegram calling gateway.
 The gateway uses Telethon 1.46.0, PyTgCalls 3.0.1, NTgCalls 3.0.7, and host FFmpeg.
 A dedicated regular Telegram account starts private calls. The existing bot continues message delivery.
 The gateway retains the private account session and call IDs outside the assistant container.
-It rejects incoming calls and sends no microphone, camera, or recording stream.
+It rejects incoming calls and never opens the host's microphone or camera.
 
 SQLite migrations 019 and 020 save one call attempt with its source reminder or approval and selected provider.
 Migration 021 saves each owner's verified recipient, test call, and reminder and approval choices.
-The scheduler rechecks the owner and source before dialing. Approval calls wait two minutes and use a generic alert.
+The scheduler rechecks the owner and source before dialing. Approval calls wait two minutes and use a generic alert by default.
 Only activated private accounts can request call delivery. Users who enable reminder calls receive phone delivery by default.
 All other reminders retain message delivery. Disconnection and preference changes stop queued calls before dialing.
 The immediate call tool and due reminders use the same worker. Read the [Telegram setup guide](../calling/README.md).
@@ -322,6 +322,39 @@ Read the [carrier setup guide](files-and-voice.md#direct-phone-calls).
 Source: [call delivery](../src/theos/services/phone_calls.py), [calling gateway](../calling/src/theos_calling/server.py),
 [Telegram calls](https://core.telegram.org/api/calls), [PyTgCalls](https://github.com/pytgcalls/pytgcalls),
 and [Twilio call API](https://www.twilio.com/docs/voice/api/call-resource).
+
+### Freeform two-way calls
+
+Two-way calling is disabled by default. Release 1.6.7 includes this conversation flow.
+The application flag is `AGENT_TELEGRAM_CALLS__TWO_WAY`. The native gateway flag is `AGENT_CALLING_TWO_WAY`.
+The earlier `SPOKEN_APPROVALS` flags enable the same loop for compatibility.
+The existing transcription endpoint must also be configured. No new tool or provider credential is required.
+Production uses the persistent Pi user service `theos-calling.service` at `http://100.68.21.29:8882`.
+Telegram bot messaging stays inside the main Theos API container on the Pi.
+
+All call kinds accept freeform voice, follow-up questions, and multiple replies on the existing Telegram call.
+The configured model routes natural intent through OpenAI Responses. It has no tools during intent classification.
+Ordinary requests use the normal Theos runtime and tools, with `call_user` removed to prevent nested calls.
+Pending approval questions use only the saved review. Other tasks and changes wait until that request is resolved.
+An explicit decision requires the complete spoken review and a verbatim whole-utterance authorization quote.
+The review prompt must fit 600 characters. Long, HTML, or opaque reviews retain the application review path.
+Silence, questions, conditions, unrelated words, and ending the call leave the approval pending.
+
+The call lasts up to five minutes and twenty responses. Each utterance lasts up to thirty seconds.
+Thirty seconds without speech ends the call. Capture starts after playback and stops before transcription.
+Incoming mono, 48 kHz, signed 16-bit PCM stays in memory and reaches only the authenticated application.
+Raw response audio never enters the file catalog, R2, or model history.
+Migration 023 stores private utterance transcripts, replies, digests, intent, and exact approval bindings.
+Normal voice requests also enter the existing conversation history.
+
+The application rechecks ownership, access, recipient, provider preview, saved action fields, and expiry before resuming the existing tool call.
+The decision, voice outcome, and written notice commit together. Existing execution-time approval checks still apply.
+Changed or expired actions cannot use the spoken grant. Duplicate responses never repeat an action.
+Feedback continues the existing call or ends it when requested. A missing call cannot reconnect for feedback.
+Interrupted processing remains uncertain and is never replayed automatically.
+
+Source: [call conversations](../src/theos/services/call_conversations.py), [intent classification](../src/theos/services/call_intent.py),
+[approval binding](../src/theos/services/spoken_approvals.py), and [incoming audio](../calling/src/theos_calling/audio_input.py).
 
 ## Meals
 

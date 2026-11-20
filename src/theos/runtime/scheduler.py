@@ -26,6 +26,7 @@ class Scheduler:
         self.memory_task = None
         self.github_task = None
         self.phone_task = None
+        self.spoken_task = None
         from .scheduled import ScheduledTasks
 
         self.scheduled = ScheduledTasks(runtime, telegram)
@@ -94,6 +95,8 @@ class Scheduler:
         )
         if self.phone_task is None or self.phone_task.done():
             self.phone_task = asyncio.create_task(self.phone_work(self.last_tick))
+        if self.spoken_task is None or self.spoken_task.done():
+            self.spoken_task = asyncio.create_task(self.spoken_work())
         # 2. Deliver saved notifications. Keep uncertain sends for review.
         await self.notifications()
         if self.github_task is None or self.github_task.done():
@@ -121,6 +124,15 @@ class Scheduler:
         except Exception:
             logger.warning("phone_call_worker_failed")
 
+    async def spoken_work(self):
+        """Process voice turns independently of speech generation for other calls."""
+        try:
+            await self.runtime.call_conversations.tick(self.telegram)
+        except Exception as error:
+            logger.warning(
+                "spoken_approval_worker_failed", extra={"error_type": type(error).__name__}
+            )
+
     async def memory_work(self):
         """Isolate optional consolidation from reminder and scheduled-task delivery."""
         try:
@@ -142,6 +154,9 @@ class Scheduler:
         if self.phone_task is not None:
             self.phone_task.cancel()
             await asyncio.gather(self.phone_task, return_exceptions=True)
+        if self.spoken_task is not None:
+            self.spoken_task.cancel()
+            await asyncio.gather(self.spoken_task, return_exceptions=True)
         if self.github_task is not None:
             self.github_task.cancel()
             await asyncio.gather(self.github_task, return_exceptions=True)
