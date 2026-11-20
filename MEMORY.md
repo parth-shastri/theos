@@ -1,11 +1,22 @@
 # Theos project memory
 
-Updated: 2026-11-19.
+Updated: 2026-11-20.
+
+## Isolated live call acceptance, 2026-11-20
+
+The operator authorized a live Telegram call to test freeform replies and approvals, while retaining the deployment prohibition.
+Use temporary application and gateway processes with a disposable database and harmless test notes.
+Keep installed services, private environment files, releases, and production data unchanged.
+The first isolated gateway accepted one request, but the native connection did not complete within its connection window.
+The test received no utterances. Both note approvals stayed pending, and no test tool executed.
+The temporary process stopped and removed its copied Telegram session and gateway key file.
+The installed gateway process remained unchanged. Handset feedback and a completed live conversation remain open.
 
 ## Freeform two-way calls, local work, 2026-11-19
 
 The operator requested natural voice input on all calls and explicitly prohibited deployment for this work.
-Keep changes on `feature/spoken-call-approvals`. Do not merge, tag, restart installed services, change private environments, or place live calls.
+Keep changes on `feature/spoken-call-approvals`. Do not merge, tag, restart installed services, or change private environments.
+The operator separately authorized isolated live acceptance calls on 2026-11-20.
 Enable conversations only through separate application and native gateway flags. Both flags default to false.
 Reuse the configured transcription service, the default OpenAI Responses model, and the app's existing Kokoro voice.
 Use the same conversation loop for reminders, approval calls, test calls, and immediate calls. No new provider credential is required.

@@ -1,5 +1,17 @@
 # Feature and acceptance checklist
 
+## Isolated live call attempt, 2026-11-20
+
+The operator authorized a live call without deployment.
+A temporary gateway used the current branch, a loopback HTTP endpoint, and a private copy of the existing Telegram session.
+A separate application database held two pending approvals for harmless local test notes.
+Speech and transcription health checks passed. The gateway accepted the call request, but the native connection did not complete.
+No playback completion or microphone utterance reached the application. The gateway retained an uncertain outcome.
+Both approvals remained pending. No tool executed and no test note was saved.
+The temporary processes stopped and removed the copied login session and shared key file.
+The installed gateway process, production application, private environment files, and releases remained unchanged.
+Handset feedback and successful live freeform and approval turns remain open acceptance checks.
+
 ## Freeform two-way calls, local work, 2026-11-19
 
 This branch adds optional conversations to all Telegram call kinds. It has not been deployed or enabled on installed services.
