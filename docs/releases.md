@@ -15,7 +15,49 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.7
+
+Package version 1.6.7 uses tag `rpi-v1.6.7` from the promoted `rpi` tip.
+Telegram calls accept freeform voice, follow-up questions, explicit approval or decline, and spoken requests to end the call.
+Ordinary voice requests use the existing Theos runtime after pending approvals are resolved.
+The same loop handles reminders, immediate calls, approval calls, and onboarding test calls.
+Migration 023 stores private call transcripts, sequence numbers, and exact decision bindings. Migration 022 remains the browser alias migration.
+Calls retain the configured Kokoro voice and transcription service. No new provider credential is required.
+Install the compatible native gateway before enabling `AGENT_TELEGRAM_CALLS__TWO_WAY` and `AGENT_CALLING_TWO_WAY` in their private environments.
+Both flags default to false for other installations.
+A call permits twenty responses within five minutes, with thirty-second bounds for speech and idle listening.
+Questions, conditional speech, unrelated replies, and ending a call do not approve a pending action.
+The operator confirmed clear replies during a live five-turn conversation that exercised questions, decline, and spoken hangup.
+Positive spoken approval retains isolated automated coverage but still lacks live handset acceptance.
+The operator requested deployment without additional local tests or live calls.
+
+## Release 1.6.5
+
+Package version 1.6.5 uses tag `rpi-v1.6.5` from a Pi backup throughput fix.
+The deployment backup fetches remote-only checkpoint contents with bounded concurrency and retains complete digest verification.
+The candidate image creates the backup from the previous volume; the previous image still restores it.
+Confirm backup completion, both service health checks, and the active manifest before assigning the private browser login alias.
+
+## Release 1.6.4
+
+Package version 1.6.4 uses tag `rpi-v1.6.4` from the Pi login fix.
+Migration 022 adds optional browser password login aliases without changing Telegram owner IDs or existing credentials.
+Assign the requested alias in the private Pi database after activation and confirm password sign-in opens the same account.
+The original account ID remains a valid sign-in name.
+
+## Release 1.6.3
+
+Package version 1.6.3 uses tag `rpi-v1.6.3` from the corrected `rpi` tip.
+Backup helpers receive only the R2 settings already resolved by Compose.
+This preserves quoted credentials and excludes unrelated application settings.
+The temporary environment file has mode 0600 and disappears after success or failure.
+The release retains the R2 storage behavior prepared for 1.6.2.
+Confirm activation, remote checksums, local spool removal, and both service health checks before reporting deployment.
+
 ## Release 1.6.2
+
+Activation failed in the backup archive helper. Automatic rollback restored healthy 1.6.1.
+The raw Docker environment-file parser retained quotes in tracing and R2 settings. Release 1.6.3 corrects this handling.
 
 Package version 1.6.2 uses tag `rpi-v1.6.2` from the promoted `rpi` tip.
 Catalog files and checkpoint contents leave the Pi after the background worker verifies their R2 copies.
@@ -371,6 +413,9 @@ These notes describe the prepared release. Confirm deployment through the workfl
 
 ## Continuous integration
 
+The frontend job has a 25-minute limit for dependency setup, browser acceptance, and its standalone container check.
+This budget accommodates cold browser installation without removing test steps or changing browser concurrency.
+
 [Theos CI](../.github/workflows/theos.yml) runs on pushes to `dev`, `main`, and `rpi`, and PRs into those branches.
 Topic branches run CI through their PR. A topic push does not start a second run.
 Every run retains these application checks:
@@ -585,7 +630,7 @@ A journal lets the next invocation recover an interrupted activation.
 
 An upgrade has downtime while the database is backed up and the candidate starts.
 Full backups include indexed remote-only file contents through temporary local staging.
-The backup helper needs outbound R2 access and the private deployment environment.
+The backup helper needs outbound R2 access and resolved private storage settings from Compose.
 Restoration uses the previous image and an isolated network before candidate migrations run.
 The candidate image then uploads the completed archive to R2 and verifies it before removing the local archive.
 The deployment result records an `r2:` backup reference when this transfer succeeds.

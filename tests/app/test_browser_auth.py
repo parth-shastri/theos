@@ -186,6 +186,43 @@ async def test_optional_password_lifecycle_and_cookie_only_management(runtime):
         assert (await first.get("/api/me")).status_code == 200
 
 
+async def test_password_alias_keeps_owner_and_shares_login_limit(runtime):
+    from theos.storage import browser_passwords
+
+    password = "orchid spanner midnight comet"
+    runtime.db.ensure_user("alice")
+    salt, digest = browser_passwords.create(password, password, ["alice", "shortname"])
+    browser_passwords.save(runtime.settings, runtime.db, "alice", salt, digest)
+    runtime.db.execute(
+        "INSERT INTO browser_login_aliases(alias,owner) VALUES (?,?)",
+        ("shortname", "alice"),
+    )
+    async with browser(runtime) as client:
+        for account in ("shortname", "SHORTNAME", "alice"):
+            result = await client.post(
+                "/api/auth/password/login", json={"account": account, "password": password}
+            )
+            assert result.status_code == 200
+            assert (await client.get("/api/me")).json()["id"] == "alice"
+            assert (await client.get("/api/auth/password")).json()["account"] == "shortname"
+            await client.post("/api/auth/logout")
+
+        runtime.settings.frontend_secret = SecretStr("s" * 32)
+        client.headers["X-Theos-Frontend-Secret"] = "s" * 32
+        for number in range(1, 21):
+            client.headers["X-Theos-Client-IP"] = f"203.0.113.{number}"
+            account = "shortname" if number % 2 else "alice"
+            result = await client.post(
+                "/api/auth/password/login", json={"account": account, "password": "wrong"}
+            )
+            assert result.status_code == 401
+        client.headers["X-Theos-Client-IP"] = "203.0.113.21"
+        blocked = await client.post(
+            "/api/auth/password/login", json={"account": "SHORTNAME", "password": password}
+        )
+        assert blocked.status_code == 429
+
+
 async def test_password_failures_are_limited_by_account_across_addresses(runtime):
     path = "/api/auth/password/login"
     runtime.settings.frontend_secret = SecretStr("s" * 32)

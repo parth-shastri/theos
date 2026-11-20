@@ -177,6 +177,7 @@ def test_call_migration_preserves_existing_provider_attempts(settings):
     db.execute("DROP TABLE phone_calls")
     db.execute("DROP TABLE call_connections")
     db.execute("DROP TABLE call_utterances")
+    db.execute("DROP TABLE browser_login_aliases")
     previous = Path(__file__).parents[2] / "src/theos/storage/migrations/019_phone_calls.sql"
     db.connection.executescript(
         "CREATE TABLE phone_calls" + previous.read_text().split("CREATE TABLE phone_calls", 1)[1]
@@ -203,7 +204,7 @@ def test_call_migration_preserves_existing_provider_attempts(settings):
     db.close()
     upgraded = Database(settings.data_dir)
     try:
-        assert upgraded.one("PRAGMA user_version")["user_version"] == 22
+        assert upgraded.one("PRAGMA user_version")["user_version"] == 23
         after = upgraded.one("SELECT * FROM phone_calls")
         assert {key: after[key] for key in before} == before
         assert after["voice_status"] is None

@@ -325,7 +325,7 @@ and [Twilio call API](https://www.twilio.com/docs/voice/api/call-resource).
 
 ### Freeform two-way calls
 
-The local two-way implementation is disabled by default and has not been deployed.
+Two-way calling is disabled by default. Release 1.6.7 includes this conversation flow.
 The application flag is `AGENT_TELEGRAM_CALLS__TWO_WAY`. The native gateway flag is `AGENT_CALLING_TWO_WAY`.
 The earlier `SPOKEN_APPROVALS` flags enable the same loop for compatibility.
 The existing transcription endpoint must also be configured. No new tool or provider credential is required.
@@ -342,7 +342,7 @@ The call lasts up to five minutes and twenty responses. Each utterance lasts up 
 Thirty seconds without speech ends the call. Capture starts after playback and stops before transcription.
 Incoming mono, 48 kHz, signed 16-bit PCM stays in memory and reaches only the authenticated application.
 Raw response audio never enters the file catalog, R2, or model history.
-Migration 022 stores private utterance transcripts, replies, digests, intent, and exact approval bindings.
+Migration 023 stores private utterance transcripts, replies, digests, intent, and exact approval bindings.
 Normal voice requests also enter the existing conversation history.
 
 The application rechecks ownership, access, recipient, provider preview, saved action fields, and expiry before resuming the existing tool call.

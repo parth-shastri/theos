@@ -64,6 +64,20 @@ def for_owner(settings, db, owner):
     return row
 
 
+def login_owner(settings, db, account):
+    """Resolve an operator-assigned login alias without changing the account owner."""
+    if account in settings.users or db.one("SELECT id FROM users WHERE id=?", (account,)):
+        return account
+    row = db.one("SELECT owner FROM browser_login_aliases WHERE alias=?", (account,))
+    return row["owner"] if row else account
+
+
+def login_account(db, owner):
+    """Show the shorter login name when this owner has one."""
+    row = db.one("SELECT alias FROM browser_login_aliases WHERE owner=?", (owner,))
+    return row["alias"] if row else owner
+
+
 def save(settings, db, owner, salt, digest):
     token = settings.users.get(owner)
     token_hash = browser_access.fingerprint(token.get_secret_value()) if token is not None else None

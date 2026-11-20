@@ -59,7 +59,7 @@ The call accepts twenty responses within five minutes. Utterances and idle liste
 Audio is turn-based. Interruption during Theos playback remains unsupported.
 
 Changes to the owner, recipient, access, action fields, remote preview, or expiry prevent a spoken grant.
-Migration 022 stores private transcripts, replies, digests, and decision metadata. Raw response audio remains ephemeral.
+Migration 023 stores private transcripts, replies, digests, and decision metadata. Raw response audio remains ephemeral.
 The decision and written notice commit together. Lost feedback preserves the decision, and restart recovery never replays an interrupted response.
 
 The full Python suite passed 1,305 tests with three credential-dependent checks excluded.
@@ -72,6 +72,35 @@ Gateway HTTP checks cover authentication, call isolation, sequence binding, dedu
 Project lint, formatting, and whitespace checks passed. No new CI job or system dependency installation was added.
 No live call, installed gateway restart, private environment update, merge, tag, or deployment was performed.
 Live handset microphone capture, human speech recognition, and consecutive feedback playback remain open acceptance checks.
+## Pi full-backup window, 2026-11-19
+
+The 1.6.5 Pi snapshot hydrated all 4,590 remote checkpoints but timed out while writing the archive. Automatic rollback restored healthy 1.6.3 services.
+Snapshot creation and archive transfer now allow 60 minutes each; the deployment job allows 120 minutes.
+The incomplete 1.6.4 and 1.6.5 staging directories and partial 1.6.5 archive were removed after rollback.
+Live 1.6.6 deployment and alias assignment remain pending.
+
+## Pi backup hydration throughput, 2026-11-19
+
+The backup downloader now runs up to four remote reads concurrently with eight pending results.
+The candidate image creates a complete archive of the previous volume, and the previous image restores that archive.
+Focused backup and deployment checks pass. Live Pi release completion remains pending.
+
+## Browser password login alias, 2026-11-19
+
+Migration 022 adds one optional alias per owner. The alias resolves to the existing owner at password sign-in.
+Password settings show the alias, while existing owner IDs remain valid.
+Focused checks cover alias sign-in, retained conversation ownership, and a shared failed-login limit.
+Pi activation, private alias assignment, and live password sign-in remain to be verified.
+
+## Resolved R2 backup helper environment, 2026-11-19
+
+The 1.6.2 activation rolled back after Docker retained quotes in the private environment file.
+Backup helpers now receive only storage settings resolved by Compose through a temporary file with mode 0600.
+Checks cover exact field transfer, unrelated settings, multiline rejection, and credential-file removal after success or failure.
+A Pi rehearsal used the real resolved configuration with an isolated volume and synthetic data.
+It uploaded a backup to R2, verified and removed the local archive, and restored the same bytes from R2.
+The rehearsal removed its R2 object, volume, and temporary credential file. Existing application data remained unchanged.
+Release 1.6.3 activation and the active-volume spool audit remain pending.
 
 ## R2 file contents and local spool, 2026-11-19
 

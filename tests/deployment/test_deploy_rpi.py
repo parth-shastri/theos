@@ -1,6 +1,7 @@
 """Exercise state restoration after pull, backup, startup, and readiness failures."""
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -48,7 +49,14 @@ def deployment(tmp_path):
     deployer = Deployer(directory, compose)
     calls = []
     deployer.docker = lambda *args, **kwargs: calls.append(("docker", *args)) or ""
-    deployer.compose = lambda release, *args: calls.append((release["volume"], *args)) or ""
+
+    def compose(release, *args):
+        calls.append((release["volume"], *args))
+        if args == ("config", "--format", "json"):
+            return json.dumps({"services": {"theos": {"environment": {}}}})
+        return ""
+
+    deployer.compose = compose
     deployer.healthy = lambda release: calls.append(("healthy", release["volume"]))
     return deployer, calls
 
@@ -165,6 +173,8 @@ def test_success_commits_new_volume_and_retains_previous(deployment):
     assert current["volume"] != previous["volume"]
     assert result["backup"].startswith("previous-volume:/data/backups/")
     assert ("previous-volume", "stop", "theos") in calls
+    backup = next(c for c in calls if "theos-backup-" in " ".join(c))
+    assert IMAGE in backup and previous["image"] not in backup
     restore = next(c for c in calls if "/previous:ro" in " ".join(c))
     assert previous["image"] in restore
     assert not deployer.pending_path.exists()
@@ -232,7 +242,7 @@ def test_timed_out_helper_is_removed_before_rollback_opens_previous_volume(deplo
     def docker(*args, **kwargs):
         nonlocal running
         if args[0] == "run" and "--name" in args:
-            assert kwargs["timeout"] == 1800
+            assert kwargs["timeout"] == 3600
             running = True
             raise DeploymentError("backup helper timed out")
         if args[:2] == ("ps", "-aq") and "name=^/theos-backup-" in args[-1]:
@@ -282,15 +292,63 @@ def test_snapshot_has_separate_bounded_backup_and_restore_deadlines(deployment):
         return ""
 
     deployer.docker = docker
+    deployer.compose = lambda *_: json.dumps({"services": {"theos": {"environment": {}}}})
     deployer.snapshot(
         previous, dict(revision=REVISION, tag="rpi-v0.1.0", volume="candidate", image=IMAGE)
     )
-    assert [kwargs["timeout"] for _, kwargs in calls] == [1800, 900, 1800]
+    assert [kwargs["timeout"] for _, kwargs in calls] == [3600, 900, 3600]
     assert all("--no-healthcheck" in args and "--name" in args for args, _ in calls)
     assert "--env-file" in calls[0][0]
     assert "--network" not in calls[0][0]
     assert "--network" in calls[1][0] and "none" in calls[1][0]
     assert "--env-file" in calls[2][0] and IMAGE in calls[2][0]
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_backup_helpers_use_private_resolved_storage_and_always_remove_it(deployment, fail):
+    deployer, _ = deployment
+    previous = previous_release(deployer)
+    storage = {
+        "AGENT_STORAGE__ENDPOINT": "https://r2.example.invalid",
+        "AGENT_STORAGE__BUCKET": "private-test",
+        "AGENT_STORAGE__ACCESS_KEY": "test-access",
+        "AGENT_STORAGE__SECRET_KEY": "test-secret",
+    }
+    environment = {
+        **storage,
+        "AGENT_TRACING__HEADERS": '{"secret":"unrelated"}',
+        "AGENT_API_KEY": "unrelated",
+    }
+    deployer.compose = lambda *_: json.dumps({"services": {"theos": {"environment": environment}}})
+    paths = []
+
+    def helper(name, *args, **kwargs):
+        if "--env-file" in args:
+            path = Path(args[args.index("--env-file") + 1])
+            paths.append(path)
+            assert path.stat().st_mode & 0o777 == 0o600
+            assert dict(line.split("=", 1) for line in path.read_text().splitlines()) == storage
+            if fail:
+                raise DeploymentError("synthetic helper failure")
+        return "r2:theos/backups/synthetic.tar.gz"
+
+    deployer.run_helper = helper
+    candidate = dict(revision=REVISION, tag="rpi-v0.1.0", volume="candidate", image=IMAGE)
+    if fail:
+        with pytest.raises(DeploymentError, match="synthetic helper failure"):
+            deployer.snapshot(previous, candidate)
+    else:
+        assert deployer.snapshot(previous, candidate) == "r2:theos/backups/synthetic.tar.gz"
+    assert paths and all(not path.exists() for path in paths)
+
+
+def test_backup_helpers_reject_multiline_storage_without_retaining_private_file(deployment):
+    deployer, _ = deployment
+    environment = {"AGENT_STORAGE__SECRET_KEY": "first\nsecond"}
+    deployer.compose = lambda *_: json.dumps({"services": {"theos": {"environment": environment}}})
+    with pytest.raises(DeploymentError, match="single-line"):
+        deployer.snapshot(previous_release(deployer), {})
+    assert not list(deployer.directory.glob(".backup-storage-*"))
 
 
 def test_helper_completion_during_cleanup_does_not_prevent_rollback(deployment):

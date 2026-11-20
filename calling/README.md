@@ -119,7 +119,7 @@ Written notifications remain available. With two-way calling disabled, resolve a
 
 ## Two-way calls: local implementation
 
-This work has not been deployed. Both two-way flags default to false.
+Both two-way flags default to false. Release 1.6.7 includes this conversation flow.
 The application uses `AGENT_TELEGRAM_CALLS__TWO_WAY`. The gateway uses `AGENT_CALLING_TWO_WAY`.
 The earlier `SPOKEN_APPROVALS` flags remain aliases for this same conversation flow.
 The application also needs its existing transcription endpoint and credentials.
@@ -155,7 +155,7 @@ The call ID and mode retain durable deduplication. No callback URL or public inc
 The application binds each decision to the saved owner, recipient, approval, tool call, arguments, preview, and expiry.
 It re-reads the provider preview before applying a decision through the existing runtime approval path.
 The intent model uses the whole current utterance. A partial positive quote cannot authorize an action.
-Migration 022 stores private transcripts, replies, response digests, and decision metadata.
+Migration 023 stores private transcripts, replies, response digests, and decision metadata.
 Ordinary voice requests also enter their existing conversation history. Raw response audio never enters the file catalog, R2, or model history.
 The recorded decision, voice outcome, and written notice commit together.
 Failed feedback cannot erase a recorded decision or repeat an action.

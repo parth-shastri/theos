@@ -2,6 +2,17 @@
 
 Updated: 2026-11-20.
 
+## Two-way calling release approval, 2026-11-20
+
+The operator approved production integration and deployment of the tested two-way calling work.
+Prepare version 1.6.7 through its topic PR to `dev`, then a separate merge-commit promotion PR to `rpi`.
+Publish `rpi-v1.6.7` from the promoted tip. The prior deployment prohibition no longer applies to this release.
+The operator requested no additional tests or live calls. Use the existing acceptance evidence and normal required GitHub checks.
+Preserve existing account credentials, verified recipients, private data, voice settings, and transcription settings.
+Enable two-way calls in the private application and native gateway configuration after installing compatible source.
+Use migration 023 for call conversations. Migration 022 already belongs to browser login aliases on current production.
+Remove local call-test artifacts and clarify the requested image and device cleanup scope before broader deletion.
+
 ## Live freeform and decline acceptance, 2026-11-20
 
 The operator authorized another isolated call and confirmed that Theos replies were clear.
@@ -46,11 +57,53 @@ Bind each decision to the saved approval, owner, recipient, tool call, arguments
 Re-read the current provider preview and access before resuming through the existing approval checkpoints.
 Allow up to five minutes and twenty responses on one call, thirty seconds per utterance, and thirty seconds of idle listening.
 Receive incoming PCM only after playback ends. Stop capture before transcription. Discard raw audio after each response.
-Migration 022 stores private call transcripts, replies, digests, and decision metadata. Normal voice requests also enter their existing conversation history.
+Migration 023 stores private call transcripts, replies, digests, and decision metadata. Normal voice requests also enter their existing conversation history.
 Commit the decision, voice outcome, and written notice together. Lost feedback must not erase a decision or repeat an external action.
 Recover interrupted conversations and processing as uncertain. Never redial or replay a voice turn automatically.
 Use the pinned native stream binding for later media changes because high-level playback helpers can reconnect a missing call.
 Keep routine tests isolated from Telegram and system package downloads. Live handset input remains an open acceptance check.
+
+## Browser CI job budget, 2026-11-19
+
+Allow the existing frontend CI job 25 minutes for setup, browser acceptance, and the standalone container check.
+Two main promotion attempts reached the former 15-minute limit during cold browser setup and acceptance.
+The retry completed 344 browser tests with 16 skips before cancellation. Its remaining container check never started.
+Keep the current test matrix and single browser worker. Do not bypass the required CI gate.
+This CI correction does not require another application deployment. The verified Pi runtime remains version 1.6.3.
+
+## Pi full-backup window, 2026-11-19
+
+The 1.6.5 deployment hydrated all 4,590 remote checkpoints, then hit the 30-minute helper limit while writing the local archive. It rolled back to healthy 1.6.3.
+Allow 60 minutes for snapshot creation and archive transfer, with a 120-minute deployment job so restore, health checks, and rollback have time to finish.
+Preserve the complete-backup requirement and remove only the incomplete staging directories and partial archive from failed attempts before retrying.
+Release this Pi fix as 1.6.6, then copy it to `dev` through a separate PR.
+
+## Pi backup hydration throughput, 2026-11-19
+
+The Pi has thousands of remote-only checkpoint objects. Serial hydration can exceed the 30-minute deployment backup limit.
+Fetch remote backup payloads with four workers and at most eight pending results, verifying each digest before writing it.
+Keep SQLite reads and file writes on the backup thread. Use the candidate image for backup creation so the optimized code can process the previous volume without migrating it.
+Restore the archive with the previous image. Keep the rollback and complete-backup requirements.
+Prepare 1.6.5 as a follow-up Pi hotfix if 1.6.4 cannot finish activation, then copy it to `dev` through a separate PR.
+
+## Browser password login aliases, 2026-11-19
+
+Keep Telegram numeric owners as the stable identity for sessions, credentials, and saved data.
+Allow an operator to assign one case-insensitive browser password login alias per owner in migration 022.
+Resolve aliases only at password sign-in. Share failed-login limits between an alias and its owner ID.
+Show the alias in password settings. Keep the owner ID valid for existing sign-ins.
+Release this Pi login fix as 1.6.4 from `rpi`, then copy it to a separate topic branch from `dev` through a PR.
+Assign the requested user's alias in the private Pi database after activation.
+
+## R2 backup helper environment correction, 2026-11-19
+
+The 1.6.2 deployment rolled back to healthy 1.6.1 before activation.
+Docker's raw environment-file parser retained quotes that Compose removes.
+The archive helper failed while parsing unrelated tracing settings. R2 fields were quoted too.
+Resolve the previous service configuration with Compose and pass only its four R2 fields to backup helpers.
+Keep the temporary environment file private and remove it after success or failure.
+Release the correction as 1.6.3 from a Pi hotfix PR, then copy it to `dev` and promote `main` through separate PRs.
+Preserve the failed tag and all existing data. Verify the real helper configuration before retrying deployment.
 
 ## R2 storage patch release preparation, 2026-11-19
 
