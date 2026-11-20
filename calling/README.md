@@ -9,6 +9,11 @@ Run it on the speech host or another private Mac or Linux host.
 The main application sends MP3 bytes through an authenticated private HTTP connection.
 Keep this service on localhost or a private network such as Tailscale.
 
+The production gateway runs on `neuralbox-pi` as the persistent user service `theos-calling.service`.
+Its private endpoint is `http://100.68.21.29:8882`. The main Theos API uses the same shared gateway key.
+The service uses `~/.local/share/theos-calling/runtime` and `~/.config/theos-calling/.env` on the Pi.
+Telegram bot messaging runs inside the main API container. The gateway handles calls and recipient verification.
+
 ## Create the calling account
 
 1. Register a separate Telegram account with a spare phone number in the official Telegram app.

@@ -2,6 +2,18 @@
 
 Updated: 2026-11-20.
 
+## Pi calling host and Mac removal, 2026-11-20
+
+The operator requested removal of the entire local Theos installation, including the calling gateway.
+Move the gateway to `neuralbox-pi` before removing the Mac account session and runtime.
+The private gateway runs as the persistent user service `theos-calling.service` at `http://100.68.21.29:8882`.
+Its runtime is under `~/.local/share/theos-calling/runtime`. Its private settings are under `~/.config/theos-calling` on the Pi.
+Preserve the Telegram session, verified recipients, shared key, and call ledger during transfer.
+Telegram bot messaging remains inside the main Theos API container on the Pi.
+Keep source checkouts while removing local executables, credentials, virtual environments, test data, containers, images, and caches.
+Use the deployment Compose mount overlay when recreating the API. It retains the shared log and skill mounts.
+Check service readiness during activation. Do not place more live calls or run additional local tests for this release.
+
 ## Two-way calling release approval, 2026-11-20
 
 The operator approved production integration and deployment of the tested two-way calling work.
@@ -70,6 +82,40 @@ Two main promotion attempts reached the former 15-minute limit during cold brows
 The retry completed 344 browser tests with 16 skips before cancellation. Its remaining container check never started.
 Keep the current test matrix and single browser worker. Do not bypass the required CI gate.
 This CI correction does not require another application deployment. The verified Pi runtime remains version 1.6.3.
+
+## Pi full-backup window, 2026-11-19
+
+The 1.6.5 deployment hydrated all 4,590 remote checkpoints, then hit the 30-minute helper limit while writing the local archive. It rolled back to healthy 1.6.3.
+Allow 60 minutes for snapshot creation and archive transfer, with a 120-minute deployment job so restore, health checks, and rollback have time to finish.
+Preserve the complete-backup requirement and remove only the incomplete staging directories and partial archive from failed attempts before retrying.
+Release this Pi fix as 1.6.6, then copy it to `dev` through a separate PR.
+
+## Pi backup hydration throughput, 2026-11-19
+
+The Pi has thousands of remote-only checkpoint objects. Serial hydration can exceed the 30-minute deployment backup limit.
+Fetch remote backup payloads with four workers and at most eight pending results, verifying each digest before writing it.
+Keep SQLite reads and file writes on the backup thread. Use the candidate image for backup creation so the optimized code can process the previous volume without migrating it.
+Restore the archive with the previous image. Keep the rollback and complete-backup requirements.
+Prepare 1.6.5 as a follow-up Pi hotfix if 1.6.4 cannot finish activation, then copy it to `dev` through a separate PR.
+
+## Browser password login aliases, 2026-11-19
+
+Keep Telegram numeric owners as the stable identity for sessions, credentials, and saved data.
+Allow an operator to assign one case-insensitive browser password login alias per owner in migration 022.
+Resolve aliases only at password sign-in. Share failed-login limits between an alias and its owner ID.
+Show the alias in password settings. Keep the owner ID valid for existing sign-ins.
+Release this Pi login fix as 1.6.4 from `rpi`, then copy it to a separate topic branch from `dev` through a PR.
+Assign the requested user's alias in the private Pi database after activation.
+
+## R2 backup helper environment correction, 2026-11-19
+
+The 1.6.2 deployment rolled back to healthy 1.6.1 before activation.
+Docker's raw environment-file parser retained quotes that Compose removes.
+The archive helper failed while parsing unrelated tracing settings. R2 fields were quoted too.
+Resolve the previous service configuration with Compose and pass only its four R2 fields to backup helpers.
+Keep the temporary environment file private and remove it after success or failure.
+Release the correction as 1.6.3 from a Pi hotfix PR, then copy it to `dev` and promote `main` through separate PRs.
+Preserve the failed tag and all existing data. Verify the real helper configuration before retrying deployment.
 
 ## Pi full-backup window, 2026-11-19
 

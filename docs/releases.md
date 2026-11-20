@@ -25,6 +25,9 @@ Migration 023 stores private call transcripts, sequence numbers, and exact decis
 Calls retain the configured Kokoro voice and transcription service. No new provider credential is required.
 Install the compatible native gateway before enabling `AGENT_TELEGRAM_CALLS__TWO_WAY` and `AGENT_CALLING_TWO_WAY` in their private environments.
 Both flags default to false for other installations.
+The production calling gateway now runs on the Pi as the user service `theos-calling.service`.
+The operator Mac no longer owns the Telegram account session or gateway runtime.
+Telegram bot messaging continues inside the existing Theos API container on the Pi.
 A call permits twenty responses within five minutes, with thirty-second bounds for speech and idle listening.
 Questions, conditional speech, unrelated replies, and ending a call do not approve a pending action.
 The operator confirmed clear replies during a live five-turn conversation that exercised questions, decline, and spoken hangup.
