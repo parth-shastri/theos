@@ -30,6 +30,8 @@ class Turn:
     browser_ui: bool = False
     tools_disabled: bool = False
     text_recovery: bool = False
+    voice_call: bool = False
+    voice_context: tuple = ()
     library_version: str | None = None
     output_message_id: str | None = None
     # Explicit research and provider failures are kept here so application code can resume

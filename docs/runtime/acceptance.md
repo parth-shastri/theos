@@ -1,5 +1,77 @@
 # Feature and acceptance checklist
 
+## Live freeform and decline acceptance, 2026-11-20
+
+The operator authorized a third isolated attempt and confirmed that the spoken replies were clear.
+The call completed five recognized turns on one Telegram connection.
+The application transcribed greetings, capability questions, a review question, an explicit decline, and a request to end the call.
+Recognition took about 1.8 to 2.1 seconds per utterance.
+
+The first harmless test note was denied after the operator said, “decline decline please.”
+Its tool result has denied status. No test note was saved.
+The operator then said, “Hang up the call.” The application closed the conversation and left the second note approval pending.
+Three freeform question turns received spoken responses before those decisions.
+Positive spoken approval and an ordinary runtime request after resolving all approvals remain open live checks.
+The diagnostic runner stopped its temporary gateway during final farewell playback. Complete farewell playback remains unverified.
+Later diagnostic runs wait for native completion before cleanup.
+
+The temporary process stopped and removed its copied login session and shared key file.
+Installed services, private environment files, releases, and production data remained unchanged.
+No deployment, merge, promotion, private environment update, or installed service restart occurred.
+
+## Isolated live call retry, 2026-11-20
+
+The operator authorized one fresh retry without deployment.
+The temporary call connected, completed opening playback, and captured voiced microphone PCM.
+It ended before the application stored a transcript, delivered feedback, or recorded either test decision.
+Both note approvals remained pending. No tool executed and no note was saved.
+Handset feedback must establish whether the caller ended the call or it disconnected.
+A separate synthetic 48 kHz PCM check returned the expected approval sentence through the configured transcription service in 1.77 seconds.
+This check does not establish the intelligibility of captured handset audio.
+
+The application now marks interrupted processing uncertain when it closes a call. Recorded approvals and declines retain their outcomes.
+All 24 conversation checks and focused lint and formatting checks passed.
+The temporary process stopped and removed its copied login session and gateway key file.
+Installed services, private environment files, releases, and production data remained unchanged.
+A complete live question, approval, decline, and ordinary follow-up sequence remains open.
+
+## Isolated live call attempt, 2026-11-20
+
+The operator authorized a live call without deployment.
+A temporary gateway used the current branch, a loopback HTTP endpoint, and a private copy of the existing Telegram session.
+A separate application database held two pending approvals for harmless local test notes.
+Speech and transcription health checks passed. The gateway accepted the call request, but the native connection did not complete.
+No playback completion or microphone utterance reached the application. The gateway retained an uncertain outcome.
+Both approvals remained pending. No tool executed and no test note was saved.
+The temporary processes stopped and removed the copied login session and shared key file.
+The installed gateway process, production application, private environment files, and releases remained unchanged.
+Handset feedback and successful live freeform and approval turns remain open acceptance checks.
+
+## Freeform two-way calls, local work, 2026-11-19
+
+This branch adds optional conversations to all Telegram call kinds. It has not been deployed or enabled on installed services.
+The application and native gateway flags default to false. The existing transcription service handles ephemeral response audio.
+Natural sentences route through a tool-free intent model. Ordinary requests then use the normal Theos runtime and tools.
+Pending approval questions use the saved review. Explicit decisions require a complete spoken review and the unchanged action binding.
+Long, HTML, or opaque reviews retain the application review path. Silence, conditions, questions, and unrelated replies leave approvals pending.
+Ending the call does not decline an undecided approval. An explicit decision can also request the call to end.
+The call accepts twenty responses within five minutes. Utterances and idle listening each have thirty-second bounds.
+Audio is turn-based. Interruption during Theos playback remains unsupported.
+
+Changes to the owner, recipient, access, action fields, remote preview, or expiry prevent a spoken grant.
+Migration 023 stores private transcripts, replies, digests, and decision metadata. Raw response audio remains ephemeral.
+The decision and written notice commit together. Lost feedback preserves the decision, and restart recovery never replays an interrupted response.
+
+The full Python suite passed 1,305 tests with three credential-dependent checks excluded.
+The focused calling suite passed 69 checks. The native gateway passed 42 checks, including the local decoder integration.
+Twelve synthetic utterances passed intent checks against the configured default model without Telegram access or tool execution.
+Checks cover natural approval and decline, contradictory and conditional speech, follow-up questions, unrelated requests, and ending the call.
+They also cover stale reviews, revoked access, changed recipients, expiry, quota enforcement, lost feedback, and restart uncertainty.
+Native checks verify consecutive responses, capture after playback, cancellation after hangup, rejection of truncated speech, and feedback without another dial.
+Gateway HTTP checks cover authentication, call isolation, sequence binding, deduplication, and in-memory response loss after restart.
+Project lint, formatting, and whitespace checks passed. No new CI job or system dependency installation was added.
+No live call, installed gateway restart, private environment update, merge, tag, or deployment was performed.
+Live handset microphone capture, human speech recognition, and consecutive feedback playback remain open acceptance checks.
 ## Pi full-backup window, 2026-11-19
 
 The 1.6.5 Pi snapshot hydrated all 4,590 remote checkpoints but timed out while writing the archive. Automatic rollback restored healthy 1.6.3 services.

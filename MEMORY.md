@@ -1,6 +1,67 @@
 # Theos project memory
 
-Updated: 2026-11-19.
+Updated: 2026-11-20.
+
+## Two-way calling release approval, 2026-11-20
+
+The operator approved production integration and deployment of the tested two-way calling work.
+Prepare version 1.6.7 through its topic PR to `dev`, then a separate merge-commit promotion PR to `rpi`.
+Publish `rpi-v1.6.7` from the promoted tip. The prior deployment prohibition no longer applies to this release.
+The operator requested no additional tests or live calls. Use the existing acceptance evidence and normal required GitHub checks.
+Preserve existing account credentials, verified recipients, private data, voice settings, and transcription settings.
+Enable two-way calls in the private application and native gateway configuration after installing compatible source.
+Use migration 023 for call conversations. Migration 022 already belongs to browser login aliases on current production.
+Remove local call-test artifacts and clarify the requested image and device cleanup scope before broader deletion.
+
+## Live freeform and decline acceptance, 2026-11-20
+
+The operator authorized another isolated call and confirmed that Theos replies were clear.
+Five live turns exercised greetings, capability questions, review questions, an explicit decline, and a spoken request to end the call.
+The application transcribed each utterance and delivered conversational feedback through the same native call.
+The first test note was denied and did not execute. The second stayed pending when the operator requested the call to end.
+No note was saved, and no production action ran.
+Positive spoken approval and a normal runtime request after resolving all approvals still need live acceptance.
+The diagnostic runner stopped the gateway before final farewell playback completed. Later runs must await native completion before cleanup.
+The temporary process stopped and removed its copied login session and shared key file.
+Installed services, private environment files, releases, and production data remained unchanged. Do not deploy this work.
+
+## Isolated live call acceptance, 2026-11-20
+
+The operator authorized a live Telegram call to test freeform replies and approvals, while retaining the deployment prohibition.
+Use temporary application and gateway processes with a disposable database and harmless test notes.
+Keep installed services, private environment files, releases, and production data unchanged.
+The first isolated gateway accepted one request, but the native connection did not complete within its connection window.
+The test received no utterances. Both note approvals stayed pending, and no test tool executed.
+The temporary process stopped and removed its copied Telegram session and gateway key file.
+The installed gateway process remained unchanged. Handset feedback and a completed live conversation remain open.
+The operator authorized a retry. That call connected, finished opening playback, and captured microphone PCM.
+The call ended before the application saved a transcript or decision. Both notes stayed pending and no tool executed.
+A separate synthetic PCM check transcribed the expected approval sentence through the configured service in 1.77 seconds.
+The local close path now marks interrupted processing uncertain immediately, while preserving recorded decisions.
+Twenty-four conversation checks and focused lint passed. No service was deployed or restarted.
+
+## Freeform two-way calls, local work, 2026-11-19
+
+The operator requested natural voice input on all calls and explicitly prohibited deployment for this work.
+Keep changes on `feature/spoken-call-approvals`. Do not merge, tag, restart installed services, or change private environments.
+The operator separately authorized isolated live acceptance calls on 2026-11-20.
+Enable conversations only through separate application and native gateway flags. Both flags default to false.
+Reuse the configured transcription service, the default OpenAI Responses model, and the app's existing Kokoro voice.
+Use the same conversation loop for reminders, approval calls, test calls, and immediate calls. No new provider credential is required.
+Accept freeform sentences and follow-up questions. Use the normal Theos runtime and tools when no approval is pending.
+During a pending approval, answer questions from its saved review. Resolve that review before another task or changed action.
+Read the complete bounded review before accepting natural explicit approval or decline. Do not truncate reviews to permit voice approval.
+Keep long, HTML, or opaque reviews in the existing application review flow.
+Questions, conditional replies, unrelated speech, silence, and ending the call do not decide an action.
+Bind each decision to the saved approval, owner, recipient, tool call, arguments, preview, and expiry.
+Re-read the current provider preview and access before resuming through the existing approval checkpoints.
+Allow up to five minutes and twenty responses on one call, thirty seconds per utterance, and thirty seconds of idle listening.
+Receive incoming PCM only after playback ends. Stop capture before transcription. Discard raw audio after each response.
+Migration 023 stores private call transcripts, replies, digests, and decision metadata. Normal voice requests also enter their existing conversation history.
+Commit the decision, voice outcome, and written notice together. Lost feedback must not erase a decision or repeat an external action.
+Recover interrupted conversations and processing as uncertain. Never redial or replay a voice turn automatically.
+Use the pinned native stream binding for later media changes because high-level playback helpers can reconnect a missing call.
+Keep routine tests isolated from Telegram and system package downloads. Live handset input remains an open acceptance check.
 
 ## Browser CI job budget, 2026-11-19
 
