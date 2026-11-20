@@ -6,6 +6,7 @@ import hashlib
 import json
 import threading
 import time
+from pathlib import Path
 
 import pytest
 from pydantic import SecretStr
@@ -415,3 +416,216 @@ async def test_uncertain_remote_publications_remain_roots_until_a_pointer_is_con
     await runtime.checkpoints.retention.collect(force=True)
     assert not exists(runtime, first) and not exists(runtime, possible)
     assert exists(runtime, current) and exists(runtime, latest)
+
+
+MIGRATION = (
+    Path(__file__).parents[2] / "src/theos/storage/migrations/024_helper_copy_references.sql"
+)
+
+
+async def helper_copies(runtime, sid, count, *, owner="alice", start=0):
+    """Save `count` helper copies with strictly increasing creation times."""
+    identities = []
+    for number in range(start, start + count):
+        identity = await runtime.checkpoints.put(
+            owner, sid, "delegate_checkpoint", {"stage": "before_model", "number": number}
+        )
+        # Sorting by creation time must not depend on the clock resolution.
+        runtime.db.execute(
+            "UPDATE context_objects SET created=? WHERE id=?", (1000.0 + number, identity)
+        )
+        identities.append(identity)
+    return identities
+
+
+def helper_ids(runtime, sid):
+    rows = runtime.db.rows(
+        "SELECT id FROM context_objects WHERE session=? AND kind='delegate_checkpoint'", (sid,)
+    )
+    return {row["id"] for row in rows}
+
+
+def deletion_ids(runtime):
+    return {row["id"] for row in runtime.db.rows("SELECT id FROM context_deletions")}
+
+
+async def legacy_checkpoint(runtime, sid, owner="alice"):
+    """Save a checkpoint as older releases did, listing every helper copy of the chat."""
+    objects = runtime.db.rows(
+        "SELECT * FROM context_objects WHERE owner=? AND session=? AND kind!='checkpoint'",
+        (owner, sid),
+    )
+    value = {
+        "schema": 2,
+        "owner": owner,
+        "session": sid,
+        "stage": "turn_end",
+        "history": [],
+        "catalog_files": [],
+        "memory": ContextMemory().to_dict(),
+        "tool_runs": [],
+        "objects": objects,
+        "attachments": [],
+        "workspace_inputs": None,
+        "workspace": None,
+    }
+    identity = await runtime.checkpoints.put(owner, sid, "checkpoint", value)
+    runtime.db.put_record(owner, "context_checkpoint", sid, {"id": identity, "stage": "turn_end"})
+    return identity
+
+
+def mark_until_done(runtime):
+    while runtime.checkpoints.retention.mark(time.time()):
+        pass
+
+
+async def test_helper_trim_keeps_only_the_newest_copies_of_one_chat(runtime):
+    runtime.checkpoints.retention.last_run = time.time()
+    runtime.settings.storage.checkpoint_keep = 2
+    sid, other = session(runtime), session(runtime)
+    copies = await helper_copies(runtime, sid, 5)
+    untouched = await helper_copies(runtime, other, 4)
+    # The trim is synchronous, so check the journal before the worker can run.
+    assert runtime.checkpoints.retention.trim_helper_copies("alice", sid) == 3
+    assert helper_ids(runtime, sid) == set(copies[-2:])
+    assert deletion_ids(runtime) == set(copies[:3])
+    assert helper_ids(runtime, other) == set(untouched)
+
+
+async def test_hourly_pass_reduces_a_legacy_helper_backlog(runtime):
+    runtime.checkpoints.retention.last_run = time.time()
+    sid = session(runtime)
+    copies = await helper_copies(runtime, sid, 45)
+    checkpoint = await legacy_checkpoint(runtime, sid)
+    age(runtime)
+    # Each pass retires a bounded batch. The backlog clears across passes.
+    assert runtime.checkpoints.retention.mark(time.time()) == 20
+    mark_until_done(runtime)
+    assert helper_ids(runtime, sid) == set(copies[-3:])
+    assert exists(runtime, checkpoint)
+
+
+async def test_kept_checkpoint_file_neither_keeps_nor_requires_helper_copies(runtime):
+    runtime.checkpoints.retention.last_run = time.time()
+    sid = session(runtime)
+    copies = await helper_copies(runtime, sid, 6)
+    checkpoint = await legacy_checkpoint(runtime, sid)
+    age(runtime)
+    mark_until_done(runtime)
+    assert helper_ids(runtime, sid) == set(copies[-3:])
+    # The kept checkpoint now lists deleted helper copies. Retention must still run.
+    orphan, _ = await version(runtime, sid, "orphan", current=False)
+    age(runtime)
+    mark_until_done(runtime)
+    assert not exists(runtime, orphan)
+    assert exists(runtime, checkpoint)
+
+
+async def test_kept_checkpoint_references_neither_keep_nor_require_helper_copies(runtime, storage):
+    runtime.settings.storage.checkpoint_keep = 2
+    sid = session(runtime)
+    copies = await helper_copies(runtime, sid, 5)
+    checkpoint = await legacy_checkpoint(runtime, sid)
+    assert await runtime.checkpoints.drain()
+    assert not (runtime.checkpoints.directory / checkpoint).exists()
+    # Older releases wrote every listed object, including helper copies, to the index.
+    references = runtime.db.record("alice", "checkpoint_references", checkpoint)
+    assert references["objects"] == []
+    legacy = [{"id": identity, "owner": "alice", "session": sid} for identity in copies]
+    runtime.db.put_record(
+        "alice",
+        "checkpoint_references",
+        checkpoint,
+        {"digest": references["digest"], "owner": "alice", "session": sid, "objects": legacy},
+    )
+    rows = runtime.db.rows("SELECT * FROM context_objects WHERE session=?", (sid,))
+    # While the rows exist, retention recognizes the listed ids as helper copies.
+    roots = runtime.checkpoints.retention.roots("alice", sid, rows)
+    assert copies[0] not in roots and copies[-1] in roots
+    runtime.db.connection.executescript(MIGRATION.read_text())
+    assert runtime.db.record("alice", "checkpoint_references", checkpoint)["objects"] == []
+    age(runtime)
+    mark_until_done(runtime)
+    assert helper_ids(runtime, sid) == set(copies[-2:])
+    orphan, _ = await version(runtime, sid, "orphan", current=False)
+    age(runtime)
+    mark_until_done(runtime)
+    assert not exists(runtime, orphan)
+    assert exists(runtime, checkpoint)
+
+
+async def test_reference_migration_removes_only_helper_copy_ids(runtime):
+    sid = session(runtime)
+    copies = await helper_copies(runtime, sid, 2)
+    source, _ = await version(runtime, sid, "kept source")
+    listed = [{"id": identity, "owner": "alice", "session": sid} for identity in copies]
+    kept = {"id": source, "owner": "alice", "session": sid}
+    mixed = {"digest": "a", "owner": "alice", "session": sid, "objects": [kept, *listed]}
+    clean = {"digest": "b", "owner": "alice", "session": sid, "objects": [kept]}
+    only_helpers = {"digest": "c", "owner": "alice", "session": sid, "objects": listed}
+    runtime.db.put_record("alice", "checkpoint_references", "mixed", mixed)
+    runtime.db.put_record("alice", "checkpoint_references", "clean", clean)
+    runtime.db.put_record("alice", "checkpoint_references", "helpers", only_helpers)
+    before = runtime.db.one("SELECT value FROM records WHERE id='clean'")["value"]
+    runtime.db.connection.executescript(MIGRATION.read_text())
+    for name in ["mixed", "clean", "helpers"]:
+        stored = json.loads(
+            runtime.db.one("SELECT value FROM records WHERE id=?", (name,))["value"]
+        )
+        # The objects value must stay a real JSON array of objects, not a quoted string.
+        assert isinstance(stored["objects"], list)
+        assert all(isinstance(item, dict) for item in stored["objects"])
+    assert runtime.db.record("alice", "checkpoint_references", "mixed")["objects"] == [kept]
+    assert runtime.db.record("alice", "checkpoint_references", "mixed")["digest"] == "a"
+    assert runtime.db.record("alice", "checkpoint_references", "helpers")["objects"] == []
+    assert runtime.db.one("SELECT value FROM records WHERE id='clean'")["value"] == before
+
+
+async def test_new_checkpoints_and_references_omit_helper_copies(runtime, storage):
+    sid = session(runtime)
+    source, _ = await version(runtime, sid, "current")
+    copies = await helper_copies(runtime, sid, 2)
+    checkpoint = await snapshot(runtime, sid, "current")
+    saved = await runtime.checkpoints.get("alice", sid, checkpoint)
+    assert [row["id"] for row in saved["objects"]] == [source]
+    assert await runtime.checkpoints.drain()
+    references = runtime.db.record("alice", "checkpoint_references", checkpoint)
+    assert [item["id"] for item in references["objects"]] == [source]
+    assert helper_ids(runtime, sid) == set(copies)
+
+
+async def test_legacy_checkpoint_publishes_and_restores_without_deleted_helper_copies(
+    runtime, storage
+):
+    sid = session(runtime)
+    copies = await helper_copies(runtime, sid, 2)
+    checkpoint = await legacy_checkpoint(runtime, sid)
+    # Retention can delete listed helper copies before the checkpoint is published.
+    runtime.db.execute("DELETE FROM context_objects WHERE kind='delegate_checkpoint'")
+    assert await runtime.checkpoints.drain()
+    pointer = json.loads(storage.objects[runtime.checkpoints.key("alice", sid, "latest.json")])
+    assert pointer["id"] == checkpoint
+    runtime.db.execute("DELETE FROM context_objects WHERE session=?", (sid,))
+    runtime.db.save_history("alice", sid, [], status="idle")
+    restored = await runtime.checkpoints.restore("alice", sid)
+    assert {row["id"] for row in restored["objects"]} == set(copies)
+    assert not helper_ids(runtime, sid)
+    assert exists(runtime, checkpoint)
+
+
+async def test_checkpoint_keep_sets_the_limit_for_checkpoints_and_helper_copies(runtime):
+    runtime.checkpoints.retention.last_run = time.time()
+    runtime.settings.storage.checkpoint_keep = 1
+    sid = session(runtime)
+    checkpoints = []
+    for label in ["one", "two", "three"]:
+        checkpoints.append(await snapshot(runtime, sid, label))
+        runtime.db.execute(
+            "UPDATE context_objects SET created=? WHERE id=?",
+            (2000.0 + len(checkpoints), checkpoints[-1]),
+        )
+    copies = await helper_copies(runtime, sid, 3)
+    age(runtime)
+    mark_until_done(runtime)
+    assert [exists(runtime, identity) for identity in checkpoints] == [False, False, True]
+    assert helper_ids(runtime, sid) == {copies[-1]}

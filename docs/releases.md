@@ -15,6 +15,16 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.9
+
+Package version 1.6.9 limits helper copies to the newest `AGENT_STORAGE__CHECKPOINT_KEEP` per session. The default is three.
+A helper copy is the full transcript that a delegate saves before each model call and when it finishes.
+Delegates no longer save a copy after each model call or tool result.
+After activation, the background worker deletes existing older helper copies locally and in R2, in batches.
+Migration 024 removes helper copies from existing checkpoint reference records so that retention can delete them.
+Deployment backups skip remote-only helper copies that retention deletes. This keeps the backup within its time limit.
+The release also carries the two-way calling work prepared for 1.6.7 and the backup retry from 1.6.8.
+
 ## Release 1.6.8
 
 Package version 1.6.8 retries interrupted remote reads during backup hydration with a bounded delay.
