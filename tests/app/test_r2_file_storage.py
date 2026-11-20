@@ -5,6 +5,8 @@ import hashlib
 import io
 import json
 import sqlite3
+import threading
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -231,6 +233,21 @@ async def test_independent_backup_can_restore_after_remote_objects_disappear(
     snapshot = await runtime.checkpoints.save(
         "alice", sid, [UserMessage("Saved")], ContextMemory(), "test"
     )
+    extra = []
+    for index in range(8):
+        payload = f"workspace {index}".encode()
+        extra.append(
+            await runtime.checkpoints.put(
+                "alice",
+                sid,
+                "workspace_file",
+                {
+                    "path": f"/workspace/report-{index}.txt",
+                    "data": base64.b64encode(payload).decode(),
+                    "digest": hashlib.sha256(payload).hexdigest(),
+                },
+            )
+        )
     assert await runtime.checkpoints.drain()
     assert not Path(saved["path"]).exists()
     assert not (runtime.checkpoints.directory / snapshot).exists()
@@ -243,14 +260,95 @@ async def test_independent_backup_can_restore_after_remote_objects_disappear(
     ):
         source.backup(destination)
     monkeypatch.setattr(catalog, "storage_client", lambda config: objects)
+    original_read = catalog.Files.remote_bytes
+    lock = threading.Lock()
+    active = peak = 0
+
+    def delayed_read(client, bucket, key):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        try:
+            time.sleep(0.02)
+            return original_read(client, bucket, key)
+        finally:
+            with lock:
+                active -= 1
+
+    monkeypatch.setattr(catalog.Files, "remote_bytes", staticmethod(delayed_read))
     archive = tmp_path / "independent.tar.gz"
     backup(stopped, archive)
+    assert 2 <= peak <= 4
     objects.objects.clear()
     restored = tmp_path / "restored"
     restore(archive, restored)
     assert (restored / "files" / saved["id"]).read_bytes() == b"archive bytes"
     assert (restored / "checkpoints" / snapshot).is_file()
+    assert all((restored / "checkpoints" / identity).is_file() for identity in extra)
     assert not (stopped / "files" / saved["id"]).exists()
+
+
+async def test_backup_skips_helper_copies_beyond_the_checkpoint_limit(
+    runtime, objects, monkeypatch, tmp_path
+):
+    from theos.services.files import catalog
+
+    monkeypatch.setenv("AGENT_STORAGE__CHECKPOINT_KEEP", "2")
+    # Keep the background worker's retention pass out of this backup fixture.
+    runtime.checkpoints.retention.last_run = time.time()
+    first = runtime.db.create_session("alice", "gpt-6-luna", "none")["id"]
+    second = runtime.db.create_session("alice", "gpt-6-luna", "none")["id"]
+    saved = runtime.files.save("alice", "report.txt", "text/plain", b"archive bytes")
+    snapshot = await runtime.checkpoints.save(
+        "alice", first, [UserMessage("Saved")], ContextMemory(), "test"
+    )
+    copies = {first: [], second: []}
+    for sid in [first, second]:
+        for number in range(4):
+            identity = await runtime.checkpoints.put(
+                "alice", sid, "delegate_checkpoint", {"stage": "before_model", "number": number}
+            )
+            # Give each copy a distinct creation time so "newest" is exact.
+            runtime.db.execute(
+                "UPDATE context_objects SET created=? WHERE id=?", (1000.0 + number, identity)
+            )
+            copies[sid].append(identity)
+    assert await runtime.checkpoints.drain()
+    assert not list(runtime.checkpoints.directory.iterdir())
+    stopped = tmp_path / "stopped-copy"
+    stopped.mkdir()
+    with (
+        sqlite3.connect(runtime.settings.data_dir / "theos.sqlite3") as source,
+        sqlite3.connect(stopped / "theos.sqlite3") as destination,
+    ):
+        source.backup(destination)
+    monkeypatch.setattr(catalog, "storage_client", lambda config: objects)
+    requested = []
+    original_read = catalog.Files.remote_bytes
+
+    def recording_read(client, bucket, key):
+        requested.append(key)
+        return original_read(client, bucket, key)
+
+    monkeypatch.setattr(catalog.Files, "remote_bytes", staticmethod(recording_read))
+    archive = tmp_path / "independent.tar.gz"
+    backup(stopped, archive)
+    restored = tmp_path / "restored"
+    restore(archive, restored)
+    assert (restored / "files" / saved["id"]).read_bytes() == b"archive bytes"
+    assert (restored / "checkpoints" / snapshot).is_file()
+    for sid in [first, second]:
+        older, newest = copies[sid][:2], copies[sid][2:]
+        assert all((restored / "checkpoints" / identity).is_file() for identity in newest)
+        assert not any((restored / "checkpoints" / identity).exists() for identity in older)
+        assert not any(identity + ".json.gz" in " ".join(requested) for identity in older)
+    # The archive keeps the database rows. Retention deletes the older copies later.
+    with sqlite3.connect(restored / "theos.sqlite3") as database:
+        count = database.execute(
+            "SELECT COUNT(*) FROM context_objects WHERE kind='delegate_checkpoint'"
+        ).fetchone()[0]
+    assert count == 8
 
 
 async def test_catalog_without_r2_keeps_local_file(runtime):

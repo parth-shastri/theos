@@ -15,6 +15,59 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.9
+
+Package version 1.6.9 limits helper copies to the newest `AGENT_STORAGE__CHECKPOINT_KEEP` per session. The default is three.
+A helper copy is the full transcript that a delegate saves before each model call and when it finishes.
+Delegates no longer save a copy after each model call or tool result.
+After activation, the background worker deletes existing older helper copies locally and in R2, in batches.
+Migration 024 removes helper copies from existing checkpoint reference records so that retention can delete them.
+Deployment backups skip remote-only helper copies that retention deletes. This keeps the backup within its time limit.
+The release also carries the two-way calling work prepared for 1.6.7 and the backup retry from 1.6.8.
+
+## Release 1.6.8
+
+Package version 1.6.8 retries interrupted remote reads during backup hydration with a bounded delay.
+The completed response must still pass the existing digest check. Permanent errors and corrupt objects still stop the backup.
+Deployment helper failures now identify the helper, exit code, and exception class without exposing private output.
+The release retains the two-way calling changes and Pi gateway location prepared for 1.6.7.
+No additional local tests or live calls were requested.
+
+## Release 1.6.7
+
+Activation failed during backup creation. Automatic rollback restored healthy 1.6.6.
+
+Package version 1.6.7 uses tag `rpi-v1.6.7` from the promoted `rpi` tip.
+Telegram calls accept freeform voice, follow-up questions, explicit approval or decline, and spoken requests to end the call.
+Ordinary voice requests use the existing Theos runtime after pending approvals are resolved.
+The same loop handles reminders, immediate calls, approval calls, and onboarding test calls.
+Migration 023 stores private call transcripts, sequence numbers, and exact decision bindings. Migration 022 remains the browser alias migration.
+Calls retain the configured Kokoro voice and transcription service. No new provider credential is required.
+Install the compatible native gateway before enabling `AGENT_TELEGRAM_CALLS__TWO_WAY` and `AGENT_CALLING_TWO_WAY` in their private environments.
+Both flags default to false for other installations.
+The production calling gateway now runs on the Pi as the user service `theos-calling.service`.
+The operator Mac no longer owns the Telegram account session or gateway runtime.
+Telegram bot messaging continues inside the existing Theos API container on the Pi.
+A call permits twenty responses within five minutes, with thirty-second bounds for speech and idle listening.
+Questions, conditional speech, unrelated replies, and ending a call do not approve a pending action.
+The operator confirmed clear replies during a live five-turn conversation that exercised questions, decline, and spoken hangup.
+Positive spoken approval retains isolated automated coverage but still lacks live handset acceptance.
+The operator requested deployment without additional local tests or live calls.
+
+## Release 1.6.5
+
+Package version 1.6.5 uses tag `rpi-v1.6.5` from a Pi backup throughput fix.
+The deployment backup fetches remote-only checkpoint contents with bounded concurrency and retains complete digest verification.
+The candidate image creates the backup from the previous volume; the previous image still restores it.
+Confirm backup completion, both service health checks, and the active manifest before assigning the private browser login alias.
+
+## Release 1.6.4
+
+Package version 1.6.4 uses tag `rpi-v1.6.4` from the Pi login fix.
+Migration 022 adds optional browser password login aliases without changing Telegram owner IDs or existing credentials.
+Assign the requested alias in the private Pi database after activation and confirm password sign-in opens the same account.
+The original account ID remains a valid sign-in name.
+
 ## Release 1.6.3
 
 Package version 1.6.3 uses tag `rpi-v1.6.3` from the corrected `rpi` tip.

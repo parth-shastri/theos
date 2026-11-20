@@ -307,6 +307,8 @@ async def build_tools(runtime, session):
             result = {"name": name, "status": "partial", "answer": None, "reason": None}
             memory = ContextMemory()
 
+            # Save a full copy of the helper transcript before each model call and at the end.
+            # Each copy repeats every earlier tool result, so only the newest few are kept.
             async def checkpoint_child(stage, child_history=None):
                 from harness import message_to_dict
 
@@ -326,6 +328,9 @@ async def build_tools(runtime, session):
                         "memory": memory.to_dict(),
                     },
                 )
+                # Retire older copies now. Waiting for the hourly pass would let a long
+                # research run store thousands of them first.
+                runtime.checkpoints.retention.trim_helper_copies(owner, session_id)
 
             # Child instructions deliberately grant read-only research behavior. The parent
             # remains responsible for evaluating the findings and taking any action.
@@ -361,7 +366,6 @@ async def build_tools(runtime, session):
                         runtime.record_usage(
                             session, message.usage, model_id=message_model(message)
                         )
-                        await checkpoint_child("after_model", [*child_ctx.history, message])
                         if run_id:
                             runtime.research.checkpoint(
                                 owner,
@@ -392,7 +396,6 @@ async def build_tools(runtime, session):
                         return ALLOW
 
                     async def after_tool(result, child_ctx):
-                        await checkpoint_child("after_tool", [*child_ctx.history, result])
                         if run_id:
                             from theos.services.research.tools import capture_search
 

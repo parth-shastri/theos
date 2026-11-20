@@ -247,6 +247,25 @@ class Deployer:
                 *args,
                 timeout=timeout,
             )
+        except DeploymentError as error:
+            cause = error.__cause__
+            stderr = getattr(cause, "stderr", "") or ""
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode(errors="replace")
+            error_types = re.findall(
+                r"^([A-Za-z_][\w.]*(?:Error|Exception)):", stderr, flags=re.MULTILINE
+            )[-3:]
+            code = getattr(cause, "returncode", None)
+            write_json(
+                self.directory / "helper-failure.json",
+                dict(helper=name, exit_code=code, error_types=error_types),
+            )
+            if cause is None:
+                raise
+            detail = ", ".join(error_types) or type(cause).__name__
+            raise DeploymentError(
+                f"Deployment helper {name} failed (exit={code}, type={detail})."
+            ) from error
         finally:
             self.remove_helper(name)
 
@@ -258,7 +277,8 @@ class Deployer:
         with tempfile.NamedTemporaryFile(
             mode="w", prefix=".backup-storage-", dir=self.directory, encoding="utf-8"
         ) as private:
-            for field in ("ENDPOINT", "BUCKET", "ACCESS_KEY", "SECRET_KEY"):
+            # CHECKPOINT_KEEP tells the backup how many helper copies per chat to keep.
+            for field in ("ENDPOINT", "BUCKET", "ACCESS_KEY", "SECRET_KEY", "CHECKPOINT_KEEP"):
                 name = "AGENT_STORAGE__" + field
                 value = environment.get(name)
                 if value is None:
@@ -282,14 +302,14 @@ class Deployer:
             "/tmp",
             "-v",
             f"{previous['volume']}:/data",
-            previous["image"],
+            candidate["image"],
             "python",
             "-m",
             "theos.backup",
             "create",
             "/data",
             archive,
-            timeout=1800,
+            timeout=3600,
         )
         # Restore with the old code; only the candidate runs new migrations.
         restore_code = (
@@ -335,7 +355,7 @@ class Deployer:
             "archive",
             "/data",
             archive,
-            timeout=1800,
+            timeout=3600,
         )
         return (
             stored.strip()

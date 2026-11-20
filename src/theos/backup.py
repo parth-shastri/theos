@@ -9,6 +9,8 @@ import shutil
 import sqlite3
 import tarfile
 import tempfile
+import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
@@ -58,6 +60,32 @@ def restore_remote(key: str, directory: Path):
         client.close()
 
 
+def without_old_helper_copies(rows, directory):
+    """Drop helper copies that retention deletes anyway, keeping the newest per chat.
+
+    A long helper run can leave thousands of full transcript copies in R2. Downloading
+    them made deployment backups fail or time out, and nothing reads them back.
+    """
+    from theos.services.files.retention import HELPER_COPY, newest_helper_copies
+    from theos.settings import Settings
+
+    has_helper_copies = False
+    for row in rows:
+        if row["kind"] == HELPER_COPY:
+            has_helper_copies = True
+            break
+    if not has_helper_copies:
+        return rows
+    keep = Settings(_env_file=None, data_dir=directory).storage.checkpoint_keep
+    newest = newest_helper_copies(rows, keep)
+    selected = []
+    for row in rows:
+        if row["kind"] == HELPER_COPY and row["id"] not in newest:
+            continue
+        selected.append(row)
+    return selected
+
+
 def hydrate_remote_files(directory, staging):
     """Include remote-only payloads in a stopped application's independent backup."""
     database = staging / "theos.sqlite3"
@@ -75,46 +103,96 @@ def hydrate_remote_files(directory, staging):
             }
             rows = []
             if "context_objects" in tables:
+                objects = [dict(row) for row in db.execute("SELECT * FROM context_objects")]
                 rows += [
-                    (dict(row), "checkpoint") for row in db.execute("SELECT * FROM context_objects")
+                    (row, "checkpoint") for row in without_old_helper_copies(objects, directory)
                 ]
             if "files" in tables:
                 rows += [(dict(row), "file") for row in db.execute("SELECT * FROM files")]
-            for row, kind in rows:
-                relative = Path("checkpoints" if kind == "checkpoint" else "files") / row["id"]
-                target = staging / relative
-                if target.exists():
-                    continue
-                if len(row["id"]) != (64 if kind == "checkpoint" else 32) or any(
-                    c not in "0123456789abcdef" for c in row["id"]
-                ):
-                    raise ValueError("Invalid remote backup file reference.")
-                if not row["object_key"] or (kind == "checkpoint" and row["status"] != "saved"):
-                    raise ValueError("A pending backup file is missing from local storage.")
-                if client is None:
-                    config = Settings(_env_file=None, data_dir=directory).storage
-                    client = storage_client(config)
-                data = Files.remote_bytes(client, config.bucket, row["object_key"])
+
+            def fetch(row, kind, target, expected_sha):
+                from botocore import exceptions as storage_errors
+
+                # SDK retries finish before the streaming response body is read.
+                # Restart interrupted reads from the same immutable object key.
+                for attempt in range(3):
+                    try:
+                        data = Files.remote_bytes(client, config.bucket, row["object_key"])
+                        break
+                    except (storage_errors.BotoCoreError, storage_errors.ClientError) as error:
+                        response = getattr(error, "response", None)
+                        response = response if isinstance(response, dict) else {}
+                        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
+                        code = response.get("Error", {}).get("Code", "")
+                        transient = (
+                            isinstance(
+                                error,
+                                (
+                                    storage_errors.ConnectionClosedError,
+                                    storage_errors.ConnectTimeoutError,
+                                    storage_errors.EndpointConnectionError,
+                                    storage_errors.HTTPClientError,
+                                    storage_errors.IncompleteReadError,
+                                    storage_errors.ResponseStreamingError,
+                                ),
+                            )
+                            or status in {429, 500, 502, 503, 504}
+                            or code
+                            in {"InternalError", "RequestTimeout", "ServiceUnavailable", "SlowDown"}
+                        )
+                        if not transient or attempt == 2:
+                            raise
+                        time.sleep(0.5 * (2**attempt))
                 if kind == "checkpoint":
                     valid = hashlib.sha256(gzip.decompress(data)).hexdigest() == row["digest"]
                 else:
-                    digest = (
-                        db.execute(
-                            "SELECT value FROM records WHERE owner=? AND kind='file_digest' AND id=?",
-                            (row["owner"], row["id"]),
-                        ).fetchone()
-                        if "records" in tables
-                        else None
-                    )
                     valid = len(data) == row["size"] and (
-                        not digest
-                        or hashlib.sha256(data).hexdigest() == json.loads(digest[0])["sha256"]
+                        expected_sha is None or hashlib.sha256(data).hexdigest() == expected_sha
                     )
                 if not valid:
                     raise ValueError("Remote backup file checksum mismatch.")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(data)
-                target.chmod(0o600)
+                return target, data
+
+            pending = set()
+
+            def write_completed():
+                completed, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    pending.remove(future)
+                    target, data = future.result()
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                    target.chmod(0o600)
+
+            # Bound concurrent downloads and the number of retained payloads.
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for row, kind in rows:
+                    relative = Path("checkpoints" if kind == "checkpoint" else "files") / row["id"]
+                    target = staging / relative
+                    if target.exists():
+                        continue
+                    if len(row["id"]) != (64 if kind == "checkpoint" else 32) or any(
+                        c not in "0123456789abcdef" for c in row["id"]
+                    ):
+                        raise ValueError("Invalid remote backup file reference.")
+                    if not row["object_key"] or (kind == "checkpoint" and row["status"] != "saved"):
+                        raise ValueError("A pending backup file is missing from local storage.")
+                    if client is None:
+                        config = Settings(_env_file=None, data_dir=directory).storage
+                        client = storage_client(config)
+                    expected_sha = None
+                    if kind == "file" and "records" in tables:
+                        digest = db.execute(
+                            "SELECT value FROM records WHERE owner=? AND kind='file_digest' AND id=?",
+                            (row["owner"], row["id"]),
+                        ).fetchone()
+                        if digest:
+                            expected_sha = json.loads(digest[0])["sha256"]
+                    pending.add(pool.submit(fetch, row, kind, target, expected_sha))
+                    if len(pending) >= 8:
+                        write_completed()
+                while pending:
+                    write_completed()
     finally:
         if client:
             client.close()

@@ -28,7 +28,7 @@ All source paths below start at `src/theos`.
 | Call budgets | Count calls without enforcement by default. Retain optional bounded allocations | `runtime/budgets.py` |
 | Provider result shaping | Return concise account results and stage oversized reads | `services/gmail/tools.py`, `services/health/tools.py`, `services/mcp_accounts/tools.py`, `services/result_files.py` |
 | Managed browser | Route browser CLI calls, isolate owner profiles, capture encrypted recovery state, and provide private sign-in controls | `services/sandbox/browser.py`, `services/sandbox/profile.py`, `transports/browser/managed_browser.py` |
-| File retention | Retain recovery roots and retry deletion of unreferenced local and R2 objects | `services/files/retention.py`, migration 015 |
+| File retention | Retain recovery roots and the newest helper copies, and retry deletion of unreferenced local and R2 objects | `services/files/retention.py`, migrations 015 and 024 |
 | History retrieval | Read exact saved messages after compaction | `../harness/tools.py` |
 | Deep research | Gate explicit mode and persist reports and a separate evidence scratchpad | `runtime/research_mode.py`, `services/research/`, migrations 010 and 013 |
 | Delivery events | Turn harness events into transport events | `runtime/events.py`, `runtime/turn.py` |
@@ -98,6 +98,9 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `voice/` | Transcription and Kokoro clients with audio tools |
 | `phone_calls.py` | Environment-gated call tools, queued Telegram or Twilio calls, and temporary audio |
 | `call_connections.py` | Per-owner Telegram recipient verification, setup test calls, and call preferences |
+| `call_conversations.py` | Freeform call turns, ephemeral audio, ordinary runtime requests, and sequenced feedback |
+| `call_intent.py` | Tool-free natural intent classification and whole-utterance decision validation |
+| `spoken_approvals.py` | Complete bounded spoken reviews and exact approval binding |
 | `sandbox/` | Remote lifecycle client, command and attachment tools, model image inspection, owner browsers, and versioned task workspaces |
 | `google/` | Shared Google OAuth state, token encryption, refresh, and disconnection |
 | `github/` | Official MCP configuration, reviewed read tools, signed event queue, per-owner subscriptions, and literal notifications |
@@ -135,6 +138,10 @@ The separate `transcription/` project owns the authenticated native MLX Whisper 
 The separate `calling/` project owns the regular Telegram account, private calling gateway, and native audio dependencies.
 Its connection handler verifies short-lived messages sent directly by recipients. The app stores verified bindings in migration 021.
 `transports/telegram/call_setup.py` and the browser Connections controls share the same per-owner setup service.
+Optional spoken approval calls use an independent scheduler worker so other speech requests cannot delay a reply.
+`runtime/approvals.py` hashes the saved review. `Runtime.start` verifies that hash before recording a spoken decision.
+`calling/src/theos_calling/audio_input.py` bounds incoming PCM. The gateway keeps responses in memory while the app transcribes and decides.
+`Voice.transcribe_audio` accepts an already-authorized ephemeral clip without saving it in the file catalog or R2.
 Its model, Metal runtime, and FFmpeg dependencies remain outside the assistant image.
 The runtime creates clients explicitly and closes them during shutdown.
 `runtime/scheduled.py` claims durable scheduled occurrences and delivers ordinary runtime turns.

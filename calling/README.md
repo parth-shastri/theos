@@ -9,6 +9,11 @@ Run it on the speech host or another private Mac or Linux host.
 The main application sends MP3 bytes through an authenticated private HTTP connection.
 Keep this service on localhost or a private network such as Tailscale.
 
+The production gateway runs on `neuralbox-pi` as the persistent user service `theos-calling.service`.
+Its private endpoint is `http://100.68.21.29:8882`. The main Theos API uses the same shared gateway key.
+The service uses `~/.local/share/theos-calling/runtime` and `~/.config/theos-calling/.env` on the Pi.
+Telegram bot messaging runs inside the main API container. The gateway handles calls and recipient verification.
+
 ## Create the calling account
 
 1. Register a separate Telegram account with a spare phone number in the official Telegram app.
@@ -71,7 +76,8 @@ uv run --no-sync theos-calling
 
 `GET /ready` reports startup readiness. The service refuses startup when the account is unauthorized or a recipient is unavailable.
 Startup never prompts for login. Keep the process running with the host's service manager after handset acceptance.
-The gateway does not accept incoming calls or record audio. It plays the supplied local MP3 and ends the call.
+The gateway rejects incoming calls. Normal calls play the supplied MP3 and end the call.
+Optional two-way calls receive bounded voice responses in memory. The gateway never opens the host's microphone or camera.
 
 ## Connect Theos
 
@@ -114,7 +120,56 @@ The app stores verified recipients and call preferences in migration 021.
 The gateway stores verified connections beside its existing call ledger and account session.
 Users can change each call preference or disconnect in Connections or `/calls`.
 Disconnection immediately blocks new and queued application calls. It also revokes the gateway connection.
-Written notifications remain available. Resolve approvals in the authenticated Theos application.
+Written notifications remain available. With two-way calling disabled, resolve approvals in the authenticated Theos application.
+
+## Two-way calls: local implementation
+
+Both two-way flags default to false. Release 1.6.7 includes this conversation flow.
+The application uses `AGENT_TELEGRAM_CALLS__TWO_WAY`. The gateway uses `AGENT_CALLING_TWO_WAY`.
+The earlier `SPOKEN_APPROVALS` flags remain aliases for this same conversation flow.
+The application also needs its existing transcription endpoint and credentials.
+Missing transcription configuration retains ordinary call alerts. No extra provider account is required.
+
+Reminder, approval, immediate, and test calls accept natural sentences and multiple replies on the same call.
+Theos uses its normal runtime and tools for ordinary voice requests. It removes `call_user` during an active call.
+When approval is pending, questions use the saved review. Other tasks and changed actions need that review resolved first.
+Eligible calls read the complete review in the app's voice before accepting an explicit approval or decline.
+The complete review prompt must fit 600 characters. Long, HTML, or opaque reviews retain the application review path.
+Questions, conditions, unclear speech, unrelated sentences, and silence do not decide an approval.
+A caller can say goodbye or end the call at any time. Ending the call leaves an undecided approval pending.
+An explicit decision can also request the call to end. Ending a call does not undo an already recorded decision.
+
+Incoming audio starts after Theos finishes speaking and a short guard interval passes.
+The gateway receives up to thirty seconds of mono, 48 kHz, signed 16-bit PCM per response.
+One second of trailing silence ends an utterance. Thirty seconds without speech ends the call.
+Speech cut off at the response limit cannot authorize an action.
+The call accepts up to twenty responses and lasts at most five minutes, including dialing and playback.
+Approval calls also respect their original approval expiry. Each response can wait up to ninety seconds for application feedback.
+The application bounds response processing to eighty seconds. It never opens the host microphone or camera.
+This is turn-based audio. Interruption while Theos speaks is not implemented.
+
+The private HTTP contract adds `interactive=true` and `dialogue_expires` to the existing call request.
+Authenticated `GET /v1/calls/{id}/response` returns WAV audio with its `X-Theos-Voice-Turn` sequence number.
+It returns HTTP 204 while waiting or HTTP 410 when unavailable.
+Authenticated `GET /v1/calls/{id}/dialogue` reports the active sequence and whether it awaits feedback.
+Authenticated `POST /v1/calls/{id}/finish?turn=N&end=false` supplies MP3 feedback and continues the same call.
+The `end=true` option finishes after feedback. Authenticated `DELETE /v1/calls/{id}/dialogue` closes the call.
+Duplicate feedback for the same sequence is idempotent. Changed or stale feedback cannot answer a later response.
+The call ID and mode retain durable deduplication. No callback URL or public incoming endpoint is required.
+
+The application binds each decision to the saved owner, recipient, approval, tool call, arguments, preview, and expiry.
+It re-reads the provider preview before applying a decision through the existing runtime approval path.
+The intent model uses the whole current utterance. A partial positive quote cannot authorize an action.
+Migration 023 stores private transcripts, replies, response digests, and decision metadata.
+Ordinary voice requests also enter their existing conversation history. Raw response audio never enters the file catalog, R2, or model history.
+The recorded decision, voice outcome, and written notice commit together.
+Failed feedback cannot erase a recorded decision or repeat an action.
+Interrupted conversations remain uncertain after restart. They are never replayed or redialed automatically.
+
+The pinned native binding changes streams only on the existing call.
+Later stream changes bypass the high-level library helper because it can reconnect a missing call.
+Keep the pinned adapter tests when updating PyTgCalls or NTgCalls.
+Live handset input, human speech recognition, and consecutive feedback playback remain open acceptance checks.
 
 ## Delivery and recovery
 

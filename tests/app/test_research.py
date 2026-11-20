@@ -15,6 +15,7 @@ from harness import (
     ToolCall,
     ToolResultMessage,
     UserMessage,
+    tool,
 )
 from harness.compaction import TURN_PREFIX_LABEL
 from harness.testing import FakeModel
@@ -136,6 +137,56 @@ async def test_named_brief_omits_unrelated_history_but_retains_selected_correcti
     assert "Relevant source published in 2025." in encoded
     assert "Unrelated content" not in encoded
     assert not runtime.research.runs("alice", row["id"])
+
+
+async def test_helper_copies_are_saved_before_model_calls_and_trimmed_to_the_limit(
+    runtime, monkeypatch
+):
+    runtime.settings.storage.checkpoint_keep = 2
+    row = runtime.db.create_session("alice", "test-model", "default")
+
+    @tool
+    async def lookup(query: str):
+        """Look up a test fact."""
+        return "Test fact."
+
+    child = FakeModel(
+        [
+            AssistantMessage(tool_calls=[ToolCall("first", "lookup", {"query": "one"})]),
+            AssistantMessage(tool_calls=[ToolCall("second", "lookup", {"query": "two"})]),
+            AssistantMessage("Research findings."),
+        ]
+    )
+    use_models(runtime, child)
+    monkeypatch.setattr(tools, "information_tools", lambda *args: [lookup])
+    saved = []
+    original_put = runtime.checkpoints.put
+
+    async def recording_put(owner, session_id, kind, value):
+        identity = await original_put(owner, session_id, kind, value)
+        if kind == "delegate_checkpoint":
+            saved.append((value["stage"], identity))
+        return identity
+
+    monkeypatch.setattr(runtime.checkpoints, "put", recording_put)
+    registry = await runtime.tools(row)
+    delegate = next(t for t in registry if t.name == "delegate_tasks")
+    returned = await execute_tool(
+        ToolCall("brief", "delegate_tasks", {"tasks": [{"name": "facts", "task": "Find facts."}]}),
+        [delegate],
+        ctx=RunContext(deps=None, history=[UserMessage("Find facts.")]),
+    )
+    assert returned.status == "completed"
+    # One copy before each of the three model calls, and one at the end. No copies
+    # after model calls or tool results.
+    stages = [stage for stage, _ in saved]
+    assert stages == ["before_model", "before_model", "before_model", "finished"]
+    remaining = runtime.db.rows(
+        "SELECT id FROM context_objects WHERE session=? AND kind='delegate_checkpoint'",
+        (row["id"],),
+    )
+    newest = {identity for _, identity in saved[-2:]}
+    assert {item["id"] for item in remaining} == newest
 
 
 async def test_deep_research_saves_child_transcript_and_search_evidence(runtime):

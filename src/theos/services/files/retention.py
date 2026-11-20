@@ -7,8 +7,44 @@ import logging
 import time
 
 logger = logging.getLogger("theos")
-COLLECTIBLE = {"checkpoint", "workspace_file", "response_attachment"}
+# A helper copy is a full transcript snapshot of one helper agent from `delegate_tasks`.
+# Nothing reads old copies back, so retention keeps only the newest few in each chat.
+HELPER_COPY = "delegate_checkpoint"
+COLLECTIBLE = {"checkpoint", "workspace_file", "response_attachment", HELPER_COPY}
 BATCH_SIZE = 20
+
+
+def creation_order(row):
+    """Sort key for context objects: creation time, then id to break ties."""
+    return (row["created"], row["id"])
+
+
+def newest_helper_copies(rows, keep):
+    """Return the ids of the newest `keep` helper copies in each chat of `rows`."""
+    copies_by_chat = {}
+    for row in rows:
+        if row["kind"] != HELPER_COPY:
+            continue
+        chat = (row["owner"], row["session"])
+        copies_by_chat.setdefault(chat, []).append(row)
+    newest = set()
+    for copies in copies_by_chat.values():
+        copies.sort(key=creation_order, reverse=True)
+        for row in copies[:keep]:
+            newest.add(row["id"])
+    return newest
+
+
+def is_helper_copy(source, indexed):
+    """Tell whether a source listed by a checkpoint is a helper copy.
+
+    Checkpoint files store the kind of each listed source. The checkpoint_references
+    index stores only id, owner, and session, so fall back to the kind of the live row.
+    """
+    if source.get("kind") == HELPER_COPY:
+        return True
+    row = indexed.get(source["id"])
+    return row is not None and row["kind"] == HELPER_COPY
 
 
 def live_sources(db, owner, session):
@@ -70,6 +106,8 @@ class Retention:
             reverse=True,
         )
         keep.update(row["id"] for row in snapshots[: self.settings.checkpoint_keep])
+        # Helper copies are kept by count, with the same limit as checkpoints.
+        keep.update(newest_helper_copies(rows, self.settings.checkpoint_keep))
         # Local and remote pointers can differ during an R2 outage. Protect both.
         for pointer in self.db.rows(
             "SELECT value FROM records WHERE owner=? AND id=? AND kind IN "
@@ -92,6 +130,10 @@ class Retention:
             for source in self.snapshot(row).get("objects", []):
                 if source["owner"] != owner or source["session"] != session:
                     raise ValueError("Retained source scope mismatch.")
+                if is_helper_copy(source, indexed):
+                    # Older checkpoints can list helper copies. Those copies are kept by
+                    # count above, so a checkpoint must neither keep nor require them.
+                    continue
                 if source["id"] not in indexed:
                     raise ValueError("A retained checkpoint source is missing.")
                 keep.add(source["id"])
@@ -122,40 +164,82 @@ class Retention:
                     or row["created"] > now - self.settings.gc_grace_seconds
                 ):
                     continue
-                expected_id = hashlib.sha256(
-                    f"{owner}/{identity}/{row['kind']}/{row['digest']}".encode()
-                ).hexdigest()
-                expected_key = self.checkpoints.key(owner, identity, row["id"] + ".json.gz")
-                if (
-                    row["id"] != expected_id
-                    or row["object_key"] != expected_key
-                    or row["path"] != str(self.checkpoints.directory / row["id"])
-                ):
-                    logger.warning("checkpoint_retention_invalid_path")
+                if not self.retire(row, now):
                     continue
-                retry = self.db.one(
-                    "SELECT id FROM records WHERE owner=? AND kind IN ('context_replication_retry','context_replication_intent') AND id=?",
-                    (owner, row["id"]),
-                )
-                remote = bool(self.settings.endpoint or row["status"] == "saved" or retry)
-                # Removing the live row retires the version. A future put of identical
-                # content creates a new pending row, which waits for this deletion.
-                with self.db.transaction():
-                    self.db.execute(
-                        "INSERT OR IGNORE INTO context_deletions VALUES (?,?,?,?,?,?,0,?)",
-                        (row["id"], owner, identity, expected_key, int(remote), now, now),
-                    )
-                    self.db.execute(
-                        "DELETE FROM context_objects WHERE id=? AND owner=?", (row["id"], owner)
-                    )
-                    self.db.execute(
-                        "DELETE FROM records WHERE owner=? AND kind IN ('context_replication_retry','context_replication_intent') AND id=?",
-                        (owner, row["id"]),
-                    )
                 marked += 1
                 if marked >= BATCH_SIZE:
                     return marked
         return marked
+
+    def retire(self, row, now):
+        """Move one object from the live table to the deletion journal.
+
+        Return False and leave the row alone when its id, key, or path does not match
+        what this store would have written.
+        """
+        owner, session = row["owner"], row["session"]
+        expected_id = hashlib.sha256(
+            f"{owner}/{session}/{row['kind']}/{row['digest']}".encode()
+        ).hexdigest()
+        expected_key = self.checkpoints.key(owner, session, row["id"] + ".json.gz")
+        if (
+            row["id"] != expected_id
+            or row["object_key"] != expected_key
+            or row["path"] != str(self.checkpoints.directory / row["id"])
+        ):
+            logger.warning("checkpoint_retention_invalid_path")
+            return False
+        retry = self.db.one(
+            "SELECT id FROM records WHERE owner=? AND kind IN ('context_replication_retry','context_replication_intent') AND id=?",
+            (owner, row["id"]),
+        )
+        remote = bool(self.settings.endpoint or row["status"] == "saved" or retry)
+        # Removing the live row retires the version. A future put of identical
+        # content creates a new pending row, which waits for this deletion.
+        with self.db.transaction():
+            self.db.execute(
+                "INSERT OR IGNORE INTO context_deletions VALUES (?,?,?,?,?,?,0,?)",
+                (row["id"], owner, session, expected_key, int(remote), now, now),
+            )
+            self.db.execute(
+                "DELETE FROM context_objects WHERE id=? AND owner=?", (row["id"], owner)
+            )
+            self.db.execute(
+                "DELETE FROM records WHERE owner=? AND kind IN ('context_replication_retry','context_replication_intent') AND id=?",
+                (owner, row["id"]),
+            )
+        return True
+
+    def trim_helper_copies(self, owner, session):
+        """Retire all but the newest helper copies of one chat right away.
+
+        A long helper run saves many copies, so this runs after each save instead of
+        waiting for the hourly pass. It also runs while the chat is running. That is
+        safe because no checkpoint or pointer depends on a helper copy. The method has
+        no await, so no other task can change the rows between decision and retirement.
+        """
+        rows = self.db.rows(
+            "SELECT * FROM context_objects WHERE owner=? AND session=? AND kind=? "
+            "ORDER BY created,id",
+            (owner, session, HELPER_COPY),
+        )
+        keep = newest_helper_copies(rows, self.settings.checkpoint_keep)
+        now = time.time()
+        retired = 0
+        for row in rows:
+            if row["id"] in keep:
+                continue
+            if self.retire(row, now):
+                retired += 1
+            if retired >= BATCH_SIZE:
+                # A legacy chat can hold thousands of copies. Each retirement is its own
+                # transaction, so stop early to keep the event loop responsive. Later
+                # saves and the hourly pass retire the rest.
+                break
+        if retired:
+            # Wake the background worker so it deletes the payloads soon.
+            self.checkpoints.start()
+        return retired
 
     def finish(self, row):
         # A command can recreate this content while the remote delete is in flight.

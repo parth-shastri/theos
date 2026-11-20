@@ -173,6 +173,8 @@ def test_success_commits_new_volume_and_retains_previous(deployment):
     assert current["volume"] != previous["volume"]
     assert result["backup"].startswith("previous-volume:/data/backups/")
     assert ("previous-volume", "stop", "theos") in calls
+    backup = next(c for c in calls if "theos-backup-" in " ".join(c))
+    assert IMAGE in backup and previous["image"] not in backup
     restore = next(c for c in calls if "/previous:ro" in " ".join(c))
     assert previous["image"] in restore
     assert not deployer.pending_path.exists()
@@ -240,7 +242,7 @@ def test_timed_out_helper_is_removed_before_rollback_opens_previous_volume(deplo
     def docker(*args, **kwargs):
         nonlocal running
         if args[0] == "run" and "--name" in args:
-            assert kwargs["timeout"] == 1800
+            assert kwargs["timeout"] == 3600
             running = True
             raise DeploymentError("backup helper timed out")
         if args[:2] == ("ps", "-aq") and "name=^/theos-backup-" in args[-1]:
@@ -294,7 +296,7 @@ def test_snapshot_has_separate_bounded_backup_and_restore_deadlines(deployment):
     deployer.snapshot(
         previous, dict(revision=REVISION, tag="rpi-v0.1.0", volume="candidate", image=IMAGE)
     )
-    assert [kwargs["timeout"] for _, kwargs in calls] == [1800, 900, 1800]
+    assert [kwargs["timeout"] for _, kwargs in calls] == [3600, 900, 3600]
     assert all("--no-healthcheck" in args and "--name" in args for args, _ in calls)
     assert "--env-file" in calls[0][0]
     assert "--network" not in calls[0][0]
@@ -311,11 +313,13 @@ def test_backup_helpers_use_private_resolved_storage_and_always_remove_it(deploy
         "AGENT_STORAGE__BUCKET": "private-test",
         "AGENT_STORAGE__ACCESS_KEY": "test-access",
         "AGENT_STORAGE__SECRET_KEY": "test-secret",
+        "AGENT_STORAGE__CHECKPOINT_KEEP": "3",
     }
     environment = {
         **storage,
         "AGENT_TRACING__HEADERS": '{"secret":"unrelated"}',
         "AGENT_API_KEY": "unrelated",
+        "AGENT_STORAGE__GC_GRACE_SECONDS": "60",
     }
     deployer.compose = lambda *_: json.dumps({"services": {"theos": {"environment": environment}}})
     paths = []
