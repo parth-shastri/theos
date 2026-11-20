@@ -15,7 +15,17 @@ Merge commits preserve shared branch history so later promotion PRs do not repea
 Publish Raspberry Pi releases from `rpi`. Do not commit changes directly to these three integration branches.
 The Pi's SSH alias is `neuralbox-pi` on the operator's Tailscale network.
 
+## Release 1.6.8
+
+Package version 1.6.8 retries interrupted remote reads during backup hydration with a bounded delay.
+The completed response must still pass the existing digest check. Permanent errors and corrupt objects still stop the backup.
+Deployment helper failures now identify the helper, exit code, and exception class without exposing private output.
+The release retains the two-way calling changes and Pi gateway location prepared for 1.6.7.
+No additional local tests or live calls were requested.
+
 ## Release 1.6.7
+
+Activation failed during backup creation. Automatic rollback restored healthy 1.6.6.
 
 Package version 1.6.7 uses tag `rpi-v1.6.7` from the promoted `rpi` tip.
 Telegram calls accept freeform voice, follow-up questions, explicit approval or decline, and spoken requests to end the call.
@@ -25,6 +35,9 @@ Migration 023 stores private call transcripts, sequence numbers, and exact decis
 Calls retain the configured Kokoro voice and transcription service. No new provider credential is required.
 Install the compatible native gateway before enabling `AGENT_TELEGRAM_CALLS__TWO_WAY` and `AGENT_CALLING_TWO_WAY` in their private environments.
 Both flags default to false for other installations.
+The production calling gateway now runs on the Pi as the user service `theos-calling.service`.
+The operator Mac no longer owns the Telegram account session or gateway runtime.
+Telegram bot messaging continues inside the existing Theos API container on the Pi.
 A call permits twenty responses within five minutes, with thirty-second bounds for speech and idle listening.
 Questions, conditional speech, unrelated replies, and ending a call do not approve a pending action.
 The operator confirmed clear replies during a live five-turn conversation that exercised questions, decline, and spoken hangup.

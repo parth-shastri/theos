@@ -2,6 +2,29 @@
 
 Updated: 2026-11-20.
 
+## Backup stream recovery release, 2026-11-20
+
+The 1.6.7 deployment failed during backup creation and automatically restored 1.6.6.
+The Pi calling gateway remains active. The Mac installation and private credentials have been removed.
+An isolated backup against a read-only copy also failed during remote hydration. Its diagnostic handler mishandled an empty HTTP response.
+Retry interrupted object downloads up to three times before failing the backup.
+Keep exact digest checks outside the retry block. Missing objects, invalid references, and corrupt contents must still fail.
+Record helper names, exit codes, and exception class names without storing raw private command output.
+Prepare urgent fix release 1.6.8 through a `fix/` PR from `rpi`, then carry the fix back to `dev` through a separate PR.
+The operator still requests no additional local tests or live calls. Use the existing automatic release checks.
+
+## Pi calling host and Mac removal, 2026-11-20
+
+The operator requested removal of the entire local Theos installation, including the calling gateway.
+Move the gateway to `neuralbox-pi` before removing the Mac account session and runtime.
+The private gateway runs as the persistent user service `theos-calling.service` at `http://100.68.21.29:8882`.
+Its runtime is under `~/.local/share/theos-calling/runtime`. Its private settings are under `~/.config/theos-calling` on the Pi.
+Preserve the Telegram session, verified recipients, shared key, and call ledger during transfer.
+Telegram bot messaging remains inside the main Theos API container on the Pi.
+Keep source checkouts while removing local executables, credentials, virtual environments, test data, containers, images, and caches.
+Use the deployment Compose mount overlay when recreating the API. It retains the shared log and skill mounts.
+Check service readiness during activation. Do not place more live calls or run additional local tests for this release.
+
 ## Two-way calling release approval, 2026-11-20
 
 The operator approved production integration and deployment of the tested two-way calling work.

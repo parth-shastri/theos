@@ -329,6 +329,8 @@ Two-way calling is disabled by default. Release 1.6.7 includes this conversation
 The application flag is `AGENT_TELEGRAM_CALLS__TWO_WAY`. The native gateway flag is `AGENT_CALLING_TWO_WAY`.
 The earlier `SPOKEN_APPROVALS` flags enable the same loop for compatibility.
 The existing transcription endpoint must also be configured. No new tool or provider credential is required.
+Production uses the persistent Pi user service `theos-calling.service` at `http://100.68.21.29:8882`.
+Telegram bot messaging stays inside the main Theos API container on the Pi.
 
 All call kinds accept freeform voice, follow-up questions, and multiple replies on the existing Telegram call.
 The configured model routes natural intent through OpenAI Responses. It has no tools during intent classification.
