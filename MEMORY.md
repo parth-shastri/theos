@@ -2,6 +2,17 @@
 
 Updated: 2026-11-20.
 
+## Backup stream recovery release, 2026-11-20
+
+The 1.6.7 deployment failed during backup creation and automatically restored 1.6.6.
+The Pi calling gateway remains active. The Mac installation and private credentials have been removed.
+An isolated backup against a read-only copy also failed during remote hydration. Its diagnostic handler mishandled an empty HTTP response.
+Retry interrupted object downloads up to three times before failing the backup.
+Keep exact digest checks outside the retry block. Missing objects, invalid references, and corrupt contents must still fail.
+Record helper names, exit codes, and exception class names without storing raw private command output.
+Prepare urgent fix release 1.6.8 through a `fix/` PR from `rpi`, then carry the fix back to `dev` through a separate PR.
+The operator still requests no additional local tests or live calls. Use the existing automatic release checks.
+
 ## Pi calling host and Mac removal, 2026-11-20
 
 The operator requested removal of the entire local Theos installation, including the calling gateway.
