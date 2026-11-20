@@ -2,6 +2,19 @@
 
 Updated: 2026-11-20.
 
+## Helper copy retention release, 2026-11-20
+
+Production held 4,382 helper copies with 8.29 GB in R2. One 131-minute research run created 3,959 of them.
+Tool results repeated in every copy made up 95% of those bytes. Nothing in the application reads the copies back.
+Regular checkpoints used 54 objects and 58 MB, exactly three per chat.
+Keep the newest `storage.checkpoint_keep` checkpoints and the newest `storage.checkpoint_keep` helper copies per chat. One setting controls both.
+Save helper copies only before each model call and when the helper finishes. Retire older helper copies of that chat after each save.
+Checkpoints do not list, keep, or require helper copies. Migration 024 removes helper copies from existing checkpoint reference records.
+The hourly pass deletes the existing backlog in bounded batches.
+Deployment backups skip remote-only helper copies that the rule deletes. Full hydration of the backlog made the last two Pi releases fail.
+The 2 R2 backup archives (8.56 GB) and 1,852 untracked R2 objects (0.58 GB) are known. This change does not address them.
+Prepare release 1.6.9 through a `fix/` PR to `dev`.
+
 ## Backup stream recovery release, 2026-11-20
 
 The 1.6.7 deployment failed during backup creation and automatically restored 1.6.6.

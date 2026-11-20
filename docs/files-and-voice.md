@@ -66,10 +66,12 @@ The model has no catalog listing, archive, restore, or transfer tool.
 R2 is not required for ordinary uploads or image input. Without it, recovery uses the local application data directory.
 A full backup includes the catalog and indexed local or remote file contents.
 Remote-only contents enter temporary backup staging and disappear from staging when the backup finishes.
+The backup skips remote-only helper copies that retention deletes. It keeps the newest copies per session.
 Pi deployment transfers the completed archive to R2 before removing its local copy.
 Read the [backup procedure](operations.md#back-up) for manual archives and remote restoration.
 Deleting a workspace file removes the current manifest entry. Saved response attachments and retained checkpoints preserve their recorded bytes.
 The runtime retains three recent recovery checkpoints per session, plus current local and published remote pointers.
+It also retains the three newest helper copies per session. A helper copy is a full transcript that a delegate saves before each model call.
 An hourly collector removes unreferenced versions after a one-hour grace period. Storage settings can change these defaults.
 The collector records pending deletions before removing local or R2 objects. Failed remote deletions retry after restart.
 It protects active sessions and defers collection when retained checkpoint references cannot be verified.

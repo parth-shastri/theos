@@ -277,7 +277,8 @@ class Deployer:
         with tempfile.NamedTemporaryFile(
             mode="w", prefix=".backup-storage-", dir=self.directory, encoding="utf-8"
         ) as private:
-            for field in ("ENDPOINT", "BUCKET", "ACCESS_KEY", "SECRET_KEY"):
+            # CHECKPOINT_KEEP tells the backup how many helper copies per chat to keep.
+            for field in ("ENDPOINT", "BUCKET", "ACCESS_KEY", "SECRET_KEY", "CHECKPOINT_KEEP"):
                 name = "AGENT_STORAGE__" + field
                 value = environment.get(name)
                 if value is None:

@@ -122,7 +122,8 @@ An R2 outage leaves the local object pending for a background retry.
 The remote checkpoint pointer advances only after the snapshot and its referenced objects upload.
 
 Checkpoints include the full transcript, summary boundary, model state, tool states, and workspace manifest.
-Delegates also save their task and model state as checkpoint objects.
+Delegates also save their task and model state as helper copies before each model call and when they finish.
+Each helper copy is a full transcript. Nothing reads it back, so retention keeps only the newest copies in each session.
 Restoration checks ownership and content hashes.
 An interrupted action remains uncertain after restore, so the runtime never reruns it automatically.
 Ordinary restarts use SQLite. `Checkpoints.restore` supports controlled restoration into an owned, empty session.
@@ -216,11 +217,16 @@ Theos owns checkpoint retention in `services/files/retention.py`. The generic ha
 The default policy keeps three recent recovery checkpoints per session, the current workspace, response attachments, and local and published remote pointers.
 Every retained checkpoint protects its declared file sources. New snapshots declare current workspace and attachment versions without accumulating older workspace objects.
 Older snapshot formats remain readable and keep their original source references while retained.
+Helper copies are the exception. Retention keeps the newest `AGENT_STORAGE__CHECKPOINT_KEEP` helper copies per session by count.
+New snapshots and the checkpoint reference index do not list helper copies. An older snapshot that lists them neither keeps nor requires them.
+Each helper save retires older helper copies of that session at once, also during an active turn. The background worker then deletes them.
+Migration 024 removes helper copies from existing checkpoint reference records.
 
 The existing background checkpoint worker runs collection, including when R2 is disabled.
 An hourly scan retires eligible objects after one hour since their last storage or reuse.
 Each pass marks at most 20 objects. Backlogs continue through further bounded passes.
 Active sessions and sessions awaiting remote-recovery review defer collection. Missing or corrupt retained snapshots also defer collection for their session.
+The immediate helper copy trim is the only collection that runs during an active turn.
 The collector preserves research evidence, browser profiles, uploaded-file catalog entries, and conversation history.
 
 SQLite migration 015 records pending object deletions before removal.

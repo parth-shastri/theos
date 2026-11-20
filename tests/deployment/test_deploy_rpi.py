@@ -313,11 +313,13 @@ def test_backup_helpers_use_private_resolved_storage_and_always_remove_it(deploy
         "AGENT_STORAGE__BUCKET": "private-test",
         "AGENT_STORAGE__ACCESS_KEY": "test-access",
         "AGENT_STORAGE__SECRET_KEY": "test-secret",
+        "AGENT_STORAGE__CHECKPOINT_KEEP": "3",
     }
     environment = {
         **storage,
         "AGENT_TRACING__HEADERS": '{"secret":"unrelated"}',
         "AGENT_API_KEY": "unrelated",
+        "AGENT_STORAGE__GC_GRACE_SECONDS": "60",
     }
     deployer.compose = lambda *_: json.dumps({"services": {"theos": {"environment": environment}}})
     paths = []

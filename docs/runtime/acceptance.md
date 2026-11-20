@@ -1,5 +1,15 @@
 # Feature and acceptance checklist
 
+## Helper copy retention, 2026-11-20
+
+Production held 4,382 helper copies with 8.29 GB in R2. One research run created 3,959 of them.
+Helpers now save a copy only before each model call and when they finish.
+Retention keeps the newest `AGENT_STORAGE__CHECKPOINT_KEEP` helper copies per session and retires older copies after each save.
+The hourly pass retires the existing backlog in bounded batches. Migration 024 removes helper copies from existing checkpoint reference records.
+Deployment backups skip remote-only helper copies that retention deletes.
+Focused unit checks cover save points, the immediate trim, the backlog pass, legacy checkpoints, the reference migration, and backup selection.
+Live 1.6.9 activation remains to be confirmed. Deletion of the local and R2 backlog after activation also remains to be confirmed.
+
 ## Live freeform and decline acceptance, 2026-11-20
 
 The operator authorized a third isolated attempt and confirmed that the spoken replies were clear.

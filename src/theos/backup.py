@@ -60,6 +60,32 @@ def restore_remote(key: str, directory: Path):
         client.close()
 
 
+def without_old_helper_copies(rows, directory):
+    """Drop helper copies that retention deletes anyway, keeping the newest per chat.
+
+    A long helper run can leave thousands of full transcript copies in R2. Downloading
+    them made deployment backups fail or time out, and nothing reads them back.
+    """
+    from theos.services.files.retention import HELPER_COPY, newest_helper_copies
+    from theos.settings import Settings
+
+    has_helper_copies = False
+    for row in rows:
+        if row["kind"] == HELPER_COPY:
+            has_helper_copies = True
+            break
+    if not has_helper_copies:
+        return rows
+    keep = Settings(_env_file=None, data_dir=directory).storage.checkpoint_keep
+    newest = newest_helper_copies(rows, keep)
+    selected = []
+    for row in rows:
+        if row["kind"] == HELPER_COPY and row["id"] not in newest:
+            continue
+        selected.append(row)
+    return selected
+
+
 def hydrate_remote_files(directory, staging):
     """Include remote-only payloads in a stopped application's independent backup."""
     database = staging / "theos.sqlite3"
@@ -77,8 +103,9 @@ def hydrate_remote_files(directory, staging):
             }
             rows = []
             if "context_objects" in tables:
+                objects = [dict(row) for row in db.execute("SELECT * FROM context_objects")]
                 rows += [
-                    (dict(row), "checkpoint") for row in db.execute("SELECT * FROM context_objects")
+                    (row, "checkpoint") for row in without_old_helper_copies(objects, directory)
                 ]
             if "files" in tables:
                 rows += [(dict(row), "file") for row in db.execute("SELECT * FROM files")]
