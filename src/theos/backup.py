@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import tarfile
 import tempfile
+import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import closing
 from pathlib import Path
@@ -83,7 +84,38 @@ def hydrate_remote_files(directory, staging):
                 rows += [(dict(row), "file") for row in db.execute("SELECT * FROM files")]
 
             def fetch(row, kind, target, expected_sha):
-                data = Files.remote_bytes(client, config.bucket, row["object_key"])
+                from botocore import exceptions as storage_errors
+
+                # SDK retries finish before the streaming response body is read.
+                # Restart interrupted reads from the same immutable object key.
+                for attempt in range(3):
+                    try:
+                        data = Files.remote_bytes(client, config.bucket, row["object_key"])
+                        break
+                    except (storage_errors.BotoCoreError, storage_errors.ClientError) as error:
+                        response = getattr(error, "response", None)
+                        response = response if isinstance(response, dict) else {}
+                        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
+                        code = response.get("Error", {}).get("Code", "")
+                        transient = (
+                            isinstance(
+                                error,
+                                (
+                                    storage_errors.ConnectionClosedError,
+                                    storage_errors.ConnectTimeoutError,
+                                    storage_errors.EndpointConnectionError,
+                                    storage_errors.HTTPClientError,
+                                    storage_errors.IncompleteReadError,
+                                    storage_errors.ResponseStreamingError,
+                                ),
+                            )
+                            or status in {429, 500, 502, 503, 504}
+                            or code
+                            in {"InternalError", "RequestTimeout", "ServiceUnavailable", "SlowDown"}
+                        )
+                        if not transient or attempt == 2:
+                            raise
+                        time.sleep(0.5 * (2**attempt))
                 if kind == "checkpoint":
                     valid = hashlib.sha256(gzip.decompress(data)).hexdigest() == row["digest"]
                 else:
