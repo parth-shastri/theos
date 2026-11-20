@@ -2,6 +2,18 @@
 
 Updated: 2026-11-20.
 
+## Live freeform and decline acceptance, 2026-11-20
+
+The operator authorized another isolated call and confirmed that Theos replies were clear.
+Five live turns exercised greetings, capability questions, review questions, an explicit decline, and a spoken request to end the call.
+The application transcribed each utterance and delivered conversational feedback through the same native call.
+The first test note was denied and did not execute. The second stayed pending when the operator requested the call to end.
+No note was saved, and no production action ran.
+Positive spoken approval and a normal runtime request after resolving all approvals still need live acceptance.
+The diagnostic runner stopped the gateway before final farewell playback completed. Later runs must await native completion before cleanup.
+The temporary process stopped and removed its copied login session and shared key file.
+Installed services, private environment files, releases, and production data remained unchanged. Do not deploy this work.
+
 ## Isolated live call acceptance, 2026-11-20
 
 The operator authorized a live Telegram call to test freeform replies and approvals, while retaining the deployment prohibition.

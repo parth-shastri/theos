@@ -1,5 +1,24 @@
 # Feature and acceptance checklist
 
+## Live freeform and decline acceptance, 2026-11-20
+
+The operator authorized a third isolated attempt and confirmed that the spoken replies were clear.
+The call completed five recognized turns on one Telegram connection.
+The application transcribed greetings, capability questions, a review question, an explicit decline, and a request to end the call.
+Recognition took about 1.8 to 2.1 seconds per utterance.
+
+The first harmless test note was denied after the operator said, “decline decline please.”
+Its tool result has denied status. No test note was saved.
+The operator then said, “Hang up the call.” The application closed the conversation and left the second note approval pending.
+Three freeform question turns received spoken responses before those decisions.
+Positive spoken approval and an ordinary runtime request after resolving all approvals remain open live checks.
+The diagnostic runner stopped its temporary gateway during final farewell playback. Complete farewell playback remains unverified.
+Later diagnostic runs wait for native completion before cleanup.
+
+The temporary process stopped and removed its copied login session and shared key file.
+Installed services, private environment files, releases, and production data remained unchanged.
+No deployment, merge, promotion, private environment update, or installed service restart occurred.
+
 ## Isolated live call retry, 2026-11-20
 
 The operator authorized one fresh retry without deployment.
