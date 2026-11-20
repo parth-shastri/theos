@@ -134,6 +134,10 @@ class CallConversations:
 
     async def close_call(self, job):
         self.db.execute(
+            "UPDATE call_utterances SET status='uncertain' WHERE call_id=? AND status='processing'",
+            (job["id"],),
+        )
+        self.db.execute(
             "UPDATE phone_calls SET conversation_status='closed' WHERE id=?", (job["id"],)
         )
         try:

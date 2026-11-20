@@ -228,6 +228,7 @@ async def test_hangup_during_understanding_does_not_authorize_an_action(
     scripted_models.responses.append(intent("approve", state["text"]))
     await runtime.call_conversations.tick()
     assert runtime.db.one("SELECT status FROM approvals")["status"] == "pending"
+    assert runtime.db.one("SELECT status FROM call_utterances")["status"] == "uncertain"
     assert not runtime.db.rows("SELECT * FROM tool_runs WHERE call_id='checkout'")
 
 

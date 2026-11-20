@@ -1,5 +1,21 @@
 # Feature and acceptance checklist
 
+## Isolated live call retry, 2026-11-20
+
+The operator authorized one fresh retry without deployment.
+The temporary call connected, completed opening playback, and captured voiced microphone PCM.
+It ended before the application stored a transcript, delivered feedback, or recorded either test decision.
+Both note approvals remained pending. No tool executed and no note was saved.
+Handset feedback must establish whether the caller ended the call or it disconnected.
+A separate synthetic 48 kHz PCM check returned the expected approval sentence through the configured transcription service in 1.77 seconds.
+This check does not establish the intelligibility of captured handset audio.
+
+The application now marks interrupted processing uncertain when it closes a call. Recorded approvals and declines retain their outcomes.
+All 24 conversation checks and focused lint and formatting checks passed.
+The temporary process stopped and removed its copied login session and gateway key file.
+Installed services, private environment files, releases, and production data remained unchanged.
+A complete live question, approval, decline, and ordinary follow-up sequence remains open.
+
 ## Isolated live call attempt, 2026-11-20
 
 The operator authorized a live call without deployment.

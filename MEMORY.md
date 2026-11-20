@@ -11,6 +11,11 @@ The first isolated gateway accepted one request, but the native connection did n
 The test received no utterances. Both note approvals stayed pending, and no test tool executed.
 The temporary process stopped and removed its copied Telegram session and gateway key file.
 The installed gateway process remained unchanged. Handset feedback and a completed live conversation remain open.
+The operator authorized a retry. That call connected, finished opening playback, and captured microphone PCM.
+The call ended before the application saved a transcript or decision. Both notes stayed pending and no tool executed.
+A separate synthetic PCM check transcribed the expected approval sentence through the configured service in 1.77 seconds.
+The local close path now marks interrupted processing uncertain immediately, while preserving recorded decisions.
+Twenty-four conversation checks and focused lint passed. No service was deployed or restarted.
 
 ## Freeform two-way calls, local work, 2026-11-19
 
