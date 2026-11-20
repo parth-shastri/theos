@@ -15,9 +15,23 @@ from pathlib import Path
 from harness import message_to_dict
 from theos.storage.messages import display_metadata, restore_message, serialize_message
 
-from .retention import Retention, live_sources
+from .retention import HELPER_COPY, Retention, live_sources
 
 logger = logging.getLogger("theos")
+
+
+def checkpoint_dependencies(snapshot):
+    """Return the objects listed by a checkpoint, without helper copies.
+
+    Older checkpoints list helper copies. Retention keeps helper copies by count and can
+    delete them while such a checkpoint still exists, so a checkpoint never depends on one.
+    """
+    dependencies = []
+    for item in snapshot.get("objects", []):
+        if item["kind"] == HELPER_COPY:
+            continue
+        dependencies.append(item)
+    return dependencies
 
 
 class Checkpoints:
@@ -131,7 +145,9 @@ class Checkpoints:
         # Only this snapshot and its declared sources must exist remotely. A newer
         # command's pending object must not block publication of a complete snapshot.
         snapshot = await self.get(owner, session, identity)
-        dependencies = {identity, *(row["id"] for row in snapshot["objects"])}
+        dependencies = {identity}
+        for row in checkpoint_dependencies(snapshot):
+            dependencies.add(row["id"])
         saved = self.db.rows(
             "SELECT id FROM context_objects WHERE owner=? AND session=? AND status='saved' "
             "AND id IN (SELECT value FROM json_each(?))",
@@ -361,7 +377,7 @@ class Checkpoints:
                         "session": row["session"],
                         "objects": [
                             {key: item[key] for key in ("id", "owner", "session")}
-                            for item in snapshot.get("objects", [])
+                            for item in checkpoint_dependencies(snapshot)
                         ],
                     },
                 )
@@ -436,11 +452,13 @@ class Checkpoints:
         async with lock:
             with self.span("checkpoint persist", {"theos.checkpoint.stage": stage}):
                 sources = live_sources(self.db, owner, session)
+                # Helper copies are kept by count, not by reference, so leave them out.
                 objects = [
                     row
                     for row in self.db.rows(
-                        "SELECT * FROM context_objects WHERE owner=? AND session=? AND kind!='checkpoint'",
-                        (owner, session),
+                        "SELECT * FROM context_objects WHERE owner=? AND session=? "
+                        "AND kind!='checkpoint' AND kind!=?",
+                        (owner, session, HELPER_COPY),
                     )
                     if row["kind"] not in {"workspace_file", "response_attachment"}
                     or row["id"] in sources
@@ -587,6 +605,10 @@ class Checkpoints:
                     raise ValueError("Invalid source reference.")
                 if row["object_key"] != self.key(owner, session, source_id + ".json.gz"):
                     raise ValueError("Invalid source object key.")
+                if row["kind"] == HELPER_COPY:
+                    # An older checkpoint can list helper copies that retention has
+                    # already deleted. Recovery does not need them.
+                    continue
                 self.db.execute(
                     "INSERT OR IGNORE INTO context_objects VALUES (?,?,?,?,?,?,?,?,?)",
                     (

@@ -204,7 +204,7 @@ def test_call_migration_preserves_existing_provider_attempts(settings):
     db.close()
     upgraded = Database(settings.data_dir)
     try:
-        assert upgraded.one("PRAGMA user_version")["user_version"] == 23
+        assert upgraded.one("PRAGMA user_version")["user_version"] == 24
         after = upgraded.one("SELECT * FROM phone_calls")
         assert {key: after[key] for key in before} == before
         assert after["voice_status"] is None
