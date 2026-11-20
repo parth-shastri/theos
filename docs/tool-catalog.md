@@ -503,6 +503,8 @@ Deleting a workspace file removes it from the current manifest. Retained checkpo
 The runtime keeps three recent recovery checkpoints per session by default. It also protects the current workspace, both recovery pointers, and uncertain remote publications.
 A periodic collector retires unreferenced workspace versions, orphaned attachment snapshots, and superseded checkpoints after a one-hour grace period.
 New checkpoints list current file sources rather than every historical workspace version. Legacy checkpoints keep their original references until retention releases them.
+Helper copies from `delegate_tasks` follow the same count, three per session by default. Each helper save retires older copies at once.
+Checkpoints do not keep helper copies, including legacy checkpoints that list them.
 Deletion records survive restarts and partial R2 failures. A recreated blob waits for an old deletion before its replacement upload.
 Local-only deployments run the same retention policy. Active turns and sessions awaiting remote-recovery review defer collection.
 Research evidence, browser credentials, and uploaded-file catalog entries remain outside this collector.

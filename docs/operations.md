@@ -102,6 +102,8 @@ Copying only a live `.sqlite3` file can omit recent writes.
 The archive contains databases, personal records, and indexed local or R2 file contents.
 The backup command reads remote-only files with the configured R2 credentials and verifies their checksums.
 An unavailable or corrupt indexed object fails the backup instead of silently omitting its contents.
+The backup skips remote-only helper copies beyond the newest `AGENT_STORAGE__CHECKPOINT_KEEP` per session, because retention deletes them.
+The archive keeps their database rows. Retention removes those rows after a restore.
 It excludes logs, previous backups, and the process lock.
 The backup rejects symbolic links in the included data.
 The staging copy needs free space in the data volume.
