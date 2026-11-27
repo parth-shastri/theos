@@ -1,3 +1,4 @@
+import { startChatting } from "./setup.mjs";
 import { test, expect } from "@playwright/test";
 
 test("turn feedback stays in the conversation through tools and final text", async ({
@@ -11,6 +12,7 @@ test("turn feedback stays in the conversation through tools and final text", asy
   await expect(page.locator("#conversation-cost")).toContainText(
     "Conversation cost:",
   );
+  await startChatting(page);
   const session = await page.request.post("/api/sessions", {
     headers: { Origin: new URL(page.url()).origin, "X-Theos-Request": "1" },
     data: { title: "Activity preview" },

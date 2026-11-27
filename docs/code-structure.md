@@ -86,6 +86,8 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 
 | Service directory | Contents |
 | --- | --- |
+| `journeys.py` | Shared chat profile steps, pending requests, revision checks, and OAuth return destinations |
+| `conversation_settings.py` | Owner-bound model, reasoning, and generation validation for browser and Telegram |
 | `preferences/` | Timezone, calorie goal, display name, and instruction override |
 | `reminders/` | Reminder tools and explicit handling of ambiguous local times |
 | `schedules/` | Owner-scoped scheduled agent task tools and recurrence validation |
@@ -112,14 +114,18 @@ The client never opens SQLite or starts another scheduler. Disconnects leave ser
 | `zepto/` | OAuth, encrypted owner tokens, MCP discovery, and account-scoped sessions that serialize tool calls |
 
 `storage/account_access.py` permits configured browser identities and authorized private Telegram identities.
-`transports/telegram/connections.py` owns native account cards, sign-in buttons, status actions, and Zepto reply prompts.
+`transports/telegram/menus.py` owns active menu messages, real parent navigation, and owner-bound single-use button tokens.
+`settings.py` renders editable Telegram preferences. `connections.py` owns account cards, sign-in buttons, status actions, and Zepto reply prompts.
 `polling.py` identifies prompt replies before inbox persistence and routes encrypted return links outside model history.
 `transports/browser/connections.py` binds account actions to the authenticated browser owner.
 `transports/browser/github_events.py` receives signed GitHub webhooks and manages private notification settings.
 `services/github/events.py` selects attention events. `notifications.py` owns routing, access checks, queue retention, and delivery status.
 The browser inbox uses `transports/browser/notifications.py` to count, dismiss, and restore alerts for the signed-in owner.
 The Next.js webhook route forwards exact bytes without browser credentials. The scheduler runs the independent GitHub worker.
-`services/account_setup.py` shares optional account offers and profile completion across browser and Telegram.
+`services/journeys.py` shares confirmed chat profile steps and interrupted requests across browser and Telegram.
+`services/account_setup.py` reports optional account availability, offers the private `connect_account` tool, and retains the older setup completion endpoint.
+`journeys.bind_tool_returns` preserves return destinations for existing Google connection tools before the runtime journals them.
+`web/src/components/ChatSetup.jsx` renders profile questions and requested account setup inside the conversation.
 It reports configuration status without exposing credentials.
 Groups and standalone terminal sessions receive no account tools.
 Connected terminal clients use the authenticated browser user's existing account access.
@@ -173,7 +179,8 @@ Health jobs inspect named remote records before another write.
 The Telegram polling loop has three numbered steps: receive, save, and dispatch.
 It saves updates and the polling offset in one transaction.
 An interrupted reply does not cause another model turn.
-`transports/telegram/onboarding.py` reserves user slots and asks for a preferred name and timezone before normal routing.
+`transports/telegram/onboarding.py` reserves user slots and offers optional, confirmed name and timezone questions in chat.
+Skipping setup permits normal routing. Attachments can start a conversation without completing optional profile questions.
 Owner-scoped preferences retain the chosen name across restarts and conversation resets.
 `runtime/engine.py` supplies the saved display name to the model on each turn.
 `storage/telegram_access.py` checks SQL authorization and removes access-code arguments before inbox storage.

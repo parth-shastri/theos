@@ -30,8 +30,8 @@ function SignInLink({ url }) {
   }
 }
 
-function AccountCard({ account, busy, action }) {
-  const { json, editDraft } = useWorkspace();
+export function AccountCard({ account, busy, action, source = "connections" }) {
+  const { json, editDraft, chat } = useWorkspace();
   const [returnUrl, setReturnUrl] = useState("");
   const [authorizationUrl, setAuthorizationUrl] = useState("");
   const [notice, setNotice] = useState("");
@@ -91,6 +91,7 @@ function AccountCard({ account, busy, action }) {
       try {
         const result = await json(`/api/connections/${account.id}/connect`, {
           method: "POST",
+          body: { source, session_id: chat.id },
         });
         if (!["starting", "waiting"].includes(result.status))
           starting.current = false;
@@ -274,74 +275,9 @@ function AccountCard({ account, busy, action }) {
   );
 }
 
-function SetupProfile({ setup, busy, action }) {
-  const { finishConnectionSetup } = useWorkspace();
-  const [name, setName] = useState(setup.display_name || "");
-  const [timezone, setTimezone] = useState(setup.timezone || "UTC");
-  return (
-    <Glass className="connection-onboarding">
-      <span className="eyebrow">Make Theos yours</span>
-      <h2>
-        {setup.display_name
-          ? `Welcome, ${setup.display_name}`
-          : "What should I call you?"}
-      </h2>
-      <p>
-        Choose the accounts you want to connect below. Every connection is
-        optional.
-      </p>
-      <form
-        id="connection-setup"
-        onSubmit={(event) => {
-          event.preventDefault();
-          action(() =>
-            finishConnectionSetup(
-              setup.display_name ? {} : { display_name: name, timezone },
-            ),
-          );
-        }}
-      >
-        {!setup.display_name && (
-          <div className="connection-profile-fields">
-            <label htmlFor="setup-name">
-              Your preferred name
-              <input
-                id="setup-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                maxLength={200}
-                autoComplete="nickname"
-                disabled={busy}
-              />
-            </label>
-            <label htmlFor="setup-timezone">
-              Timezone
-              <input
-                id="setup-timezone"
-                value={timezone}
-                onChange={(event) => setTimezone(event.target.value)}
-                required
-                maxLength={100}
-                disabled={busy}
-              />
-            </label>
-          </div>
-        )}
-      </form>
-    </Glass>
-  );
-}
-
 export default function Connections() {
-  const {
-    me,
-    view,
-    navigate,
-    connections,
-    refreshConnections,
-    finishConnectionSetup,
-  } = useWorkspace();
+  const { me, view, navigate, connections, refreshConnections } =
+    useWorkspace();
   const [status, setStatus] = useState(""),
     [error, setError] = useState(false),
     [busy, setBusy] = useState(false);
@@ -392,7 +328,6 @@ export default function Connections() {
       setBusy(false);
     }
   };
-  const setup = connections?.onboarding;
   return (
     <section
       id="connections-view"
@@ -421,19 +356,10 @@ export default function Connections() {
           <span>Back to chat</span>
         </button>
       </PanelHeading>
-      {setup?.needed ? (
-        <SetupProfile
-          key={`profile:${me?.id}`}
-          setup={setup}
-          busy={busy}
-          action={action}
-        />
-      ) : (
-        <p className="panel-description">
-          Connect your own accounts. Connections and personal records are
-          available across your private conversations.
-        </p>
-      )}
+      <p className="panel-description">
+        Manage your connected accounts. Ask Theos in chat to connect an account
+        or change your profile.
+      </p>
       <CallSetup
         key={`calls:${me?.id}`}
         calling={connections?.calling}
@@ -478,25 +404,6 @@ export default function Connections() {
           />
         ))}
       </div>
-      {setup?.needed && (
-        <div className="connection-setup-actions">
-          <button
-            className="primary"
-            type="submit"
-            form="connection-setup"
-            disabled={busy}
-          >
-            Continue to chat
-          </button>
-          <button
-            className="soft-button"
-            disabled={busy}
-            onClick={() => action(() => finishConnectionSetup())}
-          >
-            Skip for now
-          </button>
-        </div>
-      )}
       <BrowserSignIn
         key={`browser:${me?.id}`}
         configured={connections?.services.some(

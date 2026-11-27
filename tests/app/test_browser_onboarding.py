@@ -31,7 +31,10 @@ def web_bot(runtime, monkeypatch):
 async def enroll(bot, user=123):
     await message(bot, "/start", user)
     await message(bot, f"Preferred {user}", user)
+    await message(bot, "yes", user)
     await message(bot, "UTC", user)
+    await message(bot, "yes", user)
+    await message(bot, "/web", user)
     urls = [
         button["url"]
         for call in bot.api.call_args_list
@@ -273,7 +276,9 @@ async def test_expiry_revocation_and_access_code_rotation_preserve_data(runtime,
     runtime.settings.telegram_access_code = SecretStr("deployment-code")
     await message(web_bot, "/start deployment-code")
     await message(web_bot, "Ada")
+    await message(web_bot, "yes")
     await message(web_bot, "UTC")
+    await message(web_bot, "yes")
     old = browser_access.invite(runtime.settings, runtime.db, "telegram:123")
     fresh = browser_access.invite(runtime.settings, runtime.db, "telegram:123")
     with pytest.raises(ValueError):

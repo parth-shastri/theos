@@ -1,10 +1,11 @@
 """Owner-bound browser connections and optional service availability."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from theos.services import journeys
 from theos.services.account_setup import ACCOUNT_LABELS, complete_setup, setup_status
 from theos.services.errors import ServiceError
 from theos.storage.account_access import browser_account_access
@@ -23,8 +24,21 @@ class CompleteSetup(BaseModel):
 
 class CallPreferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    reminders: bool = True
-    approvals: bool = True
+    reminders: bool = False
+    approvals: bool = False
+
+
+class ConnectionStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str | None = Field(default=None, max_length=100)
+    source: Literal["chat", "connections"] = "connections"
+
+
+class JourneyAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: str = Field(max_length=30)
+    value: str = Field(default="", max_length=8000)
+    revision: int = Field(ge=0)
 
 
 def connection_status(runtime, owner):
@@ -93,6 +107,18 @@ def register_connections(app, settings, current, identity):
         if service not in {"gmail", "calendar", "health", "zepto", "slack", "github"}:
             raise ValueError("Unknown account service.")
 
+    @app.get("/api/journey")
+    async def journey(request: Request, owner: Annotated[str, Depends(identity)]):
+        return journeys.state(settings, current(request).db, owner)
+
+    @app.post("/api/journey")
+    async def journey_action(
+        body: JourneyAction, request: Request, owner: Annotated[str, Depends(identity)]
+    ):
+        return journeys.update(
+            settings, current(request).db, owner, body.action, body.value, body.revision
+        )
+
     @app.get("/api/connections")
     async def connections(request: Request, owner: Annotated[str, Depends(identity)]):
         if not browser_account_access(settings, owner, current(request).db):
@@ -145,14 +171,27 @@ def register_connections(app, settings, current, identity):
         return await calls(request, owner).disconnect(owner)
 
     @app.post("/api/connections/{service}/connect")
-    async def connect(service: str, request: Request, owner: Annotated[str, Depends(identity)]):
+    async def connect(
+        service: str,
+        request: Request,
+        owner: Annotated[str, Depends(identity)],
+        body: ConnectionStart | None = None,
+    ):
         authorize(request, owner, service)
         runtime = current(request)
+        destination = body or ConnectionStart()
+        journeys.remember_connection(
+            runtime.db, owner, service, destination.session_id, destination.source
+        )
         if service in {"github", "slack"}:
-            return await getattr(runtime, service).start(owner)
+            result = await getattr(runtime, service).start(owner)
+            journeys.bind_connection(runtime.db, owner, service, result.get("url", ""))
+            return result
         if service == "zepto":
             return await runtime.zepto.connect_from_browser(owner)
-        return {"status": "waiting", "url": runtime.oauth.start(owner, service)}
+        url = runtime.oauth.start(owner, service)
+        journeys.bind_connection(runtime.db, owner, service, url)
+        return {"status": "waiting", "url": url}
 
     @app.post("/api/connections/onboarding")
     async def finish_setup(

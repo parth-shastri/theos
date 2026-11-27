@@ -5,8 +5,8 @@ import { Icon } from "./Primitives";
 export default function CallSetup({ calling, busy, action }) {
   const { json } = useWorkspace();
   const [preferences, setPreferences] = useState({
-    reminders: true,
-    approvals: true,
+    reminders: false,
+    approvals: false,
   });
   useEffect(() => {
     if (calling?.status === "ready")

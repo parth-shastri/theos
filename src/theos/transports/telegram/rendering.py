@@ -327,8 +327,8 @@ async def render(bot, turn, chat, topic):
                     markup = {
                         "inline_keyboard": [
                             [
-                                {"text": "Approve", "callback_data": "a:" + item["id"]},
-                                {"text": "Deny", "callback_data": "d:" + item["id"]},
+                                {"text": "✅ Approve", "callback_data": "a:" + item["id"]},
+                                {"text": "✖️ Deny", "callback_data": "d:" + item["id"]},
                             ]
                         ]
                     }

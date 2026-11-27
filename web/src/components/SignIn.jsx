@@ -29,6 +29,18 @@ export default function SignIn() {
   const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [showPasswordSettings, setShowPasswordSettings] = useState(false);
+  const [telegram, setTelegram] = useState(null);
+  useEffect(() => {
+    if (me) return;
+    const controller = new AbortController();
+    fetch("/api/auth/options", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((options) => {
+        if (!controller.signal.aborted) setTelegram(options);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [me]);
   const accessToken = useRef(null);
   const loginTitle = useRef(null);
   const setupTitle = useRef(null);
@@ -81,6 +93,25 @@ export default function SignIn() {
             Your personal assistant for conversations, saved information, and
             everyday tasks.
           </p>
+        )}
+        {!passwordAction && telegram?.telegram && (
+          <div className="login-telegram-help">
+            {telegram.telegram_url && (
+              <a
+                className="connection-link"
+                href={telegram.telegram_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open Theos in Telegram <Icon name="arrowUpRight" />
+              </a>
+            )}
+            <p>
+              Send <code>/web</code> in your private bot chat, then open the
+              sign-in link and approve the matching code. New here? Send{" "}
+              <code>/start</code> first.
+            </p>
+          </div>
         )}
         {passwordMode ? (
           <>

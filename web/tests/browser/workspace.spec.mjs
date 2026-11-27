@@ -1,3 +1,4 @@
+import { startChatting } from "./setup.mjs";
 import { test, expect } from "@playwright/test";
 
 const token =
@@ -10,6 +11,7 @@ async function signIn(page) {
   await expect(page.locator("#conversation-cost")).toContainText(
     "Conversation cost:",
   );
+  await startChatting(page);
 }
 
 async function navigate(page, id) {

@@ -27,7 +27,43 @@ async function fixture(page, { onboarding = false, name = "Ada" } = {}) {
       timezone: "Asia/Kolkata",
     },
   };
-  const state = { data, profile: null, turns: 0 };
+  const journey = {
+    needed: onboarding,
+    step: onboarding ? "name" : "ready",
+    revision: 0,
+    display_name: name,
+    timezone: "Asia/Kolkata",
+    pending_task: "",
+  };
+  const state = { data, profile: null, turns: 0, journey };
+  await page.route("**/api/me", async (route) => {
+    const response = await route.fetch();
+    if (!response.ok()) return route.fulfill({ response });
+    await route.fulfill({ json: { ...(await response.json()), journey } });
+  });
+  await page.route("**/api/journey", async (route) => {
+    if (route.request().method() === "POST") {
+      const { action, value } = route.request().postDataJSON();
+      if (action === "reply") {
+        journey.candidate = value;
+        journey.step = "confirm_name";
+      }
+      if (action === "confirm") {
+        journey.display_name = journey.candidate;
+        journey.step = "timezone";
+      }
+      if (action === "skip" || action === "finish") {
+        journey.needed = false;
+        journey.step = "ready";
+      }
+      state.profile = {
+        display_name: journey.display_name,
+        timezone: journey.timezone,
+      };
+      journey.revision++;
+    }
+    await route.fulfill({ json: journey });
+  });
   page.on("request", (request) => {
     if (request.url().endsWith("/turn")) state.turns++;
   });
@@ -64,7 +100,9 @@ async function fixture(page, { onboarding = false, name = "Ada" } = {}) {
     await page.locator("#account-button").click();
     await page.locator("#connections-button").click();
   }
-  await expect(page.locator("#connections-view")).toBeVisible();
+  await expect(
+    page.locator(onboarding ? "#chat-view" : "#connections-view"),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -73,20 +111,28 @@ async function fixture(page, { onboarding = false, name = "Ada" } = {}) {
   return state;
 }
 
-test("optional onboarding saves a preferred name and returns to chat without signing in to accounts", async ({
+test("onboarding stays in chat, confirms a name, and can skip accounts", async ({
   page,
 }, info) => {
   const state = await fixture(page, { onboarding: true, name: "" });
   await expect(
     page.getByRole("heading", { name: "What should I call you?" }),
   ).toBeVisible();
-  await page.locator("#setup-name").fill("Ada L.");
+  await expect(page.locator("#connections-view")).toBeHidden();
+  await page.locator("#message").fill("Ada L.");
+  await page.locator("#send").click();
+  await expect(
+    page.getByRole("heading", { name: "Shall I call you Ada L.?" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Yes, save it" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Which timezone should I use?" }),
+  ).toBeVisible();
   await page
-    .locator("#connections-view")
-    .screenshot({ path: info.outputPath("connection-onboarding.png") });
-  await page
-    .getByRole("button", { name: "Continue to chat", exact: true })
-    .click();
+    .locator("#chat-view")
+    .screenshot({ path: info.outputPath("chat-onboarding.png") });
+  await page.getByRole("button", { name: "Skip for now", exact: true }).click();
+  await expect(page.locator("#chat-setup-title")).toBeHidden();
   await expect(page.locator("#chat-view")).toBeVisible();
   expect(state.profile).toEqual({
     display_name: "Ada L.",
@@ -95,6 +141,53 @@ test("optional onboarding saves a preferred name and returns to chat without sig
   expect(state.data.accounts.every((account) => !account.connected)).toBe(true);
   expect(state.turns).toBe(0);
   expect(await page.context().pages()).toHaveLength(1);
+});
+
+test("account setup opens in chat and retains the originating conversation", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  await page.locator("#back-connections").click();
+  let destination;
+  const account = state.data.accounts.find((account) => account.id === "gmail");
+  await page.route("**/api/connections/gmail/connect", async (route) => {
+    destination = route.request().postDataJSON();
+    account.setup = {
+      status: "waiting",
+      url: "https://accounts.example.test/gmail",
+    };
+    await route.fulfill({ json: account.setup });
+  });
+  await page.locator("#message").fill("Connect Gmail");
+  await page.locator("#send").click();
+  await expect(page.locator("#connections-view")).toBeHidden();
+  const card = page.locator('.chat-account-setup [data-account="gmail"]');
+  await expect(card).toBeVisible();
+  const opened = page.waitForEvent("popup");
+  await card.getByRole("button", { name: "Connect", exact: true }).click();
+  const popup = await opened;
+  await expect(popup).toHaveURL("https://accounts.example.test/gmail");
+  expect(destination.source).toBe("chat");
+  expect(destination.session_id).toMatch(/^[a-f0-9]{32}$/);
+  account.connected = true;
+  account.setup = { status: "connected" };
+  await popup
+    .goto(
+      new URL(
+        `/?conversation=${destination.session_id}&connected=gmail`,
+        page.url(),
+      ).href,
+    )
+    .catch((error) => {
+      if (!popup.isClosed()) throw error;
+    });
+  await expect.poll(() => popup.isClosed()).toBe(true);
+  await expect(card.getByText("Connected", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Continue chatting", exact: true })
+    .click();
+  await expect(page.locator(".chat-account-setup")).toHaveCount(0);
+  expect(state.turns).toBe(0);
 });
 
 for (const service of ["gmail", "calendar", "slack", "github"]) {
@@ -205,9 +298,9 @@ test("blocked popups retain an explicit sign-in link and callbacks return to Con
   await page.addInitScript(() => {
     window.open = () => null;
   });
-  const state = await fixture(page, { onboarding: true });
+  const state = await fixture(page);
   await expect(
-    page.getByRole("heading", { name: "Welcome, Ada" }),
+    page.getByRole("heading", { name: "Connections", exact: true }),
   ).toBeVisible();
   await expect(page.locator("#setup-name")).toHaveCount(0);
   await page.route("**/api/connections/health/connect", async (route) => {
@@ -224,9 +317,9 @@ test("blocked popups retain an explicit sign-in link and callbacks return to Con
     card.getByRole("link", { name: "Open sign-in" }),
   ).toHaveAttribute("href", "https://accounts.example.test/health");
   await expect(card.getByText(/If sign-in did not open/)).toBeVisible();
-  await page.getByRole("button", { name: "Skip for now", exact: true }).click();
+  await page.locator("#back-connections").click();
   await expect(page.locator("#chat-view")).toBeVisible();
-  expect(state.profile).toEqual({});
+  expect(state.profile).toBeNull();
   await page.goto("/?connections=1");
   await expect(page.locator("#connections-view")).toBeVisible();
   await expect(page).not.toHaveURL(/connections=1/);
@@ -379,7 +472,7 @@ test("GitHub settings link to the separate notifications page without model turn
 test("Telegram calling onboarding verifies, tests, saves preferences, and disconnects without a model turn", async ({
   page,
 }, info) => {
-  const state = await fixture(page, { onboarding: true });
+  const state = await fixture(page);
   state.data.calling = {
     configured: true,
     status: "disconnected",
@@ -436,6 +529,8 @@ test("Telegram calling onboarding verifies, tests, saves preferences, and discon
   await setup
     .getByLabel("Call when an approval waits for two minutes")
     .uncheck();
+  await expect(setup.getByLabel("Call for reminders")).not.toBeChecked();
+  await setup.getByLabel("Call for reminders").check();
   await setup.screenshot({ path: info.outputPath("calling-onboarding.png") });
   await setup.getByRole("button", { name: /I heard the message/ }).click();
   await expect(setup.getByText("Connected", { exact: true })).toBeVisible();

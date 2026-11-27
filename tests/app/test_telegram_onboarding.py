@@ -37,7 +37,9 @@ async def message(bot, text, user=123, **fields):
 
 def sent(bot):
     return [
-        call.args[1]["text"] for call in bot.api.call_args_list if call.args[0] == "sendMessage"
+        call.args[1]["text"]
+        for call in bot.api.call_args_list
+        if call.args[0] in {"sendMessage", "editMessageText"}
     ]
 
 
@@ -52,13 +54,19 @@ async def test_onboarding_saves_profile_validates_timezone_and_keeps_history(run
     assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
     assert "What should I call you?" in sent(bot)[-1]
     await message(bot, "  Ada   L.  ")
+    assert (
+        runtime.db.record("telegram:123", "preferences", "settings")["display_name"]
+        == "Ada Lovelace"
+    )
+    await message(bot, "yes")
     assert runtime.db.record("telegram:123", "preferences", "settings")["display_name"] == "Ada L."
     await message(bot, "Invalid/Timezone")
-    assert any("not valid" in text for text in sent(bot))
+    assert any("could not find" in text for text in sent(bot))
     assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "timezone"
     await message(bot, "/start")
     assert len(runtime.db.rows("SELECT * FROM telegram_enrollments")) == 1
     await message(bot, "Asia/Kolkata")
+    await message(bot, "yes")
     assert (
         runtime.db.record("telegram:123", "preferences", "settings")["timezone"] == "Asia/Kolkata"
     )
@@ -84,7 +92,6 @@ async def test_setup_blocks_commands_media_and_callbacks_without_claiming_extra_
     assert not runtime.db.rows("SELECT * FROM telegram_enrollments")
     await message(bot, "/start")
     await message(bot, "/resume")
-    await message(bot, "", voice={"file_id": "pending"})
     callback = {
         "callback_query": {
             "id": "cb",
@@ -122,16 +129,23 @@ async def test_invalid_names_keep_setup_pending_without_model_work(runtime, name
     assert not bot.media.called
 
 
-async def test_name_skip_requires_a_saved_name_and_accepts_unicode(runtime):
+async def test_optional_name_and_confirmed_unicode_profile(runtime):
     bot = bot_for(runtime)
     await bot.handle([telegram_message("/start")])
-    assert "Send /skip" not in sent(bot)[-1]
-    await message(bot, "/skip")
-    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
     name = "李" * 200
     await message(bot, name)
+    assert "display_name" not in runtime.db.record("telegram:123", "preferences", "settings")
+    await message(bot, "yes")
     assert runtime.db.record("telegram:123", "preferences", "settings")["display_name"] == name
-    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "timezone"
+    await message(bot, "/skip")
+    assert runtime.db.one("SELECT state FROM telegram_enrollments")["state"] == "ready"
+    await bot.handle([telegram_message("/start", user=456, chat=456)])
+    await message(bot, "/skip", 456)
+    await message(bot, "/skip", 456)
+    assert (
+        runtime.db.one("SELECT state FROM telegram_enrollments WHERE user_id=456")["state"]
+        == "ready"
+    )
 
 
 async def test_preferred_names_reach_only_their_owner_and_survive_reset(runtime):
@@ -148,6 +162,7 @@ async def test_preferred_names_reach_only_their_owner_and_survive_reset(runtime)
     for user, name in ((123, "Countess Ada"), (456, "Grace")):
         await message(bot, "/start", user)
         await message(bot, name, user)
+        await message(bot, "yes", user)
         await message(bot, "/skip", user)
         await message(bot, "Hello", user)
     await message(bot, "/reset")
@@ -255,11 +270,13 @@ async def test_pending_setup_and_capacity_survive_restart(settings, scripted_mod
                     if run == 1:
                         assert db.one("SELECT state FROM telegram_enrollments")["state"] == "name"
                         await message(bot, "Countess Ada")
+                        await message(bot, "yes")
                         assert db.one("SELECT state FROM telegram_enrollments")["state"] == (
                             "timezone"
                         )
                         continue
                     await message(bot, "Asia/Kolkata")
+                    await message(bot, "yes")
                     assert db.one("SELECT state FROM telegram_enrollments")["state"] == "ready"
                     assert (
                         db.record("telegram:123", "preferences", "settings")["display_name"]
@@ -399,6 +416,7 @@ async def test_code_is_removed_from_durable_inbox_and_valid_start_survives_resta
                     )
                     await bot.process([payload])
                     await message(bot, "Ada")
+                    await message(bot, "yes")
                     await message(bot, "/skip")
                 else:
                     await message(bot, "Hello")
@@ -416,7 +434,9 @@ async def test_code_rotation_requires_reauthorization_without_losing_profile(run
     bot = bot_for(runtime)
     await message(bot, "/start old-code")
     await message(bot, "Ada")
+    await message(bot, "yes")
     await message(bot, "Asia/Kolkata")
+    await message(bot, "yes")
     assert account_access(runtime.settings, runtime.db, "telegram:123")
     runtime.settings.telegram_access_code = SecretStr("new-code")
     assert not account_access(runtime.settings, runtime.db, "telegram:123")

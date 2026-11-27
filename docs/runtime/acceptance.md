@@ -1,5 +1,31 @@
 # Feature and acceptance checklist
 
+## Chat onboarding and Telegram menus, 2026-11-28
+
+Profile setup now runs inside Telegram and browser chat. Typed profile details require confirmation.
+Users can skip questions, supply a city for timezone selection, and explicitly continue requests saved during setup.
+The existing completed-profile and owner identity rules remain covered by isolated checks.
+Connections remains available for account management. Requested browser account setup also opens inside the conversation.
+Consent return destinations bind to the exact authorization state, owner, and originating conversation.
+The private `connect_account` tool offers configured accounts before authorization. Existing Google connection tools retain the same return context.
+
+Telegram `/settings`, `/model`, and `/reasoning` expose editable controls with consistent icons and labels.
+Direct commands have a root Done action. Nested menus retain their actual parent.
+Button actions bind to the owner, message, flow, revision, and expiry and are consumed before service effects.
+Delayed provider updates cannot reopen a dismissed menu. Menu renders share a per-owner lock across Telegram instances.
+Account profile controls stay out of groups; group conversation model and reasoning controls remain available.
+Call audio confirmation is separate from reminder and approval choices. New choices default to off.
+
+The full isolated Python suite passed 1,332 checks with three live-provider checks excluded.
+Journey checks cover dismissal followed by a delayed provider update, direct-command disconnection, and conversational city replies.
+All 31 frontend unit checks pass. Ruff, Python formatting, Prettier, and whitespace checks pass.
+The production frontend compiles and its standalone assets copy successfully.
+Across 320, 390, 768, and 1280 pixels in both themes, 352 browser checks passed and 16 mobile-only checks were skipped at desktop widths.
+The matrix completed in resumed batches after redirecting preview server logs. Unread helper pipes had stalled the earlier preview processes.
+Phone screenshots in both themes were inspected. Browser checks cover chat setup, inline account linking, popup fallback, cancellation, call preferences, settings, and existing conversation flows.
+The frontend production build succeeds on retry and reports an existing Next.js dependency security advisory.
+No real OAuth consent, Telegram handset interaction, live call, or deployment has been performed for this change.
+
 ## Helper copy retention, 2026-11-20
 
 Production held 4,382 helper copies with 8.29 GB in R2. One research run created 3,959 of them.

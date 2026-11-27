@@ -234,14 +234,17 @@ Telegram `/password` reuses the existing browser confirmation flow.
 
 ## Browser connections
 
-Native HTML controls and authenticated FastAPI routes expose account consent, setup status, cancellation, and disconnection.
+Native HTML controls in chat and Connections, plus authenticated FastAPI routes, expose account consent, setup status, cancellation, and disconnection.
+OAuth return destinations bind to the exact consent state and originating owner and conversation.
+Telegram authorization ends with instructions to return to the private chat.
 Google uses the existing HTTPX OAuth client, PKCE, and encrypted SQLite credentials.
 Zepto uses the existing MCP OAuth client and owner-bound return handoff.
 The view also reports optional service configuration without secrets.
 Composer `@` suggestions use these same owner-bound connection statuses.
 Mentions remain user text and do not grant tool access or approve actions.
 Provider icons are local assets. The [provider manifest](browser-provider-provenance.json) records their sources and hashes.
-These controls add no Python dependency or model tool.
+These controls add no Python dependency. The `connect_account` tool offers the configured accounts in a private conversation before authorization.
+It returns native setup guidance or a first-party link to the originating browser conversation. Authorization begins only when the user selects Connect.
 Configured sandbox tools work in browser conversations without execution approval prompts.
 
 Source: [connection routes](../src/theos/transports/browser/connections.py), [account access](../src/theos/storage/account_access.py), and [React connection controls](../web/src/components/Connections.jsx).
@@ -249,16 +252,20 @@ Source: [connection routes](../src/theos/transports/browser/connections.py), [ac
 ## Preferences
 
 SQLite. The timezone uses the Python zoneinfo database.
-Telegram `/start` asks for a preferred name and timezone before normal chat.
+Telegram `/start` and browser chat offer optional name and timezone questions.
+Profile changes require confirmation. City selection uses Python `zoneinfo`; ambiguous choices remain explicit.
+`GET /api/journey` and revision-checked `POST /api/journey` share owner-scoped SQLite progress and pending requests.
+Telegram `/settings`, `/model`, and `/reasoning` expose editable menus. Their saved actions bind to owner, message, flow, revision, and expiry.
+Menu state uses SQLite records and Python `contextvars`, `time`, and `uuid`. No new dependency is required.
 The saved display name enters owner-scoped model context on each turn.
-`/skip` accepts the saved or Telegram name, then the saved default timezone in the next step.
+`/skip` defers the current profile question. Start chatting defers the remaining setup. Saved profile values remain available.
 The transport uses SQLite enrollment records to enforce a maximum of 50 Telegram users.
 An optional `AGENT_TELEGRAM_ACCESS_CODE` protects registration and later access through SQL authorization records.
 The transport uses Python hashlib and hmac to verify codes and store fingerprints.
 Completed users can connect private accounts without a manual sender allowlist.
 This setup uses no model tool or additional service dependency.
 
-Source: [service tools](../src/theos/services/preferences/tools.py).
+Source: [service tools](../src/theos/services/preferences/tools.py), [journey state](../src/theos/services/journeys.py), and [Telegram menus](../src/theos/transports/telegram/menus.py).
 See [Telegram onboarding](telegram-setup.md#user-onboarding-and-limit) for the transport flow.
 
 Telegram-confirmed browser access uses existing FastAPI, HTTPX, SQLite, hashlib, and secrets dependencies.
@@ -276,6 +283,7 @@ The cookie controls follow [OWASP session guidance](https://cheatsheetseries.owa
 | --- | --- |
 | `set_preference` | Set your timezone, calorie goal, display name, or instruction override. |
 | `get_preferences` | Read your preferences and instruction override. |
+| `connect_account` | Offer native setup for a configured account in the current private conversation. It does not accept an owner or credentials. |
 
 ## Reminders
 

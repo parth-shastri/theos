@@ -44,7 +44,7 @@ async def test_telegram_uses_agent_name(runtime, action):
     bot = Telegram(runtime)
     bot.send = AsyncMock()
     await command(bot, {"owner": "alice"}, action, "", 123, None)
-    assert bot.send.call_args.args[1].startswith("I am Nova, your personal assistant.")
+    assert bot.send.call_args.args[1].startswith("👋 I am Nova, your personal assistant.")
 
 
 async def test_runtime_uses_agent_name(runtime):

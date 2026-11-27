@@ -21,9 +21,13 @@ from . import (
     commands,
     connections,
     media,
+    menus,
     onboarding,
     rendering,
     web_access,
+)
+from . import (
+    settings as settings_ui,
 )
 
 logger = logging.getLogger("theos")
@@ -163,11 +167,24 @@ class Telegram:
         # Downloads and routing can await network calls. Serialize each conversation so
         # two quick messages do not race while creating sessions or ordering history.
         async with self.chat_locks.setdefault((owner, address), asyncio.Lock()):
+            menus.interaction.set(None)
+            if callback:
+                callback = await menus.resolve(self, owner, chat, message, callback)
+                if callback is None:
+                    return
+                if callback.get("data") == "help":
+                    await self.api(
+                        "answerCallbackQuery", {"callback_query_id": callback["id"], "text": ""}
+                    )
+                    await commands.help_menu(self, owner, chat, topic)
+                    return
             # Setup and browser-access callbacks are deterministic account flows, not
             # requests for the model. Each handler returns True when it consumed the update.
             if await onboarding.handle(self, message, owner, channel, chat, topic, callback):
                 return
             if await web_access.handle(self, message, owner, channel, chat, topic, callback):
+                return
+            if await settings_ui.handle(self, message, owner, channel, chat, topic, callback):
                 return
             if await connections.handle(self, message, owner, channel, chat, topic, callback):
                 return
@@ -250,13 +267,22 @@ class Telegram:
             # Tell the user to review the external service instead of silently replaying it.
             status = "uncertain"
             logger.error("telegram_update_failed", extra={"error_type": type(error).__name__})
-            message = updates[0].get("message")
+            callback = updates[0].get("callback_query")
+            message = (callback or {}).get("message") or updates[0].get("message")
             if message:
                 try:
-                    _, _, _, chat, topic = self.identity(message)
+                    _, _, _, chat, topic = self.identity(message, (callback or {}).get("from"))
+                    if callback:
+                        await self.api(
+                            "answerCallbackQuery",
+                            {
+                                "callback_query_id": callback["id"],
+                                "text": "This action could not finish. Open the latest menu.",
+                            },
+                        )
                     await self.send(
                         chat,
-                        "This request failed. Check the integration settings. Review external actions before you repeat the request.",
+                        "This request failed. Use /help for available actions. Review any external action before trying again.",
                         topic,
                     )
                 except (PermissionError, ServiceError):

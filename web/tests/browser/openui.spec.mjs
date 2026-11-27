@@ -1,3 +1,4 @@
+import { startChatting } from "./setup.mjs";
 import { test, expect } from "@playwright/test";
 const token =
   process.env.THEOS_E2E_TOKEN || "nextjs-browser-preview-token-123456789";
@@ -13,6 +14,7 @@ async function fixture(
   await page.locator("#token").fill(token);
   await page.locator("#login-form button[type=submit]").click();
   await expect(page.locator("#workspace")).toBeVisible();
+  await startChatting(page);
   const response = await page.request.post("/api/sessions", {
     headers: { Origin: new URL(page.url()).origin, "X-Theos-Request": "1" },
     data: { title: "OpenUI component acceptance" },

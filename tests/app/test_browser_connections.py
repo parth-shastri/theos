@@ -88,9 +88,7 @@ async def test_google_browser_consent_binds_owner_and_survives_restart(runtime, 
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as remote:
         runtime.oauth = OAuth(runtime.settings, runtime.db, remote)
         async with browser(runtime) as alice, browser(runtime, "bob") as bob:
-            started = (
-                await alice.post(f"/api/connections/{service}/connect", json={"owner": "bob"})
-            ).json()
+            started = (await alice.post(f"/api/connections/{service}/connect", json={})).json()
             query = parse_qs(urlsplit(started["url"]).query)
             assert query["code_challenge_method"] == ["S256"]
             state = query["state"][0]

@@ -25,6 +25,7 @@ export default function Composer() {
     draftRequest,
     connections,
     refreshConnections,
+    journey,
   } = useWorkspace();
   const [draft, setDraft] = useState(""),
     [files, setFiles] = useState([]);
@@ -64,7 +65,15 @@ export default function Composer() {
     draft,
     focused,
     mobile,
-    activity: voice.activity,
+    activity:
+      voice.activity ||
+      (journey?.needed
+        ? journey.step === "name"
+          ? "Your preferred name…"
+          : journey.step.startsWith("confirm_")
+            ? "Reply yes, or correct this detail…"
+            : "Your city or timezone…"
+        : ""),
   });
   const mention = useMemo(() => {
     if (caret.start !== caret.end) return null;
@@ -286,6 +295,9 @@ export default function Composer() {
     try {
       await send(text, attached, selectedMode);
     } catch (error) {
+      if (journey?.needed) {
+        setDraft(text);
+      }
       showError(error);
     }
   };
@@ -584,7 +596,9 @@ export default function Composer() {
           aria-activedescendant={
             matches.length ? "command-option-" + commandIndex : undefined
           }
-          aria-describedby="message-hint"
+          aria-describedby={
+            journey?.needed ? "message-hint chat-setup-title" : "message-hint"
+          }
           hidden={showWaveform}
           placeholder={placeholder}
           enterKeyHint={mobile ? "enter" : "send"}

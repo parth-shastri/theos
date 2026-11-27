@@ -563,3 +563,25 @@
     padding-bottom: max(8px, var(--bottom-safe-area));
   }
 }
+
+/* Profile questions and account authorization stay beside the conversation. */
+.chat-setup,
+.chat-account-setup {
+  width: min(100%, 680px);
+  margin: 16px auto 24px;
+  padding: clamp(18px, 4vw, 28px);
+  border-radius: 22px;
+  overflow-wrap: anywhere;
+}
+.chat-setup-heading,
+.chat-setup-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.chat-setup-heading .cost-label { margin-left: auto; }
+.chat-setup h2 { margin: 18px 0 12px; text-wrap: balance; }
+.chat-setup-actions { margin-top: 20px; }
+.chat-setup-actions button { min-height: 44px; }
+.chat-account-setup .connection-card { margin: 0 0 16px; }

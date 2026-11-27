@@ -33,6 +33,10 @@ export function WorkspaceProvider({ agentName, children }) {
   const [view, setView] = useState("chat-view");
   const [dialog, setDialog] = useState(null);
   const [connections, setConnections] = useState(null);
+  const [journey, setJourney] = useState(null);
+  const [journeyWorking, setJourneyWorking] = useState(false);
+  const [journeyError, setJourneyError] = useState("");
+  const [accountSetup, setAccountSetup] = useState(null);
   const [theme, setTheme] = useState(null);
   const [mobile, setMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,6 +65,8 @@ export function WorkspaceProvider({ agentName, children }) {
     mobile,
     dialog,
     connections,
+    journey,
+    journeyWorking,
   };
 
   const status = useCallback(
@@ -208,16 +214,30 @@ export function WorkspaceProvider({ agentName, children }) {
   }, [json, listSessions, openSession, editDraft]);
   const login = useCallback(async () => {
     const identity = await json("/api/me");
+    setJourney(identity.journey || null);
+    setJourneyError("");
+    setAccountSetup(null);
     dispatch({ type: "CLEAR_CONVERSATIONS" });
     setLoginError("");
     const available = await listSessions();
-    if (available.length) await openSession(available[0].id);
+    const params = new URLSearchParams(location.search);
+    const requested = params.get("conversation");
+    if (requested && available.some((session) => session.id === requested))
+      await openSession(requested);
+    else if (available.length) await openSession(available[0].id);
     else await newSession();
     try {
       const accounts = await refreshConnections();
-      const params = new URLSearchParams(location.search);
-      if (accounts.onboarding?.needed || params.get("connections") === "1")
-        navigate("connections-view");
+      if (params.get("connections") === "1") navigate("connections-view");
+      const connected = params.get("connected") || params.get("connect");
+      if (
+        connected &&
+        accounts.accounts.some((account) => account.id === connected)
+      )
+        setAccountSetup({
+          service: connected,
+          sessionId: current.current.chat.id,
+        });
       if (params.has("connections")) {
         params.delete("connections");
         history.replaceState(
@@ -236,6 +256,33 @@ export function WorkspaceProvider({ agentName, children }) {
     refreshConnections,
     navigate,
   ]);
+  const advanceJourney = async (action, value = "") => {
+    if (current.current.journeyWorking) return;
+    setJourneyWorking(true);
+    setJourneyError("");
+    try {
+      const next = await json("/api/journey", {
+        method: "POST",
+        body: { action, value, revision: current.current.journey.revision },
+      });
+      setJourney(next);
+      setMe((previous) => ({
+        ...previous,
+        display_name: next.display_name,
+        timezone: next.timezone,
+      }));
+      return next;
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        setJourneyError(error.message);
+        const latest = await json("/api/journey");
+        setJourney(latest);
+      }
+      throw error;
+    } finally {
+      setJourneyWorking(false);
+    }
+  };
   const finishConnectionSetup = async (profile = {}) => {
     const result = await json("/api/connections/onboarding", {
       method: "POST",
@@ -277,6 +324,10 @@ export function WorkspaceProvider({ agentName, children }) {
       setSessions([]);
       setDialog(null);
       setOnboarding(null);
+      setJourney(null);
+      setJourneyError("");
+      setAccountSetup(null);
+      setConnections(null);
       streamLocks.current.clear();
       dispatch({ type: "CLEAR_CONVERSATIONS" });
     });
@@ -450,8 +501,26 @@ export function WorkspaceProvider({ agentName, children }) {
     },
     [json],
   );
-  const send = (text, files, mode) => {
+  const send = async (text, files, mode) => {
     const { id } = current.current.chat;
+    if (current.current.journey?.needed) {
+      if (!files?.length) return advanceJourney("reply", text);
+      await advanceJourney("finish");
+    }
+    const connection = text
+      .trim()
+      .match(
+        /^(?:please\s+)?(?:connect|link|set up)\s+(?:my\s+)?(gmail|google calendar|calendar|google health|health|github|slack|zepto|telegram calls|calls)[.!]?$/i,
+      );
+    if (connection && !files?.length) {
+      const service = connection[1]
+        .toLowerCase()
+        .replace("google ", "")
+        .replace("telegram ", "");
+      await refreshConnections();
+      setAccountSetup({ service, sessionId: id });
+      return;
+    }
     return stream(
       id,
       "/api/sessions/" + id + "/turn",
@@ -679,6 +748,18 @@ export function WorkspaceProvider({ agentName, children }) {
     if (theme) document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => {
+    if (!me?.id || !me.journey) return;
+    const refresh = async () => {
+      if (current.current.journeyWorking) return;
+      try {
+        const next = await json("/api/journey");
+        setJourney(next);
+      } catch {}
+    };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [me?.id, me?.journey, json]);
+  useEffect(() => {
     if (!me || !connections) return;
     const service = sessionStorage.getItem("theos-connection-window");
     const account = connections.accounts.find(
@@ -785,7 +866,7 @@ export function WorkspaceProvider({ agentName, children }) {
         usage,
         working,
         setWorking,
-        busy: chat.busy || working,
+        busy: chat.busy || working || journeyWorking,
         view,
         navigate,
         dialog,
@@ -809,6 +890,12 @@ export function WorkspaceProvider({ agentName, children }) {
         status,
         showError,
         connections,
+        journey,
+        journeyWorking,
+        journeyError,
+        advanceJourney,
+        accountSetup,
+        setAccountSetup,
         refreshConnections,
         finishConnectionSetup,
         syncUsage,

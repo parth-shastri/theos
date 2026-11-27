@@ -44,8 +44,19 @@ function PasswordDialog() {
 }
 
 function SettingsDialog() {
-  const { me, chat, dialog, closeDialog, mobile, patchSettings, status } =
-    useWorkspace();
+  const {
+    me,
+    chat,
+    dialog,
+    closeDialog,
+    mobile,
+    patchSettings,
+    status,
+    journey,
+    advanceJourney,
+    navigate,
+    perform,
+  } = useWorkspace();
   const open = dialog?.kind === "settings";
   const [model, setModel] = useState(""),
     [reasoning, setReasoning] = useState("default"),
@@ -167,6 +178,27 @@ function SettingsDialog() {
           </button>
         </div>
         <p id="settings-conversation">{chat.title}</p>
+        {me && journey && (
+          <section className="settings-section" aria-label="Account profile">
+            <h3>Your account</h3>
+            <p>
+              {me.display_name || "Name not set"} · {me.timezone}
+            </p>
+            <button
+              type="button"
+              className="soft-button"
+              onClick={() =>
+                perform(async () => {
+                  await advanceJourney("restart");
+                  closeDialog();
+                  navigate("chat-view");
+                })
+              }
+            >
+              Edit profile in chat
+            </button>
+          </section>
+        )}
         <div className="settings-model-fields">
           <div className="generation-field">
             <SelectPicker

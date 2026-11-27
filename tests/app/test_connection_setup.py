@@ -162,42 +162,13 @@ async def test_zepto_only_publishes_verified_connections_and_restores_cancelled_
     assert "unverified-token" not in json.dumps(runtime.db.rows("SELECT * FROM records"))
 
 
-async def test_telegram_onboarding_offers_optional_accounts_without_model_history(runtime):
+async def test_telegram_profile_finishes_in_chat_without_offering_every_account(runtime):
     configured(runtime)
-    runtime.oauth.save("telegram:123", "gmail", {"access_token": "existing"})
     bot = bot_for(runtime)
     for text in ("/start", "/skip", "/skip"):
         await message(bot, text)
-    offers = [
-        call.args[1]
-        for call in bot.api.call_args_list
-        if call.args[0] == "sendMessage" and "reply_markup" in call.args[1]
-    ]
-    buttons = [button for row in offers[-1]["reply_markup"]["inline_keyboard"] for button in row]
-    assert {button["callback_data"] for button in buttons} == {
-        "connect:health",
-        "connect:zepto",
-        "connect:skip",
-    }
-    callback = {
-        "update_id": 500,
-        "callback_query": {
-            "id": "skip-setup",
-            "from": {"id": 123},
-            "data": "connect:skip",
-            "message": {
-                "message_id": 10,
-                "chat": {"id": 123, "type": "private"},
-                "from": {"id": 123},
-            },
-        },
-    }
-    await bot.handle([callback])
-    assert "ready to chat" in sent(bot)[-1]
-    assert runtime.db.record("telegram:123", "onboarding", "connections")["completed"]
-    assert (
-        runtime.db.record("telegram:123", "preferences", "settings")["display_name"]
-        == "Ada Lovelace"
-    )
+    assert "What would you like help with?" in sent(bot)[-1]
+    active = runtime.db.record("telegram:123", "telegram_menu", "active")
+    assert set(active["actions"].values()) == {"settings:menu"}
     assert not runtime.db.rows("SELECT * FROM sessions")
     assert not runtime.db.rows("SELECT * FROM usage")

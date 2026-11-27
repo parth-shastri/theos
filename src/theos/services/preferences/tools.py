@@ -1,7 +1,6 @@
 """User preferences and instruction overrides."""
 
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from harness import tool
 
@@ -26,8 +25,10 @@ def preference_tools(db, owner, default_timezone):
     ):
         """Set your timezone, calorie goal, display name, or instruction override."""
         current = user_preferences()
-        if name == "timezone":
-            ZoneInfo(value)
+        if name in {"timezone", "display_name"}:
+            from theos.services.journeys import validate_profile
+
+            value = validate_profile(name, value)
         if name == "calorie_goal":
             value = int(value)
             if not 100 <= value <= 20000:
