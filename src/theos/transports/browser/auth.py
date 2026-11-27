@@ -1,6 +1,9 @@
 """Opaque browser sessions for configured tokens and Telegram-confirmed sign-in."""
 
+import asyncio
 import hmac
+import re
+import time
 from ipaddress import ip_address
 from urllib.parse import urlsplit
 
@@ -124,6 +127,31 @@ def register_auth(app, settings, current):
     """Register cookie sign-in without changing configured operator tokens."""
     # Bound memory use on the Pi. Hash off the event loop so chat and polling can continue.
     password_work = CapacityLimiter(1)
+    telegram_options = {"url": None, "retry_after": 0.0}
+    options_lock = asyncio.Lock()
+
+    @app.get("/api/auth/options")
+    async def options(request: Request):
+        frontend_access(request, settings)
+        configured = bool(settings.web_url and settings.telegram_token.get_secret_value())
+        if configured and time.monotonic() >= telegram_options["retry_after"]:
+            async with options_lock:
+                if time.monotonic() >= telegram_options["retry_after"]:
+                    telegram_options["retry_after"] = time.monotonic() + 60
+                    try:
+                        bot = await asyncio.wait_for(Telegram(current(request)).api("getMe"), 3)
+                        username = bot.get("username", "")
+                        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{4,31}", username):
+                            telegram_options.update(
+                                url=f"https://t.me/{username}", retry_after=time.monotonic() + 3600
+                            )
+                    except Exception:
+                        # Browser sign-in remains available during Telegram API outages.
+                        pass
+        return {
+            "telegram": configured,
+            "telegram_url": telegram_options["url"] if configured else None,
+        }
 
     def signed_in(session):
         response = JSONResponse({"signed_in": True})
@@ -252,8 +280,8 @@ def register_auth(app, settings, current):
                 markup={
                     "inline_keyboard": [
                         [
-                            {"text": "Approve browser", "callback_data": "web:" + row["id"]},
-                            {"text": "Deny", "callback_data": "webdeny:" + row["id"]},
+                            {"text": "✅ Approve browser", "callback_data": "web:" + row["id"]},
+                            {"text": "✖️ Deny", "callback_data": "webdeny:" + row["id"]},
                         ]
                     ]
                 },

@@ -1,6 +1,7 @@
 """FastAPI entry point for private chat, approvals, files, and operations."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -24,11 +25,10 @@ from theos.runtime.model_catalog import (
     GenerationConfig,
     generation_capabilities,
     model_choices,
-    reasoning_choices,
-    validate_generation,
 )
 from theos.runtime.scheduler import Scheduler
 from theos.runtime.usage import usage_summary
+from theos.services import conversation_settings, journeys
 from theos.services.errors import ServiceError
 from theos.services.preferences.tools import preferences
 from theos.settings import Settings
@@ -49,7 +49,6 @@ from theos.transports.browser.openui import (
     clean_openui_state,
     validate_source,
 )
-from theos.transports.telegram.connections import controls as connection_controls
 from theos.transports.telegram.polling import Telegram
 
 
@@ -286,6 +285,7 @@ def create_app(settings=None, runtime=None):
             "id": owner,
             "display_name": user_preferences.get("display_name", ""),
             "timezone": user_preferences.get("timezone", settings.timezone),
+            "journey": journeys.state(settings, current(request).db, owner),
             "admin": owner in settings.admins,
             "models": model_choices(settings),
             "generation_capabilities": {
@@ -366,34 +366,17 @@ def create_app(settings=None, runtime=None):
     async def update_session(
         session_id: str, body: SessionSettings, request: Request, owner=Depends(identity)
     ):
-        session = browser_session(request, owner, session_id)
-        active = current(request)
-        if session_id in active.active or active.pending(owner, session_id):
-            raise ValueError("Finish this turn and its approvals before you change settings.")
-        if body.model not in model_choices(settings):
-            raise ValueError("This model is not in the configured allowlist.")
-        if body.reasoning not in reasoning_choices(settings.provider, body.model):
-            raise ValueError("Choose a reasoning effort supported by this model.")
-        # Switching models keeps only parameters supported by the new model.
-        generation = (
-            body.generation.model_dump(exclude_none=True)
+        browser_session(request, owner, session_id)
+        return conversation_settings.save(
+            current(request),
+            owner,
+            session_id,
+            model=body.model,
+            reasoning=body.reasoning,
+            generation=body.generation.model_dump(exclude_none=True)
             if body.generation is not None
-            else {
-                key: value
-                for key, value in json.loads(session["generation"]).items()
-                if key in generation_capabilities(settings.provider, body.model)["parameters"]
-            }
+            else None,
         )
-        if body.model != session["model"] and body.generation is None:
-            limit = generation_capabilities(settings.provider, body.model)["max_output_tokens"]
-            if generation.get("max_output_tokens", 0) > limit:
-                generation["max_output_tokens"] = limit
-        generation = validate_generation(settings.provider, body.model, generation)
-        active.db.execute(
-            "UPDATE sessions SET model=?,reasoning=?,generation=? WHERE id=?",
-            (body.model, body.reasoning, json.dumps(generation), session_id),
-        )
-        return {"saved": True, "generation": generation}
 
     @app.post("/api/sessions/{session_id}/reset")
     async def reset(session_id: str, request: Request, owner=Depends(identity)):
@@ -671,17 +654,30 @@ def create_app(settings=None, runtime=None):
         if service not in {"gmail", "calendar", "health", "zepto", "slack", "github"}:
             raise HTTPException(404, "Unknown account service.")
         active = current(request)
+        state_row = active.db.one(
+            "SELECT owner FROM oauth_states WHERE digest=? AND service=?",
+            (hashlib.sha256(state.encode()).hexdigest(), service),
+        )
+        flow = active.zepto.pending_by_state.get(state) if service == "zepto" else None
+        origin_owner = state_row["owner"] if state_row else flow.owner if flow else None
+        origin = (
+            journeys.authorization_return(active.db, origin_owner, service, state)
+            if origin_owner
+            else {"destination": "/?connections=1"}
+        )
         try:
             if service in {"github", "slack"}:
-                account_owner = await getattr(active, service).callback(
+                owner = await getattr(active, service).callback(
                     state, code, request.query_params.get("error", "")
                 )
                 if service == "github":
-                    active.github_events.disable(account_owner)
+                    active.github_events.disable(owner)
             elif service == "zepto":
-                await current(request).zepto.finish_from_browser(
+                flow = active.zepto.pending_by_state.get(state)
+                await active.zepto.finish_from_browser(
                     state, code, request.query_params.get("error", "")
                 )
+                owner = flow.owner if flow else None
             else:
                 owner = await active.oauth.callback(
                     service, state, code, request.query_params.get("error", "")
@@ -696,7 +692,6 @@ def create_app(settings=None, runtime=None):
                         await Telegram(active).send(
                             int(owner[9:]),
                             f"{label} is connected. You can continue here or in the web workspace.",
-                            markup=connection_controls(service, pending=False),
                         )
                     except ServiceError:
                         pass
@@ -706,13 +701,19 @@ def create_app(settings=None, runtime=None):
             return HTMLResponse(
                 '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1">'
                 "<title>Sign-in needs attention</title><h1>Sign-in needs attention</h1>"
-                f'<p>{escape(str(error))}</p><p><a href="/?connections=1">Return to Connections</a></p>'
+                f'<p>{escape(str(error))}</p><p><a href="{escape(origin["destination"], quote=True)}">Return to your conversation or accounts</a></p>'
                 "<p>You can also return to your private Telegram chat to try again.</p>",
                 status_code=403 if isinstance(error, PermissionError) else 400,
                 headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
             )
-        return RedirectResponse(
-            "/?connections=1", status_code=303, headers={"Cache-Control": "no-store"}
-        )
+        if origin.get("source") == "telegram":
+            return HTMLResponse(
+                '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1">'
+                "<title>Return to Telegram</title><h1>Return to your Theos chat</h1>"
+                "<p>Sign-in received. Return to Telegram to check the connection and continue your task. You can close this tab.</p>",
+                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+            )
+        destination = origin["destination"]
+        return RedirectResponse(destination, status_code=303, headers={"Cache-Control": "no-store"})
 
     return app

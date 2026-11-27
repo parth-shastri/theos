@@ -26,9 +26,11 @@ from harness import (
     tool,
 )
 from theos.prompts import render
+from theos.services.account_setup import connection_tools
 from theos.services.custom_tables.tools import custom_tools
 from theos.services.errors import ServiceError
 from theos.services.information import information_tools
+from theos.services.journeys import bind_tool_returns
 from theos.services.memory.tools import memory_tools
 from theos.services.personal import personal_tools
 from theos.services.schedules.tools import task_tools
@@ -117,6 +119,7 @@ async def build_tools(runtime, session):
     if session["channel"] in {"browser", "telegram-private"} and account_access(
         runtime.settings, runtime.db, owner
     ):
+        tools += connection_tools(runtime.settings, runtime.db, session)
         # Account tools need both a personal channel and an explicit account-access grant.
         # A Telegram group can use general tools but cannot reach a person's accounts.
         if runtime.settings.gmail.enabled:
@@ -593,5 +596,6 @@ async def build_tools(runtime, session):
         tools.append(delegate_tasks)
     # History readers let the model recover original evidence after compaction.
     tools += history_tools()
+    tools = bind_tool_returns(tools, runtime.db, session)
     tools = [runtime.workspaces.wrap(t, owner, session_id) for t in tools]
     return [runtime.journal_tool(t, session) for t in tools]

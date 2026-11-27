@@ -6,9 +6,10 @@ from cryptography.fernet import Fernet
 
 from theos.services.account_setup import ACCOUNT_LABELS, complete_setup, setup_status
 from theos.services.errors import ServiceError
+from theos.services.journeys import bind_connection, record, remember_connection
 from theos.storage.account_access import account_access
 
-from . import call_setup
+from . import call_setup, menus
 
 logger = logging.getLogger("theos")
 LABELS = dict(ACCOUNT_LABELS)
@@ -21,7 +22,7 @@ async def offer(bot, owner, chat, topic):
     buttons = [
         [
             {
-                "text": "Connect "
+                "text": "🔗 Connect "
                 + account["name"]
                 + (" (optional)" if account["id"] == "health" else ""),
                 "callback_data": "connect:" + account["id"],
@@ -31,9 +32,12 @@ async def offer(bot, owner, chat, topic):
     ]
     if call_setup.offer_button(bot, owner):
         buttons.append(call_setup.offer_button(bot, owner))
-    buttons.append([{"text": "Skip for now", "callback_data": "connect:skip"}])
-    await bot.send(
+    buttons.append([{"text": "⏭ Skip for now", "callback_data": "connect:skip"}])
+    await menus.show(
+        bot,
+        owner,
         chat,
+        topic,
         "Would you like to connect your accounts?\n"
         "Gmail helps with email, Calendar with events, Zepto with shopping, and Google Health with activity and vitals.\n"
         + (
@@ -42,8 +46,8 @@ async def offer(bot, owner, chat, topic):
             else ""
         )
         + "All connections are optional. You can add them later.",
-        topic,
         {"inline_keyboard": buttons},
+        "accounts",
     )
 
 
@@ -51,18 +55,21 @@ def controls(service, url=None, manual=False, pending=True):
     """Keep URLs in URL buttons and account actions in short callback data."""
     rows = []
     if url:
-        rows.append([{"text": "Sign in to " + LABELS[service], "url": url}])
+        rows.append([{"text": "🔗 Sign in to " + LABELS[service], "url": url}])
     if manual and pending:
-        rows.append([{"text": "Paste return link", "callback_data": "connect:paste:zepto"}])
+        rows.append([{"text": "📋 Paste return link", "callback_data": "connect:paste:zepto"}])
     if pending:
-        rows.append([{"text": "Check connection", "callback_data": "connect:status:" + service}])
+        rows.append([{"text": "🔄 Check connection", "callback_data": "connect:status:" + service}])
         rows.append(
             [
-                {"text": "Try again", "callback_data": "connect:retry:" + service},
-                {"text": "Cancel setup", "callback_data": "connect:cancel:" + service},
+                {"text": "🔄 Try again", "callback_data": "connect:retry:" + service},
+                {"text": "✖️ Cancel setup", "callback_data": "connect:cancel:" + service},
             ]
         )
-    rows.append([{"text": "Back to accounts", "callback_data": "connect:menu"}])
+    else:
+        rows.append(
+            [{"text": "🔗 Connect " + LABELS[service], "callback_data": "connect:retry:" + service}]
+        )
     return {"inline_keyboard": rows}
 
 
@@ -82,6 +89,12 @@ async def menu(bot, owner, chat, topic):
     missing = {item["id"] for item in available}
     lines = ["Your accounts", ""]
     for service, label in ACCOUNT_LABELS:
+        if not (
+            bool(bot.settings.zepto_url)
+            if service == "zepto"
+            else getattr(bot.settings, service).enabled
+        ):
+            continue
         if connected(bot, owner, service):
             lines.append(label + ": Connected")
         elif service in missing:
@@ -89,7 +102,7 @@ async def menu(bot, owner, chat, topic):
     rows = [
         [
             {
-                "text": "Connect "
+                "text": "🔗 Connect "
                 + item["name"]
                 + (" (optional)" if item["id"] == "health" else ""),
                 "callback_data": "connect:" + item["id"],
@@ -98,10 +111,19 @@ async def menu(bot, owner, chat, topic):
         for item in available
     ]
     if bot.runtime.phone_calls.connections.configured:
-        rows.append([{"text": "Telegram call settings", "callback_data": "calls:status"}])
-    rows.append([{"text": "Done", "callback_data": "connect:skip"}])
+        rows.append([{"text": "📞 Telegram call settings", "callback_data": "calls:status"}])
+    for service, label in ACCOUNT_LABELS:
+        enabled = (
+            bool(bot.settings.zepto_url)
+            if service == "zepto"
+            else getattr(bot.settings, service).enabled
+        )
+        if enabled and connected(bot, owner, service):
+            rows.append([{"text": "✅ " + label, "callback_data": "connect:status:" + service}])
     lines.extend(["", "All connections are optional. Choose an account or tap Done."])
-    await bot.send(chat, "\n".join(lines), topic, {"inline_keyboard": rows})
+    await menus.show(
+        bot, owner, chat, topic, "🔗 " + "\n".join(lines), {"inline_keyboard": rows}, "accounts"
+    )
 
 
 async def show_status(bot, owner, service, chat, topic):
@@ -118,41 +140,56 @@ async def show_status(bot, owner, service, chat, topic):
         text = LABELS[service] + " is connected."
         if service == "zepto":
             text += " Ask me to choose a saved delivery address before shopping."
-        await bot.send(chat, text, topic, controls(service, pending=False))
+        markup = {
+            "inline_keyboard": [
+                [{"text": "🔄 Reconnect", "callback_data": "connect:retry:" + service}],
+                [{"text": "✖️ Disconnect", "callback_data": "connect:disconnect:" + service}],
+            ]
+        }
+        await menus.show(bot, owner, chat, topic, text, markup, "connection:" + service)
         return
     text = status.get("message", "Finish sign-in, then check the connection here.")
     if state == "waiting" and service == "zepto":
         text = "Finish Zepto sign-in, then tap Paste return link."
         if not status.get("manual_return"):
             text = "Finish Zepto sign-in in your browser, then return here."
-    await bot.send(
+    await menus.show(
+        bot,
+        owner,
         chat,
-        LABELS[service] + "\n" + text,
         topic,
+        LABELS[service] + "\n" + text,
         controls(
             service,
             status.get("url") if waiting else None,
             manual=status.get("manual_return", False) and waiting,
+            pending=state not in {"idle", "cancelled"},
         ),
+        "connection:" + service,
     )
 
 
 async def start(bot, owner, service, chat, topic):
     """Open provider sign-in through native Telegram URL buttons."""
     try:
+        remember_connection(bot.db, owner, service, None, "telegram")
         if service != "zepto":
             url = (
                 (await getattr(bot.runtime, service).start(owner))["url"]
                 if service in {"github", "slack"}
                 else bot.runtime.oauth.start(owner, service)
             )
-            await bot.send(
+            bind_connection(bot.db, owner, service, url)
+            await menus.show(
+                bot,
+                owner,
                 chat,
+                topic,
                 "Connect " + LABELS[service] + "\n"
                 "Tap the sign-in button and approve access in your browser. "
                 "Then return here and tap Check connection.",
-                topic,
                 controls(service, url),
+                "connection:" + service,
             )
             return
         status = bot.runtime.zepto.connection_status(owner)
@@ -173,15 +210,33 @@ async def start(bot, owner, service, chat, topic):
                 if manual
                 else "Connect Zepto\nTap Sign in to Zepto and approve access. Then return to this chat."
             )
-            await bot.send(chat, text, topic, controls(service, url, manual))
+            await menus.show(
+                bot,
+                owner,
+                chat,
+                topic,
+                text,
+                controls(service, url, manual),
+                "connection:" + service,
+            )
 
         async def send_status(_):
             await show_status(bot, owner, service, chat, topic)
 
-        await bot.send(chat, "Preparing your private Zepto sign-in link.", topic, controls(service))
+        await menus.show(
+            bot,
+            owner,
+            chat,
+            topic,
+            "Preparing your private Zepto sign-in link.",
+            controls(service),
+            "connection:" + service,
+        )
         await bot.runtime.zepto.connect(owner, send_link, send_status)
     except (ValueError, ServiceError) as error:
-        await bot.send(chat, str(error), topic, controls(service))
+        await menus.show(
+            bot, owner, chat, topic, str(error), controls(service), "connection:" + service
+        )
 
 
 def return_prompts(db, owner):
@@ -232,6 +287,9 @@ async def prompt_return(bot, owner, chat, topic):
 
 async def accept_return(bot, message, owner, chat, topic):
     """Consume only encrypted account handoffs, outside conversation history."""
+    active = record(bot.db, owner, "telegram_menu", "active")
+    if active.get("stack", [""])[-1] == "connection:zepto":
+        menus.interaction.set({"owner": owner, **active})
     try:
         if message.get("_theos_zepto_return_invalid"):
             raise ValueError(
@@ -246,13 +304,18 @@ async def accept_return(bot, message, owner, chat, topic):
         else:
             logger.warning("zepto_return_failed", extra={"error_type": type(error).__name__})
             text = "The Zepto return link could not be accepted. Try connecting again."
-        await bot.send(chat, text, topic, controls("zepto", manual=True))
+        await menus.show(
+            bot, owner, chat, topic, text, controls("zepto", manual=True), "connection:zepto"
+        )
     else:
-        await bot.send(
+        await menus.show(
+            bot,
+            owner,
             chat,
-            "The Zepto return was accepted. I will confirm the connection here after verification.",
             topic,
+            "The Zepto return was accepted. I will confirm the connection here after verification.",
             controls("zepto"),
+            "connection:zepto",
         )
 
 
@@ -332,6 +395,7 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
     action, _, service = data.removeprefix("connect:").partition(":")
     if action == "skip":
         complete_setup(bot.settings, bot.db, owner)
+        await menus.finish(bot, owner, chat)
         await bot.send(
             chat, "You are ready to chat. Use /connections to add accounts later.", topic
         )
@@ -342,13 +406,44 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
             service, action = action, "start"
         if (
             service not in LABELS
-            or action not in {"start", "retry", "status", "cancel", "paste"}
+            or action not in {"start", "retry", "status", "cancel", "paste", "disconnect", "remove"}
             or (action == "paste" and service != "zepto")
         ):
             await bot.send(chat, "This connection button is unavailable. Use /connections.", topic)
             return True
         try:
-            if action == "status":
+            if action == "disconnect":
+                await menus.show(
+                    bot,
+                    owner,
+                    chat,
+                    topic,
+                    "Disconnect " + LABELS[service] + " from your account?",
+                    {
+                        "inline_keyboard": [
+                            [
+                                {
+                                    "text": "✖️ Disconnect " + LABELS[service],
+                                    "callback_data": "connect:remove:" + service,
+                                }
+                            ]
+                        ]
+                    },
+                    "disconnect:" + service,
+                )
+            elif action == "remove":
+                if service in {"github", "slack", "zepto"}:
+                    if service == "github":
+                        bot.runtime.github_events.disable(owner)
+                    await getattr(bot.runtime, service).disconnect(owner)
+                else:
+                    await bot.runtime.oauth.disconnect(owner, service)
+                context = menus.interaction.get() or {}
+                if "accounts" in context.get("stack", []):
+                    await menu(bot, owner, chat, topic)
+                else:
+                    await show_status(bot, owner, service, chat, topic)
+            elif action == "status":
                 await show_status(bot, owner, service, chat, topic)
             elif action == "paste" and service == "zepto":
                 await prompt_return(bot, owner, chat, topic)
@@ -361,14 +456,19 @@ async def handle(bot, message, owner, channel, chat, topic, callback):
                     else:
                         await bot.runtime.oauth.cancel(owner, service)
                 if action == "cancel":
-                    await bot.send(
+                    await menus.show(
+                        bot,
+                        owner,
                         chat,
-                        "Setup cancelled. Your previously connected account is unchanged.",
                         topic,
+                        "Setup cancelled. Your previously connected account is unchanged.",
                         controls(service, pending=False),
+                        "connection:" + service,
                     )
                 else:
                     await start(bot, owner, service, chat, topic)
         except (ValueError, ServiceError) as error:
-            await bot.send(chat, str(error), topic, controls(service))
+            await menus.show(
+                bot, owner, chat, topic, str(error), controls(service), "connection:" + service
+            )
     return True

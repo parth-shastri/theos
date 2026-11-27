@@ -39,8 +39,8 @@ The operator sets `AGENT_WEB_URL` to the deployment's HTTPS origin, such as `htt
 HTTP origins are allowed only for localhost development.
 The operator also configures the Telegram bot token and makes the web UI reachable.
 
-1. Complete `/start`, preferred-name setup, and timezone setup in your private bot chat.
-2. Select **Open Theos** in the bot's setup message.
+1. Send `/start` in your private bot chat. Complete or skip the optional profile questions.
+2. Send `/web`, then select **🌐 Open Theos**.
 3. Compare the browser code with the code sent to your private bot chat.
 4. If the codes match, select **Approve browser** in Telegram.
 5. Copy the personal access token and save it privately.
@@ -394,12 +394,11 @@ Users authorize their own Gmail, Google Health, and Zepto accounts.
 2. Select **Connect** for an available account service.
 3. Authorize the account in the opened sign-in tab.
 4. If a popup was blocked, select **Open sign-in** on the account card.
-5. Wait for the callback to return to **Connections** and confirm account access.
+5. Wait for verified account access. A callback returns to the conversation or Connections where setup began.
 
-Initial setup offers available accounts that are not connected. Every connection is optional.
-The browser asks what to call you when your profile has no saved name.
-Use **Continue to chat** to save the profile, or **Skip for now** to defer setup.
-This choice is saved for your account across browser and Telegram.
+Profile onboarding appears inside chat. Confirm a name and timezone, skip a question, or choose **Start chatting**.
+Every connection is optional. Ask to connect an account, such as “Connect Gmail,” to open its controls in the conversation.
+Connections remains available for account management. Profile progress is shared with Telegram for the same owner.
 An expired or unsuccessful connection shows a retry action. Cancelling setup preserves an account connected before the attempt.
 
 Google Health consent includes nutrition writes.

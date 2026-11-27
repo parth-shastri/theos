@@ -25,7 +25,7 @@ async def send_link(bot, owner, chat, topic, *, password=False):
         topic,
         {
             "inline_keyboard": [
-                [{"text": "Open Theos", "url": f"{bot.settings.web_url}/#onboard={secret}"}]
+                [{"text": "🌐 Open Theos", "url": f"{bot.settings.web_url}/#onboard={secret}"}]
             ]
         },
     )

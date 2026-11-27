@@ -1,3 +1,4 @@
+import { startChatting } from "./setup.mjs";
 import { test, expect } from "@playwright/test";
 
 const token =
@@ -62,6 +63,7 @@ test("the Focus inbox keeps alerts out of the conversation", async ({
   await expect(page.locator("#conversation-cost")).toContainText(
     "Conversation cost:",
   );
+  await startChatting(page);
   const bell = page.getByRole("button", { name: "Notifications, 3 unread" });
   const transcript = page.getByRole("log", { name: "Conversation" });
   const inbox = page.locator("#notifications-view");

@@ -2,14 +2,12 @@
 
 import hmac
 import time
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from theos.services.errors import ServiceError
+from theos.services import journeys
 from theos.services.preferences.tools import preferences
 from theos.storage.telegram_access import code_fingerprint, has_access
 
-from .connections import offer
-from .web_access import send_link
+from . import menus
 
 
 def enroll(bot, sender):
@@ -38,22 +36,55 @@ def enroll(bot, sender):
 
 
 async def prompt(bot, owner, chat, topic):
-    """Ask for the pending preference without sending setup text to the model."""
-    # Enrollment is a deterministic form flow. Read its state from SQLite so a restart
-    # resumes at the same question instead of asking the model to remember setup progress.
-    current = preferences(bot.db, owner, bot.settings.timezone)
-    row = bot.db.one("SELECT state FROM telegram_enrollments WHERE owner=?", (owner,))
-    if row["state"] == "name":
-        text = "What should I call you? Send your preferred name (up to 200 characters)."
+    """Render one shared profile step in the conversation."""
+    current = journeys.state(bot.settings, bot.db, owner)
+    step = current["step"]
+    rows = []
+    if step == "ready":
+        text = "✅ You are ready. What would you like help with?\nYou can change your name or timezone in /settings."
+        if current.get("pending_task"):
+            text += "\n\nYour saved request: " + current["pending_task"]
+            rows.append([{"text": "▶️ Continue my request", "callback_data": "onboarding:resume"}])
+        rows.append([{"text": "⚙️ Settings", "callback_data": "settings:menu"}])
+    elif step.startswith("confirm_"):
+        text = f"{'👤 Call you' if step == 'confirm_name' else '🌐 Use timezone'} {current['candidate']}?"
+        rows.append(
+            [
+                {"text": "✅ Yes", "callback_data": "onboarding:confirm"},
+                {"text": "✏️ Change", "callback_data": "onboarding:change"},
+            ]
+        )
+    elif step == "name":
+        text = "👋 What should I call you? Send your preferred name, or start chatting now."
         if current.get("display_name"):
-            text += f"\nSend /skip to use {current['display_name']}."
-        await bot.send(chat, text, topic)
-        return
-    await bot.send(
+            rows.append(
+                [{"text": "✅ Use " + current["display_name"], "callback_data": "onboarding:keep"}]
+            )
+    else:
+        text = "🌐 Which timezone should I use for reminders? Send your city or timezone."
+        rows.append([{"text": "✅ Use " + current["timezone"], "callback_data": "onboarding:keep"}])
+        rows.extend(
+            [{"text": zone, "callback_data": "onboarding:zone:" + zone}]
+            for zone in current.get("choices", [])
+        )
+    if step != "ready":
+        rows.append(
+            [
+                {"text": "⏭ Skip for now", "callback_data": "onboarding:skip"},
+                {"text": "💬 Start chatting", "callback_data": "onboarding:finish"},
+            ]
+        )
+    if current.get("notice"):
+        text = current["notice"] + "\n\n" + text
+    await menus.show(
+        bot,
+        owner,
         chat,
-        "What is your timezone? Send a name such as Asia/Kolkata or UTC.\n"
-        f"Send /skip to use {current['timezone']}.",
         topic,
+        text,
+        {"inline_keyboard": rows},
+        "onboarding:profile",
+        navigation=False,
     )
 
 
@@ -117,169 +148,85 @@ async def handle(bot, message, owner, channel, chat, topic, callback=None):
             return True
         return False
 
-    # A ready user can restart the profile form, but /start must not reset their
-    # saved name or timezone without a clear choice.
-    if callback and callback.get("data") in {
-        "onboarding:restart",
-        "onboarding:continue",
-    }:
-        if not row or row["state"] != "ready":
-            await bot.api(
-                "answerCallbackQuery",
-                {"callback_query_id": callback["id"], "text": "Setup is already in progress."},
-            )
-            if row:
-                await prompt(bot, owner, chat, topic)
-            else:
-                await bot.send(chat, "Send /start to register and complete setup.", topic)
-            return True
-
-        restart = callback["data"] == "onboarding:restart"
-        await bot.api(
-            "answerCallbackQuery",
-            {
-                "callback_query_id": callback["id"],
-                "text": "Starting onboarding again." if restart else "Your profile is ready.",
-            },
-        )
-        try:
-            await bot.api(
-                "editMessageReplyMarkup",
-                {
-                    "chat_id": chat,
-                    "message_id": message["message_id"],
-                    "reply_markup": {"inline_keyboard": []},
-                },
-            )
-        except ServiceError:
-            # A stale confirmation must not block the selected profile action.
-            pass
-        if restart:
-            bot.db.execute(
-                "UPDATE telegram_enrollments SET state='name' WHERE user_id=?",
-                (user_id,),
-            )
-            await bot.send(
-                chat,
-                "Your saved conversations and records will stay available.",
-                topic,
-            )
-            await prompt(bot, owner, chat, topic)
-        else:
-            await bot.send(
-                chat,
-                "Your profile is ready. Send me a message whenever you want to continue.",
-                topic,
-            )
-        return True
-
-    # 3. Only /start can claim a slot. Pending setup counts toward the same user cap so
-    # abandoned onboarding cannot bypass the configured enrollment limit.
+    # Only an explicit start claims a slot. Enrollment and access gates remain literal.
     if not row:
         if action != "/start" or callback:
             if callback:
                 await bot.api(
                     "answerCallbackQuery",
-                    {"callback_query_id": callback["id"], "text": "Send /start to register first."},
+                    {"callback_query_id": callback["id"], "text": "Send /start first."},
                 )
-            await bot.send(chat, "Send /start to register and complete setup.", topic)
+            await bot.send(chat, "Send /start to register and start chatting.", topic)
             return True
         row = enroll(bot, message["from"])
         if row is None:
-            await bot.send(
-                chat,
-                f"Registration is full. The current limit is {bot.settings.telegram_max_users} users. Please try again later.",
-                topic,
-            )
+            await bot.send(chat, "Registration is full. Please try again later.", topic)
             return True
-        await bot.send(
-            chat,
-            f"I am {bot.settings.name}, your personal assistant.\n"
-            "Your place is reserved.\n"
-            "Let us set your preferred name and timezone.",
-            topic,
-        )
 
-    # 4. Keep consuming updates until both fields are valid and saved. Returning False means
-    # setup is complete, so polling.py can continue to commands, media, or a model turn.
-    if row["state"] == "ready":
+    current = journeys.state(bot.settings, bot.db, owner)
+    data = (callback or {}).get("data", "")
+    if callback and data.startswith("onboarding:"):
+        await bot.api("answerCallbackQuery", {"callback_query_id": callback["id"], "text": ""})
+        selected = data.removeprefix("onboarding:")
+        if selected == "profile":
+            await prompt(bot, owner, chat, topic)
+            return True
+        if selected == "resume" and current["step"] == "ready":
+            task = current.get("pending_task", "")
+            if not task:
+                await prompt(bot, owner, chat, topic)
+                return True
+            # Consume the saved request before starting work; a repeated button cannot replay it.
+            saved = journeys.record(bot.db, owner, "onboarding", "profile")
+            saved["pending_task"] = ""
+            bot.db.put_record(owner, "onboarding", "profile", saved)
+            await menus.finish(bot, owner, chat)
+            session = bot.session(owner, channel, f"{chat}:{topic or 0}")
+            await bot.render(bot.runtime.start(owner, session["id"], task), chat, topic)
+            return True
+        try:
+            if selected.startswith("zone:"):
+                journeys.update(bot.settings, bot.db, owner, "reply", selected[5:])
+            else:
+                journeys.update(bot.settings, bot.db, owner, selected)
+        except ValueError as error:
+            await bot.send(chat, str(error), topic)
+        await prompt(bot, owner, chat, topic)
+        return True
+    if not current["needed"]:
         if action == "/start" and not callback:
-            await bot.send(
-                chat,
-                "You already have a profile. Would you like to start onboarding again? "
-                "Your saved conversations and records will stay available.",
-                topic,
-                {
-                    "inline_keyboard": [
-                        [
-                            {"text": "Start onboarding", "callback_data": "onboarding:restart"},
-                            {"text": "Continue chatting", "callback_data": "onboarding:continue"},
-                        ]
-                    ]
-                },
-            )
+            await prompt(bot, owner, chat, topic)
             return True
         return False
     if callback:
         await bot.api(
             "answerCallbackQuery",
-            {"callback_query_id": callback["id"], "text": "Complete setup first."},
+            {
+                "callback_query_id": callback["id"],
+                "text": "Finish or skip the profile question first.",
+            },
         )
-    elif text and (not text.startswith("/") or action == "/skip"):
-        current = preferences(bot.db, owner, bot.settings.timezone)
-        if row["state"] == "name":
-            # /skip keeps the name copied from Telegram (or an earlier saved preference).
-            name = current.get("display_name", "") if action == "/skip" else text
-            name = " ".join(name.split())
-            if not 1 <= len(name) <= 200:
-                await bot.send(chat, "Send a name from 1 to 200 characters.", topic)
-            else:
-                current["display_name"] = name
-                # Save the preference and advance the state atomically: a crash cannot
-                # leave the name saved while the enrollment still asks for a name.
-                with bot.db.transaction():
-                    bot.db.put_record(owner, "preferences", "settings", current)
-                    bot.db.execute(
-                        "UPDATE telegram_enrollments SET state='timezone' WHERE user_id=?",
-                        (user_id,),
-                    )
-                await bot.send(chat, f"I will call you {name}.", topic)
-            await prompt(bot, owner, chat, topic)
-            return True
-        # Timezone is validated with the standard IANA timezone database before saving;
-        # reminders and scheduled work rely on it to interpret local times correctly.
-        timezone = current["timezone"] if action == "/skip" else text
+        return True
+    if action == "/start":
+        await prompt(bot, owner, chat, topic)
+        return True
+    if not callback and any(message.get(key) for key in ("photo", "document", "voice", "audio")):
+        journeys.update(bot.settings, bot.db, owner, "finish")
+        await menus.finish(bot, owner, chat)
+        return False
+    if text.startswith("/") and action not in {"/skip", "/cancel", "/help"}:
+        await bot.send(
+            chat,
+            "Choose Start chatting to use commands now. You can edit your profile later in /settings.",
+            topic,
+        )
+        await prompt(bot, owner, chat, topic)
+        return True
+    if text:
+        selected = {"/skip": "skip", "/cancel": "finish"}.get(action, "reply")
         try:
-            ZoneInfo(timezone)
-        except (ZoneInfoNotFoundError, ValueError):
-            await bot.send(
-                chat, "That timezone is not valid. Use a name such as Asia/Kolkata or UTC.", topic
-            )
-        else:
-            current["timezone"] = timezone
-            # The ready state is committed with the preference so later routing sees a
-            # complete profile, never half-finished setup.
-            with bot.db.transaction():
-                bot.db.put_record(owner, "preferences", "settings", current)
-                bot.db.execute(
-                    "UPDATE telegram_enrollments SET state='ready' WHERE user_id=?", (user_id,)
-                )
-            next_steps = (
-                "Open Connections in the web UI to add connectors, or send /help to learn more."
-                if bot.settings.web_url
-                else "Send /help to learn about capabilities and account connections."
-            )
-            await bot.send(
-                chat,
-                f"Setup complete. Timezone: {timezone}.\n"
-                "Send a message, photo, document, or voice note.\n"
-                f"{next_steps}\n"
-                "You can ask me to change your name or timezone later.",
-                topic,
-            )
-            if bot.settings.web_url:
-                await send_link(bot, owner, chat, topic)
-            await offer(bot, owner, chat, topic)
-            return True
+            journeys.update(bot.settings, bot.db, owner, selected, text)
+        except ValueError as error:
+            await bot.send(chat, str(error), topic)
     await prompt(bot, owner, chat, topic)
     return True

@@ -128,6 +128,7 @@ def telegram_message(text="Hello", user=123, chat=123, kind="private", topic=Non
 async def onboard(telegram, user=123):
     await telegram.handle([telegram_message("/start", user=user, chat=user)])
     await telegram.handle([telegram_message("Test user", user=user, chat=user)])
+    await telegram.handle([telegram_message("yes", user=user, chat=user)])
     await telegram.handle([telegram_message("/skip", user=user, chat=user)])
 
 
@@ -192,7 +193,9 @@ async def test_telegram_approval_buttons_and_wrong_chat(
         [AssistantMessage(tool_calls=[ToolCall("delete", "zepto_confirm_cart", {"name": "notes"})])]
     )
     await telegram.handle([telegram_message("Delete notes")])
-    approval_message = next(p for m, p in calls if m == "sendMessage" and "reply_markup" in p)
+    approval_message = next(
+        p for m, p in calls if m == "sendMessage" and "disable_notification" in p
+    )
     assert approval_message["disable_notification"] is False
     data = approval_message["reply_markup"]["inline_keyboard"][0][0 if approved else 1][
         "callback_data"

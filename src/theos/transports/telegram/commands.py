@@ -2,10 +2,10 @@
 
 import json
 
-from theos.runtime.model_catalog import model_choices, reasoning_choices
 from theos.storage.telegram_access import account_access
 
-from . import connections
+from . import connections, menus
+from . import settings as settings_ui
 
 
 async def command(bot, session, command, argument, chat, topic):
@@ -22,6 +22,17 @@ async def command(bot, session, command, argument, chat, topic):
         "/zepto": "/connect_zepto",
     }
     command = aliases.get(command, command)
+    if command in {"/settings", "/model", "/reasoning"}:
+        await settings_ui.handle(
+            bot,
+            {"text": command + (" " + argument if argument else "")},
+            owner,
+            session["channel"],
+            chat,
+            topic,
+            None,
+        )
+        return
     # Account commands can reveal private data or grant external access. Gate them before
     # calling an account service, even though polling.py has already identified the sender.
     if command in {
@@ -91,11 +102,8 @@ async def command(bot, session, command, argument, chat, topic):
         return
     # Conversation commands either reply directly or deliberately start a runtime turn.
     if command in {"/start", "/help"}:
-        await bot.send(
-            chat,
-            f"I am {bot.settings.name}, your personal assistant.\n\n"
-            "Send a message, photo, document, or voice note. Commands: /connections, /web, /password, /new, /resume, /research QUESTION, /model NAME, /reasoning default|none|low|medium|high, /settings, /gmail, /calendar, /health, /connect_github, /connect_slack, /connect_zepto.",
-            topic,
+        await help_menu(
+            bot, owner, chat, topic, private=session.get("channel") == "telegram-private"
         )
     elif command in {"/new", "/reset"}:
         await bot.runtime.reset(owner, session["id"])
@@ -103,28 +111,14 @@ async def command(bot, session, command, argument, chat, topic):
     elif command == "/research":
         # Explicit command syntax is the user's consent to create saved research records.
         if not argument.strip():
-            raise ValueError("Use /research followed by your question.")
+            await bot.send(chat, "Use /research followed by your question.", topic)
+            return
         await bot.render(
             bot.runtime.start(owner, session["id"], argument, mode="deep_research"), chat, topic
         )
     elif command == "/resume":
         # Resume saved pending tool calls or a turn stopped at a model-call boundary.
         await bot.render(bot.runtime.start(owner, session["id"]), chat, topic)
-    elif command == "/model":
-        # Validate choices against operator-supported models before changing session state.
-        allowed = model_choices(bot.settings)
-        if argument not in allowed:
-            await bot.send(chat, "Available models: " + ", ".join(allowed), topic)
-        else:
-            bot.db.execute("UPDATE sessions SET model=? WHERE id=?", (argument, session["id"]))
-            await bot.send(chat, "Model saved: " + argument, topic)
-    elif command == "/reasoning":
-        # Reasoning options vary by model/provider, so only persist a supported choice.
-        choices = reasoning_choices(bot.settings.provider, session["model"])
-        if argument not in choices:
-            raise ValueError("Use one of: " + ", ".join(choices))
-        bot.db.execute("UPDATE sessions SET reasoning=? WHERE id=?", (argument, session["id"]))
-        await bot.send(chat, "Reasoning setting saved.", topic)
     elif command in {
         "/gmail",
         "/calendar",
@@ -140,11 +134,37 @@ async def command(bot, session, command, argument, chat, topic):
         await connections.menu(bot, owner, chat, topic)
     elif command == "/zepto_finish":
         await connections.prompt_return(bot, owner, chat, topic)
-    elif command == "/settings":
-        await bot.send(
-            chat,
-            f"Model: {session['model']}\nReasoning: {session['reasoning']}\nSession: {session['id']}",
-            topic,
-        )
     else:
         await bot.send(chat, "Unknown command. Send /help for available commands.", topic)
+
+
+async def help_menu(bot, owner, chat, topic, *, private=True):
+    text = (
+        f"👋 I am {bot.settings.name}, your personal assistant.\n\n"
+        "💬 Send a message, photo, document, or voice note.\n"
+        "⚙️ /settings opens editable preferences.\n"
+        "🔗 /connections manages your accounts.\n"
+        "🌐 /web opens the browser sign-in flow.\n"
+        "🔎 /research QUESTION starts deep research.\n"
+        "▶️ /resume continues saved work.\n"
+        "Use /new to reset this conversation, or /password to manage browser sign-in."
+    )
+    if not private:
+        await bot.send(chat, text, topic)
+        return
+    await menus.show(
+        bot,
+        owner,
+        chat,
+        topic,
+        text,
+        {
+            "inline_keyboard": [
+                [
+                    {"text": "⚙️ Settings", "callback_data": "settings:menu"},
+                    {"text": "🔗 Accounts", "callback_data": "connect:menu"},
+                ]
+            ]
+        },
+        "help",
+    )

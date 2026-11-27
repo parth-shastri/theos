@@ -326,12 +326,15 @@ class Zepto:
         store = ZeptoTokenStorage(self.settings, self.db, owner, pending=flow)
 
         async def redirect(url):
+            from theos.services.journeys import bind_connection
+
             state = parse_qs(urlsplit(url).query).get("state", [None])[0]
             if not state:
                 raise OAuthFlowError("Zepto did not return an OAuth state.")
             flow.state = state
             self.pending_by_state[state] = flow
             flow.authorization_url = url
+            bind_connection(self.db, owner, "zepto", url)
             self._status(owner, "waiting", "Finish Zepto sign-in in the opened browser tab.")
             await flow.send_link(url)
 

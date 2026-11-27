@@ -65,39 +65,37 @@ BotFather privacy settings also affect which group messages Telegram delivers to
 
 ## User onboarding and limit
 
-1. Send `/start` in a private chat with the bot.
-   If prompted, send `/start <access-code>` with the deployment password.
-2. Send the name you want Theos to use.
-3. Send your timezone, such as `Asia/Kolkata` or `UTC`.
-4. Send a short message after the setup confirmation.
+1. Send `/start` in a private chat. If prompted, use `/start <access-code>`.
+2. Confirm the suggested name or send a preferred name and confirm it.
+3. Send a city or timezone, such as Mumbai, London, `Asia/Kolkata`, or `UTC`, then confirm the choice.
+4. Start chatting or continue a request saved during setup.
 
-The bot asks, "What should I call you?"
-It saves your answer as your private display name and supplies it to the model on each turn.
-Names can contain up to 200 characters. The bot removes extra whitespace.
-During the name step, `/skip` accepts your saved name or Telegram name when available.
-Without a saved name, the bot asks for a name before it continues.
-During the timezone step, `/skip` accepts the default timezone saved at registration.
-The bot validates the timezone before it enables commands, media, and model turns.
-You can ask the assistant to change your display name or timezone later.
-Conversation resets retain your display name.
+Each question appears in chat with clearly labeled actions. Names can contain up to 200 characters.
+**Skip for now** defers a question. **Start chatting** defers the remaining questions. `/skip` also defers the current question.
+Setup asks for confirmation before saving typed profile details. Requests made during setup remain available for explicit continuation.
+Media can start a normal conversation while optional profile setup is deferred.
+Use `/settings` to change account details later. Conversation resets retain the profile.
+Completed profiles stay complete when users switch between Telegram and the browser under the same owner.
 
 Telegram enrollment does not grant administrator access.
 The deployment operator configures their administrator account through `AGENT_USERS` and `AGENT_ADMINS`.
 The first enrolled Telegram user receives ordinary access, like later users.
-After setup, **Open Theos** opens the browser confirmation flow when `AGENT_WEB_URL` is configured.
+After setup, send `/web` for **🌐 Open Theos** when `AGENT_WEB_URL` is configured.
 Confirm the matching code in your private Telegram chat before the browser receives access.
 Save the personal token shown in the browser for future sign-in.
 Send `/web` for another link or `/web revoke` to end all generated browser access.
 See [browser access](browser.md#open-the-web-ui-from-telegram) for expiry, token rotation, and sign-out behavior.
 Encryption setup is deferred. This flow does not encrypt personal content.
 
-After profile setup, Theos offers buttons for configured accounts that are not connected.
-Gmail and Zepto have direct connection buttons. Google Health remains optional.
-Use **Skip for now** to continue without connecting accounts. The same preference applies in browser onboarding.
-`/connections` and `/help` remain available later. A configured web URL also enables browser access.
-Account cards include **Sign in**, **Check connection**, **Try again**, and **Cancel setup** buttons.
-Canceling setup preserves the previously connected account.
-Google sign-in returns through the configured HTTPS callback. Its Telegram confirmation includes **Back to accounts**.
+Account linking is optional and available through `/connections` or the assistant's guidance when a task needs it.
+Account cards offer **🔗 Sign in**, **🔄 Check connection**, **🔄 Try again**, and **✖️ Cancel setup**.
+Canceling setup preserves the previous account. Google sign-in confirms completion in the private chat.
+Direct commands start a root menu with **✅ Done**. A menu reached from another menu offers **⬅️ Back** to its saved parent.
+The bot updates the active menu message and invalidates superseded buttons. Reopen the command when a menu expires.
+`/settings` edits name, timezone, model, and reasoning, and opens account and calling controls.
+Model and reasoning changes apply to this conversation. Name and timezone changes apply to the account.
+Call setup confirms audio before asking separately about reminder and approval calls. Both choices start off.
+
 
 For Zepto's localhost flow:
 
@@ -150,16 +148,16 @@ The [acceptance checklist](runtime/acceptance.md) distinguishes mock workflows f
 | Command | Action |
 | --- | --- |
 | `/start [access-code]` | Authorize, register, resume incomplete setup, or show the greeting after setup |
-| `/skip` | Accept the saved name or default timezone for the current setup step |
+| `/skip` | Defer the current profile question and keep saved values |
 | `/web` | Open a private browser sign-in link after enrollment |
 | `/password` | Open browser password settings after Telegram confirmation |
 | `/web revoke` | Remove the browser password and revoke all generated browser tokens and device sessions |
 | `/help` | Show the greeting and command summary after setup |
 | `/new`, `/reset` | Reset conversation history and pending approvals |
 | `/resume` | Continue an interrupted turn or a turn that reached its call limit |
-| `/model NAME` | Select an allowed model |
+| `/model [NAME]` | Open the model picker or save an allowed model |
 | `/reasoning LEVEL`, `/thinking LEVEL` | Select `default`, `none`, `low`, `medium`, or `high` |
-| `/settings` | Show model, reasoning effort, and session ID |
+| `/settings` | Edit account and conversation preferences through native buttons |
 | `/connections` | Open optional account cards and connection controls |
 | `/connect_gmail`, `/gmail` | Open the Gmail sign-in card |
 | `/disconnect_gmail` | Disconnect Gmail |

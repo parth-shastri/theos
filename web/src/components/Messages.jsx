@@ -15,6 +15,7 @@ import Markdown, { markdownText } from "./Markdown";
 import OpenUIAnswer from "./OpenUIAnswer";
 import { Icon } from "./Primitives";
 import { reasoningForDisplay } from "./reasoning-language";
+import ChatSetup, { ChatAccountSetup } from "./ChatSetup";
 
 const SpeechContext = createContext(null);
 export function SpeechProvider({ children }) {
@@ -526,7 +527,16 @@ function TurnActivity({ entry }) {
 }
 
 export function MessageList({ scrollRef, onScroll }) {
-  const { chat, agentName, me, brand, editDraft, autoPlay } = useWorkspace();
+  const {
+    chat,
+    agentName,
+    me,
+    brand,
+    editDraft,
+    autoPlay,
+    journey,
+    accountSetup,
+  } = useWorkspace();
   const entries = conversationEntries(chat.entries);
   return (
     <SpeechProvider>
@@ -539,37 +549,42 @@ export function MessageList({ scrollRef, onScroll }) {
         ref={scrollRef}
         onScroll={onScroll}
       >
-        {!entries.length && (
-          <div className="empty">
-            <img className="mark" src={brand} alt="" data-brand="" />
-            <span className="eyebrow">A little space to think</span>
-            <h1>What’s on your mind?</h1>
-            <p>
-              Ask a question, make a plan, or work through an idea. Your next
-              step starts here.
-            </p>
-            <div className="conversation-starters">
-              {[
-                ["skills", "Make a plan", "Help me make a plan for "],
-                ["search", "Explore a topic", "Help me understand "],
-                [
-                  "attach",
-                  "Work with a file",
-                  "Help me with the file I attach. ",
-                ],
-              ].map(([icon, label, draft]) => (
-                <button
-                  type="button"
-                  key={label}
-                  onClick={() => editDraft(draft)}
-                >
-                  <Icon name={icon} />
-                  {label}
-                </button>
-              ))}
+        <ChatSetup />
+        <ChatAccountSetup />
+        {!entries.length &&
+          !journey?.needed &&
+          !journey?.pending_task &&
+          accountSetup?.sessionId !== chat.id && (
+            <div className="empty">
+              <img className="mark" src={brand} alt="" data-brand="" />
+              <span className="eyebrow">A little space to think</span>
+              <h1>What’s on your mind?</h1>
+              <p>
+                Ask a question, make a plan, or work through an idea. Your next
+                step starts here.
+              </p>
+              <div className="conversation-starters">
+                {[
+                  ["skills", "Make a plan", "Help me make a plan for "],
+                  ["search", "Explore a topic", "Help me understand "],
+                  [
+                    "attach",
+                    "Work with a file",
+                    "Help me with the file I attach. ",
+                  ],
+                ].map(([icon, label, draft]) => (
+                  <button
+                    type="button"
+                    key={label}
+                    onClick={() => editDraft(draft)}
+                  >
+                    <Icon name={icon} />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
         {entries.map((entry) =>
           entry.kind === "message" ? (
             <ChatMessage

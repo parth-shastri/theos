@@ -154,7 +154,9 @@ async def test_saved_disconnect_overrides_legacy_mapping_even_if_gateway_is_down
     assert not runtime.phone_calls.recipient("alice", "browser")
 
 
-async def test_telegram_onboarding_offers_and_completes_calls_outside_model_history(runtime, calls):
+async def test_telegram_call_settings_require_separate_preferences_outside_model_history(
+    runtime, calls
+):
     from theos.transports.telegram import call_setup
 
     from .test_telegram_onboarding import bot_for, message
@@ -163,14 +165,6 @@ async def test_telegram_onboarding_offers_and_completes_calls_outside_model_hist
     bot = bot_for(runtime)
     for text in ("/start", "/skip", "/skip"):
         await message(bot, text)
-    buttons = [
-        button
-        for call in bot.api.call_args_list
-        if call.args[0] == "sendMessage"
-        for row in call.args[1].get("reply_markup", {}).get("inline_keyboard", [])
-        for button in row
-    ]
-    assert any(button.get("callback_data") == "calls:start" for button in buttons)
 
     async def click(action):
         return await call_setup.handle(
@@ -191,10 +185,13 @@ async def test_telegram_onboarding_offers_and_completes_calls_outside_model_hist
     session = runtime.db.one("SELECT * FROM sessions")
     assert session["address"] == "123:0"
     await runtime.phone_calls.tick(time.time())
+    await click("audio")
+    assert service.status("telegram:123")["status"] == "linked"
+    await click("choice:reminders:1")
     await click("confirm")
     assert service.status("telegram:123")["status"] == "ready"
     assert runtime.db.load_history("telegram:123", session["id"]) == []
-    await click("approvals")
+    await click("set:approvals:0")
     assert not runtime.phone_calls.recipient(
         "telegram:123", "telegram-private", purpose="approvals"
     )

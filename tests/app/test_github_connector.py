@@ -65,9 +65,10 @@ async def test_browser_oauth_connections_bind_callback_to_original_owner(runtime
     async with httpx.AsyncClient(transport=httpx.MockTransport(remote)) as http:
         connector.http = http
         async with browser(runtime) as alice, browser(runtime, "bob") as bob:
-            started = (
+            assert (
                 await alice.post("/api/connections/github/connect", json={"owner": "bob"})
-            ).json()
+            ).status_code == 422
+            started = (await alice.post("/api/connections/github/connect", json={})).json()
             query = parse_qs(urlsplit(started["url"]).query)
             assert query["code_challenge_method"] == ["S256"]
             state = query["state"][0]

@@ -17,6 +17,18 @@ from .test_telegram_onboarding import bot_for, message
 
 
 async def tap(bot, data, user=123, kind="private", chat=None):
+    try:
+        saved = bot.db.record(f"telegram:{user}", "telegram_menu", "active")
+    except LookupError:
+        saved = {}
+    action = data
+    if action == "connect:menu" and "nav:back" in saved.get("actions", {}).values():
+        action = "nav:back"
+    index = next(
+        (index for index, value in saved.get("actions", {}).items() if value == action), None
+    )
+    if index is not None:
+        data = f"ui:{saved['key']}:{saved['revision']}:{index}"
     await bot.handle(
         [
             {
@@ -25,7 +37,10 @@ async def tap(bot, data, user=123, kind="private", chat=None):
                     "id": "account-button",
                     "from": {"id": user},
                     "data": data,
-                    "message": {"message_id": 10, "chat": {"id": chat or user, "type": kind}},
+                    "message": {
+                        "message_id": saved.get("message_id", 10),
+                        "chat": {"id": chat or user, "type": kind},
+                    },
                 },
             }
         ]
@@ -33,17 +48,35 @@ async def tap(bot, data, user=123, kind="private", chat=None):
 
 
 def card(bot):
-    return [call.args[1] for call in bot.api.call_args_list if call.args[0] == "sendMessage"][-1]
+    payload = [
+        call.args[1]
+        for call in bot.api.call_args_list
+        if call.args[0] in {"sendMessage", "editMessageText"}
+    ][-1]
+    try:
+        saved = bot.db.record(f"telegram:{payload['chat_id']}", "telegram_menu", "active")
+    except LookupError:
+        saved = {}
+    return {**payload, "_actions": saved.get("actions", {})}
 
 
 def buttons(payload):
-    return [button for row in payload["reply_markup"]["inline_keyboard"] for button in row]
+    result = []
+    for row in payload.get("reply_markup", {}).get("inline_keyboard", []):
+        for button in row:
+            value = button.get("callback_data", "")
+            if value.startswith("ui:"):
+                value = payload.get("_actions", {}).get(value.rsplit(":", 1)[-1], value)
+                button = {**button, "callback_data": value}
+            result.append(button)
+    return result
 
 
 async def ready(runtime):
     configured(runtime)
     bot = bot_for(runtime)
     await onboard(bot)
+    await message(bot, "/connections")
     return bot
 
 
@@ -80,7 +113,7 @@ async def test_google_buttons_retry_cancel_expiry_and_status_without_a_turn(runt
         "connect:status:" + service,
         "connect:retry:" + service,
         "connect:cancel:" + service,
-        "connect:menu",
+        "nav:back",
     }
     await tap(bot, "connect:retry:" + service)
     second_url = next(button["url"] for button in buttons(card(bot)) if "url" in button)
@@ -97,6 +130,7 @@ async def test_google_buttons_retry_cancel_expiry_and_status_without_a_turn(runt
     await tap(bot, "connect:cancel:" + service)
     assert not runtime.db.rows("SELECT * FROM oauth_states")
     assert runtime.db.one("SELECT encrypted FROM credentials")["encrypted"] == previous
+    await message(bot, "/connections")
     await tap(bot, "connect:status:" + service)
     assert "is connected" in card(bot)["text"]
     await tap(bot, "connect:menu")
@@ -166,7 +200,11 @@ async def test_zepto_delayed_sign_in_and_native_paste_prompt(runtime, monkeypatc
     await callbacks["status"]("Zepto is connected")
     assert "is connected" in card(bot)["text"]
     assert "delivery address" in card(bot)["text"]
-    assert {button.get("callback_data") for button in buttons(card(bot))} == {"connect:menu"}
+    assert {button.get("callback_data") for button in buttons(card(bot))} == {
+        "connect:retry:zepto",
+        "connect:disconnect:zepto",
+        "nav:back",
+    }
     payload = runtime.db.one("SELECT payload FROM telegram_updates WHERE id=78")["payload"]
     assert "_theos_zepto_return" not in payload and "secret-code" not in payload
     assert any(call.args[0] == "deleteMessage" for call in bot.api.call_args_list)
@@ -187,7 +225,7 @@ async def test_zepto_delayed_sign_in_and_native_paste_prompt(runtime, monkeypatc
 async def test_invalid_and_denied_prompt_replies_stay_out_of_history(runtime, value):
     bot = await ready(runtime)
     flow = wait_for_return(runtime)
-    await tap(bot, "connect:paste:zepto")
+    await message(bot, "/zepto_finish")
     update = telegram_message(value)
     update["update_id"] = 80
     update["message"]["reply_to_message"] = {"message_id": 1}
@@ -212,7 +250,7 @@ async def test_expired_zepto_prompt_retry_and_cancel_preserve_previous_tokens(ru
     previous = runtime.db.one("SELECT encrypted FROM credentials")["encrypted"]
     flow = wait_for_return(runtime)
     flow.created = 0
-    await tap(bot, "connect:paste:zepto")
+    await message(bot, "/zepto_finish")
     assert "expired" in card(bot)["text"]
     assert "force_reply" not in card(bot)["reply_markup"]
     calls = []
@@ -232,7 +270,7 @@ async def test_expired_zepto_prompt_retry_and_cancel_preserve_previous_tokens(ru
 async def test_https_zepto_has_no_manual_paste_control(runtime):
     bot = await ready(runtime)
     wait_for_return(runtime, https=True)
-    await tap(bot, "connect:status:zepto")
+    await message(bot, "/zepto_finish")
     assert not any(
         button.get("callback_data") == "connect:paste:zepto" for button in buttons(card(bot))
     )
@@ -258,7 +296,7 @@ async def test_connection_commands_and_buttons_require_private_owner_access(runt
     await message(bot, "/gmail")
     assert any("url" in button for button in buttons(card(bot)))
     await tap(bot, "connect:paste:gmail")
-    assert "unavailable" in card(bot)["text"]
+    assert bot.api.call_args.args[0] == "answerCallbackQuery"
     assert not runtime.db.rows("SELECT * FROM sessions")
 
 
@@ -284,7 +322,7 @@ async def test_google_callback_confirms_with_account_navigation(runtime, monkeyp
     assert response.headers["location"] == "/?connections=1"
     payload = api.call_args.args[1]
     assert payload["chat_id"] == 123 and "is connected" in payload["text"]
-    assert buttons(payload) == [{"text": "Back to accounts", "callback_data": "connect:menu"}]
+    assert "reply_markup" not in payload
     assert "secret-code" not in json.dumps(payload) and "private-state" not in json.dumps(payload)
 
 
